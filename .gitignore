@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+.env*
+!.env.example
+coverage/
+test-results/
+
+# TradingView Advanced Charts is proprietary and non-redistributable.
+# Install approved artifacts during private deployment; never commit them.
+charting_library/
+public/charting_library/

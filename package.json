@@ -1,0 +1,22 @@
+{
+  "name": "01rx",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A trading interface for ownership tokens and decision markets.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "test": "node --test",
+    "check": "npm test && npm run build"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.1.0"
+  },
+  "devDependencies": {
+    "vite": "8.1.4"
+  }
+}

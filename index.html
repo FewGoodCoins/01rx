@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101010" />
+    <title>01RX — Ownership markets</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="site-header">
+        <a class="wordmark" href="/" aria-label="01RX home">01RX</a>
+        <div class="header-rule" aria-hidden="true"></div>
+        <span class="network-state"><i></i> Public market data</span>
+      </header>
+
+      <main class="terminal">
+        <section class="market-strip" aria-label="Selected market">
+          <form class="market-search" id="market-search">
+            <label class="sr-only" for="token-input">Ownership token</label>
+            <input id="token-input" name="token" value="solo" autocomplete="off" spellcheck="false" />
+            <button type="submit">Load</button>
+          </form>
+          <div class="market-identity">
+            <div class="asset-logo" id="asset-logo" aria-hidden="true">S</div>
+            <div>
+              <strong id="asset-ticker">SOLO</strong>
+              <small id="asset-name">Solomon Labs</small>
+            </div>
+          </div>
+          <dl class="market-stats">
+            <div><dt>Price</dt><dd id="stat-price">—</dd></div>
+            <div><dt>NAV</dt><dd id="stat-nav">—</dd></div>
+            <div><dt>Prem / Disc</dt><dd id="stat-spread">—</dd></div>
+            <div><dt>Treasury</dt><dd id="stat-treasury">—</dd></div>
+            <div><dt>Supply</dt><dd id="stat-supply">—</dd></div>
+          </dl>
+        </section>
+
+        <section class="chart-workspace">
+          <aside class="drawing-rail" aria-label="Chart tools">
+            <button class="rail-button active" type="button" aria-label="Crosshair cursor" title="Crosshair cursor">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v6M12 15v6M3 12h6M15 12h6"></path>
+                <circle cx="12" cy="12" r="2.25"></circle>
+              </svg>
+            </button>
+          </aside>
+
+          <div class="chart-panel">
+            <div class="chart-toolbar">
+              <div class="menu-control">
+                <button
+                  class="toolbar-button timeframe-trigger"
+                  id="timeframe-trigger"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-controls="timeframe-menu"
+                  title="Timeframe"
+                >1D</button>
+                <div class="toolbar-menu timeframe-menu" id="timeframe-menu" role="menu" hidden>
+                  <span class="menu-label">Timeframe</span>
+                  <button type="button" role="menuitemradio" data-timeframe="15m">15 minutes</button>
+                  <button type="button" role="menuitemradio" data-timeframe="1H">1 hour</button>
+                  <button type="button" role="menuitemradio" data-timeframe="4H">4 hours</button>
+                  <button type="button" role="menuitemradio" data-timeframe="1D">1 day</button>
+                  <button type="button" role="menuitemradio" data-timeframe="1W">1 week</button>
+                </div>
+              </div>
+
+              <div class="toolbar-separator"></div>
+
+              <div class="menu-control">
+                <button
+                  class="toolbar-button icon-button"
+                  id="series-trigger"
+                  type="button"
+                  aria-label="Price and NAV lines"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-controls="series-menu"
+                  title="Price and NAV lines"
+                >
+                  <svg viewBox="0 0 28 28" aria-hidden="true">
+                    <path d="M5 19l6-7 4 4 8-9"></path>
+                  </svg>
+                </button>
+                <div class="toolbar-menu" id="series-menu" role="menu" hidden>
+                  <span class="menu-label">Price and NAV</span>
+                  <button type="button" role="menuitemcheckbox" data-series="currentPrice"><span>Current Price</span><b>✓</b></button>
+                  <button type="button" role="menuitemcheckbox" data-series="historicPrice"><span>Historic Price</span><b>✓</b></button>
+                  <button type="button" role="menuitemcheckbox" data-series="currentNav"><span>Current NAV</span><b>✓</b></button>
+                  <button type="button" role="menuitemcheckbox" data-series="historicNav"><span>Historic NAV</span><b>✓</b></button>
+                </div>
+              </div>
+
+              <div class="menu-control">
+                <button
+                  class="toolbar-button icon-button"
+                  id="features-trigger"
+                  type="button"
+                  aria-label="More chart features"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-controls="features-menu"
+                  title="More chart features"
+                >
+                  <svg viewBox="0 0 28 28" aria-hidden="true">
+                    <path d="m9 11 5 5 5-5"></path>
+                  </svg>
+                </button>
+                <div class="toolbar-menu" id="features-menu" role="menu" hidden>
+                  <span class="menu-label">Custom layers</span>
+                  <button type="button" role="menuitemcheckbox" data-feature="projectedNav"><span>Projected NAV</span><b>✓</b></button>
+                  <button type="button" role="menuitemcheckbox" data-feature="gradient"><span>Gradient</span><b>✓</b></button>
+                </div>
+              </div>
+
+              <div class="toolbar-spacer"></div>
+              <span class="chart-status" id="chart-status">Loading market data…</span>
+            </div>
+
+            <div class="chart-stage">
+              <div class="chart-legend" id="chart-legend">
+                <div><strong id="legend-symbol">SOLO / USD</strong><span id="legend-timeframe">1D</span></div>
+                <div class="legend-values">
+                  <span>Price <b id="legend-price">—</b></span>
+                  <span>NAV <b id="legend-nav">—</b></span>
+                  <span>Prem / Disc <b id="legend-spread">—</b></span>
+                </div>
+              </div>
+              <div id="chart" aria-label="01RX ownership token price and NAV chart"></div>
+              <div class="projection-note" id="projection-note" hidden>
+                Projected NAV · constant supply · configured monthly spend
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
