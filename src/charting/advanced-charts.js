@@ -623,7 +623,125 @@ async function removeEntity(chart, entityId) {
   }
 }
 
-function formatCompactValue(value, money = false) {
+function chartPointValue(item) {
+  return finiteNumber(
+    item?.close,
+    item?.value,
+    item?.price,
+    item?.nav,
+    item?.spot,
+  );
+}
+
+function chartValueAtTime(items, time, interpolate = false) {
+  const target = milliseconds(time);
+  if (!Number.isFinite(target)) return null;
+  const points = (Array.isArray(items) ? items : [])
+    .map(item => ({
+      time: milliseconds(item?.time ?? item?.ts ?? item?.timestamp),
+      value: chartPointValue(item),
+    }))
+    .filter(point => Number.isFinite(point.time) && Number.isFinite(point.value))
+    .sort((left, right) => left.time - right.time);
+  if (!points.length || target < points[0].time || target > points.at(-1).time) {
+    return null;
+  }
+  let previous = points[0];
+  for (let index = 1; index < points.length; index += 1) {
+    const next = points[index];
+    if (target === next.time) return next.value;
+    if (target < next.time) {
+      if (!interpolate || next.time === previous.time) return previous.value;
+      const progress = (target - previous.time) / (next.time - previous.time);
+      return previous.value + (next.value - previous.value) * progress;
+    }
+    previous = next;
+  }
+  return previous.value;
+}
+
+function chartFundamentalsAtTime(items, time) {
+  const target = milliseconds(time);
+  if (!Number.isFinite(target)) return { supply: null, treasury: null };
+  const points = (Array.isArray(items) ? items : [])
+    .map(item => ({
+      supply: finiteNumber(
+        item?.effectiveSupply,
+        item?.effSupply,
+        item?.effective_supply,
+        item?.supply,
+      ),
+      time: milliseconds(item?.time ?? item?.ts ?? item?.timestamp),
+      treasury: finiteNumber(
+        item?.treasury,
+        item?.treasuryUSDC,
+        item?.treasury_usdc,
+      ),
+    }))
+    .filter(point => Number.isFinite(point.time)
+      && (Number.isFinite(point.treasury) || Number.isFinite(point.supply)))
+    .sort((left, right) => left.time - right.time);
+  if (!points.length || target < points[0].time || target > points.at(-1).time) {
+    return { supply: null, treasury: null };
+  }
+  let selected = points[0];
+  for (let index = 1; index < points.length; index += 1) {
+    if (points[index].time > target) break;
+    selected = points[index];
+  }
+  return { supply: selected.supply, treasury: selected.treasury };
+}
+
+export function advancedChartStatusValues(snapshot, time = null) {
+  const hovered = time !== null
+    && time !== undefined
+    && Number.isFinite(Number(time));
+  const price = hovered
+    ? chartValueAtTime(snapshot?.priceBars, time)
+    : finiteNumber(snapshot?.currentPrice, chartPointValue(snapshot?.priceBars?.at(-1)));
+  const nav = hovered
+    ? chartValueAtTime(snapshot?.navBars, time, true)
+    : finiteNumber(snapshot?.currentNav, chartPointValue(snapshot?.navBars?.at(-1)));
+  const discount = Number.isFinite(price) && Number.isFinite(nav) && nav > 0
+    ? ((nav - price) / nav) * 100
+    : null;
+  const fundamentals = hovered
+    ? chartFundamentalsAtTime(snapshot?.fundamentalBars, time)
+    : {
+        supply: finiteNumber(snapshot?.effectiveSupply),
+        treasury: finiteNumber(snapshot?.treasury),
+      };
+  return {
+    discount,
+    nav,
+    price,
+    supply: fundamentals.supply,
+    treasury: fundamentals.treasury,
+  };
+}
+
+function formatStatusPrice(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '—';
+  const absolute = Math.abs(number);
+  const decimals = absolute >= 1_000
+    ? 2
+    : absolute >= 1
+      ? 4
+      : absolute >= 0.01
+        ? 5
+        : 8;
+  return number.toFixed(decimals);
+}
+
+function formatStatusDiscount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '—';
+  const sign = number < 0 ? '−' : '';
+  return `${sign}${Math.abs(number).toFixed(2)}%`;
+}
+
+function formatStatusCompact(value, money = false) {
   const number = Number(value);
   if (!Number.isFinite(number)) return '—';
   const absolute = Math.abs(number);
@@ -640,15 +758,100 @@ function formatCompactValue(value, money = false) {
   return `${prefix}${number.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 }
 
-function updateChartStats(mountState, snapshot) {
+function moveChartStatsIntoFrame(mountState) {
+  const frame = mountState?.container?.querySelector?.('iframe');
+  const stats = mountState?.stats;
+  if (!frame || !stats) return false;
+  try {
+    const frameDocument = frame.contentDocument;
+    if (!frameDocument?.body) return false;
+    if (!frameDocument.querySelector('style[data-01rx-chart-stats]')) {
+      const style = frameDocument.createElement('style');
+      style.setAttribute('data-01rx-chart-stats', '');
+      style.textContent = `
+        .advanced-chart-stats {
+          position: fixed;
+          z-index: 2;
+          top: 46px;
+          left: 8px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          max-width: calc(100% - 24px);
+          color: #d1d4dc;
+          font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
+          font-size: 12px;
+          font-variant-numeric: tabular-nums;
+          font-weight: 400;
+          line-height: 18px;
+          white-space: nowrap;
+          pointer-events: none;
+        }
+        .advanced-chart-status-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .advanced-chart-stats span {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .advanced-chart-stats small {
+          color: #787b86;
+          font: inherit;
+        }
+        .advanced-chart-stats strong {
+          color: #d1d4dc;
+          font: inherit;
+        }
+        .advanced-chart-stats .nav {
+          color: #f0b90b;
+        }
+        .advanced-chart-stats .discount.positive {
+          color: #26a69a;
+        }
+        .advanced-chart-stats .discount.negative {
+          color: #ef5350;
+        }
+      `;
+      frameDocument.head?.appendChild(style);
+    }
+    frameDocument.body.appendChild(stats);
+    return true;
+  } catch (_) {
+    // Approved production artifacts are same-origin; retain the parent overlay as a fallback.
+    return false;
+  }
+}
+
+function updateChartStats(mountState, snapshot, time = null) {
   if (!mountState?.stats) return;
-  const treasury = Number(snapshot?.treasury);
-  const effectiveSupply = Number(snapshot?.effectiveSupply);
+  const values = advancedChartStatusValues(snapshot, time);
+  const discountTone = !Number.isFinite(values.discount)
+    ? 'neutral'
+    : values.discount > 0
+      ? 'positive'
+      : values.discount < 0
+        ? 'negative'
+        : 'neutral';
   mountState.stats.innerHTML = `
-    <span><small>Treasury</small>${formatCompactValue(treasury, true)}</span>
-    <span><small>Supply</small>${formatCompactValue(effectiveSupply)}</span>
+    <div class="advanced-chart-status-row">
+      <span><small>PRICE</small><strong class="price">${formatStatusPrice(values.price)}</strong></span>
+      <span><small>NAV</small><strong class="nav">${formatStatusPrice(values.nav)}</strong></span>
+      <span><small>DISCOUNT</small><strong class="discount ${discountTone}">${formatStatusDiscount(values.discount)}</strong></span>
+    </div>
+    <div class="advanced-chart-status-row advanced-chart-status-fundamentals">
+      <span><small>TREASURY</small><strong>${formatStatusCompact(values.treasury, true)}</strong></span>
+    </div>
+    <div class="advanced-chart-status-row advanced-chart-status-fundamentals">
+      <span><small>SUPPLY</small><strong>${formatStatusCompact(values.supply)}</strong></span>
+    </div>
   `;
-  mountState.stats.hidden = !Number.isFinite(treasury) && !Number.isFinite(effectiveSupply);
+  mountState.stats.hidden = !Number.isFinite(values.price)
+    && !Number.isFinite(values.nav)
+    && !Number.isFinite(values.treasury)
+    && !Number.isFinite(values.supply);
 }
 
 function latestSnapshotTime(snapshot) {
@@ -712,7 +915,10 @@ export function installBrowserAdvancedCharts(browserWindow) {
         mountState.container = container;
         const stats = runtime.document.createElement('div');
         stats.className = 'advanced-chart-stats';
-        stats.setAttribute('aria-label', 'Current treasury and effective supply');
+        stats.setAttribute(
+          'aria-label',
+          'Chart price, NAV, discount, treasury, and effective supply',
+        );
         host.appendChild(stats);
         mountState.stats = stats;
         updateChartStats(mountState, snapshot);
@@ -730,6 +936,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'header_saveload',
             'header_symbol_search',
             'left_toolbar',
+            'legend_widget',
             'save_chart_properties_to_local_storage',
             'symbol_info',
             'symbol_search_hot_key',
@@ -766,6 +973,12 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'paneProperties.background': '#101010',
             'paneProperties.backgroundType': 'solid',
             'paneProperties.horzGridProperties.color': '#20201f',
+            'paneProperties.legendProperties.showBarChange': false,
+            'paneProperties.legendProperties.showSeriesOHLC': false,
+            'paneProperties.legendProperties.showSeriesTitle': false,
+            'paneProperties.legendProperties.showStudyArguments': false,
+            'paneProperties.legendProperties.showStudyTitles': false,
+            'paneProperties.legendProperties.showStudyValues': false,
             'paneProperties.vertGridProperties.color': '#1a1a19',
             'scalesProperties.lineColor': '#292929',
             'scalesProperties.textColor': '#8e8e88',
@@ -780,7 +993,18 @@ export function installBrowserAdvancedCharts(browserWindow) {
           if (mountState.destroyed) return null;
           runtime.document.documentElement.dataset.chartEngine = 'advanced';
           container.classList.add('is-ready');
+          moveChartStatsIntoFrame(mountState);
           const chart = widget.activeChart();
+          mountState.crosshairSubscription = chart.crossHairMoved?.();
+          mountState.crosshairHandler = ({ time } = {}) => {
+            if (!Number.isFinite(Number(time))) return;
+            updateChartStats(mountState, mountState.latestSnapshot, time);
+          };
+          mountState.crosshairSubscription?.subscribe?.(null, mountState.crosshairHandler);
+          mountState.pointerLeaveHandler = () => {
+            updateChartStats(mountState, mountState.latestSnapshot);
+          };
+          container.addEventListener('mouseleave', mountState.pointerLeaveHandler);
           mountState.intervalSubscription = chart.onIntervalChanged();
           mountState.intervalSubscription.subscribe(null, (nextResolution) => {
             const timeframe = timeframeForTradingViewResolution(nextResolution);
@@ -1022,6 +1246,18 @@ export function installBrowserAdvancedCharts(browserWindow) {
     try {
       mountState.intervalSubscription?.unsubscribe?.(null);
     } catch (_) {}
+    try {
+      mountState.crosshairSubscription?.unsubscribe?.(
+        null,
+        mountState.crosshairHandler,
+      );
+    } catch (_) {}
+    if (mountState.pointerLeaveHandler) {
+      mountState.container?.removeEventListener?.(
+        'mouseleave',
+        mountState.pointerLeaveHandler,
+      );
+    }
     try {
       mountState.widget?.remove?.();
     } catch (_) {}
