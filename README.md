@@ -38,6 +38,20 @@ Projected NAV is illustrative. It assumes the latest effective supply stays
 constant and deducts the configured monthly allowance from the latest observed
 treasury once per projected month.
 
+## Custom chart contract
+
+`src/chart/layer-model.js` is the chart-engine boundary. It produces:
+
+- canonical historic price and NAV series;
+- current price and NAV references;
+- projected NAV plus its explicit assumptions;
+- aligned premium/discount regions;
+- interpolated values for crosshair hover.
+
+The Lightweight Charts controller only translates that contract into renderer
+calls. A future Advanced Charts adapter should consume the same contract rather
+than reimplementing projection or premium/discount calculations.
+
 ## TradingView Advanced Charts
 
 The proprietary Advanced Charts bundle is intentionally absent. TradingView

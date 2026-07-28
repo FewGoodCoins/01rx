@@ -6,16 +6,12 @@ import {
   LineStyle,
 } from 'lightweight-charts';
 import { createPriceNavGradientPrimitive } from './gradient-primitive.js';
-import { buildProjectedNav, marketSnapshot } from './model.js';
-
-const DEFAULT_VISIBILITY = Object.freeze({
-  currentNav: true,
-  currentPrice: true,
-  gradient: false,
-  historicNav: true,
-  historicPrice: true,
-  projectedNav: false,
-});
+import {
+  buildChartLayerModel,
+  DEFAULT_LAYER_VISIBILITY,
+  layerValuesAtTime,
+  normalizeLayerVisibility,
+} from './layer-model.js';
 
 function pricePrecision(value) {
   const number = Math.abs(Number(value));
@@ -102,10 +98,8 @@ export function createOwnershipChart({
   });
   priceSeries.attachPrimitive(gradient);
 
-  let candles = [];
-  let navRows = [];
-  let projectedNav = [];
-  let visibility = { ...DEFAULT_VISIBILITY };
+  let layerModel = null;
+  let visibility = { ...DEFAULT_LAYER_VISIBILITY };
   let referenceLines = [];
 
   function removeReferenceLines() {
@@ -136,16 +130,20 @@ export function createOwnershipChart({
 
   function syncReferenceLines() {
     removeReferenceLines();
-    const snapshot = marketSnapshot(candles, navRows);
-    if (visibility.currentPrice) addReferenceLine(snapshot.price, '#f3f3ef');
-    if (visibility.currentNav) addReferenceLine(snapshot.nav, '#ffcc00');
+    if (!layerModel) return;
+    if (visibility.currentPrice) {
+      addReferenceLine(layerModel.references.currentPrice, '#f3f3ef');
+    }
+    if (visibility.currentNav) {
+      addReferenceLine(layerModel.references.currentNav, '#ffcc00');
+    }
   }
 
   function syncVisibility({ fit = false } = {}) {
     priceSeries.applyOptions({ visible: visibility.historicPrice });
     navSeries.applyOptions({ visible: visibility.historicNav });
     projectedNavSeries.applyOptions({
-      visible: visibility.projectedNav && projectedNav.length > 0,
+      visible: visibility.projectedNav && layerModel?.projection.available === true,
     });
     gradient.setEnabled(
       visibility.gradient
@@ -158,41 +156,48 @@ export function createOwnershipChart({
 
   function setData({
     candles: nextCandles,
+    horizonMonths,
     monthlySpend,
     navRows: nextNavRows,
   }) {
-    candles = Array.isArray(nextCandles) ? nextCandles : [];
-    navRows = Array.isArray(nextNavRows) ? nextNavRows : [];
-    projectedNav = buildProjectedNav(navRows, { monthlySpend });
-    const pricePoints = candles.map(candle => ({
-      time: candle.time,
-      value: candle.close,
-    }));
-    const latest = candles.at(-1)?.close || navRows.at(-1)?.value || 1;
+    layerModel = buildChartLayerModel({
+      candles: nextCandles,
+      horizonMonths,
+      monthlySpend,
+      navRows: nextNavRows,
+      visibility,
+    });
+    visibility = layerModel.visibility;
+    const latest = (
+      layerModel.snapshot.price
+      || layerModel.snapshot.nav
+      || 1
+    );
     const format = priceFormat(latest);
     priceSeries.applyOptions({ priceFormat: format });
     navSeries.applyOptions({ priceFormat: format });
     projectedNavSeries.applyOptions({ priceFormat: format });
-    priceSeries.setData(candles);
-    navSeries.setData(navRows);
-    projectedNavSeries.setData(projectedNav);
-    gradient.setData(pricePoints, navRows);
+    priceSeries.setData(layerModel.series.historicPriceCandles);
+    navSeries.setData(layerModel.series.historicNav);
+    projectedNavSeries.setData(layerModel.series.projectedNav);
+    gradient.setData(layerModel.gradient.aligned);
     syncVisibility();
     chart.timeScale().fitContent();
     return {
-      projectedNav,
-      snapshot: marketSnapshot(candles, navRows),
+      layerModel,
+      projectedNav: layerModel.series.projectedNav,
+      projection: layerModel.projection,
+      snapshot: layerModel.snapshot,
     };
   }
 
   function setVisibility(nextVisibility) {
-    visibility = {
-      ...visibility,
-      ...nextVisibility,
-    };
-    if (visibility.gradient) {
-      visibility.historicPrice = true;
-      visibility.historicNav = true;
+    visibility = normalizeLayerVisibility(nextVisibility, visibility);
+    if (layerModel) {
+      layerModel = {
+        ...layerModel,
+        visibility,
+      };
     }
     syncVisibility({ fit: true });
     return { ...visibility };
@@ -200,13 +205,7 @@ export function createOwnershipChart({
 
   chart.subscribeCrosshairMove((parameter) => {
     if (typeof onCrosshair !== 'function') return;
-    const candle = parameter?.seriesData?.get(priceSeries);
-    const navPoint = parameter?.seriesData?.get(navSeries);
-    onCrosshair({
-      nav: Number(navPoint?.value),
-      price: Number(candle?.close),
-      time: parameter?.time || null,
-    });
+    onCrosshair(layerValuesAtTime(layerModel, parameter?.time));
   });
 
   return {
