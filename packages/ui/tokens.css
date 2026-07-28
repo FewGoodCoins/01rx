@@ -1,0 +1,72 @@
+/*
+ * Shared 01Resolved / 01Rx semantic tokens.
+ *
+ * Apps may evolve their components independently, but a graduating experiment
+ * should not need a visual-token translation pass.
+ */
+[data-01r-theme-scope],
+[data-01r-theme-scope][data-theme="dark"] {
+  --ft-bg: #0b0e12;
+  --ft-bg-raised: #10141a;
+  --ft-panel: #12171d;
+  --ft-panel-strong: #171d25;
+  --ft-panel-soft: #0e1217;
+  --ft-input: #0a0d11;
+  --ft-ink: #e6e9ed;
+  --ft-ink-strong: #f7f8fa;
+  --ft-muted: #919aa6;
+  --ft-faint: #626c79;
+  --ft-border: #2a323d;
+  --ft-border-strong: #3c4653;
+  --ft-grid: rgba(255, 255, 255, 0.025);
+  --ft-accent: #f5a623;
+  --ft-accent-strong: #ffb52e;
+  --ft-accent-ink: #171006;
+  --ft-positive: #42d89b;
+  --ft-positive-soft: rgba(66, 216, 155, 0.09);
+  --ft-positive-border: rgba(66, 216, 155, 0.42);
+  --ft-negative: #ff6f7d;
+  --ft-negative-soft: rgba(255, 111, 125, 0.09);
+  --ft-negative-border: rgba(255, 111, 125, 0.42);
+  --ft-warning: #f4bd4f;
+  --ft-warning-soft: rgba(244, 189, 79, 0.1);
+  --ft-info: #7ba7ff;
+  --ft-info-soft: rgba(123, 167, 255, 0.1);
+  --ft-focus: #ffb52e;
+  --ft-header: rgba(11, 14, 18, 0.96);
+  --ft-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  color-scheme: dark;
+}
+
+[data-01r-theme-scope][data-theme="light"] {
+  --ft-bg: #f2f3f1;
+  --ft-bg-raised: #e9ebe8;
+  --ft-panel: #fbfcfa;
+  --ft-panel-strong: #ffffff;
+  --ft-panel-soft: #f4f5f2;
+  --ft-input: #ffffff;
+  --ft-ink: #20242a;
+  --ft-ink-strong: #101319;
+  --ft-muted: #626b76;
+  --ft-faint: #8a929c;
+  --ft-border: #cbd0d4;
+  --ft-border-strong: #aab1b8;
+  --ft-grid: rgba(18, 22, 27, 0.035);
+  --ft-accent: #df8611;
+  --ft-accent-strong: #c97200;
+  --ft-accent-ink: #ffffff;
+  --ft-positive: #087e57;
+  --ft-positive-soft: rgba(8, 126, 87, 0.07);
+  --ft-positive-border: rgba(8, 126, 87, 0.34);
+  --ft-negative: #c82f43;
+  --ft-negative-soft: rgba(200, 47, 67, 0.07);
+  --ft-negative-border: rgba(200, 47, 67, 0.34);
+  --ft-warning: #9b6800;
+  --ft-warning-soft: rgba(155, 104, 0, 0.08);
+  --ft-info: #275db4;
+  --ft-info-soft: rgba(39, 93, 180, 0.08);
+  --ft-focus: #b96800;
+  --ft-header: rgba(242, 243, 241, 0.96);
+  --ft-shadow: 0 8px 22px rgba(26, 31, 38, 0.08);
+  color-scheme: light;
+}

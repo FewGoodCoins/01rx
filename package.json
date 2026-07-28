@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "description": "A trading interface for ownership tokens and decision markets.",
+  "workspaces": [
+    "packages/*"
+  ],
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -14,9 +17,39 @@
     "check": "npm test && npm run build"
   },
   "dependencies": {
-    "lightweight-charts": "5.1.0"
+    "@01resolved/api-client": "file:packages/api-client",
+    "@01resolved/auth": "file:packages/auth",
+    "@01resolved/contracts": "file:packages/contracts",
+    "@01resolved/telemetry": "file:packages/telemetry",
+    "@01resolved/ui": "file:packages/ui",
+    "@cks-systems/manifest-sdk": "0.2.38",
+    "@coral-xyz/anchor": "0.29.0",
+    "@metadaoproject/programs": "0.1.1-alpha.0",
+    "@solana/spl-token": "0.3.11",
+    "@solana/wallet-standard-features": "1.4.0",
+    "@solana/web3.js": "1.98.4",
+    "@wallet-standard/app": "1.1.1",
+    "@wallet-standard/features": "1.1.1",
+    "bn.js": "5.2.3",
+    "bs58": "6.0.0",
+    "buffer": "6.0.3",
+    "events": "3.3.0",
+    "lightweight-charts": "5.1.0",
+    "process": "0.11.10",
+    "util": "0.12.5"
   },
   "devDependencies": {
+    "jsdom": "26.1.0",
     "vite": "8.1.4"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "rpc-websockets": "9.3.8",
+    "jayson": {
+      "uuid": "11.1.1"
+    },
+    "@metadaoproject/programs": {
+      "bn.js": "5.2.3"
+    }
   }
 }

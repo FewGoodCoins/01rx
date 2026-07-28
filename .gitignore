@@ -5,6 +5,7 @@ dist/
 !.env.example
 coverage/
 test-results/
+.vercel/
 
 # TradingView Advanced Charts is proprietary and non-redistributable.
 # Install approved artifacts during private deployment; never commit them.

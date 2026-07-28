@@ -1,0 +1,219 @@
+export type ApiSurface = 'stable' | 'beta';
+export type EndpointId =
+  | 'core.homeBootstrap'
+  | 'futarchy.activeMarkets'
+  | 'futarchy.proposals'
+  | 'futarchy.proposalHistory'
+  | 'futarchy.marketData'
+  | 'futarchy.programIntegrity'
+  | 'futarchy.positions'
+  | 'futarchy.recurringConfig'
+  | 'futarchy.solanaRpc'
+  | 'trading.spotOrder'
+  | 'trading.spotSubmit';
+
+export interface EndpointDefinition {
+  readonly id: EndpointId;
+  readonly auth: 'public' | 'session';
+  readonly contract: string;
+  readonly method: 'GET' | 'POST';
+  readonly path: string;
+  readonly query: readonly string[];
+  readonly required: readonly string[];
+  readonly surface: ApiSurface;
+  readonly view?: string;
+}
+
+export interface DegradedState {
+  readonly active: boolean;
+  readonly services: readonly string[];
+  readonly issues?: readonly Record<string, unknown>[];
+}
+
+export interface ActiveMarketsData {
+  readonly asOf?: string;
+  readonly slot?: number | null;
+  readonly pendingProposalCount?: number;
+  readonly markets: readonly Record<string, unknown>[];
+  readonly degraded?: DegradedState;
+  readonly source?: Record<string, unknown>;
+}
+
+export interface ProposalArchiveData {
+  readonly asOf?: string;
+  readonly proposals: readonly Record<string, unknown>[];
+  readonly summary?: Record<string, number>;
+  readonly pagination?: {
+    readonly limit?: number;
+    readonly returned?: number;
+    readonly total?: number;
+    readonly nextCursor?: string | null;
+  };
+  readonly degraded?: DegradedState;
+  readonly source?: Record<string, unknown>;
+}
+
+export interface ProposalHistoryPoint {
+  readonly timestamp: string;
+  readonly observedAt?: string | null;
+  readonly underlyingPrice?: number | null;
+  readonly passPrice?: number | null;
+  readonly failPrice?: number | null;
+  readonly passTwap?: number | null;
+  readonly failTwap?: number | null;
+  readonly sampleCount?: number;
+}
+
+export interface ProposalHistoryData {
+  readonly proposalId: string;
+  readonly interval: string;
+  readonly availability?: string;
+  readonly preTwap?: string | null;
+  readonly series: readonly ProposalHistoryPoint[];
+  readonly summary?: Record<string, unknown>;
+  readonly degraded?: DegradedState;
+  readonly source?: Record<string, unknown>;
+}
+
+export interface ProposalMarketData {
+  readonly proposalId: string;
+  readonly asOf?: string;
+  readonly slot?: number | null;
+  readonly cluster?: string;
+  readonly books: Readonly<Record<string, unknown>>;
+  readonly recentTrades?: readonly Record<string, unknown>[];
+  readonly openOrders?: readonly Record<string, unknown>[];
+  readonly degraded?: DegradedState;
+}
+
+export interface ProgramIntegrityProgram {
+  readonly key: string;
+  readonly label: string;
+  readonly programId: string;
+  readonly programDataAddress: string;
+  readonly expectedDeploymentSlot: string;
+  readonly observedDeploymentSlot: string | null;
+  readonly upgradeAuthority: string;
+  readonly observedUpgradeAuthority: string | null;
+  readonly status: 'verified' | 'mismatch' | 'unchecked';
+}
+
+export interface ProgramIntegrityData {
+  readonly status: 'verified' | 'blocked' | 'unavailable';
+  readonly canTransact: boolean;
+  readonly cluster: 'solana:mainnet';
+  readonly checkedAt: string;
+  readonly rpcSlot: number | null;
+  readonly programs: readonly ProgramIntegrityProgram[];
+  readonly issues: readonly {
+    readonly code: string;
+    readonly program?: string;
+    readonly message: string;
+  }[];
+}
+
+export interface PositionsData {
+  readonly owner: string;
+  readonly proposal?: Record<string, unknown>;
+  readonly proposalId?: string;
+  readonly asOf?: string;
+  readonly slot?: number | null;
+  readonly balances: readonly Record<string, unknown>[];
+  readonly degraded?: DegradedState;
+}
+
+export interface RecurringConfigData {
+  readonly enabled: boolean;
+  readonly keeperReady: boolean;
+  readonly programId: string | null;
+  readonly minimumIntervalSeconds: number;
+  readonly maximumCycles: number;
+}
+
+export interface HomeBootstrapData {
+  readonly builtAt?: string;
+  readonly tokens?: readonly Record<string, unknown>[];
+  readonly currentNav?: Record<string, unknown>;
+  readonly marketTickers?: Record<string, unknown>;
+}
+
+export interface SpotOrderQuote {
+  readonly inputMint: string;
+  readonly outputMint: string;
+  readonly inputDecimals: number;
+  readonly outputDecimals: number;
+  readonly inAmountRaw: string;
+  readonly outAmountRaw: string;
+  readonly minimumAmountOutRaw: string;
+  readonly amountIn: string;
+  readonly estimatedAmountOut: string;
+  readonly minimumAmountOut: string;
+  readonly priceImpactPercent: number;
+  readonly slippageBps: number;
+  readonly platformFeeBps: number;
+  readonly contextSlot: number;
+  readonly lastValidBlockHeight: number | null;
+  readonly route: readonly {
+    readonly venue: string;
+    readonly marketKey: string;
+  }[];
+}
+
+export interface SpotOrderData {
+  readonly cluster: 'solana:mainnet';
+  readonly token: string;
+  readonly ticker: string;
+  readonly name: string;
+  readonly side: 'buy' | 'sell';
+  readonly owner: string | null;
+  readonly amount: string;
+  readonly quote: SpotOrderQuote;
+  readonly transaction: string | null;
+  readonly reviewToken: string | null;
+  readonly review: {
+    readonly transactionFingerprint: string;
+    readonly feePayer: string;
+    readonly programIds: readonly string[];
+    readonly simulation: {
+      readonly ok: boolean;
+      readonly error: string;
+      readonly logs: readonly string[];
+      readonly unitsConsumed: number | null;
+    };
+    readonly networkFeeLamports: number | null;
+  } | null;
+}
+
+export interface SpotSubmitData {
+  readonly cluster: 'solana:mainnet';
+  readonly signature: string;
+  readonly status: 'submitted';
+}
+
+export interface EndpointResponseMap {
+  readonly 'core.homeBootstrap': HomeBootstrapData;
+  readonly 'futarchy.activeMarkets': ActiveMarketsData;
+  readonly 'futarchy.proposals': ProposalArchiveData;
+  readonly 'futarchy.proposalHistory': ProposalHistoryData;
+  readonly 'futarchy.marketData': ProposalMarketData;
+  readonly 'futarchy.programIntegrity': ProgramIntegrityData;
+  readonly 'futarchy.positions': PositionsData;
+  readonly 'futarchy.recurringConfig': RecurringConfigData;
+  readonly 'futarchy.solanaRpc': unknown;
+  readonly 'trading.spotOrder': SpotOrderData;
+  readonly 'trading.spotSubmit': SpotSubmitData;
+}
+
+export const CONTRACT_RELEASE: string;
+export const CONTRACT_HEADERS: Readonly<Record<'contract' | 'release' | 'surface', string>>;
+export const API_SURFACES: Readonly<Record<'STABLE' | 'BETA', ApiSurface>>;
+export const API_ENDPOINTS: Readonly<Record<EndpointId, EndpointDefinition>>;
+export const FUTARCHY_STABLE_V1_VIEWS: readonly string[];
+export const FUTARCHY_BETA_VIEWS: readonly string[];
+export const TRADING_BETA_VIEWS: readonly string[];
+export function getEndpoint(endpointId: EndpointId): EndpointDefinition;
+export function buildEndpointPath(
+  endpointId: EndpointId,
+  query?: Record<string, string | number | boolean | null | undefined>,
+): string;
+export function resolveFutarchySurface(view: string): ApiSurface | null;

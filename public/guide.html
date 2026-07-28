@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Guide — NAVgator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #0e1117;
+  --bg2:    #141820;
+  --bg3:    #191e28;
+  --bdr:    #252d38;
+  --bdr2:   #2c3644;
+  --dim:    #566474;
+  --muted:  #7a909f;
+  --body:   #8ba0b2;
+  --bright: #c8d8e4;
+  --white:  #edf2f6;
+  --green:  #00e5a0;
+  --red:    #f04060;
+  --orange: #f5a742;
+  --blue:   #4d8fff;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--body);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.7;
+}
+::selection { background: rgba(0,229,160,0.2); color: var(--white); }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--bdr2); border-radius: 2px; }
+
+.doc-wrap {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+
+/* Nav bar */
+.doc-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 48px;
+}
+.doc-nav-brand {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--green);
+  text-decoration: none;
+}
+.doc-nav a {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.doc-nav a:hover { color: var(--white); }
+.doc-nav a.active { color: var(--bright); }
+.doc-nav-spacer { flex: 1; }
+
+/* Typography */
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 8px;
+}
+.doc-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 48px;
+}
+h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--bright);
+  margin-top: 56px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--bright);
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+p { margin-bottom: 16px; font-size: 14px; }
+strong { color: var(--bright); font-weight: 600; }
+
+/* Code blocks */
+pre {
+  background: var(--bg2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 16px 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: var(--bright);
+  overflow-x: auto;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg2);
+  color: var(--bright);
+  font-weight: 600;
+  border-bottom: 1px solid var(--bdr2);
+  white-space: nowrap;
+}
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bdr);
+  vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+
+/* Lists */
+ul { margin-bottom: 16px; padding-left: 20px; }
+li { margin-bottom: 8px; font-size: 14px; }
+
+/* Dividers */
+hr {
+  border: none;
+  border-top: 1px solid var(--bdr);
+  margin: 48px 0;
+}
+
+/* Footer */
+.doc-footer {
+  font-size: 11px;
+  color: var(--dim);
+  text-align: center;
+  padding-top: 32px;
+  border-top: 1px solid var(--bdr);
+  margin-top: 64px;
+}
+.doc-footer a { color: var(--muted); text-decoration: none; }
+.doc-footer a:hover { color: var(--white); }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .doc-wrap { padding: 24px 16px 60px; }
+  h1 { font-size: 22px; }
+  table { font-size: 12px; }
+  th, td { padding: 8px; }
+}
+</style>
+</head>
+<body>
+<div class="doc-wrap">
+
+  <nav class="doc-nav">
+    <a href="/" class="doc-nav-brand">NAVgator</a>
+    <div class="doc-nav-spacer"></div>
+    <a href="/guide.html" class="active">Guide</a>
+    <a href="/methodology.html">Methodology</a>
+    <a href="/">Dashboard</a>
+  </nav>
+
+  <h1>User Guide</h1>
+  <p class="doc-subtitle">A walkthrough of every screen and panel on the NAVgator dashboard.</p>
+
+  <h2>Landing Page</h2>
+  <p>The landing page shows all active MetaDAO tokens in a sortable, filterable table.</p>
+
+  <h3>Hero Stats</h3>
+  <p>Above the table, summary stats for the entire ecosystem:</p>
+  <table>
+    <tr><th>Stat</th><th>Description</th></tr>
+    <tr><td>Total Treasury</td><td>Combined treasury value across all live tokens</td></tr>
+    <tr><td>Tokens Live</td><td>Number of actively tracked tokens</td></tr>
+    <tr><td>Tokens Liquidated</td><td>Number of tokens that have been liquidated</td></tr>
+  </table>
+
+  <h3>Token Table</h3>
+  <p>Each row displays:</p>
+  <table>
+    <tr><th>Column</th><th>What it shows</th></tr>
+    <tr><td>Token</td><td>Logo, name, and ticker</td></tr>
+    <tr><td>Price</td><td>Current spot price with 24h change percentage</td></tr>
+    <tr><td>NAV</td><td>Calculated net asset value per token</td></tr>
+    <tr><td>P/NAV</td><td>Price-to-NAV ratio badge (green for premium, red for discount)</td></tr>
+    <tr><td>Treasury</td><td>Total DAO treasury value in USD</td></tr>
+    <tr><td>MCap</td><td>Market capitalization (price x circulating supply)</td></tr>
+    <tr><td>Launchpad</td><td>How the token launched &mdash; Curated, Permissionless, or Migration</td></tr>
+    <tr><td>7d Trend</td><td>Sparkline mini chart showing the last 7 days of price action</td></tr>
+  </table>
+  <p>Click any row to open the token detail page.</p>
+
+  <h3>Filtering and Sorting</h3>
+  <p><strong>Filters</strong> across the top of the table:</p>
+  <ul>
+    <li><strong>All</strong> &mdash; every active token</li>
+    <li><strong>Watchlist</strong> &mdash; only your starred tokens</li>
+    <li><strong>Curated</strong> &mdash; tokens launched through MetaDAO's curated process</li>
+    <li><strong>Permissionless</strong> &mdash; tokens launched permissionlessly</li>
+    <li><strong>Migration</strong> &mdash; tokens migrated from other platforms</li>
+  </ul>
+  <p>Click any column header to sort ascending or descending.</p>
+
+  <h3>Sidebar</h3>
+  <p>The left sidebar shows a compact token list grouped by launchpad type, with live sparkline charts and price changes. Use it to jump between tokens without returning to the landing page.</p>
+
+  <hr>
+
+  <h2>Token Detail Page</h2>
+  <p>Selecting a token opens the detail view with a chart on the left and stats panels on the right.</p>
+
+  <h3>Chart</h3>
+  <p>The chart is built with TradingView Lightweight Charts and shows price data with an optional NAV overlay.</p>
+  <p><strong>Timeframe:</strong> 24h.</p>
+  <p><strong>Layer toggles:</strong></p>
+  <ul>
+    <li><strong>P</strong> (Price) &mdash; smooth price line</li>
+    <li><strong>C</strong> (Candles) &mdash; OHLC candlestick bars. Green for up, red for down.</li>
+    <li><strong>N</strong> (NAV) &mdash; NAV overlay line with historical NAV data</li>
+  </ul>
+  <p>Price and Candles are mutually exclusive &mdash; enabling one disables the other. NAV can be combined with either. When both price/candles and NAV are active, the area between them is filled green (above NAV) or red (below NAV).</p>
+  <p><strong>Additional controls:</strong></p>
+  <ul>
+    <li><strong>LOG</strong> &mdash; toggle logarithmic price scale</li>
+    <li><strong>AUTO</strong> &mdash; auto-fit the chart to visible data</li>
+  </ul>
+  <p><strong>Crosshair:</strong> Hovering over the chart shows a metrics panel with the price, NAV, vs-NAV percentage, treasury, market cap, and other stats at that point in time.</p>
+
+  <h3>Price and NAV Panel</h3>
+  <p>The primary stats panel on the right side.</p>
+  <table>
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td>Price</td><td>Current spot price with 24h change</td></tr>
+    <tr><td>NAV</td><td>Current NAV per token (treasury / effective supply)</td></tr>
+    <tr><td>P/NAV</td><td>Price-to-NAV ratio. Above 1.0 = premium, below 1.0 = discount</td></tr>
+  </table>
+
+  <h3>Treasury Breakdown</h3>
+  <p>Shows where the DAO's money is and what form it takes. Toggle between two views:</p>
+  <p><strong>By location</strong> &mdash; which wallets and pools hold the treasury:</p>
+  <table>
+    <tr><th>Location</th><th>Description</th></tr>
+    <tr><td>DAO Treasury</td><td>The main DAO treasury wallet</td></tr>
+    <tr><td>FutAMM</td><td>Stablecoin side of MetaDAO's per-token AMM</td></tr>
+    <tr><td>Meteora LP</td><td>Stablecoin side of the DAO-owned Meteora position</td></tr>
+    <tr><td>SOL Holdings</td><td>SOL held in DAO wallets, converted to USD</td></tr>
+  </table>
+  <p><strong>By asset</strong> &mdash; what the treasury holds:</p>
+  <table>
+    <tr><th>Asset</th><th>Description</th></tr>
+    <tr><td>USDC</td><td>US Dollar Coin &mdash; the primary treasury denomination</td></tr>
+    <tr><td>USDv</td><td>Stablecoin variant</td></tr>
+    <tr><td>SOL</td><td>Native Solana token, priced at live market rate</td></tr>
+  </table>
+  <p>Each component shows its USD value and percentage of total treasury.</p>
+
+  <h3>Supply Breakdown</h3>
+  <p>A visual equation showing how effective supply is derived from total supply:</p>
+  <pre>Total Supply
+  - Team Locked / Migration Wallet
+  - DAO Treasury
+  - Investor Locked (vesting)
+  - Ambassador Locked (vesting)
+  - Claimed MetaDAO Fees
+  - DAO-owned FutAMM tokens
+  - DAO-owned Meteora LP tokens
+  - Buyback
+  ─────────────────────
+  = Effective Supply</pre>
+  <p>Only DAO/MetaDAO-controlled positions are deducted &mdash; tokens supplied by independent third-party LPs are not deducted and remain in effective supply. Unclaimed fees also remain in effective supply until claimed.</p>
+  <p>Each deduction shows its token count and percentage of total supply. Rows link to Solscan where an address is available.</p>
+  <p>Vesting deductions decrease over time as tokens unlock. For the full rationale behind each deduction, see <a href="/methodology.html" style="color:var(--green)">Methodology</a>.</p>
+
+  <h3>Valuation Stats</h3>
+  <table>
+    <tr><th>Metric</th><th>Description</th></tr>
+    <tr><td>Spot price</td><td>Current market price</td></tr>
+    <tr><td>Market cap</td><td>Circulating supply x spot price</td></tr>
+    <tr><td>FDV</td><td>Fully diluted valuation (total supply x spot price)</td></tr>
+    <tr><td>Circulating supply</td><td>Effective supply in millions</td></tr>
+    <tr><td>ICO price</td><td>The price at token launch (where applicable)</td></tr>
+    <tr><td>Funds accepted</td><td>USDC raised during the ICO</td></tr>
+    <tr><td>Current funds</td><td>Current treasury vs funds accepted at ICO</td></tr>
+    <tr><td>Oversubscription</td><td>How much demand exceeded the ICO allocation</td></tr>
+    <tr><td>Price since ICO</td><td>Percentage change from ICO price to current</td></tr>
+  </table>
+  <p>Not all fields appear for every token &mdash; ICO-related metrics only show for tokens that had an ICO.</p>
+
+  <h3>Treasury Health</h3>
+  <p>Shown for tokens with a monthly burn allowance.</p>
+  <table>
+    <tr><th>Metric</th><th>Description</th></tr>
+    <tr><td>Monthly allowance</td><td>Approved monthly spend from the treasury</td></tr>
+    <tr><td>Runway</td><td>Treasury / monthly burn &mdash; months of spending remaining</td></tr>
+    <tr><td>Post-ICO allocation</td><td>How much of the ICO-raised funds have been spent</td></tr>
+  </table>
+  <p>Runway assumes constant burn and no new revenue. Actual runway depends on governance decisions and any income the DAO generates.</p>
+
+  <h3>Buyback Tracking</h3>
+  <p>Shown for tokens with active buyback programs.</p>
+  <table>
+    <tr><th>Metric</th><th>Description</th></tr>
+    <tr><td>Total spent</td><td>USD value spent on buybacks</td></tr>
+    <tr><td>Average price</td><td>Weighted average price paid</td></tr>
+    <tr><td>Tokens acquired</td><td>Total tokens bought back</td></tr>
+    <tr><td>Period</td><td>Date range of buyback activity</td></tr>
+  </table>
+
+  <h3>Wallet Addresses</h3>
+  <p>Below the chart, a reference section lists all on-chain addresses for the token:</p>
+  <ul>
+    <li>DAO treasury wallet</li>
+    <li>FutAMM or Combinator Pool</li>
+    <li>Meteora LP pool/vault</li>
+    <li>Multisig wallet</li>
+    <li>Buyback wallet</li>
+    <li>Token mint / contract address</li>
+  </ul>
+  <p>Each address links to Solscan for independent verification.</p>
+
+  <hr>
+
+  <h2>Watchlist</h2>
+  <p>Add tokens to your watchlist by clicking the star icon in the table or on a token's detail page.</p>
+  <ul>
+    <li>Watchlisted tokens appear in the sidebar and can be filtered in the table</li>
+    <li>Stored in your browser's localStorage &mdash; no account needed</li>
+    <li>Persists across sessions on the same browser</li>
+    <li>Clearing browser data or switching browsers resets it</li>
+  </ul>
+
+  <hr>
+
+  <h2>Key Concepts</h2>
+
+  <h3>Ownership Tokens</h3>
+  <p>Ownership tokens are issued against a real treasury. Holding one means holding a proportional claim on the DAO's stablecoins and other assets. This is fundamentally different from memecoins or utility tokens &mdash; there's a measurable floor value based on what the treasury actually holds.</p>
+
+  <h3>Futarchy</h3>
+  <p>Futarchy is a governance mechanism where decisions are made by markets instead of votes. MetaDAO pioneered this on Solana: proposals are settled by conditional token markets rather than traditional DAO voting. Tokens normally trade on the spot FutAMM; when a proposal is active, half of the FutAMM's liquidity moves into the proposal's pass/fail markets until the proposal settles.</p>
+
+  <h3>Why Price Does Not Equal NAV</h3>
+  <p>A token's market price almost never equals its NAV exactly. Several forces create deviation:</p>
+  <ul>
+    <li><strong>Illiquidity premium/discount:</strong> Small, thinly-traded tokens may trade at persistent discounts because buyers demand compensation for the difficulty of entering and exiting positions.</li>
+    <li><strong>Growth expectations:</strong> If the market believes a DAO will generate revenue or its treasury will grow, the token may trade above NAV &mdash; pricing in future value.</li>
+    <li><strong>Governance risk:</strong> If the market fears mismanagement, overspending, or treasury loss, the token may trade below NAV.</li>
+    <li><strong>Market sentiment:</strong> Broader crypto market conditions, narrative cycles, and speculation all affect price independently of NAV.</li>
+  </ul>
+  <p>NAVgator makes this gap visible. Understanding why the gap exists for a particular token is the analysis that matters.</p>
+
+  <div class="doc-footer">
+    NAVgator &middot; Treasury analytics for ownership tokens &middot;
+    <a href="/guide.html">Guide</a> &middot;
+    <a href="/methodology.html">Methodology</a> &middot;
+    Not financial advice
+  </div>
+
+</div>
+</body>
+</html>

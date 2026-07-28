@@ -1,0 +1,270 @@
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* LAYOUT                                                          */
+/* ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════ */
+/* APP SHELL — DexScreener-style full-height sidebar layout        */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* Kill the old wrap padding — shell is full-bleed */
+.wrap { max-width: none; margin: 0; padding: 0; }
+
+/* App shell: sidebar left, content right */
+.app-shell {
+  display: flex;
+  width: max(100vw, 1100px);
+  height: max(100vh, 700px);
+  overflow: visible;
+  position: relative;
+}
+
+.shell-panel-toggle {
+  position: fixed;
+  top: 50%;
+  z-index: calc(var(--z-sidebar) + 20);
+  width: 24px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--bdr2);
+  background: var(--bg2);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-50%);
+  transition: left 160ms ease, right 160ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.shell-panel-toggle:hover,
+.shell-panel-toggle:focus-visible {
+  border-color: var(--bdr3);
+  background: var(--bg3);
+  color: var(--white);
+  outline: none;
+}
+.shell-panel-toggle:active {
+  transform: translateY(-50%) scale(0.97) !important;
+}
+.shell-panel-toggle svg {
+  display: block;
+  flex: 0 0 auto;
+}
+.shell-panel-toggle-left {
+  left: calc(var(--sidebar-width) - 1px);
+  border-left-color: var(--bg2);
+  display: none !important;
+}
+.shell-panel-toggle-right {
+  right: calc(var(--right-panel-width) - 1px);
+  border-right-color: var(--bg2);
+  display: none;
+}
+body.is-token .shell-panel-toggle-right {
+  display: inline-flex;
+}
+body.left-panel-collapsed .shell-panel-toggle-left {
+  left: 0;
+  border-left-color: var(--bdr2);
+}
+body.left-panel-collapsed .shell-panel-toggle-left svg,
+body.right-panel-collapsed .shell-panel-toggle-right svg {
+  transform: rotate(180deg);
+}
+body.right-panel-collapsed .shell-panel-toggle-right {
+  right: 0;
+  border-right-color: var(--bdr2);
+}
+
+/* ── Left sidebar — always visible ── */
+.app-left {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--bg);
+  border-right: 1px solid var(--bdr);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: relative;
+  z-index: var(--z-sidebar);
+  -webkit-overflow-scrolling: auto;
+  box-shadow: 1px 0 0 var(--border-subtle), 2px 0 8px rgba(0,0,0,0.3);
+  transition: width 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+body.left-panel-collapsed .app-left {
+  width: 0;
+  border-right: 0;
+  box-shadow: none;
+}
+
+/* Brand area at top of left rail */
+.app-brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0;
+  text-decoration: none;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.app-brand-mark {
+  width: 32px; height: 32px;
+  background: var(--green);
+  border-radius: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; font-weight: 800;
+  color: #000;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.app-brand-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 700;
+  color: var(--white); letter-spacing: -0.3px;
+}
+.app-brand-text span { color: var(--green); }
+
+/* Token list lives in the left rail */
+.app-token-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* ── Right area — topbar + content ── */
+.app-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Single unified topnav — same on all pages ── */
+.topnav {
+  display: flex;
+  align-items: center;
+  padding: 0 20px 0 0;
+  height: 48px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--bg);
+  flex-shrink: 0;
+  gap: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Left anchor: on token pages this is empty (sidebar has the brand);
+   on landing it shows the brand — both use var(--sidebar-width) so
+   nav links land at the same X position on every page. */
+.nav-brand {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px;
+  text-decoration: none;
+  border-right: 1px solid var(--bdr);
+  height: 100%;
+  box-sizing: border-box;
+}
+/* Sidebar always shows brand — collapse the topnav brand anchor always */
+body:not(.is-token) .rp-via-strip { display: none; }
+/* Hide topnav; sidebar has branding and token pages use in-panel identity. */
+.topnav { display: none; }
+/* Sidebar always shows brand — collapse the topnav brand anchor always */
+body .topnav .nav-brand {
+  display: none;
+}
+/* Breadcrumb in topnav */
+.nav-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 16px;
+}
+.nav-breadcrumb .bc-crumb {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+  cursor: pointer;
+}
+.nav-breadcrumb .bc-crumb:hover { color: var(--white); }
+.nav-breadcrumb .bc-crumb.bc-current { color: var(--white); font-weight: 500; }
+.nav-breadcrumb .bc-sep { color: var(--dim); }
+/* Landing get internal padding */
+.landing { padding: 0 32px 80px; }
+.nav-brand-mark {
+  width: 26px; height: 26px;
+  background: var(--green); border-radius: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800;
+  color: #000; letter-spacing: -0.5px; flex-shrink: 0;
+}
+.nav-brand-text {
+  font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700;
+  color: var(--white); letter-spacing: -0.3px;
+}
+.nav-brand-text span { color: var(--green); }
+.topnav .nav-center {
+  flex: 1; display: flex; gap: 2px; align-items: center; padding: 0 12px;
+}
+.nav-link {
+  font-family: 'Geist', sans-serif;
+  font-size: 12px; font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover { color: var(--white); background: var(--bg3); }
+.nav-link.nav-active { color: var(--white); font-weight: 600; }
+.nav-right { display: flex; align-items: center; gap: 8px; padding-right: 20px; margin-left: auto; }
+.nav-btn-solid {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 600;
+  color: #000; background: var(--green);
+  text-decoration: none;
+  padding: 5px 14px;
+  border-radius: 0;
+}
+.nav-btn-solid:hover { opacity: 0.88; }
+
+/* Content area scrolls within the right panel */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bdr3) transparent;
+  overscroll-behavior: none;
+  transition: margin-right 160ms ease;
+}
+.app-content::-webkit-scrollbar { width: 4px; }
+.app-content::-webkit-scrollbar-track { background: transparent; }
+.app-content::-webkit-scrollbar-thumb { background: var(--bdr3); border-radius: 2px; }
+body.is-token .app-content::-webkit-scrollbar { display: none; }
+body.is-token .app-content { scrollbar-width: none; }
+
+/* Views */
+.landing  { display: none; }
+.landing.active  { display: block; }
+.dashboard { display: none; }
+.dashboard.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.token-switch-loader { display:none; position:fixed; top:0; bottom:0; left:var(--sidebar-width); right:0; z-index:var(--z-loader); background:var(--bg); justify-content:center; align-items:center; gap:10px; }
+body.left-panel-collapsed .token-switch-loader { left: 0; }
+.token-switch-loader.active { display:flex; }
+.token-switch-spinner { width:0; height:0; border:none; display:none; }
+.token-switch-loader.active .token-switch-circle { display:block; }
+.token-switch-circle { display:none; width:18px; height:18px; flex-shrink:0; }
+.token-switch-circle svg { animation:tss-spin .8s linear infinite !important; }
+.token-switch-label { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); }
+@keyframes tss-spin { to { transform:rotate(360deg); } }
