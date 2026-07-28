@@ -109,6 +109,42 @@ test('Advanced Charts normalizes API bars to sorted millisecond OHLCV data', asy
   ]);
 });
 
+test('Advanced Charts status reports price, interpolated NAV, and discount', async () => {
+  const { advancedChartStatusValues } = await advancedChartsModulePromise;
+  const snapshot = {
+    currentPrice: 0.8,
+    currentNav: 1,
+    treasury: 1_200_000,
+    effectiveSupply: 2_400_000,
+    priceBars: [
+      { time: 100, close: 0.6 },
+      { time: 200, close: 0.8 },
+    ],
+    navBars: [
+      { time: 100, value: 0.9 },
+      { time: 200, value: 1.1 },
+    ],
+    fundamentalBars: [
+      { time: 100, treasury: 900_000, effectiveSupply: 1_800_000 },
+      { time: 200, treasury: 1_100_000, effectiveSupply: 2_200_000 },
+    ],
+  };
+
+  const current = advancedChartStatusValues(snapshot);
+  assert.equal(current.price, 0.8);
+  assert.equal(current.nav, 1);
+  assert.equal(current.treasury, 1_200_000);
+  assert.equal(current.supply, 2_400_000);
+  assert.ok(Math.abs(current.discount - 20) < 1e-9);
+  assert.deepEqual(advancedChartStatusValues(snapshot, 150), {
+    discount: 40,
+    nav: 1,
+    price: 0.6,
+    supply: 1_800_000,
+    treasury: 900_000,
+  });
+});
+
 test('Advanced Charts only uses the official playground locally and approved paths in production', async () => {
   const { resolveAdvancedChartsConfiguration } = await advancedChartsModulePromise;
 

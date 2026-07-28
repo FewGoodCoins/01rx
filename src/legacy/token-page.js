@@ -16326,6 +16326,19 @@ function setChartData(candles, navPerToken) {
       currentNav: navAxisVal,
       treasury: _advancedNavSnapshot.treasuryUSDC,
       effectiveSupply: _advancedNavSnapshot.supply.effective,
+      fundamentalBars: navDisplayData.map(function(point) {
+        var historicFundamentals = _lwTreasuryLookup(Number(point && point.time));
+        if (!historicFundamentals) return null;
+        return {
+          time: point.time,
+          treasury: Number(historicFundamentals.treasury),
+          effectiveSupply: Number(historicFundamentals.effSupply)
+        };
+      }).filter(function(point) {
+        return point
+          && Number(point.time) > 0
+          && (isFinite(point.treasury) || isFinite(point.effectiveSupply));
+      }),
       visibility: {
         currentPrice: !_isMetricChartMode() && _priceEnabled && _showPriceLine,
         historicPrice: !_isMetricChartMode() && _priceEnabled,

@@ -1638,7 +1638,7 @@ body.is-futard-terminal #token-switch-loader {
 
 .ft-outcome-card-selected::after {
   position: absolute;
-  top: 8px;
+  top: 52px;
   right: -22px;
   width: 72px;
   padding: 2px 0;
@@ -8692,32 +8692,69 @@ html[data-01rx-chart-frame="true"][data-chart-engine="advanced"] #chart-loading 
 .advanced-chart-stats {
   position: absolute;
   z-index: 5;
-  top: 78px;
-  left: 12px;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  max-width: calc(100% - 16px);
+  color: #d1d4dc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.advanced-chart-status-row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 4px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 3px;
-  background: rgba(16, 16, 16, 0.82);
-  color: #e5e5e1;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
-  line-height: 1;
-  pointer-events: none;
+  gap: 12px;
 }
 
 .advanced-chart-stats span {
   display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
+  align-items: center;
+  gap: 4px;
 }
 
 .advanced-chart-stats small {
-  color: #73736e;
+  color: #787b86;
   font: inherit;
-  text-transform: uppercase;
+}
+
+.advanced-chart-stats strong {
+  color: #d1d4dc;
+  font: inherit;
+}
+
+.advanced-chart-stats .nav {
+  color: #f0b90b;
+}
+
+.advanced-chart-stats .discount.positive {
+  color: #26a69a;
+}
+
+.advanced-chart-stats .discount.negative {
+  color: #ef5350;
+}
+
+.advanced-chart-stats .discount.neutral {
+  color: #d1d4dc;
+}
+
+.advanced-chart-status-fundamentals {
+  color: #d1d4dc;
+}
+
+html[data-01rx-chart-frame="true"][data-chart-engine="advanced"] .advanced-chart-stats {
+  position: fixed;
+  top: 46px;
+  left: 49px;
 }
 
 .advanced-charts-surface,
