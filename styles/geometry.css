@@ -1,0 +1,73 @@
+/*
+ * NAVgator uses square terminal geometry. Keep this override central so cards,
+ * controls, badges, modals, and route-specific surfaces cannot drift back to
+ * rounded corners as their individual styles evolve.
+ */
+#navgator-app {
+  --radius-card: 0;
+  --radius-control: 0;
+  --radius-small: 0;
+}
+
+#navgator-app#navgator-app *,
+#navgator-app#navgator-app *::before,
+#navgator-app#navgator-app *::after {
+  border-radius: 0 !important;
+}
+
+/*
+ * Circles remain only where shape communicates identity or state. Decorative
+ * pills and containers stay square.
+ */
+#navgator-app#navgator-app :is(
+  .re-card-logo,
+  .tt-icon,
+  .cmd-item-logo,
+  .cmp-tok-head img,
+  .bb-tape-logo,
+  .tp-icon,
+  .th-icon,
+  #rp-pair-val .pair-coin,
+  #rp-pair-val .pair-coin img,
+  .ta-pair-icon-base,
+  .ta-pair-icon-quote,
+  .rp-id-logo,
+  .rp-token-icon,
+  .embed-token-logo,
+  .ft-token-logo,
+  .ft-ownership-usdc-logo,
+  #live-dot-nav,
+  #live-dot-price,
+  #live-dot-forecast,
+  .live-dot,
+  .th-live-dot,
+  .th-dot,
+  .dp-tdot,
+  .backend-health-dot,
+  .hldr-legend-dot,
+  .ft-live-dot,
+  .ft-wallet-dot,
+  .ft-proposal-timeline i,
+  .ft-price-marker i,
+  .ft-legend-spot,
+  .ft-loader,
+  .ft-market-signal-live i,
+  .ft-market-signal-resolved i,
+  .ft-transaction-state > span,
+  .ft-transaction-row > span
+) {
+  border-radius: 50% !important;
+}
+
+#navgator-app#navgator-app .ft-ownership-swap-field {
+  border-radius: 13px !important;
+}
+
+#navgator-app#navgator-app .ft-ownership-presets button {
+  border-radius: 999px !important;
+}
+
+#navgator-app#navgator-app .tp-lp-sublabel .tp-section-arrow,
+#navgator-app#navgator-app .ft-system-message::before {
+  border-radius: 50% !important;
+}

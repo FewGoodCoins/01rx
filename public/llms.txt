@@ -1,0 +1,70 @@
+# NAVgator
+
+NAVgator is a public treasury analytics terminal for ownership tokens, with emphasis on NAV, treasury composition, supply assumptions, and proposal context for listed ownership-token projects.
+
+Canonical site: https://navgator.xyz/
+API host: https://navgator.xyz/
+Agent guide: https://navgator.xyz/navgator-for-agents
+Full agent docs: https://navgator.xyz/llms-full.txt
+
+## Key Pages
+
+- Home terminal: https://navgator.xyz/
+- Methodology: https://navgator.xyz/methodology.html
+- Guide: https://navgator.xyz/guide.html
+- Avici static page: https://navgator.xyz/projects/avici
+- Umbra static page: https://navgator.xyz/projects/umbra
+- Solomon static page: https://navgator.xyz/projects/solomon
+
+## Public Read-Only API
+
+- GET https://navgator.xyz/api/summary
+- GET https://navgator.xyz/api/projects
+- GET https://navgator.xyz/api/projects/:slug
+- GET https://navgator.xyz/api/projects/:slug/treasury
+- GET https://navgator.xyz/api/projects/:slug/nav
+- GET https://navgator.xyz/api/projects/:slug/proposals
+- GET https://navgator.xyz/api/projects/:slug/risk
+- GET https://navgator.xyz/api/markets
+- GET https://navgator.xyz/api/watchlist
+- GET https://navgator.xyz/api/snapshots/latest
+
+Project slugs include `avici`, `umbra`, and `solomon`. Token aliases such as `avici`, `umbra`, and `solo` are accepted by the API.
+
+## Examples
+
+- To get a one-shot overview, call `GET /api/summary`.
+- To summarize Umbra, call `GET /api/projects/umbra`, then `GET /api/projects/umbra/nav`, and cite the `snapshot_time`.
+- To check whether Avici data is stale or risky, call `GET /api/projects/avici/risk`.
+
+## Downloadable Data
+
+- https://navgator.xyz/data/projects.json
+- https://navgator.xyz/data/treasuries.json
+- https://navgator.xyz/data/nav-snapshots.csv
+- https://navgator.xyz/data/proposals.json
+
+The static data files are crawler-friendly indexes and schema examples. Use the API endpoints for current values.
+
+## Data Definitions
+
+- `nav`: Net asset value per effective token, in USD/token.
+- `treasury_usdc`: Estimated treasury value denominated in USD/USDC.
+- `spot`: Latest tracked market spot price where price tracking is active.
+- `effective_supply`: Supply used as the NAV denominator after NAVgator exclusions.
+- `premium_discount_pct`: `(spot - nav) / nav * 100`; null when spot or NAV is unavailable.
+
+## Citation Policy
+
+When citing NAVgator, cite the specific API endpoint or static project page used, include `snapshot_time` or `updated_at`, and distinguish live/on-chain facts from NAVgator assumptions.
+
+## Update Cadence
+
+The API exposes the latest stored NAV snapshots and is generally refreshed by scheduled backend jobs. Static documentation changes less frequently and should be treated as documentation, not a live market feed.
+
+## Known Limitations
+
+- Missing values mean no publishable current snapshot is available from the public layer.
+- NAV depends on configured wallet ownership, supply exclusions, and market data availability.
+- USDC-denominated values are treated as USD for display.
+- Maintenance mode on the human terminal should not be interpreted as the data/API being unavailable.

@@ -1,0 +1,215 @@
+  @font-face {
+    font-family: 'Syne Fallback';
+    src: local('Arial');
+    size-adjust: 88%;
+    ascent-override: 95%;
+    descent-override: 25%;
+    line-gap-override: 0%;
+  }
+  .th-name { font-family: 'Syne', 'Syne Fallback', sans-serif !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* DESIGN TOKENS                                                   */
+/* ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Surface — Bloomberg Black */
+  --bg:        #000000;
+  --bg2:       #0a0a0a;
+  --bg3:       #141414;
+  --bg4:       #1a1a1a;
+  /* Borders */
+  --bdr:       #222222;
+  --bdr2:      #2a2a2a;
+  --bdr3:      #333333;
+  /* Text */
+  --dim:       #8a8a8a;
+  --muted:     #999999;
+  --body:      #bbbbbb;
+  --bright:    #dddddd;
+  --white:     #f0f0f0;
+  /* Brand — Bloomberg amber */
+  --green:     #FFB000;
+  --green-dim: rgba(255,176,0,0.08);
+  --green-glow:rgba(255,176,0,0.18);
+  --red:       #ff3333;
+  --orange:    #FFB000;
+  --blue:      #3399ff;
+  --purple:    #aa77ff;
+  /* Positive/Negative (separate from brand) */
+  --up:        #00cc66;
+  --down:      #ff3333;
+  /* Chart */
+  --chart-bg:  #000000;
+  /* Stale indicator */
+  --amber:     #f5a623;
+  /* Layout */
+  --sidebar-width: 225px;
+  --right-panel-width: 400px;
+  --site-header-height: 56px;
+  --site-footer-height: 40px;
+  --radius-card: 10px;
+  --radius-control: 8px;
+  --radius-small: 6px;
+  --numeric-font: 'IBM Plex Sans', sans-serif;
+  /* Z-index layers (ascending) */
+  --z-sidebar:      50;
+  --z-loader:       100;
+  --z-modal:        9000;
+  --z-tooltip:      9500;
+  --z-cursor:       9600;
+  --z-cmd:          9800;
+  --z-mobile-gate:  9900;
+  --z-maintenance:  9950;
+  /* Depth — whisper-level shadows for surface separation */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.25);
+  --shadow-lg: 0 4px 24px rgba(0,0,0,0.35);
+  /* Translucent borders — Linear-style surface layering */
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-medium: rgba(255,255,255,0.06);
+  --surface-hover: rgba(255,255,255,0.03);
+  --surface-active: rgba(255,255,255,0.06);
+}
+html[data-theme="light"] {
+  --bg:        #f5f1e8;
+  --bg2:       #eee7d8;
+  --bg3:       #e4dbc8;
+  --bg4:       #dad0bc;
+  --bdr:       #c9bea8;
+  --bdr2:      #bdae95;
+  --bdr3:      #a9997f;
+  --dim:       #7f735f;
+  --muted:     #6f6454;
+  --body:      #4b4338;
+  --bright:    #2f2a23;
+  --white:     #14110d;
+  --chart-bg:  #f5f1e8;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+  --shadow-lg: 0 4px 24px rgba(0,0,0,0.12);
+  --border-subtle: rgba(0,0,0,0.05);
+  --border-medium: rgba(0,0,0,0.08);
+  --surface-hover: rgba(0,0,0,0.035);
+  --surface-active: rgba(0,0,0,0.07);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; overflow: hidden; }
+html[data-numfont="inter"] { --numeric-font: 'Inter', sans-serif; }
+html[data-numfont="ibm"] { --numeric-font: 'IBM Plex Sans', sans-serif; }
+body {
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: 'zero' 1, 'tnum' 1;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--body);
+  min-height: 100vh;
+  min-width: 1100px;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(255,176,0,0.25); color: var(--white); }
+
+/* Tabular numbers on all financial data (Stripe pattern) */
+.tt-price, .tt-change, .tt-nav-val, .tt-treasury, .tt-mcap,
+.pnav-badge, .rp-stat-val, .rp-chg-val, .snap-value,
+.dp-nav-val, .dp-treas-total, .dp-val, .dp-trow-usdc, .dp-trow-tokens,
+.hs-val, .hs-chg, .th-price, .tp-price, .tp-chg-row,
+.ac-value, .am-pct, .am-amount,
+.ns-value, .tc-runway-val, .bb-tape-price, .bb-tape-chg,
+.re-card-eff, .re-card-val, .timeline-index {
+  font-family: var(--numeric-font) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Corners default to crisp; components opt into the shared radius scale. */
+*, *::before, *::after { border-radius: 0; }
+/* Explicit full-circle status indicators. */
+#live-dot-nav, #live-dot-price, #live-dot-forecast,
+.live-dot, .th-live-dot,
+.th-dot, .dp-tdot, .backend-health-dot,
+.tp-lp-sublabel .tp-section-arrow,
+.hldr-legend-dot { border-radius: 50% !important; }
+/* Exceptions — tooltips */
+.stat-tip::after, .stat-tip[data-tip]::after,
+.beta-warn-tip::after, .price-check-badge::after,
+#stale-tooltip, .tm-tooltip { border-radius: 6px !important; }
+/* Exceptions — search, command palette, auth */
+.tp-search, .cmd-item, .auth-modal { border-radius: 6px !important; }
+.cmd-kbd, .auth-btn, .auth-input { border-radius: 4px !important; }
+/* Exceptions — pill badges */
+.lp-badge { border-radius: 20px !important; }
+/* Exceptions — progress bars, scrollbar thumbs */
+.ns-progress, .ns-progress-fill,
+.util-bar, .util-fill, .dp-tbar,
+.hldr-distro-bar, .hldr-seg:first-child, .hldr-seg:last-child,
+.hldr-conc-bar-track, .hldr-conc-bar-fill,
+.hldr-bar-wrap, .hldr-bar-fill { border-radius: 2px !important; }
+::-webkit-scrollbar-thumb { border-radius: 2px !important; }
+/* Exceptions — chart control pills */
+.chart-pill { border-radius: 5px !important; }
+.chart-pill-btn { border-radius: 3px !important; }
+
+/* Bloomberg: green/red for up/down (override amber brand) */
+.up, .tt-change.up, .tt-change .up, .hs-chg .up, .rp-chg-val.up, .rp-stat-val.above, .dp-val.green, .dp-nav-badge.above, .pnav-badge.above, .tp-chg-row .up { color: #00cc66 !important; }
+.down, .tt-change.down, .tt-change .down, .hs-chg .down, .rp-chg-val.down, .rp-stat-val.below, .dp-val.red, .dp-nav-badge.below, .pnav-badge.below, .tp-chg-row .down { color: #ff3333 !important; }
+.pnav-badge.above { background: rgba(0,204,102,0.1) !important; }
+.pnav-badge.below { background: rgba(255,51,51,0.1) !important; }
+.dp-nav-badge.above { background: rgba(0,204,102,0.08) !important; border-color: rgba(0,204,102,0.18) !important; }
+.dp-nav-badge.below { background: rgba(255,51,51,0.08) !important; border-color: rgba(255,51,51,0.18) !important; }
+
+/* Bloomberg: disable decorative animations by default */
+*, *::before, *::after { animation: none; }
+/* Selective micro-transitions on interactive elements (120ms — Linear standard) */
+a, button, [role="button"], .tp-item, .cmd-item, .re-card,
+.token-table tbody tr, .token-table tbody td,
+.nav-link, .cbtn, .layer-btn, .chart-pill-btn, .chart-fs-btn,
+.lp-filter-btn, .rp-link-btn, .rp-action-btn, .tc-toggle-btn,
+.addr-copy, .refresh-btn, .wl-star, .tx-filter-btn,
+.tp-search, .auth-input, .cmd-input,
+.tp-section-arrow, .chg-rotate-frame,
+.view-toggle-btn, .treemap-size-btn {
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+/* Tooltip fade — slightly longer */
+.stat-tip::after, .stat-tip[data-tip]::after,
+.beta-warn-tip::after, .price-check-badge::after,
+#stale-tooltip {
+  transition: opacity 150ms ease;
+}
+/* Section collapse animation */
+.tp-section-body {
+  transition: max-height 220ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+/* Animations that must run */
+.token-switch-circle svg,
+.chart-loading .chart-loading-spinner,
+.refresh-btn.spinning svg { animation: tss-spin 0.8s linear infinite !important; }
+.live-dot { animation: greenPulse 1.5s ease-in-out infinite !important; }
+.th-live-dot { animation: livePulse 2s ease-in-out infinite !important; }
+.loading-shimmer { animation: shimmer 1.5s infinite !important; }
+/* Chart live dots — static, no animated glow */
+#live-dot-nav, #live-dot-price, #live-dot-forecast { animation: none !important; }
+/* Bloomberg: tighter spacing */
+.dp-row { padding: 3px 14px; }
+.rp-stat-box { padding: 10px 14px; }
+.dp-treasury { padding: 8px 14px 10px; }
+/* Reserve uniform space for the four right-rail sections so boxes don't pop in at varying sizes */
+#tc-card, #es-card, #dilution-timeline-box, #perf-tabs-group, #history-group { min-height: 160px; }
+/* Bloomberg: all fonts monospace */
+.nav-link, .lp-filter-btn, .rp-link-btn, .dp-key, .hero-sub, .tt-name, .tt-ticker,
+.nav-breadcrumb, .rp-stat-label, .dp-sec-label, .dp-group-label, .footer,
+.hs-label, .cmd-input, .auth-btn, .auth-input, .tp-section-label, .rp-contract-label {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+/* Bloomberg: amber labels */
+.hs-label, .rp-stat-label, .dp-sec-label, .dp-group-label, .rp-contract-label,
+.dp-nav-eyebrow, .dp-subheading, .tp-section-label {
+  color: var(--orange) !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: var(--bdr3); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: #555; }

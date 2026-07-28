@@ -1,0 +1,20 @@
+{
+  "name": "@01resolved/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Versioned runtime and TypeScript contracts shared by 01Resolved and 01Rx.",
+  "type": "module",
+  "main": "./src/index.cjs",
+  "module": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "require": "./src/index.cjs"
+    }
+  },
+  "files": [
+    "src"
+  ]
+}
