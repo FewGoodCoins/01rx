@@ -1,5 +1,3 @@
-import { alignPriceAndNav } from './model.js';
-
 function drawablePoints(aligned, chart, priceSeries, navSeries) {
   const timeScale = chart.timeScale();
   return aligned.map((point) => {
@@ -109,8 +107,8 @@ export function createPriceNavGradientPrimitive({
     paneViews() {
       return [paneView];
     },
-    setData(pricePoints, navPoints) {
-      aligned = alignPriceAndNav(pricePoints, navPoints);
+    setData(nextAligned) {
+      aligned = Array.isArray(nextAligned) ? nextAligned : [];
       requestUpdate?.();
     },
     setEnabled(nextEnabled) {

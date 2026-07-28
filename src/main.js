@@ -20,6 +20,7 @@ const elements = {
   featuresMenu: document.querySelector('#features-menu'),
   featuresTrigger: document.querySelector('#features-trigger'),
   legendNav: document.querySelector('#legend-nav'),
+  legendNavLabel: document.querySelector('#legend-nav-label'),
   legendPrice: document.querySelector('#legend-price'),
   legendSpread: document.querySelector('#legend-spread'),
   legendSymbol: document.querySelector('#legend-symbol'),
@@ -75,13 +76,14 @@ function spreadClass(value) {
   return number > 0 ? 'positive' : 'negative';
 }
 
-function updateValueSet({ nav, price } = {}) {
+function updateValueSet({ nav, navKind, price } = {}) {
   const activePrice = Number.isFinite(Number(price)) ? Number(price) : latestSnapshot?.price;
   const activeNav = Number.isFinite(Number(nav)) ? Number(nav) : latestSnapshot?.nav;
   const spread = activePrice > 0 && activeNav > 0
     ? (activePrice / activeNav - 1) * 100
     : null;
   elements.legendPrice.textContent = formatPrice(activePrice);
+  elements.legendNavLabel.textContent = navKind === 'projected' ? 'Projected NAV' : 'NAV';
   elements.legendNav.textContent = formatPrice(activeNav);
   elements.legendSpread.textContent = formatSpread(spread);
   elements.legendSpread.className = spreadClass(spread);
@@ -225,6 +227,16 @@ function syncMarketHeader(market, result) {
   elements.statSpread.className = spreadClass(result.snapshot.spread);
   elements.statTreasury.textContent = formatCompact(result.snapshot.treasury, true);
   elements.statSupply.textContent = formatCompact(result.snapshot.effectiveSupply);
+  const projection = result.projection;
+  const monthlySpend = projection.monthlySpendConfigured
+    ? `${formatCompact(projection.monthlySpend, true)}/mo spend`
+    : 'no monthly spend configured';
+  elements.projectionNote.textContent = [
+    'Projected NAV',
+    monthlySpend,
+    `${projection.horizonMonths}-month horizon`,
+    `constant ${formatCompact(projection.effectiveSupply)} supply`,
+  ].join(' · ');
   updateValueSet();
 }
 

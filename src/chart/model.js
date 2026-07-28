@@ -191,6 +191,15 @@ function interpolateAt(points, time) {
   return leftValue + (rightValue - leftValue) * fraction;
 }
 
+export function interpolateSeriesValue(points, time) {
+  const targetTime = unixSeconds(time);
+  if (!Number.isFinite(targetTime)) return null;
+  // Chart layer series are normalized once during ingestion and remain sorted.
+  // Keeping this lookup allocation-free matters because it runs on every
+  // crosshair movement.
+  return interpolateAt(Array.isArray(points) ? points : [], targetTime);
+}
+
 export function alignPriceAndNav(pricePoints, navPoints) {
   const prices = dedupeSorted((Array.isArray(pricePoints) ? pricePoints : [])
     .map(point => ({

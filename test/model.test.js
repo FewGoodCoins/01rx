@@ -7,6 +7,7 @@ import {
   alignPriceAndNav,
   buildGradientRegions,
   buildProjectedNav,
+  interpolateSeriesValue,
   marketSnapshot,
   normalizeCandles,
   normalizeNavRows,
@@ -96,6 +97,17 @@ test('aligns price and NAV with interpolation across shared history', () => {
     { time: 5, price: 2, nav: 2, delta: 0 },
     { time: 10, price: 3, nav: 2, delta: 1 },
   ]);
+});
+
+test('interpolates a series value at an unmatched timestamp', () => {
+  assert.equal(interpolateSeriesValue(
+    [{ time: 0, value: 1 }, { time: 3_600, value: 2 }],
+    900,
+  ), 1.25);
+  assert.equal(interpolateSeriesValue(
+    [{ time: 0, value: 1 }, { time: 3_600, value: 2 }],
+    7_200,
+  ), null);
 });
 
 test('gradient regions split exactly where price crosses NAV', () => {
