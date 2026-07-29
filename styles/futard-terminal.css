@@ -9454,6 +9454,7 @@ html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #lw-chart-cont
 
 html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #lw-chart-container > table,
 html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #lw-chart-container > canvas,
+html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #lw-chart-container > .tv-lightweight-charts,
 html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #lw-chart-container > .tv-logo-circle,
 html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #live-dot-clip,
 html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #ch-time-label {
@@ -9473,10 +9474,14 @@ html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] #chart-loading
   inset: 0;
   overflow: hidden;
   background: #101010;
+  visibility: hidden;
+  opacity: 0;
   pointer-events: none;
 }
 
 .advanced-charts-surface.is-ready {
+  visibility: visible;
+  opacity: 1;
   pointer-events: auto;
 }
 
