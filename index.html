@@ -485,6 +485,18 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       <div id="tlp-decisions-list">
         <div class="tp-decisions-empty">0 live decision markets</div>
       </div>
+      <div class="tp-unified-section-heading tp-past-decisions-heading">
+        <span id="tp-past-decisions-title">Past Proposals</span>
+        <span class="tp-unified-section-count" id="tp-past-decision-count">0</span>
+      </div>
+      <div class="tp-decision-columns tp-past-decision-columns" aria-hidden="true">
+        <span>Market</span>
+        <span>Status</span>
+        <span>Result</span>
+      </div>
+      <div id="tlp-past-decisions-list" aria-labelledby="tp-past-decisions-title">
+        <div class="tp-decisions-empty">0 past proposals</div>
+      </div>
     </section>
     <div id="tlp-wl-section" class="tp-wl-section">
       <button class="tp-section-label collapsed" onclick="toggleWlCollapse()" type="button" aria-expanded="false">

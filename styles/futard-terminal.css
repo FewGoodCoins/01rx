@@ -7966,6 +7966,107 @@ body.is-token-markets .token-markets-root {
   content: "";
 }
 
+.ft-decision-outcome-tabs {
+  display: grid;
+  min-height: 38px;
+  grid-template-columns: minmax(62px, 0.8fr) repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  border-bottom: 1px solid #393936;
+}
+
+.ft-decision-outcome-tabs > span {
+  display: flex;
+  padding-left: 3px;
+  align-items: center;
+  color: #85847d;
+  font-size: 10px;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.ft-decision-outcome-tabs button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: #8e8d87;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ft-decision-outcome-tabs button.ft-is-active:first-of-type {
+  background: #153329;
+  color: #70e5ba;
+}
+
+.ft-decision-outcome-tabs button.ft-is-active:last-child {
+  background: #351b20;
+  color: #ff929e;
+}
+
+.ft-decision-market-ticket {
+  min-height: 480px;
+  max-height: 610px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ft-decision-market-ticket .ft-ownership-order-body {
+  padding-top: 10px;
+}
+
+.ft-decision-limit-field {
+  display: grid;
+  min-height: 42px;
+  margin-bottom: 9px;
+  grid-template-columns: minmax(72px, 0.7fr) minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid #4b4b46;
+  border-radius: 9px;
+  background: #0d0d0d;
+  color: #989790;
+}
+
+.ft-decision-limit-field > span {
+  padding-left: 10px;
+  font-size: 10px;
+}
+
+.ft-decision-limit-field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 8px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e8e7e3;
+  font-size: 13px;
+  text-align: right;
+}
+
+.ft-decision-limit-field > strong {
+  padding: 0 10px;
+  border-left: 1px solid #393936;
+  color: #e8e7e3;
+  font-size: 11px;
+  line-height: 40px;
+}
+
+.ft-decision-recurring-total {
+  display: block;
+  margin-top: 8px;
+  color: #aaa9a2;
+  font-size: 10px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.ft-decision-market-ticket-closed .ft-decision-outcome-tabs button.ft-is-active,
+.ft-decision-market-ticket-closed .ft-ownership-side-tabs button.ft-is-active,
+.ft-decision-market-ticket-closed .ft-ownership-order-tabs button.ft-is-active {
+  opacity: 1;
+}
+
 .ft-ownership-chevron {
   display: inline-block;
   width: 7px;
@@ -8361,6 +8462,11 @@ body.is-token-markets .token-markets-root {
   font-size: 8px;
 }
 
+.ft-transactions-column {
+  display: none;
+  min-width: 0;
+}
+
 [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-stage {
   display: none;
 }
@@ -8402,12 +8508,99 @@ body.is-token-markets .token-markets-root {
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ticket-column > [data-ft-region="trade-ticket"] {
     height: 100%;
   }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-terminal-grid {
+    grid-template-columns:
+      minmax(0, 1.55fr)
+      minmax(210px, 0.55fr)
+      minmax(275px, 0.72fr);
+    align-items: stretch;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-chart,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-chart {
+    min-width: 0;
+    height: 100%;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-transactions-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-transactions-column {
+    display: block;
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column {
+    position: static;
+    min-width: 0;
+    grid-column: 3;
+    grid-row: 2;
+    align-content: stretch;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column > [data-ft-region="trade-ticket"],
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column > [data-ft-region="trade-ticket"] {
+    height: 100%;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-stage,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-stage {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-activity-row,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-activity-row {
+    display: block;
+    min-width: 0;
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-chart .ft-hourly-panel,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-chart .ft-hourly-panel {
+    min-height: 480px;
+    max-height: 610px;
+  }
 }
 
 @media (max-width: 980px) {
   .ft-ownership-chart-panel {
     height: auto;
     min-height: 420px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-transactions-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-transactions-column {
+    display: block;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 980px) {
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-transactions-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-transactions-column {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-stage,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-stage {
+    grid-row: 4;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column {
+    grid-row: 5;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-activity-row,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-activity-row {
+    grid-row: 6;
   }
 }
 
