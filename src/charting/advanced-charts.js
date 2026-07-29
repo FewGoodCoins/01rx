@@ -1163,6 +1163,10 @@ function removeNavGradientOverlay(mountState) {
   if (mountState) mountState.navGradientOverlay = null;
 }
 
+export function advancedChartSurfaceReady(mountState) {
+  return mountState?.baseChartReady === true;
+}
+
 export function advancedPriceGradientPoints(snapshot) {
   return (snapshot?.priceBars || []).map(item => ({
     price: chartPointValue(item),
@@ -1212,6 +1216,7 @@ function advancedGradientColorAtPoint(points, y, colors) {
 function renderPriceGradientOverlay(mountState) {
   if (
     !mountState?.widget
+    || !advancedChartSurfaceReady(mountState)
     || !mountState.frameDocument
     || !chartSnapshotVisibility(mountState.latestSnapshot).historicPrice
     || !isAdvancedLineChartType(
@@ -1342,6 +1347,7 @@ function renderPriceGradientOverlay(mountState) {
 function renderNavGradientOverlay(mountState) {
   if (
     !mountState?.widget
+    || !advancedChartSurfaceReady(mountState)
     || !mountState.frameDocument
     || !chartSnapshotVisibility(mountState.latestSnapshot).historicNav
   ) {
@@ -1480,7 +1486,11 @@ function removeCurrentReferenceFallback(mountState) {
 }
 
 function renderCurrentReferenceFallback(mountState) {
-  if (!mountState?.widget || !mountState.frameDocument) {
+  if (
+    !mountState?.widget
+    || !advancedChartSurfaceReady(mountState)
+    || !mountState.frameDocument
+  ) {
     removeCurrentReferenceFallback(mountState);
     return;
   }
@@ -1641,6 +1651,7 @@ function renderProjectedNavOverlay(mountState) {
   if (
     !mountState?.projectedNavVisible
     || !mountState.widget
+    || !advancedChartSurfaceReady(mountState)
     || !mountState.frameDocument
   ) {
     removeProjectedNavOverlay(mountState);
@@ -1771,7 +1782,8 @@ function updateChartStats(mountState, snapshot, time = null) {
       <span><small>SUPPLY</small><strong>${formatStatusCompact(values.supply)}</strong></span>
     </div>
   `;
-  mountState.stats.hidden = !Number.isFinite(values.price)
+  mountState.stats.hidden = !advancedChartSurfaceReady(mountState)
+    || !Number.isFinite(values.price)
     && !Number.isFinite(values.nav)
     && !Number.isFinite(values.treasury)
     && !Number.isFinite(values.supply);
@@ -2165,6 +2177,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
     if (existing) return existing;
 
     const mountState = {
+      baseChartReady: false,
       configuration,
       currentReferenceAxisLabels: {},
       currentReferenceFallbackHold: true,
@@ -2191,6 +2204,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
       projectedNavRenderFrame: null,
       projectedNavRestoreRange: null,
       projectedNavVisible: false,
+      presentedChartKey: '',
       priceGradientOverlay: null,
       priceGradientRenderFrame: null,
       navGradientOverlay: null,
@@ -2321,12 +2335,9 @@ export function installBrowserAdvancedCharts(browserWindow) {
 
         return widget.chartReady().then(async () => {
           if (mountState.destroyed) return null;
-          runtime.document.documentElement.dataset.chartEngine = 'advanced';
-          container.classList.add('is-ready');
           moveChartStatsIntoFrame(mountState);
           updateChartStats(mountState, mountState.latestSnapshot);
           mountState.currentReferenceFallbackHold = true;
-          scheduleCurrentReferenceRender(mountState);
           const chart = widget.activeChart();
           mountState.crosshairSubscription = chart.crossHairMoved?.();
           mountState.crosshairHandler = ({ time } = {}) => {
@@ -2463,6 +2474,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
   function scheduleProjectedNavRender(mountState) {
     if (
       !mountState
+      || !advancedChartSurfaceReady(mountState)
       || mountState.destroyed
       || mountState.projectedNavRenderFrame != null
     ) return;
@@ -2478,6 +2490,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
   function schedulePriceGradientRender(mountState) {
     if (
       !mountState
+      || !advancedChartSurfaceReady(mountState)
       || mountState.destroyed
       || mountState.priceGradientRenderFrame != null
     ) return;
@@ -2494,6 +2507,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
   function scheduleCurrentReferenceRender(mountState) {
     if (
       !mountState
+      || !advancedChartSurfaceReady(mountState)
       || mountState.destroyed
       || mountState.currentReferenceRenderFrame != null
     ) return;
@@ -2715,6 +2729,31 @@ export function installBrowserAdvancedCharts(browserWindow) {
     scheduleCurrentReferenceRender(mountState);
   }
 
+  function suspendAdvancedChartSurface(mountState) {
+    if (!mountState) return;
+    mountState.baseChartReady = false;
+    mountState.container?.classList.remove('is-ready');
+    if (mountState.stats) mountState.stats.hidden = true;
+    removeCurrentReferenceFallback(mountState);
+    removeProjectedNavOverlay(mountState);
+    removePriceGradientOverlay(mountState);
+    removeNavGradientOverlay(mountState);
+    runtime.document.documentElement.dataset.chartEngine = 'advanced-loading';
+  }
+
+  function revealAdvancedChartSurface(mountState, chartKey) {
+    if (!mountState || mountState.destroyed) return;
+    mountState.baseChartReady = true;
+    mountState.presentedChartKey = chartKey;
+    updateChartStats(mountState, mountState.latestSnapshot);
+    renderCurrentReferenceFallback(mountState);
+    renderProjectedNavOverlay(mountState);
+    renderPriceGradientOverlay(mountState);
+    renderNavGradientOverlay(mountState);
+    runtime.document.documentElement.dataset.chartEngine = 'advanced';
+    mountState.container?.classList.add('is-ready');
+  }
+
   async function updateTokenChart(snapshot) {
     if (!snapshot?.container) return false;
     const mountState = await mount(snapshot);
@@ -2728,6 +2767,10 @@ export function installBrowserAdvancedCharts(browserWindow) {
     const token = normalizeTokenKey(snapshot.tokenKey);
     const ticker = normalizeTicker(snapshot.ticker, token);
     const resolution = tradingViewResolutionForTimeframe(snapshot.timeframe);
+    const chartKey = `${token}:${resolution}`;
+    const needsColdReveal = !advancedChartSurfaceReady(mountState)
+      || mountState.presentedChartKey !== chartKey;
+    if (needsColdReveal) suspendAdvancedChartSurface(mountState);
     mountState.datafeed.setSeries(
       tradingViewSymbol(token, 'price', ticker),
       resolution,
@@ -2771,6 +2814,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
       schedulePriceGradientRender(mountState);
     });
     await mountState.studySync;
+    if (needsColdReveal) revealAdvancedChartSurface(mountState, chartKey);
     return true;
   }
 

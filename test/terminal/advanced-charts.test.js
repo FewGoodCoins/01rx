@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const test = require('node:test');
 
 const advancedChartsModulePromise = import(
@@ -268,6 +269,35 @@ test('Advanced Charts waits for TradingView data before initial reference lines'
       return true;
     },
   });
+});
+
+test('Advanced Charts keeps its surface and SVG overlays hidden until base data is ready', async () => {
+  const { advancedChartSurfaceReady } = await advancedChartsModulePromise;
+  const source = fs.readFileSync('src/charting/advanced-charts.js', 'utf8');
+  const styles = fs.readFileSync('styles/futard-terminal.css', 'utf8');
+  const updateStart = source.indexOf('async function updateTokenChart');
+  const updateEnd = source.indexOf('async function updateGrowthChart', updateStart);
+  const updateSource = source.slice(updateStart, updateEnd);
+
+  assert.equal(advancedChartSurfaceReady(), false);
+  assert.equal(advancedChartSurfaceReady({ baseChartReady: false }), false);
+  assert.equal(advancedChartSurfaceReady({ baseChartReady: true }), true);
+  assert.ok(
+    updateSource.indexOf('await waitForAdvancedChartData')
+      < updateSource.indexOf('revealAdvancedChartSurface'),
+  );
+  assert.match(
+    styles,
+    /\.advanced-charts-surface\s*\{[\s\S]*?visibility:\s*hidden;[\s\S]*?opacity:\s*0;/,
+  );
+  assert.match(
+    styles,
+    /\.advanced-charts-surface\.is-ready\s*\{[\s\S]*?visibility:\s*visible;[\s\S]*?opacity:\s*1;/,
+  );
+  assert.match(
+    styles,
+    /\[data-chart-engine\^="advanced"\] #lw-chart-container > \.tv-lightweight-charts/,
+  );
 });
 
 test('Advanced Charts only uses the official playground locally and approved paths in production', async () => {
