@@ -16,7 +16,7 @@ test('01RX opens ownership-token markets by default', () => {
   );
 });
 
-test('01RX preserves explicit token, market, and embed routes', () => {
+test('01RX redirects research routes while preserving market, chart-frame, and embed routes', () => {
   assert.equal(default01rxDestination({
     pathname: '/',
     search: '?token=loyal&view=markets&tab=decisions',
@@ -29,6 +29,14 @@ test('01RX preserves explicit token, market, and embed routes', () => {
     pathname: '/embed',
     search: '?token=solo',
   }), null);
+  assert.equal(default01rxDestination({
+    pathname: '/',
+    search: '?token=solo&frame=01rx',
+  }), null);
+  assert.equal(default01rxDestination({
+    pathname: '/',
+    search: '?token=loyal',
+  }), '/?token=loyal&view=markets&tab=tokens');
 });
 
 test('default route updates history without navigating away', () => {

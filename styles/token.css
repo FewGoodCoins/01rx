@@ -17,6 +17,18 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+/* 01RX adds only NAV and Growth controls. TradingView owns generic chart
+   controls such as timeframe, chart type, drawing tools, scale, and export. */
+body.is-token .chart-toolbar-row > .chart-controls,
+body.is-token .chart-toolbar-row > .chart-series-control,
+body.is-token .chart-toolbar-row > .chart-feature-control,
+body.is-token .chart-toolbar-row > #btn-chart-embed,
+body.is-token .chart-toolbar-row > #layer-controls,
+body.is-token .chart-drawing-rail-01rx,
+body.is-token #chart-legend-actions {
+  display: none !important;
+}
 /* Keep .token-panel as alias in case JS references it */
 #token-left-panel { display: contents; }
 .tp-topbar { padding: 8px 10px; height: 50px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; }
@@ -1031,8 +1043,8 @@ a.growth-stat-source:focus-visible {
 .tv-logo-circle svg { width: 22px; height: 12px; }
 
 @keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 4px 0 rgba(255,255,255,0.40); }
-  50%      { box-shadow: 0 0 14px 3px rgba(255,255,255,0.65); }
+  0%, 100% { box-shadow: 0 0 4px 0 currentColor; }
+  50%      { box-shadow: 0 0 14px 3px currentColor; }
 }
 @keyframes pulse-dot-green {
   0%, 100% { box-shadow: 0 0 4px 0 rgba(0,229,160,0.40); }
@@ -2976,6 +2988,8 @@ body.is-token #chart-timeframe-trigger {
   color: #ededed;
 }
 .chart-series-control,
+.chart-nav-control,
+.chart-growth-control,
 .chart-feature-control,
 .chart-style-cell {
   display: none;

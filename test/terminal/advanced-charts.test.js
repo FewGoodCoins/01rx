@@ -118,6 +118,40 @@ test('Advanced Charts normalizes API bars to sorted millisecond OHLCV data', asy
   ]);
 });
 
+test('Advanced Charts exposes the same blue-purple line-gradient points', async () => {
+  const {
+    advancedPriceGradientPoints,
+    isAdvancedLineChartType,
+  } = await advancedChartsModulePromise;
+
+  assert.deepEqual(advancedPriceGradientPoints({
+    priceBars: [
+      { time: 20_000, close: 0.7 },
+      { time: 10, value: 0.6 },
+    ],
+  }), [
+    { time: 10, price: 0.6 },
+    { time: 20_000, price: 0.7 },
+  ]);
+  assert.equal(isAdvancedLineChartType(2), true);
+  assert.equal(isAdvancedLineChartType('line'), true);
+  assert.equal(isAdvancedLineChartType(1), false);
+});
+
+test('Advanced Charts exposes NAV points for the yellow-orange gradient', async () => {
+  const { advancedNavGradientPoints } = await advancedChartsModulePromise;
+
+  assert.deepEqual(advancedNavGradientPoints({
+    navBars: [
+      { timestamp: 30_000, close: 0.9 },
+      { ts: 20, value: 0.8 },
+    ],
+  }), [
+    { time: 20, price: 0.8 },
+    { time: 30_000, price: 0.9 },
+  ]);
+});
+
 test('Advanced Charts status reports price, interpolated NAV, and discount', async () => {
   const { advancedChartStatusValues } = await advancedChartsModulePromise;
   const snapshot = {

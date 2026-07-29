@@ -62,7 +62,7 @@ test('terminal route detection accepts canonical and built index paths only', as
   assert.equal(isFutarchyTerminalPath('/terminal-markets'), false);
 });
 
-test('route helpers generate canonical research and decision-market URLs', async () => {
+test('route helpers keep every token URL inside the 01RX market workspace', async () => {
   const { createRouteHelpers } = await shellRoutesModulePromise;
   const proposal = '11111111111111111111111111111111';
   const runtime = {
@@ -81,7 +81,7 @@ test('route helpers generate canonical research and decision-market URLs', async
     routes.marketDiscoveryUrl({ filter: 'resolved', proposal }),
     `/?view=markets&archive=1&filter=resolved&proposal=${proposal}`,
   );
-  assert.equal(routes.tokenResearchUrl('MetaDAO'), '/?token=meta');
+  assert.equal(routes.tokenResearchUrl('MetaDAO'), '/?token=meta&view=markets&tab=tokens');
   assert.equal(
     routes.tokenMarketUrl('MetaDAO', proposal),
     `/?token=meta&view=markets&proposal=${proposal}`,
@@ -96,7 +96,7 @@ test('route helpers generate canonical research and decision-market URLs', async
   runtime.location.search = '?token=meta&view=markets';
   assert.equal(routes.tokenPageUrl('Umbra'), '/?token=umbra&view=markets&tab=tokens');
   runtime.location.search = '?token=meta';
-  assert.equal(routes.tokenPageUrl('Umbra'), '/?token=umbra');
+  assert.equal(routes.tokenPageUrl('Umbra'), '/?token=umbra&view=markets&tab=tokens');
 });
 
 test('legacy terminal URLs resolve route helpers against the canonical app root', async () => {

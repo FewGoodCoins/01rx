@@ -670,7 +670,7 @@ function navToLaunchpad(lpKey) {
   stopTxPolling();
 
   history.pushState({}, '', _launchpadPageUrl(lpKey));
-  document.title = 'NAVgator — ' + lpKey.charAt(0).toUpperCase() + lpKey.slice(1);
+  document.title = '01RX — ' + lpKey.charAt(0).toUpperCase() + lpKey.slice(1);
 
   setBreadcrumb([
     { label: 'All Tokens', href: _homePageUrl(), handler: function() { navToAllTokens(); } },
@@ -779,7 +779,7 @@ function navToAllTokens() {
   document.body.classList.remove('is-dashboard');
   stopTxPolling();
   history.pushState({}, '', _homePageUrl());
-  document.title = 'NAVgator — Treasury Analytics for Ownership Tokens';
+  document.title = '01RX — Ownership and Decision Markets';
   setBreadcrumb([{ label: 'All Tokens', current: true }]);
   setLaunchpadFilter(null);
   refreshHealthStatus();
@@ -1111,7 +1111,7 @@ function _renderIdentityLaunchpadLogo() {
 function initTokenPageUI() {
   if (!CFG) return;
   document.body.classList.add('is-dashboard');
-  document.title = 'NAVgator · ' + CFG.ticker + '/USD — Treasury Analytics';
+  document.title = '01RX · ' + CFG.ticker + '/USD';
   _setEmbedGradientEnabled(_embedGradientEnabled);
   _setEmbedExtrasEnabled(_embedExtrasEnabled);
   _renderEmbedSummary();
@@ -3484,6 +3484,7 @@ function _setChartTimeframeMenuOpen(open, focusSelection) {
   var shouldOpen = !!open;
   if (shouldOpen) {
     _setChartSeriesMenuOpen(false);
+    _setChartNavMenuOpen(false);
     _setChartFeatureMenuOpen(false);
   }
   menu.hidden = !shouldOpen;
@@ -3506,6 +3507,30 @@ function _setChartSeriesMenuOpen(open, focusSelection) {
   var shouldOpen = !!open;
   if (shouldOpen) {
     _setChartTimeframeMenuOpen(false);
+    _setChartNavMenuOpen(false);
+    _setChartFeatureMenuOpen(false);
+  }
+  menu.hidden = !shouldOpen;
+  trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  if (!shouldOpen || !focusSelection) return;
+  var selected = menu.querySelector('.chart-series-option[aria-checked="true"]:not([disabled])')
+    || menu.querySelector('.chart-series-option:not([disabled])');
+  if (selected) {
+    window.requestAnimationFrame(function() {
+      try { selected.focus({ preventScroll: true }); }
+      catch (_e) { selected.focus(); }
+    });
+  }
+}
+
+function _setChartNavMenuOpen(open, focusSelection) {
+  var trigger = document.getElementById('chart-nav-trigger');
+  var menu = document.getElementById('chart-nav-menu');
+  if (!trigger || !menu) return;
+  var shouldOpen = !!open;
+  if (shouldOpen) {
+    _setChartTimeframeMenuOpen(false);
+    _setChartSeriesMenuOpen(false);
     _setChartFeatureMenuOpen(false);
   }
   menu.hidden = !shouldOpen;
@@ -3529,6 +3554,7 @@ function _setChartFeatureMenuOpen(open, focusSelection) {
   if (shouldOpen) {
     _setChartTimeframeMenuOpen(false);
     _setChartSeriesMenuOpen(false);
+    _setChartNavMenuOpen(false);
   }
   menu.hidden = !shouldOpen;
   trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
@@ -3541,6 +3567,18 @@ function _setChartFeatureMenuOpen(open, focusSelection) {
       catch (_e) { selected.focus(); }
     });
   }
+}
+
+function _syncChartNavTrigger() {
+  var trigger = document.getElementById('chart-nav-trigger');
+  if (!trigger) return;
+  var metricMode = _isMetricChartMode();
+  var active = !metricMode && (
+    (_layerNav && _showCurrentNavLine)
+    || (_layerNav && _isHistoricNavOn())
+    || _layerNavForecast
+  );
+  trigger.classList.toggle('active', active);
 }
 
 function _syncChartSeriesMenu() {
@@ -3566,6 +3604,7 @@ function _syncChartSeriesMenu() {
       option.title = navUnavailable ? 'Historic NAV is unavailable for this asset' : '';
     }
   });
+  _syncChartNavTrigger();
 }
 
 function _syncChartFeatureMenu() {
@@ -3592,6 +3631,7 @@ function _syncChartFeatureMenu() {
     else if (feature === 'gradient' && navHistoryUnavailable) option.title = 'Gradient requires historic NAV';
     else option.title = '';
   });
+  _syncChartNavTrigger();
 }
 
 function toggleChartCurrentSeries(series, event) {
@@ -3662,33 +3702,42 @@ function _bindChartTimeframeMenuDismissal() {
   document.addEventListener('click', function(e) {
     var timeframeControls = document.getElementById('chart-controls');
     var seriesControls = document.getElementById('chart-series-control');
+    var navControls = document.getElementById('chart-nav-control');
     var featureControls = document.getElementById('chart-feature-control');
     if (timeframeControls && !timeframeControls.contains(e.target)) _setChartTimeframeMenuOpen(false);
     if (seriesControls && !seriesControls.contains(e.target)) _setChartSeriesMenuOpen(false);
+    if (navControls && !navControls.contains(e.target)) _setChartNavMenuOpen(false);
     if (featureControls && !featureControls.contains(e.target)) _setChartFeatureMenuOpen(false);
   });
   document.addEventListener('keydown', function(e) {
     var timeframeMenu = document.getElementById('chart-timeframe-menu');
     var seriesMenu = document.getElementById('chart-series-menu');
+    var navMenu = document.getElementById('chart-nav-menu');
     var featureMenu = document.getElementById('chart-feature-menu');
     var menu = timeframeMenu && !timeframeMenu.hidden
       ? timeframeMenu
       : (seriesMenu && !seriesMenu.hidden
         ? seriesMenu
-        : (featureMenu && !featureMenu.hidden ? featureMenu : null));
+        : (navMenu && !navMenu.hidden
+          ? navMenu
+          : (featureMenu && !featureMenu.hidden ? featureMenu : null)));
     if (!menu) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopImmediatePropagation();
       var isSeriesMenu = menu === seriesMenu;
+      var isNavMenu = menu === navMenu;
       var isFeatureMenu = menu === featureMenu;
       if (isSeriesMenu) _setChartSeriesMenuOpen(false);
+      else if (isNavMenu) _setChartNavMenuOpen(false);
       else if (isFeatureMenu) _setChartFeatureMenuOpen(false);
       else _setChartTimeframeMenuOpen(false);
       var trigger = document.getElementById(
         isSeriesMenu
           ? 'chart-series-trigger'
-          : (isFeatureMenu ? 'chart-feature-trigger' : 'chart-timeframe-trigger')
+          : (isNavMenu
+            ? 'chart-nav-trigger'
+            : (isFeatureMenu ? 'chart-feature-trigger' : 'chart-timeframe-trigger'))
       );
       if (trigger) trigger.focus();
       return;
@@ -7611,19 +7660,25 @@ function _growthChartHasData() {
 }
 
 function _syncGrowthChartToggle() {
-  var btn = document.getElementById('btn-growth-chart');
-  if (!btn) return;
   var available = _growthChartHasData();
   var open = available && _growthChartOpen && !!_lwGrowth;
-  btn.hidden = false;
-  btn.style.display = '';
-  btn.disabled = !available;
-  btn.classList.toggle('disabled', !available);
-  btn.classList.toggle('on', open);
-  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  btn.setAttribute('aria-disabled', available ? 'false' : 'true');
-  btn.setAttribute('aria-label', available ? (open ? 'Hide growth pane' : 'Show growth pane') : 'Growth data coming soon');
-  btn.title = available ? (open ? 'Hide growth pane' : 'Show growth pane') : 'Growth data coming soon';
+  var buttons = [
+    document.getElementById('btn-growth-chart'),
+    document.getElementById('btn-growth-chart-toolbar')
+  ];
+  for (var i = 0; i < buttons.length; i++) {
+    var btn = buttons[i];
+    if (!btn) continue;
+    btn.hidden = false;
+    btn.style.display = '';
+    btn.disabled = !available;
+    btn.classList.toggle('disabled', !available);
+    btn.classList.toggle('on', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-disabled', available ? 'false' : 'true');
+    btn.setAttribute('aria-label', available ? (open ? 'Hide growth pane' : 'Show growth pane') : 'Growth data coming soon');
+    btn.title = available ? (open ? 'Hide growth pane' : 'Show growth pane') : 'Growth data coming soon';
+  }
 }
 
 function _refreshGrowthMetricChartRange(savedRange, oldBounds, includeGrowth) {
@@ -8794,6 +8849,10 @@ function _setLiveDotMomentum(kind, direction) {
 
 function _liveDotColor(_dotEl, fallback) {
   if (_dotEl && _dotEl.id === 'live-dot-price' && _isBuybackCurrentlyActive()) return '#00e5a0';
+  if (_dotEl && _dotEl.getAttribute) {
+    var gradientColor = _dotEl.getAttribute('data-gradient-color');
+    if (/^(?:#[0-9a-f]{6}|rgba?\()/i.test(String(gradientColor || ''))) return gradientColor;
+  }
   return fallback;
 }
 
@@ -8810,6 +8869,27 @@ function _chartRgbaFromHex(hex, alpha) {
   if (!match) return 'rgba(200,216,228,' + alpha + ')';
   var value = match[1];
   return 'rgba(' + parseInt(value.slice(0, 2), 16) + ',' + parseInt(value.slice(2, 4), 16) + ',' + parseInt(value.slice(4, 6), 16) + ',' + alpha + ')';
+}
+
+function _chartColorChannels(color) {
+  var raw = String(color || '').trim();
+  var hex = raw.match(/^#?([0-9a-f]{6})$/i);
+  if (hex) {
+    return [
+      parseInt(hex[1].slice(0, 2), 16),
+      parseInt(hex[1].slice(2, 4), 16),
+      parseInt(hex[1].slice(4, 6), 16)
+    ];
+  }
+  var rgb = raw.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i);
+  if (rgb) {
+    return [
+      Math.max(0, Math.min(255, Math.round(Number(rgb[1])))),
+      Math.max(0, Math.min(255, Math.round(Number(rgb[2])))),
+      Math.max(0, Math.min(255, Math.round(Number(rgb[3]))))
+    ];
+  }
+  return [200, 216, 228];
 }
 
 function _liveDotPlotRect(chartEl, chart) {
@@ -11094,7 +11174,7 @@ function initLWChart() {
   // Price area series
   var embedPriceArea = _embedPriceAreaOptions(_embedGradientEnabled);
   _lwPrice = _lwChart.addSeries(LightweightCharts.AreaSeries, {
-    lineColor: _isChartEmbed ? _embedChartInk() : 'rgba(200,216,228,0.78)',
+    lineColor: _isChartEmbed ? _embedChartInk() : 'rgba(74,120,255,0.16)',
     topColor: _isChartEmbed
       ? embedPriceArea.topColor
       : 'rgba(200,216,228,0.00)',
@@ -11189,13 +11269,13 @@ function initLWChart() {
   function _makeLiveDot(id, color) {
     var dot = document.createElement('span');
     dot.id = id;
-    dot.style.cssText = 'position:absolute;left:0;top:0;width:7px;height:7px;margin-left:-3.5px;margin-top:-3.5px;pointer-events:none;display:none;z-index:1001;background:' + color + ';opacity:0;will-change:transform;animation:pulse-dot 3s ease-in-out infinite;';
+    dot.style.cssText = 'position:absolute;left:0;top:0;width:7px;height:7px;margin-left:-3.5px;margin-top:-3.5px;pointer-events:none;display:none;z-index:1001;background:' + color + ';color:' + color + ';opacity:0;will-change:transform;animation:pulse-dot 3s ease-in-out infinite;';
     dot.setAttribute('data-momentum', id === 'live-dot-nav' ? (_liveMomentum.nav || 'flat') : (_liveMomentum.price || 'flat'));
     return dot;
   }
   var navDot = _makeLiveDot('live-dot-nav', _isChartEmbed ? _embedChartInk() : '#ffcc00');
   dotClip.appendChild(navDot);
-  var priceDot = _makeLiveDot('live-dot-price', _isChartEmbed ? _embedChartInk() : '#c8d8e4');
+  var priceDot = _makeLiveDot('live-dot-price', _isChartEmbed ? _embedChartInk() : '#2f8fff');
   dotClip.appendChild(priceDot);
   var forecastDot = _makeLiveDot('live-dot-forecast', _isChartEmbed ? _embedChartInk() : '#ffcc00');
   forecastDot.setAttribute('data-momentum', 'flat');
@@ -11240,7 +11320,15 @@ function initLWChart() {
   var _rippleInterval = 3000; // ms between ripples
 
   function _spawnRipple(dotEl, color) {
-    _ripples.push({ dot: dotEl, color: color, start: performance.now(), duration: 600, maxR: 16, rings: 2 });
+    _ripples.push({
+      dot: dotEl,
+      color: color,
+      channels: _chartColorChannels(color),
+      start: performance.now(),
+      duration: 600,
+      maxR: 16,
+      rings: 2
+    });
   }
 
   function _drawRipples(now) {
@@ -11281,7 +11369,8 @@ function initLWChart() {
       }
       if (isNaN(x) || isNaN(y)) continue;
       alive.push(rp);
-      var cr = parseInt(rp.color.slice(1,3), 16), cg = parseInt(rp.color.slice(3,5), 16), cb = parseInt(rp.color.slice(5,7), 16);
+      var channels = rp.channels || _chartColorChannels(rp.color);
+      var cr = channels[0], cg = channels[1], cb = channels[2];
       for (var ri = 0; ri < rp.rings; ri++) {
         var offset = ri * 0.15;
         var rt = Math.max(0, Math.min(1, (t - offset) / (1 - offset)));
@@ -11379,6 +11468,13 @@ function initLWChart() {
       dotEl.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
       dotEl.style.display = 'block';
     }
+    function _setLiveDotGradientColor(dotEl, color) {
+      if (!dotEl || !color) return;
+      dotEl.setAttribute('data-gradient-color', color);
+      dotEl.style.setProperty('background', color, 'important');
+      dotEl.style.setProperty('color', color, 'important');
+      dotEl.style.removeProperty('box-shadow');
+    }
     function _syncPriceBadgeColor(badgeEl) {
       if (!badgeEl) return;
       var lineColor = _isChartEmbed ? _embedChartInk() : '#c8d8e4';
@@ -11445,6 +11541,14 @@ function initLWChart() {
         var x = ts.timeToCoordinate(last.time);
         var y = _lwNav.priceToCoordinate(last.value);
         if (x !== null && y !== null && x > 0 && x < plotW && y > 0 && y < plotH) {
+          var navSegments = _collectSmoothLineSegments(
+            _lwNav,
+            _lwNavDisplayData.length > 0 ? _lwNavDisplayData : _lwNavHistory,
+            'value',
+            plotW
+          );
+          var navEndpointPoints = navSegments.length > 0 ? navSegments[navSegments.length - 1] : [];
+          _setLiveDotGradientColor(nd, _navLineGradientColorAtPoint(navEndpointPoints, y, 1));
           _placeLiveDot(nd, x, y);
           if (nb) {
             var badgePoint = navBadgePoint || { x: x, y: y };
@@ -11481,6 +11585,16 @@ function initLWChart() {
           }
           if (pd) {
             if (priceVisible) {
+              var priceSegments = _collectSmoothLineSegments(
+                _lwPrice,
+                _lwPriceDisplayData.length > 0 ? _lwPriceDisplayData : _lwPriceCache,
+                'value',
+                plotW
+              );
+              var priceEndpointPoints = priceSegments.length > 0 ? priceSegments[priceSegments.length - 1] : [];
+              var priceDotColor = _priceLineGradientColorAtPoint(priceEndpointPoints, y, 1);
+              if (_showBuybackMarkers && _isBuybackCurrentlyActive()) priceDotColor = '#00e5a0';
+              _setLiveDotGradientColor(pd, priceDotColor);
               _placeLiveDot(pd, x, y);
               if (_showBuybackMarkers && _isBuybackCurrentlyActive()) pd.classList.add('buyback-active'); else pd.classList.remove('buyback-active');
             } else {
@@ -13198,6 +13312,84 @@ function _drawSmoothStroke(ctx, pts, opts) {
   ctx.restore();
 }
 
+function _priceLineVerticalGradient(ctx, pts, opacity) {
+  if (!ctx || !pts || pts.length < 2) return 'rgba(47,143,255,' + opacity + ')';
+  var top = Infinity;
+  var bottom = -Infinity;
+  for (var i = 0; i < pts.length; i++) {
+    var y = Number(pts[i] && pts[i].y);
+    if (!isFinite(y)) continue;
+    if (y < top) top = y;
+    if (y > bottom) bottom = y;
+  }
+  if (!isFinite(top) || !isFinite(bottom)) return 'rgba(47,143,255,' + opacity + ')';
+  var gradient = ctx.createLinearGradient(0, top, 0, Math.max(top + 1, bottom));
+  gradient.addColorStop(0, 'rgba(168,85,247,' + opacity + ')');
+  gradient.addColorStop(0.48, 'rgba(99,102,241,' + opacity + ')');
+  gradient.addColorStop(1, 'rgba(47,143,255,' + opacity + ')');
+  return gradient;
+}
+
+function _priceLineGradientColorAtPoint(pts, y, opacity) {
+  if (!pts || pts.length < 2 || !isFinite(y)) return 'rgba(47,143,255,' + opacity + ')';
+  var top = Infinity;
+  var bottom = -Infinity;
+  for (var i = 0; i < pts.length; i++) {
+    var pointY = Number(pts[i] && pts[i].y);
+    if (!isFinite(pointY)) continue;
+    if (pointY < top) top = pointY;
+    if (pointY > bottom) bottom = pointY;
+  }
+  if (!isFinite(top) || !isFinite(bottom) || bottom <= top) return 'rgba(47,143,255,' + opacity + ')';
+  var ratio = Math.max(0, Math.min(1, (y - top) / (bottom - top)));
+  var from = ratio <= 0.48 ? [168, 85, 247] : [99, 102, 241];
+  var to = ratio <= 0.48 ? [99, 102, 241] : [47, 143, 255];
+  var sectionRatio = ratio <= 0.48 ? ratio / 0.48 : (ratio - 0.48) / 0.52;
+  var red = Math.round(from[0] + (to[0] - from[0]) * sectionRatio);
+  var green = Math.round(from[1] + (to[1] - from[1]) * sectionRatio);
+  var blue = Math.round(from[2] + (to[2] - from[2]) * sectionRatio);
+  return 'rgba(' + red + ',' + green + ',' + blue + ',' + opacity + ')';
+}
+
+function _navLineVerticalGradient(ctx, pts, opacity) {
+  if (!ctx || !pts || pts.length < 2) return 'rgba(255,159,10,' + opacity + ')';
+  var top = Infinity;
+  var bottom = -Infinity;
+  for (var i = 0; i < pts.length; i++) {
+    var y = Number(pts[i] && pts[i].y);
+    if (!isFinite(y)) continue;
+    if (y < top) top = y;
+    if (y > bottom) bottom = y;
+  }
+  if (!isFinite(top) || !isFinite(bottom)) return 'rgba(255,159,10,' + opacity + ')';
+  var gradient = ctx.createLinearGradient(0, top, 0, Math.max(top + 1, bottom));
+  gradient.addColorStop(0, 'rgba(255,228,92,' + opacity + ')');
+  gradient.addColorStop(0.5, 'rgba(255,191,31,' + opacity + ')');
+  gradient.addColorStop(1, 'rgba(255,138,0,' + opacity + ')');
+  return gradient;
+}
+
+function _navLineGradientColorAtPoint(pts, y, opacity) {
+  if (!pts || pts.length < 2 || !isFinite(y)) return 'rgba(255,159,10,' + opacity + ')';
+  var top = Infinity;
+  var bottom = -Infinity;
+  for (var i = 0; i < pts.length; i++) {
+    var pointY = Number(pts[i] && pts[i].y);
+    if (!isFinite(pointY)) continue;
+    if (pointY < top) top = pointY;
+    if (pointY > bottom) bottom = pointY;
+  }
+  if (!isFinite(top) || !isFinite(bottom) || bottom <= top) return 'rgba(255,159,10,' + opacity + ')';
+  var ratio = Math.max(0, Math.min(1, (y - top) / (bottom - top)));
+  var from = ratio <= 0.5 ? [255, 228, 92] : [255, 191, 31];
+  var to = ratio <= 0.5 ? [255, 191, 31] : [255, 138, 0];
+  var sectionRatio = ratio <= 0.5 ? ratio / 0.5 : (ratio - 0.5) / 0.5;
+  var red = Math.round(from[0] + (to[0] - from[0]) * sectionRatio);
+  var green = Math.round(from[1] + (to[1] - from[1]) * sectionRatio);
+  var blue = Math.round(from[2] + (to[2] - from[2]) * sectionRatio);
+  return 'rgba(' + red + ',' + green + ',' + blue + ',' + opacity + ')';
+}
+
 function _buybackPriceRowsForRun(run) {
   var rows = [];
   if (!run || !(run.end > run.start) || !_lwPriceCache || _lwPriceCache.length < 2) return rows;
@@ -13291,11 +13483,24 @@ function createSmoothLinePrimitive() {
             && document.documentElement.getAttribute('data-embed-theme') === 'light';
           for (var psi = 0; psi < priceSegments.length; psi++) {
             var pricePts = priceSegments[psi];
+            var standardPriceLine = !supplyMetricLine && !lightEmbedLine;
             _drawSmoothStroke(ctx, pricePts, {
-              color: supplyMetricLine ? 'rgba(0,204,102,0.96)' : (lightEmbedLine ? 'rgba(49,64,74,0.92)' : 'rgba(212,228,242,0.96)'),
-              halo: supplyMetricLine ? 'rgba(0,204,102,0.22)' : (lightEmbedLine ? 'rgba(49,64,74,0.12)' : 'rgba(200,216,228,0.20)'),
-              glow: supplyMetricLine ? 'rgba(0,204,102,0.07)' : (lightEmbedLine ? 'rgba(49,64,74,0.03)' : 'rgba(200,216,228,0.06)'),
-              width: 1.95,
+              color: supplyMetricLine
+                ? 'rgba(0,204,102,0.96)'
+                : (lightEmbedLine
+                  ? 'rgba(49,64,74,0.92)'
+                  : _priceLineVerticalGradient(ctx, pricePts, 0.98)),
+              halo: supplyMetricLine
+                ? 'rgba(0,204,102,0.22)'
+                : (lightEmbedLine
+                  ? 'rgba(49,64,74,0.12)'
+                  : _priceLineVerticalGradient(ctx, pricePts, 0.26)),
+              glow: supplyMetricLine
+                ? 'rgba(0,204,102,0.07)'
+                : (lightEmbedLine
+                  ? 'rgba(49,64,74,0.03)'
+                  : _priceLineVerticalGradient(ctx, pricePts, 0.09)),
+              width: standardPriceLine ? 2.55 : 1.95,
               smoothness: 0
             });
           }
@@ -13312,11 +13517,12 @@ function createSmoothLinePrimitive() {
         if (_layerNav && _lwNavHistory.length > 1) {
           var navSegments = _collectSmoothLineSegments(_lwNav, _lwNavDisplayData.length > 0 ? _lwNavDisplayData : _lwNavHistory, 'value', plotW);
           for (var nsi = 0; nsi < navSegments.length; nsi++) {
-            _drawSmoothStroke(ctx, navSegments[nsi], {
-              color: 'rgba(255,204,0,0.98)',
-              halo: 'rgba(255,204,0,0.18)',
-              glow: 'rgba(255,204,0,0.05)',
-              width: 2.05,
+            var navPts = navSegments[nsi];
+            _drawSmoothStroke(ctx, navPts, {
+              color: _navLineVerticalGradient(ctx, navPts, 0.98),
+              halo: _navLineVerticalGradient(ctx, navPts, 0.22),
+              glow: _navLineVerticalGradient(ctx, navPts, 0.07),
+              width: 2.55,
               smoothness: 0
             });
           }
@@ -13483,7 +13689,16 @@ function createLiveDotPrimitive() {
           var navLast = _lwNavHistory[_lwNavHistory.length - 1];
           var navX = ts.timeToCoordinate(navLast.time);
           var navY = _lwNav.priceToCoordinate(navLast.value);
-          if (pointInPlot(navX, navY, plotW, chartH)) drawDot(ctx, navX, navY, '#ffcc00');
+          if (pointInPlot(navX, navY, plotW, chartH)) {
+            var navSegments = _collectSmoothLineSegments(
+              _lwNav,
+              _lwNavDisplayData.length > 0 ? _lwNavDisplayData : _lwNavHistory,
+              'value',
+              plotW
+            );
+            var navEndpointPoints = navSegments.length > 0 ? navSegments[navSegments.length - 1] : [];
+            drawDot(ctx, navX, navY, _navLineGradientColorAtPoint(navEndpointPoints, navY, 1));
+          }
         }
 
         var priceVisible = !!(_lwPriceCache && _lwPriceCache.length > 0 && (
@@ -13497,7 +13712,17 @@ function createLiveDotPrimitive() {
             var priceY = priceSeries.priceToCoordinate(priceLast.value);
             var priceColor = (_showBuybackMarkers && _isBuybackCurrentlyActive())
               ? '#00cc66'
-              : (_isChartEmbed ? _embedChartInk() : '#c8d8e4');
+              : (_isChartEmbed ? _embedChartInk() : '#2f8fff');
+            if (!_isChartEmbed && !_isMetricChartMode() && !_layerOhlc) {
+              var priceSegments = _collectSmoothLineSegments(
+                _lwPrice,
+                _lwPriceDisplayData.length > 0 ? _lwPriceDisplayData : _lwPriceCache,
+                'value',
+                plotW
+              );
+              var priceEndpointPoints = priceSegments.length > 0 ? priceSegments[priceSegments.length - 1] : [];
+              priceColor = _priceLineGradientColorAtPoint(priceEndpointPoints, priceY, 1);
+            }
             if (_isMetricChartMode()) {
               if (priceX !== null && priceX !== undefined && isFinite(priceX) && priceX > 0 && priceX < plotW) {
                 drawCurrentLine(ctx, priceX, chartH, priceColor);
@@ -13624,9 +13849,13 @@ function createLaunchMarkerPrimitive() {
           var y = series.priceToCoordinate(point.value);
           if (x === null || y === null || !isFinite(x) || !isFinite(y)) return;
           if (x < -radius || x > plotW + radius || y < -radius || y > chartH + radius) return;
+          var resolvedColor = typeof color === 'function' ? color({ x: x, y: y }) : color;
+          var resolvedShadow = typeof shadowColor === 'function'
+            ? shadowColor({ x: x, y: y })
+            : shadowColor;
           ctx.beginPath();
-          ctx.fillStyle = color;
-          ctx.shadowColor = shadowColor;
+          ctx.fillStyle = resolvedColor;
+          ctx.shadowColor = resolvedShadow;
           ctx.shadowBlur = 10;
           ctx.arc(x, y, radius, 0, Math.PI * 2);
           ctx.fill();
@@ -13634,12 +13863,25 @@ function createLaunchMarkerPrimitive() {
         }
 
         var priceSeries = (_lwCandle && _layerOhlc) ? _lwCandle : _lwPrice;
-        if (_priceEnabled && (_layerPrice || _layerOhlc)) {
-          var launchPriceDotColor = _isChartEmbed ? '#111111' : '#c8d8e4';
-          var launchPriceDotShadow = _isChartEmbed ? 'rgba(17,17,17,0.18)' : 'rgba(200,216,228,0.35)';
-          drawLaunchDot(_launchPriceMarkerPoint, priceSeries, launchPriceDotColor, launchPriceDotShadow, 3.1);
+        var showLaunchPriceMarker = !!(
+          _launchPriceMarkerPoint
+          && _priceEnabled
+          && (_layerPrice || _layerOhlc)
+        );
+        if (showLaunchPriceMarker) {
+          var launchPriceSegments = (!_isChartEmbed && !_layerOhlc)
+            ? _collectSmoothLineSegments(_lwPrice, _lwPriceDisplayData.length > 0 ? _lwPriceDisplayData : _lwPriceCache, 'value', plotW)
+            : [];
+          var launchPricePoints = launchPriceSegments.length > 0 ? launchPriceSegments[0] : [];
+          var launchPriceDotColor = _isChartEmbed
+            ? '#111111'
+            : function(dot) { return _priceLineGradientColorAtPoint(launchPricePoints, dot.y, 1); };
+          var launchPriceDotShadow = _isChartEmbed
+            ? 'rgba(17,17,17,0.18)'
+            : function(dot) { return _priceLineGradientColorAtPoint(launchPricePoints, dot.y, 0.38); };
+          drawLaunchDot(_launchPriceMarkerPoint, priceSeries, launchPriceDotColor, launchPriceDotShadow, 3.5);
         }
-        if (_layerNav && _lwNavHistory && _lwNavHistory.length > 0) {
+        if (!showLaunchPriceMarker && _layerNav && _lwNavHistory && _lwNavHistory.length > 0) {
           drawLaunchDot(_launchNavMarkerPoint, _lwNav, '#ffcc00', 'rgba(255,204,0,0.38)', 3.1);
         }
 
@@ -18604,11 +18846,11 @@ function _navCalcParse(v) {
 }
 
 function _navCalcStatusText(navSnapshot) {
-  if (!navSnapshot) return 'Using NAVgator live inputs.';
+  if (!navSnapshot) return 'Using live 01RX inputs.';
   if (navSnapshot.status === 'stale') return 'Using a stale NAV snapshot from NAVgator.';
   if (navSnapshot.status === 'unverified' || CFG.navVerified === false) return 'NAVgator marks this NAV snapshot as unverified.';
   if (navSnapshot.status === 'partial') return 'NAVgator is using a partial live snapshot.';
-  return 'Using NAVgator live inputs.';
+  return 'Using live 01RX inputs.';
 }
 
 function resetNavCalculatorToLive() {

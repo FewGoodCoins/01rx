@@ -7,14 +7,16 @@ export function default01rxDestination(locationLike) {
     || params.get('embed') === '1'
     || params.get('embed') === 'true'
   );
+  const chartFrame = params.get('frame') === '01rx';
   if (
     pathname !== '/'
     || embedded
-    || params.has('token')
+    || chartFrame
     || params.get('view') === 'markets'
   ) return null;
 
-  params.set('token', 'solo');
+  const token = String(params.get('token') || '').trim().toLowerCase();
+  params.set('token', /^[a-z0-9][a-z0-9_-]*$/.test(token) ? token : 'solo');
   params.set('view', 'markets');
   params.set('tab', 'tokens');
   return `${pathname}?${params.toString()}${locationLike?.hash || ''}`;

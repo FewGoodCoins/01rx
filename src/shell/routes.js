@@ -78,8 +78,7 @@ export function createRouteHelpers(browserWindow) {
   }
 
   function tokenResearchUrl(key) {
-    const safeKey = normalizeTokenKey(key);
-    return safeKey ? queryPageUrl({ token: safeKey }) : homePageUrl();
+    return tokenTradingUrl(key);
   }
 
   function tokenMarketUrl(key, proposal) {
@@ -105,7 +104,7 @@ export function createRouteHelpers(browserWindow) {
   }
 
   function tokenPageUrl(key) {
-    return isMarketsView() ? tokenTradingUrl(key) : tokenResearchUrl(key);
+    return tokenTradingUrl(key);
   }
 
   return {

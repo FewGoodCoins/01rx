@@ -8609,6 +8609,8 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-timeframe-trigger {
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-series-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-control,
 html[data-01rx-chart-frame="true"] body.is-token .chart-feature-control {
   position: relative;
   display: block;
@@ -8638,6 +8640,18 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-style-cell svg {
   height: 21px;
 }
 
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger {
+  font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #787b86;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger {
+  color: #787b86;
+}
+
 html[data-01rx-chart-frame="true"] body.is-token .chart-style-cell:hover,
 html[data-01rx-chart-frame="true"] body.is-token .chart-style-cell[aria-expanded="true"] {
   background: #202020;
@@ -8646,6 +8660,31 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-style-cell[aria-expanded
 html[data-01rx-chart-frame="true"] body.is-token .chart-style-cell:focus-visible {
   outline: 2px solid #f0f0ed;
   outline-offset: -2px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger:hover,
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger:focus,
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger:active,
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger.active,
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger[aria-expanded="true"] {
+  background: transparent !important;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger:hover,
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger:focus,
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger:active,
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger.on {
+  background: transparent !important;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger.disabled {
+  color: #787b86;
+  cursor: default;
+  opacity: 0.42;
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-series-menu {
@@ -8952,4 +8991,14 @@ html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] .advanced-char
   width: 100% !important;
   height: 100% !important;
   border: 0 !important;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-controls,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-series-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-feature-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > #btn-chart-embed,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > #layer-controls,
+html[data-01rx-chart-frame="true"] body.is-token .chart-drawing-rail-01rx,
+html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
+  display: none !important;
 }

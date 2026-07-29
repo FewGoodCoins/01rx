@@ -1148,6 +1148,317 @@ function removeProjectedNavOverlay(mountState) {
   }
 }
 
+function removePriceGradientOverlay(mountState) {
+  mountState?.priceGradientOverlay?.remove?.();
+  if (mountState) mountState.priceGradientOverlay = null;
+}
+
+function removeNavGradientOverlay(mountState) {
+  mountState?.navGradientOverlay?.remove?.();
+  if (mountState) mountState.navGradientOverlay = null;
+}
+
+export function advancedPriceGradientPoints(snapshot) {
+  return (snapshot?.priceBars || []).map(item => ({
+    price: chartPointValue(item),
+    time: Math.floor(milliseconds(item?.time ?? item?.ts ?? item?.timestamp) / 1_000),
+  })).filter(point => (
+    Number.isFinite(point.price)
+    && point.price >= 0
+    && Number.isFinite(point.time)
+  )).sort((left, right) => left.time - right.time);
+}
+
+export function advancedNavGradientPoints(snapshot) {
+  return (snapshot?.navBars || []).map(item => ({
+    price: chartPointValue(item),
+    time: Math.floor(milliseconds(item?.time ?? item?.ts ?? item?.timestamp) / 1_000),
+  })).filter(point => (
+    Number.isFinite(point.price)
+    && point.price >= 0
+    && Number.isFinite(point.time)
+  )).sort((left, right) => left.time - right.time);
+}
+
+export function isAdvancedLineChartType(value) {
+  if (Number(value) === 2) return true;
+  const normalized = String(value?.value ?? value ?? '').trim().toLowerCase();
+  return normalized === 'line' || normalized === '2';
+}
+
+function advancedGradientColorAtPoint(points, y, colors) {
+  const ys = (points || []).map(point => Number(point?.y)).filter(Number.isFinite);
+  if (ys.length < 2 || !Number.isFinite(y)) return colors.at(-1);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+  if (!(bottom > top)) return colors.at(-1);
+  const ratio = Math.max(0, Math.min(1, (y - top) / (bottom - top)));
+  const scaled = ratio * (colors.length - 1);
+  const index = Math.min(colors.length - 2, Math.floor(scaled));
+  const sectionRatio = scaled - index;
+  const from = colors[index];
+  const to = colors[index + 1];
+  const channels = from.map((channel, channelIndex) => (
+    Math.round(channel + (to[channelIndex] - channel) * sectionRatio)
+  ));
+  return `rgb(${channels.join(',')})`;
+}
+
+function renderPriceGradientOverlay(mountState) {
+  if (
+    !mountState?.widget
+    || !mountState.frameDocument
+    || !chartSnapshotVisibility(mountState.latestSnapshot).historicPrice
+    || !isAdvancedLineChartType(
+      mountState.chartType ?? mountState.widget.activeChart()?.chartType?.(),
+    )
+  ) {
+    removePriceGradientOverlay(mountState);
+    return;
+  }
+  const chart = mountState.widget.activeChart();
+  const frameDocument = mountState.frameDocument;
+  const canvas = [...frameDocument.querySelectorAll('canvas')].find((item) => {
+    const rect = item.getBoundingClientRect();
+    return rect.width > 300 && rect.height > 200 && rect.left < 200;
+  });
+  const visibleRange = chart.getVisibleRange?.();
+  const priceRange = chart.getPanes?.()
+    ?.find(pane => pane.hasMainSeries())
+    ?.getMainSourcePriceScale()
+    ?.getVisiblePriceRange();
+  const points = advancedPriceGradientPoints(mountState.latestSnapshot);
+  if (
+    !canvas
+    || points.length < 2
+    || !Number.isFinite(visibleRange?.from)
+    || !Number.isFinite(visibleRange?.to)
+    || visibleRange.to <= visibleRange.from
+    || !Number.isFinite(priceRange?.from)
+    || !Number.isFinite(priceRange?.to)
+    || priceRange.to <= priceRange.from
+  ) {
+    removePriceGradientOverlay(mountState);
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const drawable = points.map(point => ({
+    ...point,
+    x: ((point.time - visibleRange.from) / (visibleRange.to - visibleRange.from))
+      * rect.width,
+    y: ((priceRange.to - point.price) / (priceRange.to - priceRange.from))
+      * rect.height,
+  })).filter(point => (
+    point.x >= -2
+    && point.x <= rect.width + 2
+    && point.y >= -2
+    && point.y <= rect.height + 2
+  ));
+  if (drawable.length < 2) {
+    removePriceGradientOverlay(mountState);
+    return;
+  }
+
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+  let svg = mountState.priceGradientOverlay;
+  if (!svg?.isConnected) {
+    svg = frameDocument.createElementNS(svgNamespace, 'svg');
+    svg.classList.add('rx-price-gradient-overlay');
+    Object.assign(svg.style, {
+      height: `${rect.height}px`,
+      left: `${rect.left}px`,
+      overflow: 'hidden',
+      pointerEvents: 'none',
+      position: 'fixed',
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      zIndex: '2',
+    });
+    const defs = frameDocument.createElementNS(svgNamespace, 'defs');
+    const gradient = frameDocument.createElementNS(svgNamespace, 'linearGradient');
+    gradient.id = 'rx-price-line-gradient';
+    gradient.setAttribute('x1', '0');
+    gradient.setAttribute('x2', '0');
+    gradient.setAttribute('y1', '0');
+    gradient.setAttribute('y2', '100%');
+    [
+      ['0%', '#a855f7'],
+      ['48%', '#6366f1'],
+      ['100%', '#2f8fff'],
+    ].forEach(([offset, color]) => {
+      const stop = frameDocument.createElementNS(svgNamespace, 'stop');
+      stop.setAttribute('offset', offset);
+      stop.setAttribute('stop-color', color);
+      gradient.appendChild(stop);
+    });
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
+    const path = frameDocument.createElementNS(svgNamespace, 'path');
+    path.setAttribute('data-rx-price-gradient-path', '');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'url(#rx-price-line-gradient)');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2.6');
+    path.style.filter = 'drop-shadow(0 0 3px rgba(85, 105, 255, 0.24))';
+    svg.appendChild(path);
+    const endpoint = frameDocument.createElementNS(svgNamespace, 'circle');
+    endpoint.setAttribute('data-rx-price-gradient-endpoint', '');
+    endpoint.setAttribute('fill', '#2f8fff');
+    endpoint.setAttribute('r', '3.5');
+    svg.appendChild(endpoint);
+    frameDocument.body.appendChild(svg);
+    mountState.priceGradientOverlay = svg;
+  }
+  Object.assign(svg.style, {
+    height: `${rect.height}px`,
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+  });
+  const pathData = drawable.map((point, index) => (
+    `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+  )).join(' ');
+  svg.querySelector('[data-rx-price-gradient-path]')?.setAttribute('d', pathData);
+  const lastPoint = drawable.at(-1);
+  const endpoint = svg.querySelector('[data-rx-price-gradient-endpoint]');
+  endpoint?.setAttribute('cx', lastPoint.x.toFixed(2));
+  endpoint?.setAttribute('cy', lastPoint.y.toFixed(2));
+  endpoint?.setAttribute('fill', advancedGradientColorAtPoint(
+    drawable,
+    lastPoint.y,
+    [[168, 85, 247], [99, 102, 241], [47, 143, 255]],
+  ));
+}
+
+function renderNavGradientOverlay(mountState) {
+  if (
+    !mountState?.widget
+    || !mountState.frameDocument
+    || !chartSnapshotVisibility(mountState.latestSnapshot).historicNav
+  ) {
+    removeNavGradientOverlay(mountState);
+    return;
+  }
+  const chart = mountState.widget.activeChart();
+  const frameDocument = mountState.frameDocument;
+  const canvas = [...frameDocument.querySelectorAll('canvas')].find((item) => {
+    const rect = item.getBoundingClientRect();
+    return rect.width > 300 && rect.height > 200 && rect.left < 200;
+  });
+  const visibleRange = chart.getVisibleRange?.();
+  const priceRange = chart.getPanes?.()
+    ?.find(pane => pane.hasMainSeries())
+    ?.getMainSourcePriceScale()
+    ?.getVisiblePriceRange();
+  const points = advancedNavGradientPoints(mountState.latestSnapshot);
+  if (
+    !canvas
+    || points.length < 2
+    || !Number.isFinite(visibleRange?.from)
+    || !Number.isFinite(visibleRange?.to)
+    || visibleRange.to <= visibleRange.from
+    || !Number.isFinite(priceRange?.from)
+    || !Number.isFinite(priceRange?.to)
+    || priceRange.to <= priceRange.from
+  ) {
+    removeNavGradientOverlay(mountState);
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const drawable = points.map(point => ({
+    ...point,
+    x: ((point.time - visibleRange.from) / (visibleRange.to - visibleRange.from))
+      * rect.width,
+    y: ((priceRange.to - point.price) / (priceRange.to - priceRange.from))
+      * rect.height,
+  })).filter(point => (
+    point.x >= -2
+    && point.x <= rect.width + 2
+    && point.y >= -2
+    && point.y <= rect.height + 2
+  ));
+  if (drawable.length < 2) {
+    removeNavGradientOverlay(mountState);
+    return;
+  }
+
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+  let svg = mountState.navGradientOverlay;
+  if (!svg?.isConnected) {
+    svg = frameDocument.createElementNS(svgNamespace, 'svg');
+    svg.classList.add('rx-nav-gradient-overlay');
+    Object.assign(svg.style, {
+      height: `${rect.height}px`,
+      left: `${rect.left}px`,
+      overflow: 'hidden',
+      pointerEvents: 'none',
+      position: 'fixed',
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      zIndex: '2',
+    });
+    const defs = frameDocument.createElementNS(svgNamespace, 'defs');
+    const gradient = frameDocument.createElementNS(svgNamespace, 'linearGradient');
+    gradient.id = 'rx-nav-line-gradient';
+    gradient.setAttribute('x1', '0');
+    gradient.setAttribute('x2', '0');
+    gradient.setAttribute('y1', '0');
+    gradient.setAttribute('y2', '100%');
+    [
+      ['0%', '#ffe45c'],
+      ['50%', '#ffbf1f'],
+      ['100%', '#ff8a00'],
+    ].forEach(([offset, color]) => {
+      const stop = frameDocument.createElementNS(svgNamespace, 'stop');
+      stop.setAttribute('offset', offset);
+      stop.setAttribute('stop-color', color);
+      gradient.appendChild(stop);
+    });
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
+    const path = frameDocument.createElementNS(svgNamespace, 'path');
+    path.setAttribute('data-rx-nav-gradient-path', '');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'url(#rx-nav-line-gradient)');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2.6');
+    path.style.filter = 'drop-shadow(0 0 3px rgba(255, 174, 20, 0.22))';
+    svg.appendChild(path);
+    const endpoint = frameDocument.createElementNS(svgNamespace, 'circle');
+    endpoint.setAttribute('data-rx-nav-gradient-endpoint', '');
+    endpoint.setAttribute('fill', '#ff9f0a');
+    endpoint.setAttribute('r', '3.5');
+    svg.appendChild(endpoint);
+    frameDocument.body.appendChild(svg);
+    mountState.navGradientOverlay = svg;
+  }
+  Object.assign(svg.style, {
+    height: `${rect.height}px`,
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+  });
+  svg.querySelector('[data-rx-nav-gradient-path]')?.setAttribute(
+    'd',
+    drawable.map((point, index) => (
+      `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+    )).join(' '),
+  );
+  const lastPoint = drawable.at(-1);
+  const endpoint = svg.querySelector('[data-rx-nav-gradient-endpoint]');
+  endpoint?.setAttribute('cx', lastPoint.x.toFixed(2));
+  endpoint?.setAttribute('cy', lastPoint.y.toFixed(2));
+  endpoint?.setAttribute('fill', advancedGradientColorAtPoint(
+    drawable,
+    lastPoint.y,
+    [[255, 228, 92], [255, 191, 31], [255, 138, 0]],
+  ));
+}
+
 function removeCurrentReferenceFallback(mountState) {
   mountState?.currentReferenceOverlay?.remove?.();
   Object.values(mountState?.currentReferenceAxisLabels || {}).forEach(
@@ -1871,6 +2182,10 @@ export function installBrowserAdvancedCharts(browserWindow) {
       projectedNavRenderFrame: null,
       projectedNavRestoreRange: null,
       projectedNavVisible: false,
+      priceGradientOverlay: null,
+      priceGradientRenderFrame: null,
+      navGradientOverlay: null,
+      chartType: null,
       resetFrame: null,
       studySync: Promise.resolve(),
       widget: null,
@@ -1965,6 +2280,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'mainSeriesProperties.candleStyle.upColor': '#35d093',
             'mainSeriesProperties.candleStyle.wickDownColor': '#ff5f6d',
             'mainSeriesProperties.candleStyle.wickUpColor': '#35d093',
+            'mainSeriesProperties.lineStyle.color': 'rgba(74,120,255,0.16)',
             'mainSeriesProperties.priceLineColor': '#f4f4f1',
             'mainSeriesProperties.priceLineWidth': 1,
             'mainSeriesProperties.showPriceLine': false,
@@ -2025,6 +2341,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           mountState.visibleRangeHandler = () => {
             scheduleCurrentReferenceRender(mountState);
             scheduleProjectedNavRender(mountState);
+            schedulePriceGradientRender(mountState);
           };
           mountState.visibleRangeSubscription?.subscribe?.(
             null,
@@ -2033,6 +2350,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           mountState.projectedNavInteractionHandler = () => {
             scheduleCurrentReferenceRender(mountState);
             scheduleProjectedNavRender(mountState);
+            schedulePriceGradientRender(mountState);
           };
           mountState.frameDocument?.addEventListener?.(
             'pointerup',
@@ -2064,9 +2382,12 @@ export function installBrowserAdvancedCharts(browserWindow) {
               .forEach(item => mountState.projectedNavResizeObserver.observe(item));
           }
           mountState.chartTypeSubscription = chart.onChartTypeChanged?.();
-          mountState.chartTypeHandler = () => {
+          mountState.chartType = chart.chartType?.();
+          mountState.chartTypeHandler = (nextType) => {
+            mountState.chartType = nextType ?? chart.chartType?.();
             scheduleCurrentReferenceRender(mountState);
             scheduleProjectedNavRender(mountState);
+            schedulePriceGradientRender(mountState);
             mountState.studySync = mountState.studySync.then(
               () => syncReferenceLines(mountState, mountState.latestSnapshot),
             );
@@ -2140,6 +2461,22 @@ export function installBrowserAdvancedCharts(browserWindow) {
       renderProjectedNavOverlay(mountState);
     };
     mountState.projectedNavRenderFrame = runtime.requestAnimationFrame
+      ? runtime.requestAnimationFrame(render)
+      : runtime.setTimeout(render, 0);
+  }
+
+  function schedulePriceGradientRender(mountState) {
+    if (
+      !mountState
+      || mountState.destroyed
+      || mountState.priceGradientRenderFrame != null
+    ) return;
+    const render = () => {
+      mountState.priceGradientRenderFrame = null;
+      renderPriceGradientOverlay(mountState);
+      renderNavGradientOverlay(mountState);
+    };
+    mountState.priceGradientRenderFrame = runtime.requestAnimationFrame
       ? runtime.requestAnimationFrame(render)
       : runtime.setTimeout(render, 0);
   }
@@ -2228,7 +2565,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           true,
           { symbol: navSymbol },
           {
-            'lineStyle.color': '#ffcc00',
+            'lineStyle.color': 'rgba(255,174,20,0.16)',
             'lineStyle.linewidth': 2,
             showLabelsOnPriceScale: false,
             showPriceLine: false,
@@ -2310,6 +2647,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
     mountState.currentLineEntities.nav = null;
     mountState.currentReferenceFallbackHold = true;
     scheduleCurrentReferenceRender(mountState);
+    schedulePriceGradientRender(mountState);
     const time = Math.floor(latestSnapshotTime(snapshot) / 1_000);
 
     try {
@@ -2420,6 +2758,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
       await waitForAdvancedChartData(runtime, chart);
       await syncStudies(mountState, snapshot);
       await syncReferenceLines(mountState, snapshot);
+      schedulePriceGradientRender(mountState);
     });
     await mountState.studySync;
     return true;
@@ -2497,6 +2836,13 @@ export function installBrowserAdvancedCharts(browserWindow) {
         runtime.clearTimeout?.(mountState.projectedNavRenderFrame);
       }
     }
+    if (mountState.priceGradientRenderFrame != null) {
+      if (runtime.cancelAnimationFrame) {
+        runtime.cancelAnimationFrame(mountState.priceGradientRenderFrame);
+      } else {
+        runtime.clearTimeout?.(mountState.priceGradientRenderFrame);
+      }
+    }
     if (mountState.currentReferenceRenderFrame != null) {
       if (runtime.cancelAnimationFrame) {
         runtime.cancelAnimationFrame(mountState.currentReferenceRenderFrame);
@@ -2566,6 +2912,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
     mountState.datafeed?.destroy?.();
     removeCurrentReferenceFallback(mountState);
     removeProjectedNavOverlay(mountState);
+    removePriceGradientOverlay(mountState);
+    removeNavGradientOverlay(mountState);
     mountState.container?.remove();
     mountState.stats?.remove();
     mounts.delete(container);
