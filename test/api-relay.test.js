@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   normalizeUpstreamOrigin,
+  relayedApiRequestUrl,
   relayApiRequest,
   upstreamApiUrl,
 } from '../api/[...path].js';
@@ -54,6 +55,29 @@ test('API relay preserves only the incoming API path and query', () => {
   );
 });
 
+test('API relay restores a wildcard path rewritten through the fixed Vercel function', () => {
+  assert.equal(
+    relayedApiRequestUrl({
+      url: '/api/relay?relayPath=v1%2Ffutarchy&view=proposals',
+      query: {
+        relayPath: 'v1/futarchy',
+        view: 'proposals',
+      },
+    }),
+    '/api/v1/futarchy?view=proposals',
+  );
+  assert.equal(
+    relayedApiRequestUrl({
+      url: '/api/relay?relayPath=beta%2Ftrading&view=spot-order',
+      query: {
+        relayPath: 'beta/trading',
+        view: 'spot-order',
+      },
+    }),
+    '/api/beta/trading?view=spot-order',
+  );
+});
+
 test('API relay forwards reviewed transaction payloads without browser credentials', async () => {
   const calls = [];
   const request = {
@@ -95,6 +119,38 @@ test('API relay forwards reviewed transaction payloads without browser credentia
   assert.equal(response.headers['cache-control'], 'private, no-store');
   assert.equal(response.headers['x-01r-contract'], 'trading.spot-submit.beta1');
   assert.deepEqual(JSON.parse(response.body.toString()), { ok: true });
+});
+
+test('API relay forwards the restored wildcard path without its internal routing query', async () => {
+  const calls = [];
+  const response = responseRecorder();
+  await relayApiRequest({
+    method: 'GET',
+    url: '/api/relay?relayPath=v1%2Ffutarchy&view=proposals',
+    query: {
+      relayPath: 'v1/futarchy',
+      view: 'proposals',
+    },
+    headers: {
+      accept: 'application/json',
+    },
+  }, response, {
+    upstreamOrigin: 'https://api.navgator.xyz',
+    async fetchImpl(url) {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      });
+    },
+  });
+
+  assert.deepEqual(calls, [
+    'https://api.navgator.xyz/api/v1/futarchy?view=proposals',
+  ]);
+  assert.equal(response.statusCode, 200);
 });
 
 test('API relay rejects methods outside the public read and execution contract', async () => {
