@@ -12,6 +12,10 @@ test('production keeps the canonical backend behind a server-only API relay', ()
   assert.match(envExample, /^NAVGATOR_API_ORIGIN=https:\/\/api\.navgator\.xyz$/m);
   assert.doesNotMatch(envExample, /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC/);
   assert.ok(Array.isArray(vercel.headers));
+  assert.deepEqual(vercel.rewrites[0], {
+    source: '/api/:relayPath*',
+    destination: '/api/relay?relayPath=:relayPath',
+  });
 });
 
 test('browser trading code cannot call DFlow or read server credentials directly', () => {

@@ -39,6 +39,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/:relayPath*",
+      "destination": "/api/relay?relayPath=:relayPath"
+    },
+    {
       "source": "/embed",
       "destination": "/index.html"
     }

@@ -50,6 +50,21 @@ export function upstreamApiUrl(requestUrl, upstreamOrigin) {
   return new URL(`${incoming.pathname}${incoming.search}`, origin);
 }
 
+export function relayedApiRequestUrl(request = {}) {
+  const incoming = new URL(String(request.url || '/'), 'https://01rx.invalid');
+  const queryPath = request.query?.relayPath;
+  const relayPath = Array.isArray(queryPath)
+    ? queryPath.length === 1
+      ? queryPath[0]
+      : ''
+    : queryPath || incoming.searchParams.get('relayPath');
+  if (!relayPath) return `${incoming.pathname}${incoming.search}`;
+
+  incoming.pathname = `/api/${String(relayPath).replace(/^\/+/, '')}`;
+  incoming.searchParams.delete('relayPath');
+  return `${incoming.pathname}${incoming.search}`;
+}
+
 function requestHeaders(headers = {}) {
   const forwarded = new Headers();
   Object.entries(headers).forEach(([name, value]) => {
@@ -109,7 +124,7 @@ export async function relayApiRequest(request, response, options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
 
   try {
-    const url = upstreamApiUrl(request.url, upstreamOrigin);
+    const url = upstreamApiUrl(relayedApiRequestUrl(request), upstreamOrigin);
     const body = await requestBody(request);
     if (body && Buffer.byteLength(body) > MAX_REQUEST_BYTES) {
       const error = new Error('Request body is too large');
