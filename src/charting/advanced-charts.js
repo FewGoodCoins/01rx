@@ -1,5 +1,10 @@
 const OFFICIAL_PLAYGROUND_LIBRARY_PATH = '/__tradingview/charting_library/';
 
+export const ADVANCED_CUSTOM_SERIES_STYLE = Object.freeze({
+  nativeColor: 'rgba(0,0,0,0)',
+  strokeWidth: 2,
+});
+
 const SUPPORTED_RESOLUTIONS = Object.freeze([
   '1',
   '5',
@@ -1300,8 +1305,10 @@ function renderPriceGradientOverlay(mountState) {
     path.setAttribute('stroke', 'url(#rx-price-line-gradient)');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('stroke-width', '2.6');
-    path.style.filter = 'drop-shadow(0 0 3px rgba(85, 105, 255, 0.24))';
+    path.setAttribute(
+      'stroke-width',
+      String(ADVANCED_CUSTOM_SERIES_STYLE.strokeWidth),
+    );
     svg.appendChild(path);
     const endpoint = frameDocument.createElementNS(svgNamespace, 'circle');
     endpoint.setAttribute('data-rx-price-gradient-endpoint', '');
@@ -1425,8 +1432,10 @@ function renderNavGradientOverlay(mountState) {
     path.setAttribute('stroke', 'url(#rx-nav-line-gradient)');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('stroke-width', '2.6');
-    path.style.filter = 'drop-shadow(0 0 3px rgba(255, 174, 20, 0.22))';
+    path.setAttribute(
+      'stroke-width',
+      String(ADVANCED_CUSTOM_SERIES_STYLE.strokeWidth),
+    );
     svg.appendChild(path);
     const endpoint = frameDocument.createElementNS(svgNamespace, 'circle');
     endpoint.setAttribute('data-rx-nav-gradient-endpoint', '');
@@ -2280,7 +2289,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'mainSeriesProperties.candleStyle.upColor': '#35d093',
             'mainSeriesProperties.candleStyle.wickDownColor': '#ff5f6d',
             'mainSeriesProperties.candleStyle.wickUpColor': '#35d093',
-            'mainSeriesProperties.lineStyle.color': 'rgba(74,120,255,0.16)',
+            'mainSeriesProperties.lineStyle.color':
+              ADVANCED_CUSTOM_SERIES_STYLE.nativeColor,
             'mainSeriesProperties.priceLineColor': '#f4f4f1',
             'mainSeriesProperties.priceLineWidth': 1,
             'mainSeriesProperties.showPriceLine': false,
@@ -2565,8 +2575,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
           true,
           { symbol: navSymbol },
           {
-            'lineStyle.color': 'rgba(255,174,20,0.16)',
-            'lineStyle.linewidth': 2,
+            'lineStyle.color': ADVANCED_CUSTOM_SERIES_STYLE.nativeColor,
+            'lineStyle.linewidth': 1,
             showLabelsOnPriceScale: false,
             showPriceLine: false,
             style: 2,

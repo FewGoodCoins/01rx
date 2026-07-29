@@ -1,5 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const test = require('node:test');
@@ -1021,25 +1020,15 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.equal(root.querySelector('.ft-execution-ticket .ft-ticket-heading'), null);
   assert.match(byRole(root, 'trade-ticket').textContent, /PASS/);
   assert.match(byRole(root, 'trade-ticket').textContent, /FAIL/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /Market/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /Smart Fill/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /Limit/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /Pro/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /Buy/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /Sell/);
-  assert.ok(byRole(root, 'decision-recent-transactions'));
-  assert.equal(byRole(root, 'limit-price'), null);
-  root.querySelector(
-    '[data-ft-action="select-order-type"][data-ft-order-type="limit"]',
-  ).click();
+  assert.match(byRole(root, 'trade-ticket').textContent, /LIMIT/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /SWAP/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /BUY/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /SELL/);
   assert.match(
-    byRole(root, 'limit-price').closest('.ft-decision-limit-field').textContent,
-    /Limit price/,
+    byRole(root, 'limit-price').closest('.ft-amount-field').textContent,
+    /Price/,
   );
-  assert.match(
-    byRole(root, 'amount').closest('.ft-ownership-order-body').textContent,
-    /Order size[\s\S]+— PASS USDC/,
-  );
+  assert.match(byRole(root, 'amount').closest('.ft-amount-field').textContent, /Bal:\s*—/);
   assert.deepEqual(
     Array.from(byRole(root, 'pass-card').querySelectorAll('.ft-book-columns span'))
       .map(element => element.textContent.trim()),
@@ -1064,9 +1053,10 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   assert.doesNotMatch(chartHeader.textContent, /Fund Loyal contributor growth for Q3/);
   assert.equal(chartHeader.querySelector('.ft-chart-market-identity a'), null);
-  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Result', 'Liquidity']) {
+  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Result']) {
     assert.match(chartHeader.textContent, new RegExp(label));
   }
+  assert.doesNotMatch(chartHeader.textContent, /Liquidity/);
   assert.match(
     chartHeader.querySelector('[data-ft-chart-header-metric="price"] strong').textContent,
     /^\$/,
@@ -1087,6 +1077,16 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.equal(
     byRole(root, 'proposal-history-chart').querySelectorAll('[data-ft-series]').length,
     3,
+  );
+  const proposalChartPlaceholders = Array.from(
+    byRole(root, 'proposal-history-chart')
+      .querySelectorAll('.chart-tv-placeholder-button'),
+  );
+  assert.equal(proposalChartPlaceholders.length, 11);
+  assert.equal(proposalChartPlaceholders.every(button => button.disabled), true);
+  assert.equal(
+    proposalChartPlaceholders.some(button => button.dataset.ftAction),
+    false,
   );
   assert.ok(requests.some(url => (
     /view=proposal-history/.test(url)
@@ -1188,7 +1188,7 @@ test('homepage discovery uses only public stable proposal reads and canonical to
   cleanupMount(mounted);
 });
 
-test('token Markets loads the proposal archive for the selected token', async () => {
+test('token Markets keeps its workspace scoped while refreshing the global proposal index', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { requests, root, window } = makeWindow({
     url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
@@ -1206,12 +1206,17 @@ test('token Markets loads the proposal archive for the selected token', async ()
   assert.equal(controller.getState().token, 'loyal');
   assert.equal(proposalRows(root).length, 1);
   assert.equal(byRole(root, 'proposal-title').textContent.trim(), 'Fund Loyal contributor growth for Q3');
+  assert.equal(byRole(root, 'proposal-history-fallback'), null);
+  assert.equal(
+    byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-fallback'),
+    null,
+  );
   const proposalRequestsBefore = requests.filter(url => /view=proposals(?:&|$)/.test(url)).length;
   assert.ok(proposalRequestsBefore > 0);
-  assert.ok(requests.some(url => (
-    new URL(url, 'https://navgator.xyz').searchParams.get('view') === 'proposals'
-    && new URL(url, 'https://navgator.xyz').searchParams.get('token') === 'loyal'
-  )));
+  assert.equal(
+    requests.some(url => new URL(url, 'https://navgator.xyz').searchParams.has('token')),
+    false,
+  );
 
   await controller.setToken('meta');
   await settle(window);
@@ -1223,35 +1228,30 @@ test('token Markets loads the proposal archive for the selected token', async ()
     requests.filter(url => /view=proposals(?:&|$)/.test(url)).length
       > proposalRequestsBefore,
   );
-  assert.ok(requests.some(url => (
-    new URL(url, 'https://navgator.xyz').searchParams.get('view') === 'proposals'
-    && new URL(url, 'https://navgator.xyz').searchParams.get('token') === 'meta'
-  )));
+  assert.equal(
+    requests.some(url => new URL(url, 'https://navgator.xyz').searchParams.has('token')),
+    false,
+  );
   assert.equal(byAction(root, 'review-trade'), null);
 
   cleanupMount(mounted);
 });
 
-test('market sidebar keeps live decisions above tokens and filters past proposals by token', async () => {
-  const indexSource = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
-  assert.ok(indexSource.indexOf('id="tlp-decisions-panel"')
-    < indexSource.indexOf('id="tlp-all-panel"'));
-  assert.ok(indexSource.indexOf('id="tlp-all-panel"')
-    < indexSource.indexOf('id="tlp-past-decisions-panel"'));
-
+test('market sidebar keeps live decisions above tokens and renders past proposals for the selected token', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
-    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+    url: 'https://navgator.xyz/?token=meta&view=markets&tab=tokens',
   });
-  const sidebar = window.document.createElement('div');
+  const sidebar = window.document.createElement('aside');
   sidebar.innerHTML = `
-    <section id="tlp-decisions-panel" hidden>
-      <span id="tp-live-decision-count">0</span>
+    <section id="tlp-decisions-panel">
+      <span id="tp-live-decision-count"></span>
       <div id="tlp-decisions-list"></div>
     </section>
-    <section id="tlp-past-decisions-panel" hidden>
-      <span id="tp-past-decisions-title">Past Proposals</span>
-      <span id="tp-past-decision-count">0</span>
+    <section id="tlp-all-panel"></section>
+    <section id="tlp-past-decisions-panel">
+      <span id="tp-past-decisions-title"></span>
+      <span id="tp-past-decision-count"></span>
       <div id="tlp-past-decisions-list"></div>
     </section>
   `;
@@ -1261,44 +1261,34 @@ test('market sidebar keeps live decisions above tokens and filters past proposal
     window,
     root,
     mode: 'token',
-    token: 'loyal',
+    token: 'meta',
   });
   const mounted = trackMount(controller, window);
   await controller.ready;
-  await settle(window);
 
-  const liveRows = sidebar.querySelectorAll('#tlp-decisions-list .tp-decision-item');
-  assert.equal(sidebar.querySelector('#tlp-decisions-panel').hidden, false);
-  assert.equal(sidebar.querySelector('#tlp-past-decisions-panel').hidden, false);
-  assert.equal(sidebar.querySelector('#tp-live-decision-count').textContent, '1');
-  assert.equal(liveRows.length, 1);
-  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '0');
-  assert.equal(
-    sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item').length,
-    0,
+  assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1');
+  assert.match(
+    window.document.getElementById('tlp-decisions-list').textContent,
+    /LOYAL[\s\S]+Live/,
   );
-  assert.match(sidebar.querySelector('#tp-past-decisions-title').textContent, /LOYAL/);
-
-  await controller.setToken('meta');
-  await settle(window);
-  let pastRows = sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item');
-  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '1');
-  assert.equal(pastRows.length, 1);
-  assert.match(pastRows[0].textContent, /META #41[\s\S]+Resolved[\s\S]+Passed/);
+  assert.equal(window.document.getElementById('tp-past-decisions-title').textContent, 'Past Proposals · META');
+  assert.equal(window.document.getElementById('tp-past-decision-count').textContent, '1');
+  const metaArchive = window.document.querySelector('#tlp-past-decisions-list .tp-past-proposal-item');
+  assert.ok(metaArchive);
+  assert.match(metaArchive.textContent, /Proposal #41[\s\S]+Passed/);
   assert.equal(
-    pastRows[0].getAttribute('href'),
+    metaArchive.getAttribute('href'),
     `/?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
   );
 
   await controller.setToken('solo');
   await settle(window);
-  pastRows = sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item');
-  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '1');
-  assert.equal(pastRows.length, 1);
-  assert.match(pastRows[0].textContent, /SOLO #12[\s\S]+Resolved[\s\S]+Failed/);
-  assert.equal(
-    pastRows[0].getAttribute('href'),
-    `/?token=solo&view=markets&proposal=${FAILED_PROPOSAL_ID}`,
+
+  assert.equal(window.document.getElementById('tp-past-decisions-title').textContent, 'Past Proposals · SOLO');
+  assert.equal(window.document.getElementById('tp-past-decision-count').textContent, '1');
+  assert.match(
+    window.document.getElementById('tlp-past-decisions-list').textContent,
+    /Acquire the Atlas analytics business[\s\S]+Failed/,
   );
 
   cleanupMount(mounted);
@@ -1519,7 +1509,7 @@ test('invalid token proposal deep links fall back with a visible notice', async 
   cleanupMount(mounted);
 });
 
-test('token Markets aborts stale token proposal reads before committing a token switch', async () => {
+test('token Markets aborts stale global proposal reads before committing a token switch', async () => {
   let proposalSignal = null;
   let proposalAborted = false;
   let proposalRequestCount = 0;
@@ -1560,7 +1550,10 @@ test('token Markets aborts stale token proposal reads before committing a token 
   assert.equal(proposalRows(root).length, 1);
   assert.equal(proposalRows(root)[0].dataset.ftProposalOutcome, 'passed');
   assert.ok(proposalRequestCount > 1);
-  assert.ok(requests.some(url => new URL(url).searchParams.get('token') === 'meta'));
+  assert.equal(
+    requests.some(url => new URL(url).searchParams.has('token')),
+    false,
+  );
 
   cleanupMount(mounted);
 });
@@ -1760,7 +1753,7 @@ test('automatic order creation stays hidden until deployment and keeper readines
   ), null);
   assert.doesNotMatch(disabledWindow.root.textContent, /Amount per run/);
   assert.doesNotMatch(disabledWindow.root.textContent, /Automatic vault deployment pending/);
-  assert.match(disabledWindow.root.textContent, /Limit/);
+  assert.match(disabledWindow.root.textContent, /LIMIT/);
   assert.equal(byAction(disabledWindow.root, 'review-trade'), null);
   cleanupMount(disabledMount);
 
@@ -1976,6 +1969,11 @@ test('interactive history chart controls update and clean up an injected chart a
   const activeChart = charts[charts.length - 1];
   assert.equal(activeChart.options.ticker, 'LOYAL');
   assert.equal(activeChart.options.history.series.length, 16);
+  assert.equal(
+    byRole(root, 'proposal-history-chart')
+      .classList.contains('ft-hourly-chart-pending'),
+    false,
+  );
 
   const failToggle = root.querySelector(
     '.ft-hourly-overlay-fail',
@@ -2082,11 +2080,22 @@ test('proposal browser presents compact live and resolved markets without exposi
   );
   const passedArchive = byRole(root, 'trade-ticket').querySelector('.ft-archive-ticket');
   assert.ok(passedArchive);
-  assert.equal(root.querySelector('.ft-read-only-badge'), null);
+  const historicalPreview = byRole(root, 'historical-trade-preview');
+  assert.ok(historicalPreview);
+  assert.match(historicalPreview.textContent, /PASS/);
+  assert.match(historicalPreview.textContent, /FAIL/);
+  assert.match(historicalPreview.textContent, /LIMIT/);
+  assert.match(historicalPreview.textContent, /SWAP/);
+  assert.match(historicalPreview.textContent, /BUY/);
+  assert.match(historicalPreview.textContent, /SELL/);
+  assert.match(historicalPreview.textContent, /read only/i);
+  assert.ok(byRole(root, 'historical-limit-price').disabled);
+  assert.ok(byRole(root, 'historical-amount').disabled);
   const closedCta = passedArchive.querySelector('[data-ft-role="archived-trade-cta"]');
   assert.ok(closedCta);
   assert.equal(closedCta.disabled, true);
   assert.match(closedCta.textContent, /trading closed/i);
+  assert.equal(byAction(root, 'review-trade'), null);
   assert.equal(byAction(root, 'open-execution'), null);
   assert.equal(byRole(root, 'amount'), null);
   const marketChart = byRegion(root, 'market-chart');
@@ -2384,10 +2393,7 @@ test('wallet connection never invokes a signing method before explicit review', 
   ).click();
   const spotAmount = byRole(root, 'amount');
   assert.equal(spotAmount.getAttribute('aria-label'), 'Trade amount in USDC');
-  assert.match(
-    spotAmount.closest('.ft-ownership-swap-field').nextElementSibling.textContent,
-    /50 USDC/,
-  );
+  assert.match(spotAmount.closest('.ft-amount-field').textContent, /Bal:\s*50/);
   root.querySelector(
     '[data-ft-action="select-side"][data-ft-side="sell"]',
   ).click();
@@ -2396,8 +2402,8 @@ test('wallet connection never invokes a signing method before explicit review', 
     'Trade amount in LOYAL',
   );
   assert.match(
-    byRole(root, 'amount').closest('.ft-ownership-swap-field').nextElementSibling.textContent,
-    /8 LOYAL/,
+    byRole(root, 'amount').closest('.ft-amount-field').textContent,
+    /Bal:\s*8/,
   );
 
   const disconnect = byAction(root, 'disconnect-wallet');

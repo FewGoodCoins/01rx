@@ -120,10 +120,15 @@ test('Advanced Charts normalizes API bars to sorted millisecond OHLCV data', asy
 
 test('Advanced Charts exposes the same blue-purple line-gradient points', async () => {
   const {
+    ADVANCED_CUSTOM_SERIES_STYLE,
     advancedPriceGradientPoints,
     isAdvancedLineChartType,
   } = await advancedChartsModulePromise;
 
+  assert.deepEqual(ADVANCED_CUSTOM_SERIES_STYLE, {
+    nativeColor: 'rgba(0,0,0,0)',
+    strokeWidth: 2,
+  });
   assert.deepEqual(advancedPriceGradientPoints({
     priceBars: [
       { time: 20_000, close: 0.7 },

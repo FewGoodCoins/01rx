@@ -843,6 +843,76 @@ function historySeriesMenuOption({
   `;
 }
 
+function renderTradingViewToolbarPreview() {
+  return `
+    <div
+      class="chart-tv-placeholder-controls chart-tv-placeholder-controls-primary"
+      aria-label="TradingView premium toolbar preview"
+    >
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-timeframe chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView weekly timeframe placeholder" title="TradingView weekly timeframe">
+        <span>W</span>
+      </button>
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-chart-type chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView chart type placeholder" title="TradingView chart type">
+        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="square" aria-hidden="true">
+          <path d="M7 3.5v21M3.5 10.25H10.5M21 2.5v23M17.5 18H24.5"/>
+        </svg>
+      </button>
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-indicators chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView indicators placeholder" title="TradingView indicators">
+        <span aria-hidden="true">ƒ<sub>x</sub></span>
+      </button>
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-chevron chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView toolbar menu placeholder" title="TradingView toolbar menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </button>
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-annotations chart-tv-placeholder-divider" type="button" disabled aria-label="Hide annotations placeholder" title="Hide annotations">
+        <span>Hide annotations</span>
+      </button>
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-history" type="button" disabled aria-label="TradingView undo placeholder" title="TradingView undo">
+        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m10.5 8-5 5 5 5"/>
+          <path d="M6 13h9.5c4 0 6.5 2.7 6.5 7"/>
+        </svg>
+      </button>
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-history chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView redo placeholder" title="TradingView redo">
+        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m17.5 8 5 5-5 5"/>
+          <path d="M22 13h-9.5C8.5 13 6 15.7 6 20"/>
+        </svg>
+      </button>
+    </div>
+    <div
+      class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
+      aria-label="TradingView premium view toolbar preview"
+    >
+      <button class="chart-tv-placeholder-button chart-tv-placeholder-quick-search" type="button" disabled aria-label="TradingView quick search placeholder" title="TradingView quick search">
+        <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="13.25" cy="13.25" r="9.25"/>
+          <path d="m20 20 6 6"/>
+          <path d="m14.25 4.5-4 8h4l-2 7 6-9h-4z" fill="#101010"/>
+        </svg>
+      </button>
+      <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView settings placeholder" title="TradingView settings">
+        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 4.5h12l6 9.5-6 9.5H8L2 14z"/>
+          <circle cx="14" cy="14" r="3.2"/>
+        </svg>
+      </button>
+      <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView fullscreen placeholder" title="TradingView fullscreen">
+        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" aria-hidden="true">
+          <path d="M10 4.5H4.5V10M18 4.5h5.5V10M10 23.5H4.5V18M18 23.5h5.5V18"/>
+        </svg>
+      </button>
+      <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView snapshot placeholder" title="TradingView snapshot">
+        <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true">
+          <path d="m9.25 7.5 1.5-2h8.5l1.5 2h4.75a2 2 0 0 1 2 2v13.5H2.5V9.5a2 2 0 0 1 2-2z"/>
+          <circle cx="15" cy="15.25" r="5"/>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
 export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) {
   const observations = Array.isArray(history?.series) ? history.series : [];
   const points = proposalChartPoints(history, { launchedAt: options.launchedAt });
@@ -913,7 +983,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
     ? scales.y(launchAnchor.underlyingPrice)
     : null;
   return `
-    <div class="ft-hourly-chart" data-ft-role="proposal-history-chart">
+    <div class="ft-hourly-chart ft-hourly-chart-pending" data-ft-role="proposal-history-chart">
       <div class="ft-hourly-toolbar">
         <div class="ft-hourly-range" data-ft-role="hourly-range-select">
           <button
@@ -987,6 +1057,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
             })}
           </div>
         </div>
+        ${renderTradingViewToolbarPreview()}
       </div>
       <div class="ft-hourly-plot-shell">
         <div class="ft-chart-crosshair-rail" role="toolbar" aria-label="Chart cursor tools">
@@ -1041,6 +1112,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           role="img"
           aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
         ></div>
+        ${options.includeFallback === false ? '' : `
         <div class="ft-hourly-fallback" data-ft-role="proposal-history-fallback">
           <div class="ft-hourly-chart-layout">
             <div class="ft-hourly-y-axis" aria-hidden="true">
@@ -1121,6 +1193,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
             </div>
           </div>
         </div>
+        `}
       </div>
     </div>
   `;
@@ -1676,7 +1749,6 @@ function normalizeProposalMarketData(raw) {
         baseAmount: nonNegativeNumber(row.baseAmount),
         quoteAmount: nonNegativeNumber(row.quoteAmount),
         volumeUsd: nonNegativeNumber(row.volumeUsd),
-        trader: safeBase58(row.trader || row.owner || row.taker),
         blockTime: isoTimestamp(row.blockTime),
         signature,
       };
@@ -1965,7 +2037,7 @@ export function mountFutardTerminal({
     order: {
       outcome: 'pass',
       side: 'buy',
-      type: 'swap',
+      type: 'limit',
       amount: '',
       price: '',
       slippageBps: 100,
@@ -2126,13 +2198,6 @@ export function mountFutardTerminal({
 
           <section class="ft-market-chart" data-ft-region="market-chart" aria-live="polite"></section>
 
-          <section
-            class="ft-transactions-column"
-            data-ft-region="recent-transactions"
-            aria-label="Recent transactions"
-            aria-live="polite"
-          ></section>
-
           <section class="ft-market-stage" data-ft-region="market-stage" aria-live="polite"></section>
 
           <aside class="ft-ticket-column" data-ft-role="trade-ticket" aria-label="Trade intent and positions">
@@ -2165,7 +2230,6 @@ export function mountFutardTerminal({
     pagination: root.querySelector('[data-ft-role="proposal-pagination"]'),
     marketChartHeader: root.querySelector('[data-ft-region="market-chart-header"]'),
     marketChart: root.querySelector('[data-ft-region="market-chart"]'),
-    recentTransactions: root.querySelector('[data-ft-region="recent-transactions"]'),
     marketStage: root.querySelector('[data-ft-region="market-stage"]'),
     tradeTicket: root.querySelector('[data-ft-region="trade-ticket"]'),
     positions: root.querySelector('[data-ft-role="positions"]'),
@@ -2550,16 +2614,25 @@ export function mountFutardTerminal({
   }
 
   function mountHourlyChart(market = selectedMarket()) {
+    const chartRoot = regions.marketChart.querySelector(
+      '[data-ft-role="proposal-history-chart"]',
+    );
     if (
       typeof createProposalHistoryChart !== 'function'
       || !market?.id
       || state.destroyed
-    ) return;
+    ) {
+      chartRoot?.classList.remove('ft-hourly-chart-pending');
+      return;
+    }
     const history = state.historyByProposal.get(market.id)?.data;
     const container = regions.marketChart.querySelector(
       '[data-ft-role="proposal-history-tradingview"]',
     );
-    if (!container || !history?.series?.length) return;
+    if (!container || !history?.series?.length) {
+      chartRoot?.classList.remove('ft-hourly-chart-pending');
+      return;
+    }
     try {
       state.historyChart = createProposalHistoryChart({
         runtime,
@@ -2573,8 +2646,10 @@ export function mountFutardTerminal({
         launchedAt: market.proposal.createdAt,
         windowEndedAt: market.proposal.endsAt,
       }) || null;
+      chartRoot?.classList.remove('ft-hourly-chart-pending');
     } catch (_) {
       state.historyChart = null;
+      chartRoot?.classList.remove('ft-hourly-chart-pending');
       // The semantic SVG and exact-value table remain available as fallbacks.
     }
   }
@@ -2719,9 +2794,24 @@ export function mountFutardTerminal({
     return `
       <header class="ft-chart-market-header" data-ft-role="proposal-chart-header">
         <div class="ft-chart-market-identity">
+          ${market.token ? `
+            <button
+              class="ft-chart-market-watchlist"
+              type="button"
+              data-ft-action="toggle-ownership-watchlist"
+              data-ft-token="${escapeHtml(market.token)}"
+              aria-label="Toggle ${escapeHtml(market.ticker)} watchlist"
+              aria-pressed="${String(runtime.NAVGATOR?.shell?.watchlist?.has?.(market.token) === true)}"
+              title="Toggle watchlist"
+            >
+              <svg viewBox="0 0 20 19" aria-hidden="true">
+                <path d="m10 1.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L10 14.77 4.8 17.5l.99-5.79-4.21-4.1 5.82-.85L10 1.5Z"/>
+              </svg>
+            </button>
+          ` : ''}
           ${renderLogo(market, 'large')}
           <div>
-            <p><strong>${escapeHtml(market.ticker)}</strong><span>${escapeHtml(market.name)}</span></p>
+            <p><strong>${escapeHtml(market.ticker)}</strong></p>
             <small>${escapeHtml(proposalNumber)}</small>
           </div>
         </div>
@@ -2759,11 +2849,6 @@ export function mountFutardTerminal({
           label: 'Result',
           value: result.label,
           tone: result.tone,
-        })}
-        ${metric({
-          key: 'liquidity',
-          label: 'Liquidity',
-          value: formatCompactMoney(market.liquidityUsd),
         })}
       </header>
     `;
@@ -2841,6 +2926,7 @@ export function mountFutardTerminal({
           visibility: state.historySeriesVisibility,
           launchedAt: market.proposal.createdAt,
           windowEndedAt: market.proposal.endsAt,
+          includeFallback: state.hostMode !== 'token',
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">
@@ -3002,29 +3088,16 @@ export function mountFutardTerminal({
     const list = runtime.document.getElementById('tlp-decisions-list');
     if (!list) return;
     const section = runtime.document.getElementById('tlp-decisions-panel');
-    const pastSection = runtime.document.getElementById('tlp-past-decisions-panel');
     const count = runtime.document.getElementById('tp-live-decision-count');
+    const pastSection = runtime.document.getElementById('tlp-past-decisions-panel');
     const pastList = runtime.document.getElementById('tlp-past-decisions-list');
     const pastCount = runtime.document.getElementById('tp-past-decision-count');
     const pastTitle = runtime.document.getElementById('tp-past-decisions-title');
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
-    const pastMarkets = state.sidebarMarkets.filter(
-      market => (
-        market.proposal.statusGroup === 'passed'
-        || market.proposal.statusGroup === 'failed'
-      ) && marketMatchesToken(market),
-    );
     if (count) count.textContent = String(liveMarkets.length);
-    if (pastCount) pastCount.textContent = String(pastMarkets.length);
-    if (pastTitle) {
-      pastTitle.textContent = state.tokenFilter
-        ? `Past Proposals · ${state.tokenFilter.toUpperCase()}`
-        : 'Past Proposals';
-    }
     if (section) section.hidden = false;
-    if (pastSection) pastSection.hidden = false;
     if (!liveMarkets.length) {
       list.innerHTML = '<div class="tp-decisions-empty">0 live decision markets</div>';
     } else {
@@ -3058,36 +3131,72 @@ export function mountFutardTerminal({
       }).join('');
     }
 
+    if (pastSection) pastSection.hidden = false;
     if (pastList) {
-      pastList.innerHTML = pastMarkets.length
-        ? pastMarkets.map((market) => {
-          const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
+      const tokenKey = state.tokenFilter;
+      const ticker = firstText(
+        state.navMap.get(tokenKey)?.ticker,
+        state.sidebarMarkets.find(market => market.token === tokenKey)?.ticker,
+        tokenKey,
+      ).toUpperCase();
+      const pastMarkets = state.sidebarMarkets
+        .filter(market => (
+          tokenKey
+          && market.token === tokenKey
+          && market.proposal.statusGroup !== 'live'
+        ))
+        .sort((left, right) => {
+          const numberDelta = firstNumber(right.proposal.number, -1)
+            - firstNumber(left.proposal.number, -1);
+          if (numberDelta) return numberDelta;
+          return String(right.proposal.resolvedAt || right.proposal.endsAt || right.proposal.createdAt || '')
+            .localeCompare(String(left.proposal.resolvedAt || left.proposal.endsAt || left.proposal.createdAt || ''));
+        });
+      if (pastTitle) {
+        pastTitle.textContent = ticker ? `Past Proposals · ${ticker}` : 'Past Proposals';
+      }
+      if (pastCount) pastCount.textContent = String(pastMarkets.length);
+      if (!pastMarkets.length) {
+        pastList.innerHTML = `<div class="tp-decisions-empty">0 past proposals${ticker
+          ? ` for ${escapeHtml(ticker)}`
+          : ''}</div>`;
+      } else {
+        pastList.innerHTML = pastMarkets.map((market) => {
           const proposalNumber = market.proposal.number == null
-            ? ''
-            : ` #${Math.round(market.proposal.number)}`;
+            ? 'Proposal'
+            : `Proposal #${Math.round(market.proposal.number)}`;
+          const result = market.proposal.statusGroup === 'passed'
+            ? 'Passed'
+            : market.proposal.statusGroup === 'failed'
+              ? 'Failed'
+              : proposalDisplayStatus(market.proposal).label;
+          const resultState = market.proposal.statusGroup === 'passed'
+            || market.proposal.statusGroup === 'failed'
+            ? market.proposal.statusGroup
+            : 'indexed';
           const destination = tokenMarketsUrl(market.token, market.id);
-          const result = market.proposal.statusGroup === 'passed' ? 'Passed' : 'Failed';
           return `
             <a
-              class="tp-decision-item tp-decision-item-past"
+              class="tp-decision-item tp-past-proposal-item"
               href="${escapeHtml(destination)}"
               title="${escapeHtml(market.proposal.title)}"
-              data-market-search-primary="${escapeHtml(ticker)}"
-              data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''} resolved ${result}`)}"
+              data-market-search-primary="${escapeHtml(`${ticker} ${proposalNumber}`)}"
+              data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${proposalNumber} ${market.proposal.title || ''} ${result}`)}"
               ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
             >
               <span class="tp-decision-project">
                 ${renderLogo(market, 'small')}
                 <span class="tp-decision-copy">
-                  <strong>${escapeHtml(ticker)}${escapeHtml(proposalNumber)}</strong>
+                  <strong>${escapeHtml(proposalNumber)}</strong>
+                  <small>${escapeHtml(market.proposal.title)}</small>
                 </span>
               </span>
-              <span class="tp-decision-state" data-state="resolved">Resolved</span>
-              <span class="tp-decision-result" data-result="${escapeHtml(result.toLowerCase())}">${escapeHtml(result)}</span>
+              <span class="tp-decision-state">Closed</span>
+              <span class="tp-decision-result" data-result="${escapeHtml(resultState)}">${escapeHtml(result)}</span>
             </a>
           `;
-        }).join('')
-        : '<div class="tp-decisions-empty">0 past proposals</div>';
+        }).join('');
+      }
     }
     runtime.applyMarketSidebarSearch?.();
   }
@@ -3941,165 +4050,102 @@ export function mountFutardTerminal({
       `;
     }
 
-    const isBuy = state.order.side === 'buy';
-    const assetLogo = renderLogo(market, 'small');
-    const usdcLogo = '<span class="ft-ownership-usdc-logo" aria-hidden="true">$</span>';
-    const fieldSymbol = isLimit ? amountSymbol : inputSymbol;
-    const fieldLogo = fieldSymbol.includes('USDC') ? usdcLogo : assetLogo;
-    const receiveSymbol = isLimit
-      ? `${outcome} USDC`
-      : approximateOutput?.outputSymbol
-        || (isBuy ? `${outcome} ${market.ticker}` : `${outcome} USDC`);
-    const receiveLogo = receiveSymbol.includes('USDC') ? usdcLogo : assetLogo;
-    const indicativeOutput = approximateOutput?.output;
-    const styledCta = cta.replaceAll('ft-primary-button', 'ft-ownership-connect');
-
     regions.tradeTicket.innerHTML = `
-      <section
-        class="ft-ticket ft-execution-ticket ft-ownership-ticket ft-decision-market-ticket ft-order-outcome-${escapeHtml(state.order.outcome)}"
-        data-ft-role="decision-trade-ticket"
-        data-ft-order-side="${escapeHtml(state.order.side)}"
-        data-ft-order-type="${escapeHtml(state.order.type)}"
-      >
-        <div class="ft-ownership-side-tabs" role="tablist" aria-label="Decision-market order side">
-          <button
-            type="button"
-            role="tab"
-            data-ft-action="select-side"
-            data-ft-side="buy"
-            aria-selected="${isBuy}"
-            class="${isBuy ? 'ft-is-active' : ''}"
-          >Buy</button>
-          <button
-            type="button"
-            role="tab"
-            data-ft-action="select-side"
-            data-ft-side="sell"
-            aria-selected="${!isBuy}"
-            class="${!isBuy ? 'ft-is-active' : ''}"
-          >Sell</button>
-        </div>
-
-        <div class="ft-ownership-order-tabs" role="tablist" aria-label="Decision-market order type">
-          <button
-            type="button"
-            role="tab"
-            data-ft-action="select-order-type"
-            data-ft-order-type="swap"
-            aria-selected="${!isLimit && !isRecurring}"
-            class="${!isLimit && !isRecurring ? 'ft-is-active' : ''}"
-          >Market</button>
-          <button type="button" role="tab" aria-selected="false" disabled title="Smart Fill coming soon">Smart Fill</button>
-          <button
-            type="button"
-            role="tab"
-            data-ft-action="select-order-type"
-            data-ft-order-type="limit"
-            aria-selected="${isLimit}"
-            class="${isLimit ? 'ft-is-active' : ''}"
-          >Limit</button>
-          <button
-            type="button"
-            role="tab"
-            ${automaticReady ? 'data-ft-action="select-order-type" data-ft-order-type="recurring"' : 'disabled'}
-            aria-selected="${isRecurring}"
-            class="${isRecurring ? 'ft-is-active' : ''}"
-            title="${automaticReady ? 'Automatic order' : 'Pro tools coming soon'}"
-          >Pro <span class="ft-ownership-chevron" aria-hidden="true"></span></button>
-        </div>
-
-        <div class="ft-decision-outcome-tabs" role="group" aria-label="Select proposal outcome">
-          <span>Outcome</span>
+      <section class="ft-ticket ft-execution-ticket ft-decision-ticket ft-order-outcome-${escapeHtml(state.order.outcome)}">
+        <div class="ft-segmented ft-outcome-tabs" role="group" aria-label="Select outcome">
           <button
             type="button"
             data-ft-action="select-outcome"
             data-ft-outcome="pass"
             aria-pressed="${state.order.outcome === 'pass'}"
-            class="${state.order.outcome === 'pass' ? 'ft-is-active' : ''}"
+            class="${state.order.outcome === 'pass' ? 'ft-segment-active ft-segment-pass' : ''}"
           >PASS</button>
           <button
             type="button"
             data-ft-action="select-outcome"
             data-ft-outcome="fail"
             aria-pressed="${state.order.outcome === 'fail'}"
-            class="${state.order.outcome === 'fail' ? 'ft-is-active' : ''}"
+            class="${state.order.outcome === 'fail' ? 'ft-segment-active ft-segment-fail' : ''}"
           >FAIL</button>
         </div>
 
-        <div class="ft-ownership-order-body">
-          ${isLimit ? `
-            <label class="ft-decision-limit-field">
-              <span>Limit price</span>
+        <div class="ft-segmented ft-order-type-tabs" role="group" aria-label="Select order type">
+          <button
+            type="button"
+            data-ft-action="select-order-type"
+            data-ft-order-type="limit"
+            aria-pressed="${isLimit}"
+            class="${isLimit ? 'ft-segment-active' : ''}"
+          >LIMIT</button>
+          <button
+            type="button"
+            data-ft-action="select-order-type"
+            data-ft-order-type="swap"
+            aria-pressed="${!isLimit && !isRecurring}"
+            class="${!isLimit && !isRecurring ? 'ft-segment-active' : ''}"
+          >SWAP</button>
+          ${automaticReady ? `
+            <button
+              type="button"
+              data-ft-action="select-order-type"
+              data-ft-order-type="recurring"
+              aria-pressed="${isRecurring}"
+              class="${isRecurring ? 'ft-segment-active' : ''}"
+            >AUTOMATIC</button>
+          ` : ''}
+        </div>
+
+        <div class="ft-segmented ft-side-tabs" role="group" aria-label="Select trade direction">
+          <button
+            type="button"
+            data-ft-action="select-side"
+            data-ft-side="buy"
+            aria-pressed="${state.order.side === 'buy'}"
+            class="${state.order.side === 'buy' ? 'ft-segment-active' : ''}"
+          >BUY</button>
+          <button
+            type="button"
+            data-ft-action="select-side"
+            data-ft-side="sell"
+            aria-pressed="${state.order.side === 'sell'}"
+            class="${state.order.side === 'sell' ? 'ft-segment-active' : ''}"
+          >SELL</button>
+        </div>
+
+        ${isLimit ? `
+          <label class="ft-amount-field">
+            <span class="ft-ticket-label">Price</span>
+            <span class="ft-amount-input-wrap">
               <input
                 type="number"
                 min="0"
                 step="${escapeHtml(limitPriceStep)}"
                 inputmode="decimal"
-                placeholder="${escapeHtml(formatTokenAmount(referencePrice, 4))}"
+                placeholder="0.000"
                 value="${escapeHtml(state.order.price)}"
                 data-ft-role="limit-price"
                 aria-label="Limit price in conditional USDC"
               >
-              <strong>USDC</strong>
-            </label>
-          ` : ''}
+            </span>
+          </label>
+        ` : ''}
 
-          <label class="ft-ownership-swap-field">
-            <span class="ft-ownership-field-label">${isLimit ? 'Order size' : 'Pay with'}</span>
+        <label class="ft-amount-field">
+          <span class="ft-ticket-label">${isRecurring ? 'Amount per run' : 'Amount'}</span>
+          <span class="ft-amount-input-wrap">
             <input
               type="number"
               min="0"
               step="any"
               inputmode="decimal"
+              placeholder="0.00"
               value="${escapeHtml(state.order.amount)}"
-              placeholder="0"
               data-ft-role="amount"
-              aria-label="Trade amount in ${escapeHtml(fieldSymbol)}"
+              aria-label="Trade amount in ${escapeHtml(amountSymbol)}"
             >
-            <span class="ft-ownership-asset">
-              ${fieldLogo}
-              <strong>${escapeHtml(fieldSymbol)}</strong>
-              <span class="ft-ownership-chevron" aria-hidden="true"></span>
-            </span>
-          </label>
-          <div class="ft-ownership-balance">
-            <span class="ft-ownership-wallet-icon" aria-hidden="true"></span>
-            <span>${escapeHtml(balanceText)} ${escapeHtml(inputSymbol)}</span>
-          </div>
-
-          <div class="ft-ownership-presets" aria-label="Quick order amounts">
-            ${[100, 500, 1_000].map(preset => `
-              <button
-                type="button"
-                data-ft-action="decision-amount-preset"
-                data-ft-amount="${preset}"
-              >${preset.toLocaleString('en-US')}</button>
-            `).join('')}
-            <button type="button" data-ft-action="decision-amount-preset" data-ft-amount="max">Max</button>
-            <button
-              class="ft-ownership-settings"
-              type="button"
-              aria-label="Order settings"
-              title="Order settings"
-            ><span aria-hidden="true"></span></button>
-          </div>
-
-          <div class="ft-ownership-swap-field ft-ownership-receive-field">
-            <span class="ft-ownership-field-label">${isLimit ? 'Limit value' : 'Receive'}</span>
-            <output data-ft-role="decision-receive-amount">${Number.isFinite(indicativeOutput)
-              ? `≈ ${formatTokenAmount(indicativeOutput, 6)}`
-              : '≈ 0'}</output>
-            <span class="ft-ownership-asset">
-              ${receiveLogo}
-              <strong>${escapeHtml(receiveSymbol)}</strong>
-              <span class="ft-ownership-chevron" aria-hidden="true"></span>
-            </span>
-          </div>
-          <div class="ft-ownership-balance">
-            <span class="ft-ownership-wallet-icon" aria-hidden="true"></span>
-            <span>0 ${escapeHtml(receiveSymbol)}</span>
-          </div>
-        </div>
+            <strong title="${escapeHtml(inputSymbol)}">Bal: ${escapeHtml(balanceText)}</strong>
+          </span>
+        </label>
 
         ${isRecurring ? `
           <div class="ft-recurring-controls">
@@ -4125,22 +4171,157 @@ export function mountFutardTerminal({
               >
             </label>
           </div>
-          <strong class="ft-decision-recurring-total" data-ft-role="recurring-total">${Number.isFinite(recurringTotal)
-            ? `${formatTokenAmount(recurringTotal, 6)} ${escapeHtml(inputSymbol)} total`
-            : 'Enter an amount'}</strong>
         ` : ''}
+
+        ${isLimit ? `
+          <div class="ft-estimate ft-limit-estimate">
+            <div><span>Venue</span><strong>Manifest order book</strong></div>
+            <div><span>Funding</span><strong>Conditional balance + automatic split</strong></div>
+            <p>If your ${escapeHtml(inputSymbol)} balance is short, the review splits only the missing underlying ${escapeHtml(state.order.side === 'buy' ? 'USDC' : market.ticker)} into PASS/FAIL claims before funding the order.</p>
+          </div>
+        ` : isRecurring ? `
+          <label class="ft-slippage-field">
+            <span>
+              <span class="ft-ticket-label">Worst-price guard</span>
+              <small>Minimum output enforced every run</small>
+            </span>
+            <select data-ft-role="slippage" aria-label="Recurring worst-price guard">
+              <option value="50"${state.order.slippageBps === 50 ? ' selected' : ''}>0.5%</option>
+              <option value="100"${state.order.slippageBps === 100 ? ' selected' : ''}>1.0%</option>
+              <option value="200"${state.order.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
+            </select>
+          </label>
+          <div class="ft-estimate ft-recurring-estimate" data-ft-role="estimate">
+            <div><span>Execution</span><strong>Manifest · automatic</strong></div>
+            <div><span>Book reference</span><strong>${formatPrice(suggestedLimitPrice(market))}</strong></div>
+            <div><span>Total funding</span><strong data-ft-role="recurring-total">${Number.isFinite(recurringTotal)
+              ? `${formatTokenAmount(recurringTotal, 6)} ${escapeHtml(inputSymbol)}`
+              : 'Enter an amount'}</strong></div>
+            <div><span>Final run</span><strong>${escapeHtml(formatDateTime(new Date(recurringFinalRun * 1_000).toISOString()))}</strong></div>
+            <p>One wallet approval splits and locks the capped total. A keeper can run one slice only when due and only inside this price guard. Missed intervals do not bunch together.</p>
+          </div>
+        ` : `
+          <label class="ft-slippage-field">
+            <span>
+              <span class="ft-ticket-label">Max slippage</span>
+              <small>Minimum output enforced onchain</small>
+            </span>
+            <select data-ft-role="slippage" aria-label="Maximum slippage">
+              <option value="50"${state.order.slippageBps === 50 ? ' selected' : ''}>0.5%</option>
+              <option value="100"${state.order.slippageBps === 100 ? ' selected' : ''}>1.0%</option>
+              <option value="200"${state.order.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
+            </select>
+          </label>
+          <div class="ft-estimate" data-ft-role="estimate">
+            <div><span>Route</span><strong>Best verified venue</strong></div>
+            <div><span>Liquidity</span><strong>MetaDAO AMM · Manifest</strong></div>
+            <div><span>Reference spot</span><strong>${formatPrice(market[state.order.outcome]?.price)}</strong></div>
+            <div><span>Indicative output</span><strong>${approximateOutput
+              ? `${formatTokenAmount(approximateOutput.output, 6)} ${escapeHtml(approximateOutput.outputSymbol)}`
+              : 'Enter an amount'}</strong></div>
+            <p>The review atomically splits your ${escapeHtml(inputSymbol)}, compares the fully fillable AMM and order-book routes, enforces minimum output, and simulates the exact transaction.</p>
+          </div>
+        `}
 
         ${state.execution.error ? `<p class="ft-ticket-error">${escapeHtml(state.execution.error)}</p>` : ''}
         ${renderTicketTransactionStatus(market)}
-        ${styledCta}
+        ${cta}
 
-        <dl class="ft-ownership-order-details">
-          <div><dt>Est. Price Impact</dt><dd>—</dd></div>
-          <div><dt>Max slippage</dt><dd><span>${(state.order.slippageBps / 100).toFixed(2)}%</span></dd></div>
-          <div><dt>Venue</dt><dd>${isLimit || isRecurring ? 'Manifest' : 'MetaDAO AMM'}</dd></div>
-          <div><dt>Market</dt><dd>${escapeHtml(outcome)} conditional</dd></div>
-        </dl>
+        ${isRecurring ? `
+          <div class="ft-execution-boundary">
+            <span aria-hidden="true">✓</span>
+            <p><strong>One setup signature.</strong> Later runs are automatic and cannot exceed the funded vault, cadence, expiry, or per-run price guard. You can cancel and withdraw at any time.</p>
+          </div>
+        ` : ''}
       </section>
+    `;
+  }
+
+  function renderHistoricalTradePreview(market) {
+    const resolvedOutcome = market.proposal.statusGroup === 'failed' ? 'fail' : 'pass';
+    const outcome = resolvedOutcome.toUpperCase();
+    const referencePrice = firstNumber(market[resolvedOutcome]?.price);
+    return `
+      <div
+        class="ft-historical-trade-preview"
+        data-ft-role="historical-trade-preview"
+        aria-label="Read-only historical trading interface"
+      >
+        <div class="ft-historical-trade-heading">
+          <div>
+            <span class="ft-kicker">Historical trading layout</span>
+            <h3>${escapeHtml(market.ticker)} decision market</h3>
+          </div>
+          <span class="ft-read-only-badge">Read only</span>
+        </div>
+
+        <div class="ft-segmented ft-outcome-tabs" role="group" aria-label="Historical outcome">
+          <button
+            type="button"
+            disabled
+            aria-pressed="${resolvedOutcome === 'pass'}"
+            class="${resolvedOutcome === 'pass' ? 'ft-segment-active ft-segment-pass' : ''}"
+          >PASS</button>
+          <button
+            type="button"
+            disabled
+            aria-pressed="${resolvedOutcome === 'fail'}"
+            class="${resolvedOutcome === 'fail' ? 'ft-segment-active ft-segment-fail' : ''}"
+          >FAIL</button>
+        </div>
+
+        <div class="ft-segmented ft-order-type-tabs" role="group" aria-label="Historical order type">
+          <button type="button" disabled aria-pressed="true" class="ft-segment-active">LIMIT</button>
+          <button type="button" disabled aria-pressed="false">SWAP</button>
+        </div>
+
+        <div class="ft-segmented ft-side-tabs" role="group" aria-label="Historical trade direction">
+          <button type="button" disabled aria-pressed="true" class="ft-segment-active">BUY</button>
+          <button type="button" disabled aria-pressed="false">SELL</button>
+        </div>
+
+        <label class="ft-amount-field">
+          <span class="ft-ticket-label">Price</span>
+          <span class="ft-amount-input-wrap">
+            <input
+              type="number"
+              disabled
+              value="${Number.isFinite(referencePrice) ? escapeHtml(referencePrice) : ''}"
+              placeholder="—"
+              data-ft-role="historical-limit-price"
+              aria-label="Final recorded ${escapeHtml(outcome)} price"
+            >
+          </span>
+        </label>
+
+        <label class="ft-amount-field">
+          <span class="ft-ticket-label">Amount</span>
+          <span class="ft-amount-input-wrap">
+            <input
+              type="number"
+              disabled
+              placeholder="0.00"
+              data-ft-role="historical-amount"
+              aria-label="Historical trade amount"
+            >
+            <strong>Bal: —</strong>
+          </span>
+        </label>
+
+        <div class="ft-estimate">
+          <div><span>PASS reference</span><strong>${formatPrice(market.pass?.price)}</strong></div>
+          <div><span>FAIL reference</span><strong>${formatPrice(market.fail?.price)}</strong></div>
+          <div><span>Market state</span><strong>${escapeHtml(outcome)} resolved</strong></div>
+          <p>These are final recorded observations from the closed market, not executable quotes.</p>
+        </div>
+
+        <button
+          class="ft-primary-button"
+          type="button"
+          data-ft-role="archived-trade-cta"
+          disabled
+        >Trading closed · read-only</button>
+      </div>
     `;
   }
 
@@ -4389,102 +4570,40 @@ export function mountFutardTerminal({
       } else if (isResolvedOutcome && state.wallet.address && redemption) {
         settlementAction = '<button class="ft-primary-button" type="button" disabled>No winning balance to redeem</button>';
       }
-      const resolvedOutcome = market.proposal.statusGroup === 'failed'
-        ? 'FAIL'
-        : market.proposal.statusGroup === 'passed'
-          ? 'PASS'
-          : state.order.outcome.toUpperCase();
-      const resultLabel = market.proposal.statusGroup === 'passed'
-        ? 'Passed'
-        : market.proposal.statusGroup === 'failed'
-          ? 'Failed'
-          : 'Pending';
       regions.tradeTicket.innerHTML = `
         <section
-          class="ft-ticket ft-ownership-ticket ft-decision-market-ticket ft-decision-market-ticket-closed ft-archive-ticket"
+          class="ft-ticket ft-archive-ticket${isResolvedOutcome
+            ? ` ft-execution-ticket ft-order-outcome-${market.proposal.statusGroup === 'failed' ? 'fail' : 'pass'}`
+            : ''}"
           data-ft-role="proposal-archive"
         >
-          <span
-            class="ft-sr-only"
-            data-ft-role="proposal-status"
-            data-ft-status="${escapeHtml(displayStatus.key)}"
-            data-ft-outcome="${escapeHtml(market.proposal.statusGroup)}"
-          >${escapeHtml(displayStatus.label)} · ${isResolvedOutcome ? 'Resolved decision' : 'Indexed record'}</span>
-
-          <div class="ft-ownership-side-tabs" role="tablist" aria-label="Archived order side">
-            <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Buy</button>
-            <button type="button" role="tab" aria-selected="false" disabled>Sell</button>
+          <div class="ft-ticket-heading">
+            <div><span class="ft-kicker">${isResolvedOutcome ? 'Resolved decision' : 'Indexed record'}</span><h2>${escapeHtml(market.ticker)} proposal archive</h2></div>
+            <span
+              class="ft-archive-status ft-archive-status-${escapeHtml(displayStatus.key)}"
+              data-ft-role="proposal-status"
+              data-ft-status="${escapeHtml(displayStatus.key)}"
+              data-ft-outcome="${escapeHtml(market.proposal.statusGroup)}"
+            >${escapeHtml(displayStatus.label)}</span>
           </div>
-
-          <div class="ft-ownership-order-tabs" role="tablist" aria-label="Archived order type">
-            <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Market</button>
-            <button type="button" role="tab" aria-selected="false" disabled>Smart Fill</button>
-            <button type="button" role="tab" aria-selected="false" disabled>Limit</button>
-            <button type="button" role="tab" aria-selected="false" disabled>Pro <span class="ft-ownership-chevron" aria-hidden="true"></span></button>
-          </div>
-
-          <div class="ft-decision-outcome-tabs" role="group" aria-label="Resolved proposal outcome">
-            <span>Outcome</span>
-            <button type="button" aria-pressed="${resolvedOutcome === 'PASS'}" class="${resolvedOutcome === 'PASS' ? 'ft-is-active' : ''}" disabled>PASS</button>
-            <button type="button" aria-pressed="${resolvedOutcome === 'FAIL'}" class="${resolvedOutcome === 'FAIL' ? 'ft-is-active' : ''}" disabled>FAIL</button>
-          </div>
-
-          <div class="ft-ownership-order-body">
-            <div class="ft-ownership-swap-field">
-              <span class="ft-ownership-field-label">Pay with</span>
-              <output>0</output>
-              <span class="ft-ownership-asset">
-                <span class="ft-ownership-usdc-logo" aria-hidden="true">$</span>
-                <strong>USDC</strong>
-                <span class="ft-ownership-chevron" aria-hidden="true"></span>
-              </span>
+          ${isResolvedOutcome ? renderHistoricalTradePreview(market) : `
+            <div class="ft-archive-ticket-state">
+              <span aria-hidden="true">⌁</span>
+              <h3>Trading is unavailable</h3>
+              <p>This indexed proposal record is not an open validated market and cannot accept a trade intent.</p>
             </div>
-            <div class="ft-ownership-balance">
-              <span class="ft-ownership-wallet-icon" aria-hidden="true"></span>
-              <span>0 USDC</span>
-            </div>
-
-            <div class="ft-ownership-presets" aria-hidden="true">
-              <button type="button" disabled>100</button>
-              <button type="button" disabled>500</button>
-              <button type="button" disabled>1,000</button>
-              <button type="button" disabled>Max</button>
-              <button class="ft-ownership-settings" type="button" disabled><span></span></button>
-            </div>
-
-            <div class="ft-ownership-swap-field ft-ownership-receive-field">
-              <span class="ft-ownership-field-label">Receive</span>
-              <output>≈ 0</output>
-              <span class="ft-ownership-asset">
-                ${renderLogo(market, 'small')}
-                <strong>${escapeHtml(resolvedOutcome)} ${escapeHtml(market.ticker)}</strong>
-                <span class="ft-ownership-chevron" aria-hidden="true"></span>
-              </span>
-            </div>
-            <div class="ft-ownership-balance">
-              <span class="ft-ownership-wallet-icon" aria-hidden="true"></span>
-              <span>0 ${escapeHtml(resolvedOutcome)} ${escapeHtml(market.ticker)}</span>
-            </div>
-          </div>
-
-          <button
-            class="ft-ownership-connect"
-            type="button"
-            data-ft-role="archived-trade-cta"
-            disabled
-          >${isResolvedOutcome ? 'Trading closed' : 'Trading is unavailable'}</button>
-
-          <dl class="ft-ownership-order-details">
-            <div><dt>Status</dt><dd>${escapeHtml(displayStatus.label)}</dd></div>
-            <div><dt>Result</dt><dd>${escapeHtml(resultLabel)}</dd></div>
-            <div><dt>Market data</dt><dd>Historical</dd></div>
-          </dl>
-
+            <button
+              class="ft-primary-button"
+              type="button"
+              data-ft-role="archived-trade-cta"
+              disabled
+            >Not tradable</button>
+          `}
           ${isResolvedOutcome ? `
             <div class="ft-archive-settlement">
               <span class="ft-kicker">Settlement</span>
               <h3>Redeem resolved positions</h3>
-              <p>Connect to verify any winning conditional balance before review.</p>
+              <p>Settlement is available only after the proposal, DAO, vaults, mints, and binary payout independently match on-chain.</p>
               ${settlementAction}
             </div>
           ` : ''}
@@ -4497,6 +4616,10 @@ export function mountFutardTerminal({
               rel="noreferrer"
             >Open governance record <span aria-hidden="true">↗</span></a>
           ` : ''}
+          <div class="ft-execution-boundary">
+            <span aria-hidden="true">◇</span>
+            <p>Any displayed market values are labeled by their observation time and are not executable quotes.</p>
+          </div>
         </section>
       `;
       return;
@@ -4922,75 +5045,8 @@ export function mountFutardTerminal({
     `;
   }
 
-  function renderDecisionRecentTransactions(market) {
-    const entry = state.marketDataByProposal.get(market.id);
-    const transactions = entry?.data?.recentTrades || [];
-    const loading = market.proposal.statusGroup === 'live' && entry?.loading;
-    const sourceLabel = market.proposal.statusGroup === 'live'
-      ? 'Public indexed decision-market activity'
-      : 'Historical indexed decision-market activity';
-    regions.recentTransactions.innerHTML = `
-      <section
-        class="ft-ownership-transactions ft-decision-transactions"
-        data-ft-role="decision-recent-transactions"
-        aria-label="Recent ${escapeHtml(market.ticker)} decision-market transactions"
-      >
-        <header class="ft-ownership-transactions-header">
-          <strong>Recent transactions</strong>
-          <span>${transactions.length}</span>
-        </header>
-        <div class="ft-ownership-transactions-columns" aria-hidden="true">
-          <span>Price</span>
-          <span>Size</span>
-          <span>Trader</span>
-          <span>Age</span>
-        </div>
-        <div class="ft-ownership-transactions-list">
-          ${transactions.length ? transactions.map((transaction) => {
-            const trader = transaction.trader
-              ? shortenAddress(transaction.trader, 3)
-              : transaction.venue === 'manifest'
-                ? 'Manifest'
-                : 'FutAMM';
-            const size = firstNumber(
-              transaction.baseAmount,
-              transaction.quoteAmount,
-              transaction.volumeUsd,
-            );
-            return `
-              <a
-                class="ft-ownership-transaction-row"
-                href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
-                target="_blank"
-                rel="noreferrer"
-                title="Open ${escapeHtml(transaction.branch.toUpperCase())} transaction on Solscan"
-              >
-                <span
-                  class="ft-ownership-transaction-price"
-                  data-side="${escapeHtml(transaction.side)}"
-                  title="${escapeHtml(`${transaction.branch.toUpperCase()} ${transaction.side}`)}"
-                >${formatChartCurrency(transaction.price)}</span>
-                <span>${Number.isFinite(size) ? formatTokenAmount(size, 4) : '—'}</span>
-                <span title="${escapeHtml(transaction.trader || trader)}">${escapeHtml(trader)}</span>
-                <span>${transaction.blockTime
-                  ? escapeHtml(formatRelativeTime(transaction.blockTime).replace(/\s+ago$/i, ''))
-                  : '—'}</span>
-              </a>
-            `;
-          }).join('') : `
-            <div class="ft-ownership-transactions-empty">
-              ${loading ? 'Loading indexed transactions…' : 'No recent indexed transactions'}
-            </div>
-          `}
-        </div>
-        <p class="ft-ownership-transactions-source">${escapeHtml(sourceLabel)}</p>
-      </section>
-    `;
-  }
-
   function renderPositions() {
     if (isOwnershipWorkspace()) {
-      regions.recentTransactions.innerHTML = '';
       const asset = ownershipTokenSnapshot();
       const transactions = asset.recentTransactions || [];
       regions.positions.innerHTML = `
@@ -5051,8 +5107,58 @@ export function mountFutardTerminal({
     }
 
     const market = selectedMarket();
-    if (market) renderDecisionRecentTransactions(market);
-    else regions.recentTransactions.innerHTML = '';
+    if (state.hostMode === 'token' && market) {
+      const entry = state.marketDataByProposal.get(market.id);
+      const transactions = entry?.data?.recentTrades || [];
+      regions.positions.innerHTML = `
+        <section
+          class="ft-ownership-transactions ft-decision-transactions"
+          data-ft-role="proposal-recent-transactions"
+          aria-label="Recent ${escapeHtml(market.ticker)} proposal transactions"
+        >
+          <header class="ft-ownership-transactions-header">
+            <strong>Recent transactions</strong>
+            <span>${transactions.length}</span>
+          </header>
+          <div class="ft-ownership-transactions-columns" aria-hidden="true">
+            <span>Price</span>
+            <span>Size</span>
+            <span>Market</span>
+            <span>Age</span>
+          </div>
+          <div class="ft-ownership-transactions-list">
+            ${transactions.length ? transactions.map((transaction) => `
+              <a
+                class="ft-ownership-transaction-row"
+                href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
+                target="_blank"
+                rel="noreferrer"
+                title="Open transaction on Solscan"
+              >
+                <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${formatChartPrice(transaction.price)}</span>
+                <span>${Number.isFinite(transaction.baseAmount)
+                  ? formatTokenAmount(transaction.baseAmount, 4)
+                  : Number.isFinite(transaction.volumeUsd)
+                    ? formatCompactMoney(transaction.volumeUsd)
+                    : '—'}</span>
+                <span class="ft-decision-transaction-branch" data-branch="${escapeHtml(transaction.branch)}">${escapeHtml(transaction.branch.toUpperCase())}</span>
+                <span>${transaction.blockTime
+                  ? escapeHtml(formatRelativeTime(transaction.blockTime).replace(/\s+ago$/i, ''))
+                  : '—'}</span>
+              </a>
+            `).join('') : `
+              <div class="ft-ownership-transactions-empty">
+                ${entry?.loading
+                  ? 'Loading recent indexed transactions'
+                  : entry?.error || 'No recent indexed transactions'}
+              </div>
+            `}
+          </div>
+          <p class="ft-ownership-transactions-source">Public indexed proposal activity</p>
+        </section>
+      `;
+      return;
+    }
 
     if (market && market.proposal.statusGroup !== 'live') {
       const isResolved = market.proposal.statusGroup === 'passed'
@@ -5314,7 +5420,6 @@ export function mountFutardTerminal({
     if (state.hostMode === 'discovery') {
       regions.marketChartHeader.innerHTML = '';
       regions.marketChart.innerHTML = '';
-      regions.recentTransactions.innerHTML = '';
       regions.marketStage.innerHTML = '';
       regions.tradeTicket.innerHTML = '';
       regions.positions.innerHTML = '';
@@ -6742,10 +6847,7 @@ export function mountFutardTerminal({
       integrityResult,
     ] = await Promise.allSettled([
       client.futarchy.activeMarkets({ signal }),
-      client.futarchy.proposals(
-        state.tokenFilter ? { token: state.tokenFilter } : {},
-        { signal },
-      ),
+      client.futarchy.proposals({}, { signal }),
       client.core.homeBootstrap({ cacheOnly: true }, { signal }),
       client.futarchy.recurringConfig({ signal }),
       client.futarchy.programIntegrity({ signal }),
@@ -7015,9 +7117,19 @@ export function mountFutardTerminal({
       const watchlist = runtime.NAVGATOR?.shell?.watchlist;
       if (!watchlist?.toggle) return;
       watchlist.toggle(target.dataset.ftToken || state.tokenFilter);
-      regions.marketChartHeader.innerHTML = renderOwnershipChartHeader(
-        ownershipTokenSnapshot(),
-      );
+      if (isOwnershipWorkspace()) {
+        regions.marketChartHeader.innerHTML = renderOwnershipChartHeader(
+          ownershipTokenSnapshot(),
+        );
+      } else {
+        const market = selectedMarket();
+        const history = market
+          ? state.historyByProposal.get(market.id)?.data
+          : null;
+        regions.marketChartHeader.innerHTML = market
+          ? renderProposalChartHeader(market, history)
+          : '';
+      }
     } else if (action === 'select-proposal') {
       if (state.hostMode === 'discovery') event.preventDefault();
       selectProposal(target.dataset.ftProposalId, { focus: true });
@@ -7179,11 +7291,6 @@ export function mountFutardTerminal({
       state.ownershipOrder.amount = preset === 'max' ? '0' : String(firstNumber(preset) || '');
       scheduleOwnershipQuote(0);
       renderTradeTicket();
-    } else if (action === 'decision-amount-preset') {
-      const preset = target.dataset.ftAmount;
-      state.order.amount = preset === 'max' ? '0' : String(firstNumber(preset) || '');
-      state.execution.error = '';
-      renderTradeTicket();
     } else if (action === 'select-order-type') {
       const type = target.dataset.ftOrderType;
       const automaticReady = state.recurring.enabled
@@ -7313,18 +7420,10 @@ export function mountFutardTerminal({
         }
         return;
       }
+      if (state.order.type === 'limit') return;
       const market = selectedMarket();
-      const outputRegion = root.querySelector('[data-ft-role="decision-receive-amount"]');
-      if (state.order.type === 'limit') {
-        const amount = firstNumber(state.order.amount);
-        const price = firstNumber(state.order.price, suggestedLimitPrice(market));
-        if (outputRegion) {
-          outputRegion.textContent = Number.isFinite(amount) && Number.isFinite(price)
-            ? `≈ ${formatTokenAmount(amount * price, 6)}`
-            : '≈ 0';
-        }
-        return;
-      }
+      const estimateRegion = root.querySelector('[data-ft-role="estimate"]');
+      if (!market || !estimateRegion) return;
       const estimate = executionEstimate(
         market,
         state.order.outcome,
@@ -7332,14 +7431,6 @@ export function mountFutardTerminal({
         firstNumber(state.order.amount),
         state.order.slippageBps,
       );
-      if (outputRegion) {
-        outputRegion.textContent = estimate
-          ? `≈ ${formatTokenAmount(estimate.output, 6)}`
-          : '≈ 0';
-        return;
-      }
-      const estimateRegion = root.querySelector('[data-ft-role="estimate"]');
-      if (!market || !estimateRegion) return;
       const outcome = state.order.outcome === 'pass' ? market.pass : market.fail;
       estimateRegion.innerHTML = `
         <div><span>Venue</span><strong>MetaDAO AMM</strong></div>
@@ -7480,7 +7571,6 @@ export function mountFutardTerminal({
     state.requestedProposalId = '';
     state.routeNotice = '';
     state.markets = [];
-    state.sidebarMarkets = [];
     state.activeMarkets = [];
     state.indexedProposals = [];
     state.proposalSummary = {};

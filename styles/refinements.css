@@ -671,6 +671,18 @@ html[data-workspace="markets"] .app-token-list {
   min-height: 0;
 }
 
+/* The market workspace is a continuous terminal grid. The content side owns
+   the one vertical divider between navigation and the chart; the generic rail
+   shadow and rail border must not visually thicken that shared edge. */
+html[data-workspace="markets"] .app-left {
+  border-right: 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-workspace="markets"] .app-right {
+  border-left: 1px solid #343636;
+}
+
 html[data-workspace="markets"] .app-sidebar-search {
   display: none !important;
 }
@@ -891,18 +903,16 @@ html[data-workspace="markets"] .tp-market-toolbar {
 
 html[data-workspace="markets"] .tp-decisions-section:not([hidden]) {
   display: flex;
+  max-height: min(240px, 34vh);
   flex: 0 0 auto;
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: hidden;
 }
 
-html[data-workspace="markets"] .tp-live-decisions-section:not([hidden]) {
-  max-height: min(196px, 24vh);
-}
-
-html[data-workspace="markets"] .tp-past-decisions-section:not([hidden]) {
-  max-height: min(260px, 32vh);
+html[data-workspace="markets"] .tp-past-proposals-section:not([hidden]) {
+  max-height: min(165px, 23vh);
+  border-top: 0;
 }
 
 html[data-workspace="markets"] .tp-all-section {
@@ -948,6 +958,49 @@ html[data-workspace="markets"] .tp-unified-section-count {
   font-weight: 500;
 }
 
+html[data-workspace="markets"] .tp-unified-section-title-group {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+html[data-workspace="markets"] .tp-unified-section-toggle {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #8f8f91;
+  cursor: pointer;
+}
+
+html[data-workspace="markets"] .tp-unified-section-toggle:hover {
+  background: #292929;
+  color: #ffffff;
+}
+
+html[data-workspace="markets"] .tp-unified-section-toggle svg {
+  width: 8px;
+  height: 5px;
+  transition: transform 140ms ease;
+}
+
+html[data-workspace="markets"] .tp-decisions-section.is-collapsed:not([hidden]) {
+  max-height: 30px !important;
+}
+
+html[data-workspace="markets"] .tp-decisions-section.is-collapsed > :not(.tp-unified-section-heading) {
+  display: none !important;
+}
+
+html[data-workspace="markets"] .tp-decisions-section.is-collapsed .tp-unified-section-toggle svg {
+  transform: rotate(180deg);
+}
+
 html[data-workspace="markets"] .tp-all-section > .tp-section-label {
   display: none !important;
 }
@@ -984,13 +1037,9 @@ html[data-workspace="markets"] #tlp-all-list::-webkit-scrollbar-thumb {
   background: #3a3a3a;
 }
 
-html[data-workspace="markets"] #tlp-decisions-list {
-  flex: 1 1 auto;
-  max-height: 126px;
-}
-
+html[data-workspace="markets"] #tlp-decisions-list,
 html[data-workspace="markets"] #tlp-past-decisions-list {
-  flex: 1 1 126px;
+  flex: 0 1 auto;
 }
 
 html[data-workspace="markets"] #tlp-all-list {
@@ -1239,6 +1288,15 @@ html[data-workspace="markets"] #tlp-decisions-list,
 html[data-workspace="markets"] #tlp-past-decisions-list,
 html[data-workspace="markets"] #tlp-all-list {
   padding: 0 !important;
+}
+
+html[data-workspace="markets"] .tp-past-proposal-item {
+  min-height: 42px;
+}
+
+html[data-workspace="markets"] .tp-past-proposal-item .tp-decision-copy small {
+  margin-top: 2px;
+  font-size: 8px;
 }
 
 /* Token intelligence board — default token-page layout */

@@ -391,6 +391,21 @@ function _bindMarketSidebarSearch() {
 }
 
 window.applyMarketSidebarSearch = applyMarketSidebarSearch;
+
+window.toggleMarketProposalSection = function toggleMarketProposalSection(sectionId, button) {
+  var section = document.getElementById(sectionId);
+  if (!section || !button) return;
+  var collapsed = section.classList.toggle('is-collapsed');
+  var isLive = sectionId === 'tlp-decisions-panel';
+  button.setAttribute('aria-expanded', String(!collapsed));
+  button.setAttribute(
+    'aria-label',
+    collapsed
+      ? 'Expand ' + (isLive ? 'live decision markets' : 'past proposals')
+      : 'Collapse ' + (isLive ? 'live decision markets' : 'past proposals')
+  );
+};
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _bindMarketSidebarSearch, { once: true });
 } else {

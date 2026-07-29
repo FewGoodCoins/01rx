@@ -2627,6 +2627,50 @@ body.is-futard-terminal #token-switch-loader {
   margin-top: 0;
 }
 
+.ft-historical-trade-preview {
+  margin-top: 12px;
+}
+
+.ft-historical-trade-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ft-historical-trade-heading h3 {
+  margin: 4px 0 0;
+  color: var(--ft-ink-strong);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.ft-read-only-badge {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid var(--ft-border-strong);
+  border-radius: 999px;
+  background: var(--ft-panel-soft);
+  color: var(--ft-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ft-historical-trade-preview .ft-segmented button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.ft-historical-trade-preview input:disabled {
+  color: var(--ft-muted);
+  opacity: 1;
+  -webkit-text-fill-color: var(--ft-muted);
+}
+
 .ft-archive-ticket-state {
   display: flex;
   min-height: 145px;
@@ -7881,7 +7925,7 @@ body.is-token-markets .token-markets-root {
   aspect-ratio: 5 / 4;
   overflow: hidden;
   border: 1px solid var(--ft-border);
-  background: #070707;
+  background: #101010;
 }
 
 .ft-ownership-chart-frame {
@@ -7889,7 +7933,7 @@ body.is-token-markets .token-markets-root {
   width: 100%;
   height: 100%;
   border: 0;
-  background: #070707;
+  background: #101010;
 }
 
 .ft-ownership-ticket {
@@ -8471,6 +8515,44 @@ body.is-token-markets .token-markets-root {
   display: none;
 }
 
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-header {
+  border: 0;
+  border-bottom: 1px solid #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-header > * {
+  border-right-color: #343636;
+}
+
+/* Treat the ownership workspace as one continuous terminal grid. Each shared
+   edge has exactly one owner, so adjoining panels never stack two borders or
+   leave a gutter between parallel rules. */
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
+  gap: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel,
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-ticket,
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions {
+  border: 0;
+  border-bottom: 1px solid #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions-header {
+  height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  border-bottom-color: #292929;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions-source {
+  border-top-color: #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-order-tabs {
+  border-bottom-color: #343636;
+}
+
 @media (min-width: 981px) {
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
     grid-template-columns:
@@ -8488,6 +8570,11 @@ body.is-token-markets .token-markets-root {
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-chart {
     grid-column: 1;
     grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel,
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions {
+    border-right: 1px solid #343636;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-activity-row {
@@ -8604,6 +8691,439 @@ body.is-token-markets .token-markets-root {
   }
 }
 
+/* Proposal pages use the same terminal shell as spot trading. Only the chart
+   series and outcome-order mechanics change between the two workspaces. */
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-terminal-grid {
+  gap: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-header,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-chart-market-header {
+  grid-template-columns: minmax(210px, 1.55fr) repeat(6, minmax(78px, 0.72fr));
+  border: 0;
+  border-bottom: 1px solid #343636;
+  background: #101010;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-header > *,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-chart-market-header > * {
+  border-right-color: #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-chart .ft-hourly-panel,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-chart .ft-hourly-panel {
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid #343636;
+  border-bottom: 1px solid #343636;
+  background: #101010;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-chart .ft-hourly-chart,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-chart .ft-hourly-chart {
+  height: 100%;
+  border: 0;
+  background: #101010;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-chart-pending .ft-hourly-fallback {
+  display: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-plot-shell {
+  height: calc(100% - 42px);
+  min-height: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-live {
+  height: 100%;
+  min-height: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar {
+  height: 42px;
+  min-height: 42px;
+  border-bottom-color: #292929;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-range-trigger,
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-style-cell,
+[data-ft-mode="token"].ft-proposal-focus .ft-chart-crosshair-rail {
+  border-color: #292929;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: stretch;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+  flex: 1 1 auto;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary {
+  flex: 0 0 224px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-button {
+  display: inline-flex;
+  width: 52px;
+  min-width: 52px;
+  height: 100%;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #85857f;
+  cursor: default;
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 1;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-button:disabled {
+  color: #85857f;
+  opacity: 1;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-button svg {
+  width: 25px;
+  height: 25px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-divider {
+  border-right: 1px solid #292929;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-timeframe {
+  width: 50px;
+  min-width: 50px;
+  font-size: 15px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-chart-type,
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-indicators {
+  width: 54px;
+  min-width: 54px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-indicators {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  line-height: 1;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-indicators sub {
+  position: relative;
+  top: 0.15em;
+  margin-left: -0.08em;
+  font-size: 13px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-chevron {
+  width: 48px;
+  min-width: 48px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-chevron svg {
+  width: 22px;
+  height: 22px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-annotations {
+  flex: 1 1 154px;
+  width: auto;
+  min-width: 112px;
+  padding: 0 15px;
+  justify-content: flex-start;
+  overflow: hidden;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-history {
+  width: 52px;
+  min-width: 52px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
+  width: 56px;
+  min-width: 56px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary svg {
+  width: 26px;
+  height: 26px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-quick-search svg {
+  width: 28px;
+  height: 28px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-chart-crosshair-tool {
+  display: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-transactions,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-decision-transactions {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-right: 1px solid #343636;
+  border-bottom: 1px solid #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-decision-transaction-branch[data-branch="pass"] {
+  color: #58dcb0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-decision-transaction-branch[data-branch="fail"] {
+  color: #ff737e;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column {
+  min-width: 0;
+  min-height: 0;
+  contain: size;
+  overflow: hidden;
+  border-bottom: 1px solid #343636;
+  background: #101010;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column > [data-ft-region="trade-ticket"],
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column > [data-ft-region="trade-ticket"] {
+  height: 100%;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: #101010;
+  box-shadow: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket,
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-ticket {
+  display: flex;
+  min-height: 0;
+  padding: 10px 12px 12px;
+  overflow-y: auto;
+  flex-direction: column;
+  background: #0b0b0b;
+  scrollbar-color: #393936 transparent;
+  scrollbar-width: thin;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-ticket::before,
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-ticket > .ft-ticket-heading,
+[data-ft-mode="token"].ft-proposal-focus .ft-historical-trade-heading {
+  display: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-historical-trade-preview {
+  display: flex;
+  min-height: 0;
+  margin: 0;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-outcome-tabs {
+  min-height: 42px;
+  margin: 0;
+  border: 0;
+  background: #20201f;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-outcome-tabs button {
+  border: 0;
+  background: transparent;
+  color: #8e8d87;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 560;
+  letter-spacing: 0.025em;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-outcome-tabs .ft-segment-pass.ft-segment-active {
+  background: #1d3a31;
+  color: #70e5ba;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-outcome-tabs .ft-segment-fail.ft-segment-active {
+  background: #3a2024;
+  color: #ff929e;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-order-type-tabs {
+  min-height: 44px;
+  margin: 0;
+  align-items: stretch;
+  border: 0;
+  border-bottom: 1px solid #393936;
+  background: transparent;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-order-type-tabs button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: #8e8d87;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 520;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-order-type-tabs button.ft-segment-active {
+  background: transparent;
+  color: #f1f0ed;
+  font-weight: 650;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-order-type-tabs button.ft-segment-active::after {
+  position: absolute;
+  right: 20%;
+  bottom: -1px;
+  left: 20%;
+  height: 2px;
+  background: #f1f0ed;
+  content: "";
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-side-tabs {
+  margin-top: 12px;
+  border-color: #393936;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-side-tabs button {
+  min-height: 32px;
+  background: transparent;
+  color: #8e8d87;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-side-tabs button.ft-segment-active {
+  background: #f1f0ed;
+  color: #171716;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-amount-input-wrap,
+[data-ft-mode="token"].ft-proposal-focus .ft-estimate,
+[data-ft-mode="token"].ft-proposal-focus .ft-slippage-field {
+  border-color: #393936;
+  background: #0d0d0d;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-amount-input-wrap {
+  height: 54px;
+  border-color: #77776f;
+  border-radius: 13px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-primary-button {
+  min-height: 46px;
+  border-radius: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement {
+  margin-top: 10px;
+  padding: 11px 0 0;
+  border: 0;
+  border-top: 1px solid #393936;
+  background: transparent;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement .ft-kicker,
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement > p {
+  display: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement h3 {
+  margin: 0;
+  color: #d7d6d1;
+  font-size: 11px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-source-link {
+  margin-top: 9px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-archive-ticket > .ft-execution-boundary {
+  display: none;
+}
+
+@media (min-width: 981px) {
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-terminal-grid {
+    grid-template-columns:
+      minmax(0, 1.55fr)
+      minmax(210px, 0.55fr)
+      minmax(275px, 0.72fr);
+    align-items: stretch;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-chart-header-region,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-chart-header-region {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-chart,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-chart {
+    width: 100%;
+    height: auto;
+    min-height: 480px;
+    max-height: 610px;
+    aspect-ratio: 5 / 4;
+    overflow: hidden;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-hourly-live,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-hourly-live {
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-market-stage,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-market-stage {
+    display: none;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-activity-row,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-activity-row {
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    contain: size;
+    overflow: hidden;
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column {
+    position: static;
+    grid-column: 3;
+    grid-row: 2;
+  }
+}
+
 /* The ownership chart iframe reuses NAVgator's proven Price/NAV chart engine,
    but exposes only the chart surface inside the 01RX trading workspace. */
 
@@ -8618,7 +9138,7 @@ html[data-01rx-chart-frame="true"] body {
   min-width: 0 !important;
   min-height: 0 !important;
   overflow: hidden !important;
-  background: #070707 !important;
+  background: #101010 !important;
 }
 
 html[data-01rx-chart-frame="true"] body#navgator-app.is-token {
@@ -9005,6 +9525,25 @@ html[data-01rx-chart-frame="true"] .chart-body {
   background: #101010 !important;
 }
 
+/* The generic drawing tools stay hidden, but their JTX-style rail remains as
+   chart structure. Its right edge continues the NAV/Growth divider exactly. */
+html[data-01rx-chart-frame="true"] body.is-token .token-board-grid .chart-body {
+  background: #101010 !important;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .token-board-grid .chart-body::before {
+  position: absolute;
+  z-index: 7;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42px;
+  border-right: 1px solid #292929;
+  background: #101010;
+  content: "";
+  pointer-events: none;
+}
+
 html[data-01rx-chart-frame="true"] .chart-drawing-rail-01rx {
   position: absolute;
   z-index: 8;
@@ -9055,6 +9594,8 @@ html[data-01rx-chart-frame="true"] .chart-crosshair-tool svg {
 html[data-01rx-chart-frame="true"] .chart-body,
 html[data-01rx-chart-frame="true"] #lw-chart-container {
   min-height: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 html[data-01rx-chart-frame="true"] #lw-chart-container {
@@ -9184,6 +9725,133 @@ html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] .advanced-char
   width: 100% !important;
   height: 100% !important;
   border: 0 !important;
+}
+
+.chart-tv-placeholder-controls {
+  display: none;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-primary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary {
+  flex: 0 0 224px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button {
+  display: inline-flex;
+  width: 52px;
+  min-width: 52px;
+  height: 100%;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #85857f;
+  cursor: default;
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 1;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button:disabled {
+  color: #85857f;
+  cursor: default;
+  opacity: 1;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button svg {
+  width: 25px;
+  height: 25px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-divider {
+  border-right: 1px solid #292929;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-timeframe {
+  width: 50px;
+  min-width: 50px;
+  font-size: 15px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-chart-type {
+  width: 54px;
+  min-width: 54px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-indicators {
+  width: 54px;
+  min-width: 54px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  line-height: 1;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-indicators sub {
+  position: relative;
+  top: 0.15em;
+  margin-left: -0.08em;
+  font-size: 13px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-chevron {
+  width: 48px;
+  min-width: 48px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-chevron svg {
+  width: 22px;
+  height: 22px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-annotations {
+  flex: 1 1 154px;
+  width: auto;
+  min-width: 112px;
+  padding: 0 15px;
+  justify-content: flex-start;
+  overflow: hidden;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-history {
+  width: 52px;
+  min-width: 52px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
+  width: 56px;
+  min-width: 56px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary svg {
+  width: 26px;
+  height: 26px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-quick-search svg {
+  width: 28px;
+  height: 28px;
+}
+
+html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] .chart-tv-placeholder-controls {
+  display: none !important;
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-controls,

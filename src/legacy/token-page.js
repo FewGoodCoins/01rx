@@ -8507,7 +8507,13 @@ function _syncForecastSeriesData() {
   }
   var forecastMarkers = showForecastSeries ? _lwForecastMarkerData : [];
   try { _lwNavForecast.setData(forecastData); } catch(e) {}
-  try { _lwNavForecast.applyOptions({ visible: _isChartEmbed ? showEmbedNavSeries : showForecastSeries }); } catch(e) {}
+  try {
+    _lwNavForecast.applyOptions({
+      visible: _isChartEmbed ? showEmbedNavSeries : showForecastSeries,
+      color: _isChartEmbed ? _embedChartInk() : 'rgba(0,0,0,0)',
+      lineWidth: _isChartEmbed ? 2 : 0,
+    });
+  } catch(e) {}
   try {
     if (_lwForecastMarkers) {
       _lwForecastMarkers.setMarkers(forecastMarkers);
@@ -11174,14 +11180,16 @@ function initLWChart() {
   // Price area series
   var embedPriceArea = _embedPriceAreaOptions(_embedGradientEnabled);
   _lwPrice = _lwChart.addSeries(LightweightCharts.AreaSeries, {
-    lineColor: _isChartEmbed ? _embedChartInk() : 'rgba(74,120,255,0.16)',
+    // Native series own coordinates and autoscaling only. The 01RX primitive
+    // below is the single visual owner of each historic stroke.
+    lineColor: 'rgba(0,0,0,0)',
     topColor: _isChartEmbed
       ? embedPriceArea.topColor
       : 'rgba(200,216,228,0.00)',
     bottomColor: _isChartEmbed
       ? embedPriceArea.bottomColor
       : 'rgba(200,216,228,0.00)',
-    lineWidth: 1.5,
+    lineWidth: 0,
     crosshairMarkerVisible: false,
     visible: false,
     lastValueVisible: false,
@@ -11191,8 +11199,8 @@ function initLWChart() {
 
   // NAV line — solid yellow line from historical snapshots
   _lwNav = _lwChart.addSeries(LightweightCharts.LineSeries, {
-    color: 'rgba(255,204,0,0.22)',
-    lineWidth: 1.25,
+    color: 'rgba(0,0,0,0)',
+    lineWidth: 0,
     crosshairMarkerVisible: false,
     visible: true,
     lastValueVisible: false,
@@ -11214,8 +11222,8 @@ function initLWChart() {
 
   // NAV forecast line — dashed yellow, extends NAV 12 months into the future
   _lwNavForecast = _lwChart.addSeries(LightweightCharts.LineSeries, {
-    color: _isChartEmbed ? _embedChartInk() : 'rgba(255,204,0,0.32)',
-    lineWidth: _isChartEmbed ? 2 : 1.25,
+    color: _isChartEmbed ? _embedChartInk() : 'rgba(0,0,0,0)',
+    lineWidth: _isChartEmbed ? 2 : 0,
     lineStyle: LightweightCharts.LineStyle.Dashed,
     lineType: _isChartEmbed ? _lwLineTypeValue('WithSteps', 1) : _lwLineTypeValue('Simple', 0),
     crosshairMarkerVisible: false,
@@ -13483,24 +13491,13 @@ function createSmoothLinePrimitive() {
             && document.documentElement.getAttribute('data-embed-theme') === 'light';
           for (var psi = 0; psi < priceSegments.length; psi++) {
             var pricePts = priceSegments[psi];
-            var standardPriceLine = !supplyMetricLine && !lightEmbedLine;
             _drawSmoothStroke(ctx, pricePts, {
               color: supplyMetricLine
                 ? 'rgba(0,204,102,0.96)'
                 : (lightEmbedLine
                   ? 'rgba(49,64,74,0.92)'
                   : _priceLineVerticalGradient(ctx, pricePts, 0.98)),
-              halo: supplyMetricLine
-                ? 'rgba(0,204,102,0.22)'
-                : (lightEmbedLine
-                  ? 'rgba(49,64,74,0.12)'
-                  : _priceLineVerticalGradient(ctx, pricePts, 0.26)),
-              glow: supplyMetricLine
-                ? 'rgba(0,204,102,0.07)'
-                : (lightEmbedLine
-                  ? 'rgba(49,64,74,0.03)'
-                  : _priceLineVerticalGradient(ctx, pricePts, 0.09)),
-              width: standardPriceLine ? 2.55 : 1.95,
+              width: 2,
               smoothness: 0
             });
           }
@@ -13520,9 +13517,7 @@ function createSmoothLinePrimitive() {
             var navPts = navSegments[nsi];
             _drawSmoothStroke(ctx, navPts, {
               color: _navLineVerticalGradient(ctx, navPts, 0.98),
-              halo: _navLineVerticalGradient(ctx, navPts, 0.22),
-              glow: _navLineVerticalGradient(ctx, navPts, 0.07),
-              width: 2.55,
+              width: 2,
               smoothness: 0
             });
           }
@@ -13532,9 +13527,7 @@ function createSmoothLinePrimitive() {
           var forecastPts = _collectSmoothLinePoints(_lwNavForecast, _lwNavForecastData, 'value', plotW, { allowZero: true });
           _drawSmoothStroke(ctx, forecastPts, {
             color: 'rgba(255,204,0,0.88)',
-            halo: 'rgba(255,204,0,0.14)',
-            glow: 'rgba(255,204,0,0.04)',
-            width: 1.65,
+            width: 2,
             dash: [8, 7],
             smoothness: 0
           });
@@ -23172,15 +23165,10 @@ function _applyLayers() {
   }
   var showMetricLine = metricMode && _metricAggregateLineVisible();
   var showAreaLine = showPrice || showMetricLine;
-  var areaLineColor = showAreaLine
-    ? (_chartMode === 'supply'
-      ? 'rgba(0,204,102,0.78)'
-      : (_isChartEmbed ? _embedChartInk() : 'rgba(200,216,228,0.62)'))
-    : 'rgba(0,0,0,0)';
   try { _lwPrice.applyOptions({
     visible: metricMode || _priceEnabled,
-    lineColor: areaLineColor,
-    lineWidth: showAreaLine ? 1.5 : 0,
+    lineColor: 'rgba(0,0,0,0)',
+    lineWidth: 0,
     lineType: metricMode ? _lwLineTypeValue('WithSteps', 1) : _lwLineTypeValue('Simple', 0),
     lastValueVisible: false,
     crosshairMarkerVisible: false,
@@ -23188,8 +23176,8 @@ function _applyLayers() {
   try { _lwCandle.applyOptions({ visible: showCandle }); } catch(e) { console.warn('_applyLayers candle:', e); }
   try { _lwNav.applyOptions({
     visible: showNav || _layerNav,
-    color: showNav ? 'rgba(255,204,0,0.22)' : 'rgba(0,0,0,0)',
-    lineWidth: showNav ? 1.25 : 0
+    color: 'rgba(0,0,0,0)',
+    lineWidth: 0
   }); } catch(e) { console.warn('_applyLayers nav:', e); }
   try { _lwEmbedNavReference.applyOptions({
     visible: false,

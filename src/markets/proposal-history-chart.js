@@ -719,6 +719,7 @@ export function createProposalHistoryChart({
   resizeObserver?.observe(container);
   setRange(range);
   updateReadout(readout, lastTimestamp, latest);
+  chartRoot.classList.remove('ft-hourly-chart-pending');
   chartRoot.classList.add('ft-hourly-chart-enhanced');
   chartRoot.querySelector('.ft-hourly-fallback')
     ?.setAttribute('aria-hidden', 'true');
@@ -775,7 +776,10 @@ export function createProposalHistoryChart({
     container.querySelectorAll('[data-ft-chart-anchor]').forEach(element => element.remove());
     launchAnchorMarkers?.detach();
     delete container.dataset.ftLaunchAnchorRenderer;
-    container.closest('.ft-hourly-chart')?.classList.remove('ft-hourly-chart-enhanced');
+    container.closest('.ft-hourly-chart')?.classList.remove(
+      'ft-hourly-chart-enhanced',
+      'ft-hourly-chart-pending',
+    );
     container.closest('.ft-hourly-chart')?.querySelector('.ft-hourly-fallback')
       ?.removeAttribute('aria-hidden');
     try {
