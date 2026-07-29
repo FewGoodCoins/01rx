@@ -454,6 +454,20 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         </div>
       </div>
     </div>
+    <section class="tp-decisions-section tp-live-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title">
+      <div class="tp-unified-section-heading">
+        <span id="tp-live-decisions-title">Live Decision Markets</span>
+        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
+      </div>
+      <div class="tp-decision-columns" aria-hidden="true">
+        <span>Market</span>
+        <span>Status</span>
+        <span>Result</span>
+      </div>
+      <div id="tlp-decisions-list">
+        <div class="tp-decisions-empty">0 live decision markets</div>
+      </div>
+    </section>
     <section class="tp-all-section" id="tlp-all-panel" aria-labelledby="tp-token-section-title">
       <div class="tp-unified-section-heading">
         <span id="tp-token-section-title">Tokens</span>
@@ -472,24 +486,12 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       </div>
       <div id="tlp-all-list"></div>
     </section>
-    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title">
+    <section class="tp-decisions-section tp-past-decisions-section" id="tlp-past-decisions-panel" aria-labelledby="tp-past-decisions-title">
       <div class="tp-unified-section-heading">
-        <span id="tp-live-decisions-title">Live Decision Markets</span>
-        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
-      </div>
-      <div class="tp-decision-columns" aria-hidden="true">
-        <span>Market</span>
-        <span>Status</span>
-        <span>Result</span>
-      </div>
-      <div id="tlp-decisions-list">
-        <div class="tp-decisions-empty">0 live decision markets</div>
-      </div>
-      <div class="tp-unified-section-heading tp-past-decisions-heading">
         <span id="tp-past-decisions-title">Past Proposals</span>
         <span class="tp-unified-section-count" id="tp-past-decision-count">0</span>
       </div>
-      <div class="tp-decision-columns tp-past-decision-columns" aria-hidden="true">
+      <div class="tp-decision-columns" aria-hidden="true">
         <span>Market</span>
         <span>Status</span>
         <span>Result</span>

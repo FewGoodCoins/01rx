@@ -891,11 +891,18 @@ html[data-workspace="markets"] .tp-market-toolbar {
 
 html[data-workspace="markets"] .tp-decisions-section:not([hidden]) {
   display: flex;
-  max-height: min(420px, 52vh);
   flex: 0 0 auto;
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: hidden;
+}
+
+html[data-workspace="markets"] .tp-live-decisions-section:not([hidden]) {
+  max-height: min(196px, 24vh);
+}
+
+html[data-workspace="markets"] .tp-past-decisions-section:not([hidden]) {
+  max-height: min(260px, 32vh);
 }
 
 html[data-workspace="markets"] .tp-all-section {
@@ -978,13 +985,8 @@ html[data-workspace="markets"] #tlp-all-list::-webkit-scrollbar-thumb {
 }
 
 html[data-workspace="markets"] #tlp-decisions-list {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   max-height: 126px;
-}
-
-html[data-workspace="markets"] .tp-past-decisions-heading {
-  margin-top: 8px;
-  border-top-color: #363636;
 }
 
 html[data-workspace="markets"] #tlp-past-decisions-list {
