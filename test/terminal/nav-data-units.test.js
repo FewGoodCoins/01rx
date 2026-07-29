@@ -824,9 +824,9 @@ test('route helpers strip index.html and preserve clean query URLs', async () =>
   }, {
     rootFromIndex: '/',
     home: '/',
-    token: '/?token=nav',
+    token: '/?token=nav&view=markets&tab=tokens',
     launchpad: '/?launchpad=curated',
-    emptyToken: '/',
+    emptyToken: '/?token=solo&view=markets&tab=tokens',
   });
 });
 
@@ -4694,6 +4694,32 @@ test('chart topbar controls do not show focus outlines after click', () => {
   assert.equal(source.includes('.chart-topbar .layer-btn:focus,\n.chart-topbar .layer-btn:focus-visible,\n.chart-topbar .cbtn:focus,\n.chart-topbar .cbtn:focus-visible {\n  outline: none;\n  box-shadow: none;\n}'), true);
 });
 
+test('lightweight chart mirrors the TradingView NAV variants control', () => {
+  assert.match(source, /id="chart-nav-trigger"[\s\S]{0,240}aria-label="NAV variants"/);
+  assert.match(source, /id="chart-nav-menu"[\s\S]{0,1400}Current NAV[\s\S]{0,600}Historic NAV[\s\S]{0,600}Projected NAV/);
+  assert.equal(source.includes('function _setChartNavMenuOpen(open, focusSelection)'), true);
+  assert.equal(source.includes("var navControls = document.getElementById('chart-nav-control');"), true);
+});
+
+test('lightweight chart keeps the Growth icon in the top toolbar', () => {
+  assert.equal(source.includes('id="btn-growth-chart-toolbar"'), true);
+  assert.match(source, /id="btn-growth-chart-toolbar"[\s\S]{0,900}M2\.5 14\.5h13/);
+  assert.equal(source.includes("document.getElementById('btn-growth-chart-toolbar')"), true);
+});
+
+test('lightweight price line uses the blue to purple vertical gradient', () => {
+  assert.equal(source.includes('function _priceLineVerticalGradient(ctx, pts, opacity)'), true);
+  assert.equal(source.includes("gradient.addColorStop(0, 'rgba(168,85,247,' + opacity + ')');"), true);
+  assert.equal(source.includes("gradient.addColorStop(1, 'rgba(47,143,255,' + opacity + ')');"), true);
+  assert.equal(source.includes("var priceDot = _makeLiveDot('live-dot-price', _isChartEmbed ? _embedChartInk() : '#2f8fff');"), true);
+});
+
+test('lightweight NAV line uses a yellow to orange vertical gradient', () => {
+  assert.equal(source.includes('function _navLineVerticalGradient(ctx, pts, opacity)'), true);
+  assert.equal(source.includes("gradient.addColorStop(0, 'rgba(255,228,92,' + opacity + ')');"), true);
+  assert.equal(source.includes("gradient.addColorStop(1, 'rgba(255,138,0,' + opacity + ')');"), true);
+});
+
 test('chart total summary background extends to the plot edge', () => {
   assert.equal(source.includes('var plotW = chartW;\n        var tsWidth = tsScale.width();\n        if (tsWidth > 0) plotW = Math.min(chartW, tsWidth);'), true);
   assert.equal(source.includes('var bgLeft = Math.max(0, textX - maxTextW - padX);\n          ctx.fillStyle = \'rgba(0,0,0,0.88)\';\n          ctx.fillRect(bgLeft, topY, plotW - bgLeft, bottomY - topY);'), true);
@@ -4811,6 +4837,13 @@ test('live dot ripple color stays on the base series color', () => {
   });
 });
 
+test('live dot glow and canvas ripple accept the line gradient RGB colors', () => {
+  assert.equal(source.includes('function _chartColorChannels(color)'), true);
+  assert.equal(source.includes('channels: _chartColorChannels(color)'), true);
+  assert.equal(source.includes("dotEl.style.setProperty('color', color, 'important');"), true);
+  assert.equal(source.includes("dotEl.style.removeProperty('box-shadow');"), true);
+});
+
 test('chart overlays and live dots resync every frame during wheel and drag gestures', () => {
   assert.equal(source.includes('var _liveDotSyncFrames = 0;'), true);
   const scheduleSync = extractFunction('_scheduleLiveDotSyncBurst');
@@ -4845,6 +4878,8 @@ test('current endpoint dots render in the chart primitive layer', () => {
   assert.equal(source.includes('if (_liveDotPrimitive && _liveDotPrimitive._requestUpdate) _liveDotPrimitive._requestUpdate();'), true);
   assert.equal(source.includes('opacity:0;will-change:transform;'), true);
   assert.equal(source.includes("dotEl.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';"), true);
+  assert.equal(source.includes("_setLiveDotGradientColor(nd, _navLineGradientColorAtPoint(navEndpointPoints, y, 1));"), true);
+  assert.equal(source.includes("var priceDotColor = _priceLineGradientColorAtPoint(priceEndpointPoints, y, 1);"), true);
 });
 
 test('completed buyback summary supplies missing end date for active-state checks', () => {
@@ -5903,9 +5938,11 @@ test('embed NAV axis tag follows the active current or projected NAV price', () 
   assert.match(source, /_lwNavLine\.applyOptions\(\{[\s\S]*price: _activeNavAxisPrice\(_navCurrentAxisVal\),[\s\S]*axisLabelTextColor: _isChartEmbed \? '#ffffff' : '#111111',/);
 });
 
-test('embed ICO start-price dot is black', () => {
-  assert.equal(source.includes("var launchPriceDotColor = _isChartEmbed ? '#111111' : '#c8d8e4';"), true);
-  assert.match(source, /drawLaunchDot\(_launchPriceMarkerPoint, priceSeries, launchPriceDotColor, launchPriceDotShadow, 3\.1\);/);
+test('launch marker matches the price gradient and current-dot size', () => {
+  assert.equal(source.includes("function(dot) { return _priceLineGradientColorAtPoint(launchPricePoints, dot.y, 1); }"), true);
+  assert.match(source, /var launchPriceDotColor = _isChartEmbed\s+\? '#111111'/);
+  assert.match(source, /drawLaunchDot\(_launchPriceMarkerPoint, priceSeries, launchPriceDotColor, launchPriceDotShadow, 3\.5\);/);
+  assert.equal(source.includes("if (!showLaunchPriceMarker && _layerNav"), true);
 });
 
 test('default chart overlay uses the latest actual chart date in the header', () => {

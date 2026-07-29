@@ -32,15 +32,13 @@
 </style>
 <title>01RX — Ownership and Decision Markets</title>
 <meta name="description" content="Trade ownership tokens and live decision markets with price, NAV, treasury, and proposal context.">
-<link rel="canonical" href="https://navgator.xyz/">
-<link rel="alternate" type="text/plain" href="https://navgator.xyz/llms.txt" title="NAVgator agent-readable index">
-<link rel="help" href="https://navgator.xyz/navgator-for-agents" title="NAVgator for agents">
+<link rel="canonical" href="https://01rx.vercel.app/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="01RX">
 <meta property="og:title" content="01RX — Ownership and Decision Markets">
 <meta property="og:description" content="Trade ownership tokens and live decision markets with price, NAV, treasury, and proposal context.">
-<meta property="og:url" content="https://navgator.xyz/">
-<meta property="og:image" content="https://navgator.xyz/logos/01rx.png?v=5">
+<meta property="og:url" content="https://01rx.vercel.app/">
+<meta property="og:image" content="https://01rx.vercel.app/logos/01rx.png?v=5">
 <meta property="og:image:width" content="1254">
 <meta property="og:image:height" content="1254">
 <meta property="og:image:alt" content="01RX">
@@ -48,7 +46,7 @@
 <meta name="twitter:site" content="@checkNAV">
 <meta name="twitter:title" content="01RX — Ownership and Decision Markets">
 <meta name="twitter:description" content="Trade ownership tokens and live decision markets with price, NAV, treasury, and proposal context.">
-<meta name="twitter:image" content="https://navgator.xyz/logos/01rx.png?v=5">
+<meta name="twitter:image" content="https://01rx.vercel.app/logos/01rx.png?v=5">
 <meta name="twitter:image:alt" content="01RX">
 <script type="application/ld+json">
 {
@@ -57,19 +55,10 @@
     {
       "@type": "WebApplication",
       "name": "01RX",
-      "url": "https://navgator.xyz/",
+      "url": "https://01rx.vercel.app/",
       "applicationCategory": "FinanceApplication",
       "description": "Ownership-token and decision-market trading with NAV, treasury, and proposal context.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-    },
-    {
-      "@type": "Dataset",
-      "name": "NAVgator public project and NAV data",
-      "url": "https://navgator.xyz/data/projects.json",
-      "distribution": [
-        { "@type": "DataDownload", "encodingFormat": "application/json", "contentUrl": "https://navgator.xyz/data/projects.json" },
-        { "@type": "DataDownload", "encodingFormat": "text/csv", "contentUrl": "https://navgator.xyz/data/nav-snapshots.csv" }
-      ]
     }
   ]
 }
@@ -138,10 +127,14 @@ window.toggleChartTimeframeMenu = function(trigger, event) {
   var open = menu.hidden;
   var seriesMenu = document.getElementById('chart-series-menu');
   var seriesTrigger = document.getElementById('chart-series-trigger');
+  var navMenu = document.getElementById('chart-nav-menu');
+  var navTrigger = document.getElementById('chart-nav-trigger');
   var featureMenu = document.getElementById('chart-feature-menu');
   var featureTrigger = document.getElementById('chart-feature-trigger');
   if (seriesMenu) seriesMenu.hidden = true;
   if (seriesTrigger) seriesTrigger.setAttribute('aria-expanded', 'false');
+  if (navMenu) navMenu.hidden = true;
+  if (navTrigger) navTrigger.setAttribute('aria-expanded', 'false');
   if (featureMenu) featureMenu.hidden = true;
   if (featureTrigger) featureTrigger.setAttribute('aria-expanded', 'false');
   menu.hidden = !open;
@@ -166,10 +159,47 @@ window.toggleChartSeriesMenu = function(trigger, event) {
   if (!trigger || !menu) return false;
   var timeframeMenu = document.getElementById('chart-timeframe-menu');
   var timeframeTrigger = document.getElementById('chart-timeframe-trigger');
+  var navMenu = document.getElementById('chart-nav-menu');
+  var navTrigger = document.getElementById('chart-nav-trigger');
   var featureMenu = document.getElementById('chart-feature-menu');
   var featureTrigger = document.getElementById('chart-feature-trigger');
   if (timeframeMenu) timeframeMenu.hidden = true;
   if (timeframeTrigger) timeframeTrigger.setAttribute('aria-expanded', 'false');
+  if (navMenu) navMenu.hidden = true;
+  if (navTrigger) navTrigger.setAttribute('aria-expanded', 'false');
+  if (featureMenu) featureMenu.hidden = true;
+  if (featureTrigger) featureTrigger.setAttribute('aria-expanded', 'false');
+  var open = menu.hidden;
+  menu.hidden = !open;
+  trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) {
+    window.requestAnimationFrame(function() {
+      var selected = menu.querySelector('.chart-series-option[aria-checked="true"]:not([disabled])')
+        || menu.querySelector('.chart-series-option:not([disabled])');
+      if (!selected) return;
+      try { selected.focus({ preventScroll: true }); }
+      catch (_e) { selected.focus(); }
+    });
+  }
+  return open;
+};
+window.toggleChartNavMenu = function(trigger, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  var menu = document.getElementById('chart-nav-menu');
+  if (!trigger || !menu) return false;
+  var timeframeMenu = document.getElementById('chart-timeframe-menu');
+  var timeframeTrigger = document.getElementById('chart-timeframe-trigger');
+  var seriesMenu = document.getElementById('chart-series-menu');
+  var seriesTrigger = document.getElementById('chart-series-trigger');
+  var featureMenu = document.getElementById('chart-feature-menu');
+  var featureTrigger = document.getElementById('chart-feature-trigger');
+  if (timeframeMenu) timeframeMenu.hidden = true;
+  if (timeframeTrigger) timeframeTrigger.setAttribute('aria-expanded', 'false');
+  if (seriesMenu) seriesMenu.hidden = true;
+  if (seriesTrigger) seriesTrigger.setAttribute('aria-expanded', 'false');
   if (featureMenu) featureMenu.hidden = true;
   if (featureTrigger) featureTrigger.setAttribute('aria-expanded', 'false');
   var open = menu.hidden;
@@ -197,10 +227,14 @@ window.toggleChartFeatureMenu = function(trigger, event) {
   var timeframeTrigger = document.getElementById('chart-timeframe-trigger');
   var seriesMenu = document.getElementById('chart-series-menu');
   var seriesTrigger = document.getElementById('chart-series-trigger');
+  var navMenu = document.getElementById('chart-nav-menu');
+  var navTrigger = document.getElementById('chart-nav-trigger');
   if (timeframeMenu) timeframeMenu.hidden = true;
   if (timeframeTrigger) timeframeTrigger.setAttribute('aria-expanded', 'false');
   if (seriesMenu) seriesMenu.hidden = true;
   if (seriesTrigger) seriesTrigger.setAttribute('aria-expanded', 'false');
+  if (navMenu) navMenu.hidden = true;
+  if (navTrigger) navTrigger.setAttribute('aria-expanded', 'false');
   var open = menu.hidden;
   menu.hidden = !open;
   trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -235,10 +269,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
 <!-- ══ SITE FOOTER ══ -->
 <footer class="bloomberg-status site-footer" id="bloomberg-status">
   <nav class="site-footer-status" aria-label="01RX products">
-    <a class="site-footer-status-link" href="/navgator-for-agents">
-      <span class="site-footer-dot bb-val live" aria-hidden="true"></span>
-      <span>Data</span>
-    </a>
     <a class="site-footer-status-link" href="/?token=solo&amp;view=markets&amp;tab=tokens">
       <span class="site-footer-dot bb-val live" id="bb-network" aria-hidden="true">CONNECTED</span>
       <span>Markets</span>
@@ -246,9 +276,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
   </nav>
 
   <nav class="site-footer-nav" aria-label="01RX links">
-    <a class="site-footer-text-link" href="/guide.html">Docs</a>
-    <a class="site-footer-text-link" href="/methodology.html">Methodology</a>
-    <span class="site-footer-divider" aria-hidden="true"></span>
     <a class="site-footer-social" href="https://x.com/checkNAV" target="_blank" rel="noopener" title="X" aria-label="Visit 01RX on X">
       <svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M9.5 1h1.7L7.6 5.2 11.7 11H8.4L5.7 7.5 2.6 11H.9l3.9-4.5L.5 1h3.4l2.4 3.2L9.5 1zm-.6 9h.9L3.2 2H2.2l6.7 8z"/></svg>
     </a>
@@ -317,12 +344,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
 
 <header class="site-header" id="site-header">
   <nav class="site-header-identities" aria-label="01RX">
-    <a href="./" class="site-header-brand site-header-navgator" id="app-brand-link" aria-label="NAVgator home">
-      <span class="site-header-navgator-mark"><img src="logos/navgator.png?v=8" alt="" width="55" height="55"></span>
-      <span class="site-header-navgator-text">NAV<span>gator</span></span>
-    </a>
-    <span class="site-header-divider" aria-hidden="true"></span>
-    <a href="/?token=solo&amp;view=markets&amp;tab=tokens" class="site-header-brand site-header-decision" aria-label="01RX trading home">
+    <a href="/?token=solo&amp;view=markets&amp;tab=tokens" class="site-header-brand site-header-decision" id="app-brand-link" aria-label="01RX trading home">
       <span class="site-header-decision-frame"><img src="logos/01rx.png?v=5" alt="01RX" width="126" height="126"></span>
     </a>
   </nav>
@@ -533,7 +555,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
     <div class="system-health-meta" id="system-health-meta">Polling API health endpoint.</div>
     <div class="system-health-findings" id="system-health-findings"></div>
   </div>
-  <a class="system-health-link" id="system-health-link" href="https://navgator.xyz/api/health" target="_blank" rel="noopener">Open health JSON</a>
+  <a class="system-health-link" id="system-health-link" href="/api/health" target="_blank" rel="noopener">Open health JSON</a>
 </div>
 
 <!-- ══ LANDING ══ -->
@@ -622,9 +644,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
 
   <div class="footer">
     01RX · Ownership and decision markets ·
-    Data via NAVgator API + Solana RPC ·
-    <a href="/guide.html">Docs</a> ·
-    <a href="/methodology.html">Methodology</a> ·
+    Data via 01RX API + Solana RPC ·
     Not financial advice
   </div>
 </div>
@@ -711,7 +731,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                     <span id="embed-nav-premium">Prem / Disc —</span>
                   </div>
                 </div>
-                <a class="embed-powered" href="https://navgator.xyz" target="_blank" rel="noopener">
+                <a class="embed-powered" href="https://01rx.vercel.app" target="_blank" rel="noopener">
                   Powered by <strong>01RX</strong>
                 </a>
               </div>
@@ -795,6 +815,23 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                       <span>Historic Price</span>
                       <span class="chart-series-check" aria-hidden="true">✓</span>
                     </button>
+                  </div>
+                </div>
+                <div class="chart-nav-control" id="chart-nav-control">
+                  <button
+                    class="chart-style-cell chart-nav-trigger"
+                    id="chart-nav-trigger"
+                    type="button"
+                    aria-label="NAV variants"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="chart-nav-menu"
+                    title="NAV variants"
+                    onclick="window.toggleChartNavMenu(this, event)"
+                  >
+                    NAV
+                  </button>
+                  <div class="chart-series-menu chart-nav-menu" id="chart-nav-menu" role="menu" aria-label="NAV variants" hidden>
                     <button
                       class="chart-series-option active"
                       type="button"
@@ -817,7 +854,38 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                       <span>Historic NAV</span>
                       <span class="chart-series-check" aria-hidden="true">✓</span>
                     </button>
+                    <button
+                      class="chart-series-option chart-feature-option"
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked="false"
+                      data-chart-feature="projected-nav"
+                      onclick="toggleChartFeature('projected-nav', event)"
+                    >
+                      <span>Projected NAV</span>
+                      <span class="chart-series-check" aria-hidden="true">✓</span>
+                    </button>
                   </div>
+                </div>
+                <div class="chart-growth-control">
+                  <button
+                    class="chart-style-cell chart-growth-trigger disabled"
+                    id="btn-growth-chart-toolbar"
+                    type="button"
+                    onclick="toggleGrowthChart()"
+                    title="Growth data coming soon"
+                    aria-label="Growth data coming soon"
+                    aria-controls="growth-chart-overlay"
+                    aria-expanded="false"
+                    aria-disabled="true"
+                    disabled
+                  >
+                    <svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2.5 14.5h13"/>
+                      <path d="m3.5 11 3-3 2.5 2 5-6"/>
+                      <path d="M11.5 4h2.5v2.5"/>
+                    </svg>
+                  </button>
                 </div>
                 <div class="chart-feature-control" id="chart-feature-control">
                   <button
@@ -837,17 +905,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                   </button>
                   <div class="chart-series-menu chart-feature-menu" id="chart-feature-menu" role="menu" aria-label="Chart features" hidden>
                     <div class="chart-series-menu-label">Chart features</div>
-                    <button
-                      class="chart-series-option chart-feature-option"
-                      type="button"
-                      role="menuitemcheckbox"
-                      aria-checked="false"
-                      data-chart-feature="projected-nav"
-                      onclick="toggleChartFeature('projected-nav', event)"
-                    >
-                      <span>Projected NAV</span>
-                      <span class="chart-series-check" aria-hidden="true">✓</span>
-                    </button>
                     <button
                       class="chart-series-option chart-feature-option"
                       type="button"
@@ -1327,7 +1384,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
               </div>
               <div class="nav-calc-compare">
                 <div class="nav-calc-row">
-                  <span class="nav-calc-row-label">NAVgator NAV</span>
+                  <span class="nav-calc-row-label">01RX NAV</span>
                   <span class="nav-calc-row-value" id="nav-calc-reference">—</span>
                 </div>
                 <div class="nav-calc-row">
@@ -1338,7 +1395,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                   <span class="nav-calc-row-label">Difference</span>
                   <span class="nav-calc-row-value" id="nav-calc-diff">—</span>
                 </div>
-                <div class="nav-calc-status neutral" id="nav-calc-status">Using NAVgator live inputs.</div>
+                <div class="nav-calc-status neutral" id="nav-calc-status">Using live 01RX inputs.</div>
                 <div class="nav-calc-note" id="nav-calc-note">Edit the two inputs above to verify the current NAV math yourself.</div>
               </div>
               <div class="nav-calc-actions">

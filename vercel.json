@@ -1,17 +1,46 @@
 {
   "framework": "vite",
-  "rewrites": [
+  "redirects": [
     {
       "source": "/terminal",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
+      "source": "/navgator-for-agents/:path*",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
+      "source": "/guide.html",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
+      "source": "/methodology.html",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
+      "source": "/llms.txt",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
+      "source": "/llms-full.txt",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
+      "source": "/projects/:path*",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/embed",
       "destination": "/index.html"
-    },
-    {
-      "source": "/navgator-for-agents",
-      "destination": "/navgator-for-agents/index.html"
-    },
-    {
-      "source": "/projects/:slug",
-      "destination": "/projects/:slug/index.html"
     }
   ],
   "headers": [

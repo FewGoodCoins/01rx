@@ -66,7 +66,7 @@ async function _initChartWhenReady(rawCandles, navPerToken, canInitialize) {
     if (d && (d.maintenance || d.api_maintenance)) {
       var gate = document.getElementById('maintenance-gate');
       if (gate && !gate.innerHTML) {
-        gate.innerHTML = '<div class="mt-logo"><img src="logos/navgator.png?v=8" alt="NAVgator" width="80" height="80"></div><div class="mt-brand">NAV<span>gator</span></div><div class="mt-status">Updates in progress</div><div class="mt-msg">The terminal is temporarily offline while updates are applied.</div>';
+        gate.innerHTML = '<div class="mt-logo"><img src="logos/01rx.png?v=5" alt="01RX" width="80" height="80"></div><div class="mt-brand">01RX</div><div class="mt-status">Updates in progress</div><div class="mt-msg">The terminal is temporarily offline while updates are applied.</div>';
       }
       if (gate) {
         gate.hidden = false;
@@ -438,7 +438,7 @@ function navToLaunchpad(lpKey) {
   document.body.classList.remove('is-dashboard');
   if (typeof stopTxPolling === 'function') stopTxPolling();
   history.pushState({}, '', _launchpadPageUrl(lpKey));
-  document.title = 'NAVgator - ' + lpKey.charAt(0).toUpperCase() + lpKey.slice(1);
+  document.title = '01RX — ' + lpKey.charAt(0).toUpperCase() + lpKey.slice(1);
   setBreadcrumb([
     { label: 'All Tokens', href: _homePageUrl(), handler: function() { navToAllTokens(); } },
     { label: lpKey.charAt(0).toUpperCase() + lpKey.slice(1), current: true }
@@ -555,7 +555,7 @@ window.showAuthModal = function() {
 
   bg.innerHTML =
     '<div class="auth-modal">' +
-      '<h3>Sign in to NAVgator</h3>' +
+      '<h3>Sign in to 01RX</h3>' +
       '<input class="auth-input" id="auth-email-input" type="email" placeholder="Email address" onkeydown="if(event.key===\'Enter\')signInWithEmail()">' +
       '<button class="auth-btn" style="margin-top:10px" onclick="signInWithEmail()">Send magic link</button>' +
       '<div class="auth-msg" id="auth-msg"></div>' +
@@ -820,12 +820,12 @@ _refreshShellPanelControls();
 
 if (_hasToken) {
   document.getElementById('dashboard-view').classList.add('active');
-  document.title = 'NAVgator · Dashboard';
+  document.title = '01RX · Dashboard';
   document.body.classList.add('is-token');
   document.getElementById('token-switch-loader').classList.add('active');
 } else {
   document.getElementById('landing-view').classList.add('active');
-  document.title = 'NAVgator — Treasury Analytics for Ownership Tokens';
+  document.title = '01RX — Ownership and Decision Markets';
   var _ll = document.getElementById('token-switch-loader');
   _ll.querySelector('.token-switch-label').textContent = 'Loading tokens…';
   _ll.classList.add('active');

@@ -1,4 +1,4 @@
-const DEFAULT_EMBED_ORIGIN = 'https://navgator.xyz';
+const DEFAULT_EMBED_ORIGIN = 'https://01rx.vercel.app';
 const DEFAULT_EMBED_HEIGHT = 420;
 const EMBED_CURRENT_NAV_TOKEN_KEYS = Object.freeze([
   'meta',
@@ -70,7 +70,9 @@ export function createChartEmbedHelpers(browserWindow) {
   function fullPageUrl(key = tokenKey()) {
     const safeKey = routes.normalizeTokenKey(key);
     const origin = normalizeOrigin(runtime.location.origin);
-    return safeKey ? `${origin}/?token=${encodeURIComponent(safeKey)}` : `${origin}/`;
+    return safeKey
+      ? `${origin}/?token=${encodeURIComponent(safeKey)}&view=markets&tab=tokens`
+      : `${origin}/?token=solo&view=markets&tab=tokens`;
   }
 
   function builderUrl(key = tokenKey()) {
@@ -106,7 +108,7 @@ export function createChartEmbedUrl(options = {}) {
       : ''
   ));
   const token = normalizeTokenKey(options.token);
-  if (!token) throw new Error('A valid NAVgator token key is required');
+  if (!token) throw new Error('A valid 01RX token key is required');
 
   const url = new URL('/embed', normalizeOrigin(options.origin));
   url.searchParams.set('token', token);
@@ -135,7 +137,7 @@ export function createChartIframeCode(options = {}) {
   const maxWidthStyle = width === '100%' && Number.isFinite(numericMaxWidth) && numericMaxWidth >= 300
     ? `width:100%;max-width:${numericMaxWidth}px;`
     : 'max-width:100%;';
-  const title = options.title || 'NAVgator price and 01Resolved current NAV chart';
+  const title = options.title || '01RX price and current NAV chart';
 
   return `<iframe src="${escapeHtmlAttribute(url)}" title="${escapeHtmlAttribute(title)}" width="${escapeHtmlAttribute(width)}" height="${height}" loading="lazy" style="border:0;${maxWidthStyle}" allow="fullscreen"></iframe>`;
 }

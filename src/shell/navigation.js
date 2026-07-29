@@ -17,7 +17,7 @@ export function createShellNavigation(options = {}) {
     runtime.document.body.classList.remove('is-dashboard');
     if (typeof runtime.stopTxPolling === 'function') runtime.stopTxPolling();
     runtime.history.pushState({}, '', routes.homePageUrl());
-    runtime.document.title = 'NAVgator - Treasury Analytics for Ownership Tokens';
+    runtime.document.title = '01RX — Ownership and Decision Markets';
     runtime.setBreadcrumb([{
       label: 'All Tokens',
       current: true,

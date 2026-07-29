@@ -2138,9 +2138,6 @@ export function mountFutardTerminal({
         <span>Decision-market execution is experimental. Verify every wallet transaction.</span>
         <nav aria-label="Terminal links">
           <a href="/?token=solo&view=markets&tab=tokens">Market home</a>
-          <a href="/guide.html">Guide</a>
-          <a href="/methodology.html">Methodology</a>
-          <a href="/navgator-for-agents">API for agents</a>
         </nav>
       </footer>
       <div class="ft-modal-region" data-ft-region="modal"></div>

@@ -79,8 +79,8 @@ test('route helpers canonicalize legacy terminal paths and preserve clean query 
 
   assert.equal(routes.appRootPath(), '/');
   assert.equal(routes.homePageUrl(), '/');
-  assert.equal(routes.tokenPageUrl(' METAdao '), '/?token=meta');
-  assert.equal(routes.tokenPageUrl('bad token'), '/');
+  assert.equal(routes.tokenPageUrl(' METAdao '), '/?token=meta&view=markets&tab=tokens');
+  assert.equal(routes.tokenPageUrl('bad token'), '/?token=solo&view=markets&tab=tokens');
   assert.equal(routes.launchpadPageUrl('permission less'), '/?launchpad=permission+less');
   assert.equal(routes.launchpadPageUrl(''), '/');
   assert.equal(routes.queryPageUrl({ token: 'meta', mode: 'a b' }), '/?token=meta&mode=a+b');
@@ -194,7 +194,7 @@ test('all-token navigation preserves view, URL, title, breadcrumb, and lifecycle
   assert.equal(dashboardView.classList.contains('active'), false);
   assert.equal(bodyClasses.contains('is-token'), false);
   assert.equal(bodyClasses.contains('is-dashboard'), false);
-  assert.equal(runtime.document.title, 'NAVgator - Treasury Analytics for Ownership Tokens');
+  assert.equal(runtime.document.title, '01RX — Ownership and Decision Markets');
   assert.deepEqual(calls[0], ['stop']);
   assert.deepEqual(calls[1], ['history', {}, '', '/terminal/']);
   assert.deepEqual(calls[2], ['breadcrumb', [{ label: 'All Tokens', current: true }]]);
@@ -214,7 +214,7 @@ test('browser shell installs before classic boot and legacy globals remain thin 
   };
   const bridge = installBrowserShell(runtime);
   assert.equal(runtime.NAVGATOR.shell, bridge);
-  assert.equal(bridge.routes.tokenPageUrl('METAdao'), '/?token=meta');
+  assert.equal(bridge.routes.tokenPageUrl('METAdao'), '/?token=meta&view=markets&tab=tokens');
   assert.equal(bridge.panels.state.left, false);
   assert.equal(typeof bridge.navigation.navToAllTokens, 'function');
   assert.equal(typeof bridge.watchlist.toggle, 'function');

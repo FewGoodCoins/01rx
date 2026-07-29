@@ -2,6 +2,6 @@ User-agent: *
 Content-Signal: search=yes,ai-input=yes,ai-train=no
 Allow: /
 
-# NAVgator allows indexing and real-time AI retrieval/grounding of public pages
+# 01RX allows indexing and real-time AI retrieval/grounding of public pages
 # while reserving rights for model training and fine-tuning.
-Sitemap: https://navgator.xyz/sitemap.xml
+Sitemap: https://01rx.vercel.app/sitemap.xml
