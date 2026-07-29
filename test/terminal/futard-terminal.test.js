@@ -1020,15 +1020,25 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.equal(root.querySelector('.ft-execution-ticket .ft-ticket-heading'), null);
   assert.match(byRole(root, 'trade-ticket').textContent, /PASS/);
   assert.match(byRole(root, 'trade-ticket').textContent, /FAIL/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /LIMIT/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /SWAP/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /BUY/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /SELL/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Market/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Smart Fill/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Limit/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Pro/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Buy/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Sell/);
+  assert.ok(byRole(root, 'decision-recent-transactions'));
+  assert.equal(byRole(root, 'limit-price'), null);
+  root.querySelector(
+    '[data-ft-action="select-order-type"][data-ft-order-type="limit"]',
+  ).click();
   assert.match(
-    byRole(root, 'limit-price').closest('.ft-amount-field').textContent,
-    /Price/,
+    byRole(root, 'limit-price').closest('.ft-decision-limit-field').textContent,
+    /Limit price/,
   );
-  assert.match(byRole(root, 'amount').closest('.ft-amount-field').textContent, /Bal:\s*—/);
+  assert.match(
+    byRole(root, 'amount').closest('.ft-ownership-order-body').textContent,
+    /Order size[\s\S]+— PASS USDC/,
+  );
   assert.deepEqual(
     Array.from(byRole(root, 'pass-card').querySelectorAll('.ft-book-columns span'))
       .map(element => element.textContent.trim()),
@@ -1217,6 +1227,53 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     false,
   );
   assert.equal(byAction(root, 'review-trade'), null);
+
+  cleanupMount(mounted);
+});
+
+test('token market sidebar exposes resolved proposals beneath live markets', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  });
+  const sidebar = window.document.createElement('section');
+  sidebar.id = 'tlp-decisions-panel';
+  sidebar.hidden = true;
+  sidebar.innerHTML = `
+    <span id="tp-live-decision-count">0</span>
+    <div id="tlp-decisions-list"></div>
+    <span id="tp-past-decision-count">0</span>
+    <div id="tlp-past-decisions-list"></div>
+  `;
+  window.document.body.prepend(sidebar);
+
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settle(window);
+
+  const liveRows = sidebar.querySelectorAll('#tlp-decisions-list .tp-decision-item');
+  const pastRows = sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item');
+  assert.equal(sidebar.hidden, false);
+  assert.equal(sidebar.querySelector('#tp-live-decision-count').textContent, '1');
+  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '2');
+  assert.equal(liveRows.length, 1);
+  assert.equal(pastRows.length, 2);
+  assert.match(pastRows[0].textContent, /META #41[\s\S]+Resolved[\s\S]+Passed/);
+  assert.match(pastRows[1].textContent, /SOLO #12[\s\S]+Resolved[\s\S]+Failed/);
+  assert.equal(
+    pastRows[0].getAttribute('href'),
+    `/?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
+  );
+  assert.equal(
+    pastRows[1].getAttribute('href'),
+    `/?token=solo&view=markets&proposal=${FAILED_PROPOSAL_ID}`,
+  );
 
   cleanupMount(mounted);
 });
@@ -1680,7 +1737,7 @@ test('automatic order creation stays hidden until deployment and keeper readines
   ), null);
   assert.doesNotMatch(disabledWindow.root.textContent, /Amount per run/);
   assert.doesNotMatch(disabledWindow.root.textContent, /Automatic vault deployment pending/);
-  assert.match(disabledWindow.root.textContent, /LIMIT/);
+  assert.match(disabledWindow.root.textContent, /Limit/);
   assert.equal(byAction(disabledWindow.root, 'review-trade'), null);
   cleanupMount(disabledMount);
 
@@ -2304,7 +2361,10 @@ test('wallet connection never invokes a signing method before explicit review', 
   ).click();
   const spotAmount = byRole(root, 'amount');
   assert.equal(spotAmount.getAttribute('aria-label'), 'Trade amount in USDC');
-  assert.match(spotAmount.closest('.ft-amount-field').textContent, /Bal:\s*50/);
+  assert.match(
+    spotAmount.closest('.ft-ownership-swap-field').nextElementSibling.textContent,
+    /50 USDC/,
+  );
   root.querySelector(
     '[data-ft-action="select-side"][data-ft-side="sell"]',
   ).click();
@@ -2313,8 +2373,8 @@ test('wallet connection never invokes a signing method before explicit review', 
     'Trade amount in LOYAL',
   );
   assert.match(
-    byRole(root, 'amount').closest('.ft-amount-field').textContent,
-    /Bal:\s*8/,
+    byRole(root, 'amount').closest('.ft-ownership-swap-field').nextElementSibling.textContent,
+    /8 LOYAL/,
   );
 
   const disconnect = byAction(root, 'disconnect-wallet');

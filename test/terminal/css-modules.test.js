@@ -16,7 +16,7 @@ const expectedImportOrder = [
   'embed.css',
   'geometry.css',
 ];
-const expectedNormalizedSha256 = 'fbc14fbc81c8f1a6743f709d552f3ae226512be5ebd784215b1dbcdc81cf917e';
+const expectedNormalizedSha256 = '872e02a2634c6b6dc24cae9f206fc5710528bb61d32c5729ea89f5d711e6fc19';
 
 function normalizeNewlines(source) {
   return source.replace(/\r\n?/g, '\n');

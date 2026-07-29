@@ -378,6 +378,7 @@ function applyMarketSidebarSearch() {
   var query = search ? search.value.toLowerCase().trim() : '';
   _orderMarketSidebarList(document.getElementById('tlp-all-list'), 'tokens', query);
   _orderMarketSidebarList(document.getElementById('tlp-decisions-list'), 'decisions', query);
+  _orderMarketSidebarList(document.getElementById('tlp-past-decisions-list'), 'decisions', query);
 }
 
 function _bindMarketSidebarSearch() {
