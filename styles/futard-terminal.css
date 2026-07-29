@@ -8604,6 +8604,14 @@ html[data-01rx-chart-frame="true"] .chart-drawing-rail-01rx {
   background: #101010;
 }
 
+html[data-01rx-chart-frame="true"][data-chart-engine="advanced"] .chart-drawing-rail-01rx {
+  display: none !important;
+}
+
+html[data-01rx-chart-frame="true"][data-chart-engine="advanced"] .chart-body {
+  padding-left: 0 !important;
+}
+
 html[data-01rx-chart-frame="true"] .chart-crosshair-tool {
   display: grid;
   width: 32px;

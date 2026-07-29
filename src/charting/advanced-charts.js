@@ -40,6 +40,26 @@ const TIMEFRAME_SECONDS = Object.freeze({
 const SYMBOL_KINDS = new Set(['price', 'nav', 'projected-nav']);
 const SCRIPT_LOAD_TIMEOUT_MS = 15_000;
 const REALTIME_POLL_MS = 30_000;
+const NAV_DROPDOWN_OPTIONS = Object.freeze([
+  {
+    action: 'current-nav',
+    key: 'currentNav',
+    selector: '.chart-series-option[data-chart-series="current-nav"]',
+    title: 'Current NAV',
+  },
+  {
+    action: 'historic-nav',
+    key: 'historicNav',
+    selector: '.chart-series-option[data-chart-series="nav"]',
+    title: 'Historic NAV',
+  },
+  {
+    action: 'projected-nav',
+    key: 'projectedNav',
+    selector: '.chart-feature-option[data-chart-feature="projected-nav"]',
+    title: 'Projected NAV',
+  },
+]);
 
 function buildConfiguredLibraryPath() {
   try {
@@ -606,12 +626,22 @@ function invokeLegacyChartAction(runtime, action) {
   else if (action === 'gradient') runtime.toggleChartFeature?.('gradient');
 }
 
-function chartLineDropdownIcon() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19l6-7 4 4 8-9"/></svg>';
+function checkboxIcon(checked) {
+  const check = checked
+    ? '<path d="m5.25 9 2.35 2.4 5.15-5.1"/>'
+    : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="13" height="13" rx="2"/>${check}</svg>`;
 }
 
-function chevronDropdownIcon() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 5 5 5-5"/></svg>';
+function legacyNavVisibility(runtime, snapshot) {
+  const fallback = chartSnapshotVisibility(snapshot);
+  return NAV_DROPDOWN_OPTIONS.reduce((visibility, option) => {
+    const control = runtime.document?.querySelector?.(option.selector);
+    visibility[option.key] = control
+      ? control.getAttribute('aria-checked') === 'true'
+      : fallback[option.key];
+    return visibility;
+  }, {});
 }
 
 async function removeEntity(chart, entityId) {
@@ -765,15 +795,19 @@ function moveChartStatsIntoFrame(mountState) {
   try {
     const frameDocument = frame.contentDocument;
     if (!frameDocument?.body) return false;
-    if (!frameDocument.querySelector('style[data-01rx-chart-stats]')) {
-      const style = frameDocument.createElement('style');
+    mountState.frameDocument = frameDocument;
+    let style = frameDocument.querySelector('style[data-01rx-chart-stats]');
+    if (!style) {
+      style = frameDocument.createElement('style');
       style.setAttribute('data-01rx-chart-stats', '');
-      style.textContent = `
+      frameDocument.head?.appendChild(style);
+    }
+    style.textContent = `
         .advanced-chart-stats {
           position: fixed;
           z-index: 2;
           top: 46px;
-          left: 8px;
+          left: 60px;
           display: flex;
           flex-direction: column;
           align-items: flex-start;
@@ -814,9 +848,145 @@ function moveChartStatsIntoFrame(mountState) {
         .advanced-chart-stats .discount.negative {
           color: #ef5350;
         }
+        button[aria-label="NAV variants"],
+        button[aria-label="NAV variants"]:hover,
+        button[aria-label="NAV variants"]:focus,
+        button[aria-label="NAV variants"]:active,
+        button[aria-label="NAV variants"] > [data-role="button"] {
+          background: transparent !important;
+          box-shadow: none !important;
+        }
+        div:has(> button[aria-label="NAV variants"]) {
+          background: #0f0f0f !important;
+        }
+        button[aria-label="NAV variants"]:hover .js-button-text,
+        button[aria-label="NAV variants"]:focus .js-button-text,
+        button[aria-label="NAV variants"]:active .js-button-text,
+        button[aria-label="NAV variants"][class*="isOpened"] .js-button-text {
+          color: #fff !important;
+        }
+        .layout__area--top button::before {
+          background: transparent !important;
+        }
+        .layout__area--top button:hover,
+        .layout__area--top button:focus,
+        .layout__area--top button:active,
+        .layout__area--top button[class*="isOpened"] {
+          color: #fff !important;
+        }
+        .layout__area--top button {
+          box-sizing: border-box !important;
+          flex: 0 0 38px !important;
+          width: 38px !important;
+          min-width: 38px !important;
+          max-width: 38px !important;
+          height: 38px !important;
+          padding: 0 !important;
+          align-items: center !important;
+          justify-content: center !important;
+          color: #787b86 !important;
+        }
+        .layout__area--top button > *,
+        .layout__area--top button svg {
+          color: #787b86 !important;
+        }
+        .layout__area--top button:hover > *,
+        .layout__area--top button:focus > *,
+        .layout__area--top button:active > *,
+        .layout__area--top button[class*="isOpened"] > *,
+        .layout__area--top button:hover svg,
+        .layout__area--top button:focus svg,
+        .layout__area--top button:active svg,
+        .layout__area--top button[class*="isOpened"] svg {
+          color: #fff !important;
+        }
+        .layout__area--top button > div,
+        .layout__area--top button > span {
+          box-sizing: border-box !important;
+          width: 38px !important;
+          height: 38px !important;
+          padding: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        .layout__area--top button .js-button-text {
+          width: auto !important;
+          height: auto !important;
+          text-align: center !important;
+        }
+        [data-name="indicators-dialog"] [data-role="list-item"] {
+          position: relative !important;
+        }
+        [data-name="indicators-dialog"] [data-role="list-item"] > div {
+          padding-left: 42px !important;
+        }
+        .rx-indicator-check {
+          position: absolute;
+          z-index: 1;
+          top: 50%;
+          left: 14px;
+          box-sizing: border-box;
+          display: inline-flex;
+          width: 16px;
+          height: 16px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #787b86;
+          border-radius: 3px;
+          color: #f0f3fa;
+          pointer-events: none;
+          transform: translateY(-50%);
+        }
+        .rx-indicator-check[data-checked="true"] {
+          border-color: #d1d4dc;
+        }
+        .rx-indicator-check svg {
+          width: 13px;
+          height: 13px;
+        }
+        .rx-secondary-pane .chart-gui-wrapper__paneControls {
+          top: 4px !important;
+          right: 4px !important;
+          width: auto !important;
+          height: 24px !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
+        }
+        .rx-secondary-pane .chart-gui-wrapper__paneControls > div {
+          display: flex !important;
+          width: auto !important;
+          height: 24px !important;
+          align-items: center !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+        }
+        .rx-secondary-pane [data-qa-id^="pane-button"] {
+          width: 24px !important;
+          height: 24px !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        .rx-secondary-pane .chart-gui-wrapper__paneControls
+          > div > [data-qa-id="pane-button-more"] {
+          display: none !important;
+        }
+        .rx-secondary-pane [data-qa-id="pane-button-maximize"],
+        .rx-secondary-pane [data-qa-id="pane-button-minimize"] {
+          order: 1;
+        }
+        .rx-secondary-pane [data-qa-id="pane-button-collapse"],
+        .rx-secondary-pane [data-qa-id="pane-button-restore"] {
+          order: 2;
+        }
+        .rx-secondary-pane [data-qa-id="pane-button-up"] {
+          order: 3;
+        }
+        .rx-secondary-pane [data-qa-id="pane-button-close"] {
+          order: 4;
+        }
       `;
-      frameDocument.head?.appendChild(style);
-    }
     frameDocument.body.appendChild(stats);
     return true;
   } catch (_) {
@@ -868,6 +1038,171 @@ export function installBrowserAdvancedCharts(browserWindow) {
   const mounts = new WeakMap();
   runtime.NAVGATOR = runtime.NAVGATOR || {};
   runtime.NAVGATOR.chartEngines = runtime.NAVGATOR.chartEngines || {};
+
+  function navDropdownItems(mountState) {
+    const visibility = legacyNavVisibility(runtime, mountState.latestSnapshot);
+    return NAV_DROPDOWN_OPTIONS.map(option => ({
+      icon: checkboxIcon(visibility[option.key]),
+      onSelect: () => toggleNavDropdownItem(mountState, option),
+      title: option.title,
+    }));
+  }
+
+  function refreshNavDropdown(mountState) {
+    if (!mountState?.navDropdown || mountState.destroyed) return;
+    mountState.navDropdown.applyOptions?.({
+      items: navDropdownItems(mountState),
+    });
+  }
+
+  function toggleNavDropdownItem(mountState, option) {
+    invokeLegacyChartAction(runtime, option.action);
+    nextTask(runtime, () => {
+      if (mountState.destroyed) return;
+      const visibility = legacyNavVisibility(runtime, mountState.latestSnapshot);
+      const snapshot = {
+        ...mountState.latestSnapshot,
+        visibility: {
+          ...mountState.latestSnapshot?.visibility,
+          ...visibility,
+        },
+      };
+      mountState.latestSnapshot = snapshot;
+      refreshNavDropdown(mountState);
+      mountState.studySync = mountState.studySync.then(async () => {
+        await syncStudies(mountState, snapshot);
+        await syncReferenceLines(mountState, snapshot);
+      });
+    });
+  }
+
+  function normalizeStudyName(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  function indicatorRowName(row) {
+    if (row.dataset.rxIndicatorName) return row.dataset.rxIndicatorName;
+    const name = String(
+      row.querySelector?.(':scope > div span')?.textContent
+      || row.textContent
+      || '',
+    ).trim();
+    row.dataset.rxIndicatorName = name;
+    return name;
+  }
+
+  function userStudies(mountState) {
+    const internalIds = new Set(
+      Object.values(mountState.overlayStudies || {}).filter(Boolean),
+    );
+    try {
+      return mountState.widget.activeChart().getAllStudies()
+        .filter(study => !internalIds.has(study.id));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function refreshIndicatorChecks(mountState) {
+    const frameDocument = mountState?.frameDocument;
+    if (!frameDocument || mountState.destroyed) return;
+    frameDocument.querySelectorAll('[data-qa-id="pane"]').forEach((pane, index) => {
+      pane.classList.toggle('rx-secondary-pane', index > 0);
+      const menuButton = pane.querySelector('[data-qa-id="pane-button-more"]');
+      if (index > 0) menuButton?.style.setProperty('display', 'none', 'important');
+      else menuButton?.style.removeProperty('display');
+    });
+    const activeNames = new Set(
+      userStudies(mountState).map(study => normalizeStudyName(study.name)),
+    );
+    frameDocument.querySelectorAll(
+      '[data-name="indicators-dialog"] [data-role="list-item"]',
+    ).forEach((row) => {
+      const checked = activeNames.has(normalizeStudyName(indicatorRowName(row)));
+      let checkbox = row.querySelector(':scope > .rx-indicator-check');
+      if (!checkbox) {
+        checkbox = frameDocument.createElement('span');
+        checkbox.className = 'rx-indicator-check';
+        checkbox.setAttribute('aria-hidden', 'true');
+        row.prepend(checkbox);
+      }
+      const nextState = String(checked);
+      if (checkbox.dataset.checked === nextState) return;
+      checkbox.dataset.checked = nextState;
+      checkbox.innerHTML = checked
+        ? '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m4.8 9 2.6 2.7 5.8-6"/></svg>'
+        : '';
+      row.setAttribute('aria-checked', nextState);
+    });
+  }
+
+  function scheduleIndicatorCheckRefresh(mountState) {
+    if (
+      !mountState?.frameDocument
+      || mountState.destroyed
+      || mountState.indicatorRefreshFrame != null
+    ) return;
+    const frameWindow = mountState.frameDocument.defaultView;
+    const refresh = () => {
+      mountState.indicatorRefreshFrame = null;
+      mountState.cancelIndicatorRefresh = null;
+      refreshIndicatorChecks(mountState);
+    };
+    if (typeof frameWindow?.requestAnimationFrame === 'function') {
+      mountState.indicatorRefreshFrame = frameWindow.requestAnimationFrame(refresh);
+      mountState.cancelIndicatorRefresh = () => {
+        frameWindow.cancelAnimationFrame?.(mountState.indicatorRefreshFrame);
+      };
+    } else {
+      mountState.indicatorRefreshFrame = runtime.setTimeout(refresh, 0);
+      mountState.cancelIndicatorRefresh = () => {
+        runtime.clearTimeout?.(mountState.indicatorRefreshFrame);
+      };
+    }
+  }
+
+  function installIndicatorToggleChecks(mountState) {
+    const frameDocument = mountState?.frameDocument;
+    const frameWindow = frameDocument?.defaultView;
+    if (!frameDocument?.body || !frameWindow?.MutationObserver) return;
+
+    mountState.indicatorClickHandler = (event) => {
+      const row = event.target?.closest?.(
+        '[data-name="indicators-dialog"] [data-role="list-item"]',
+      );
+      if (!row) return;
+      const selectedName = normalizeStudyName(indicatorRowName(row));
+      const matches = userStudies(mountState)
+        .filter(study => normalizeStudyName(study.name) === selectedName);
+      if (!matches.length) {
+        scheduleIndicatorCheckRefresh(mountState);
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const chart = mountState.widget.activeChart();
+      matches.forEach((study) => {
+        try {
+          chart.removeEntity(study.id);
+        } catch (_) {}
+      });
+      scheduleIndicatorCheckRefresh(mountState);
+    };
+    frameDocument.addEventListener('click', mountState.indicatorClickHandler, true);
+
+    mountState.indicatorObserver = new frameWindow.MutationObserver(() => {
+      scheduleIndicatorCheckRefresh(mountState);
+    });
+    mountState.indicatorObserver.observe(frameDocument.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    mountState.studyEventHandler = () => scheduleIndicatorCheckRefresh(mountState);
+    mountState.widget.subscribe?.('study_event', mountState.studyEventHandler);
+    scheduleIndicatorCheckRefresh(mountState);
+  }
 
   async function mount(snapshot) {
     const host = snapshot?.container;
@@ -928,6 +1263,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           container,
           datafeed: feed.datafeed,
           disabled_features: [
+            'auto_enable_symbol_labels',
             'create_volume_indicator_by_default',
             'create_volume_indicator_by_default_once',
             'display_market_status',
@@ -935,7 +1271,6 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'header_quick_search',
             'header_saveload',
             'header_symbol_search',
-            'left_toolbar',
             'legend_widget',
             'save_chart_properties_to_local_storage',
             'symbol_info',
@@ -970,6 +1305,10 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'mainSeriesProperties.candleStyle.upColor': '#35d093',
             'mainSeriesProperties.candleStyle.wickDownColor': '#ff5f6d',
             'mainSeriesProperties.candleStyle.wickUpColor': '#35d093',
+            'mainSeriesProperties.priceLineColor': '#f4f4f1',
+            'mainSeriesProperties.priceLineWidth': 1,
+            'mainSeriesProperties.showLastValue': true,
+            'mainSeriesProperties.showPriceLine': true,
             'paneProperties.background': '#101010',
             'paneProperties.backgroundType': 'solid',
             'paneProperties.horzGridProperties.color': '#20201f',
@@ -981,6 +1320,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'paneProperties.legendProperties.showStudyValues': false,
             'paneProperties.vertGridProperties.color': '#1a1a19',
             'scalesProperties.lineColor': '#292929',
+            'scalesProperties.showSeriesLastValue': true,
+            'scalesProperties.showSymbolLabels': false,
             'scalesProperties.textColor': '#8e8e88',
           },
           symbol: priceSymbol,
@@ -1016,26 +1357,12 @@ export function installBrowserAdvancedCharts(browserWindow) {
           });
 
           await widget.headerReady();
-          await widget.createDropdown({
-            icon: chartLineDropdownIcon(),
-            items: [
-              { title: 'Current Price', onSelect: () => invokeLegacyChartAction(runtime, 'current-price') },
-              { title: 'Historic Price', onSelect: () => invokeLegacyChartAction(runtime, 'historic-price') },
-              { title: 'Current NAV', onSelect: () => invokeLegacyChartAction(runtime, 'current-nav') },
-              { title: 'Historic NAV', onSelect: () => invokeLegacyChartAction(runtime, 'historic-nav') },
-            ],
-            title: '',
-            tooltip: 'Price and NAV lines',
+          mountState.navDropdown = await widget.createDropdown({
+            items: navDropdownItems(mountState),
+            title: 'NAV',
+            tooltip: 'NAV variants',
           });
-          await widget.createDropdown({
-            icon: chevronDropdownIcon(),
-            items: [
-              { title: 'Projected NAV', onSelect: () => invokeLegacyChartAction(runtime, 'projected-nav') },
-              { title: 'Gradient', onSelect: () => invokeLegacyChartAction(runtime, 'gradient') },
-            ],
-            title: '',
-            tooltip: 'More chart features',
-          });
+          installIndicatorToggleChecks(mountState);
           return mountState;
         });
       })
@@ -1090,6 +1417,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
           {
             'lineStyle.color': '#ffcc00',
             'lineStyle.linewidth': 2,
+            showLabelsOnPriceScale: false,
+            showPriceLine: false,
             style: 2,
           },
           { checkLimit: false, priceScale: 'as-series' },
@@ -1113,6 +1442,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'lineStyle.color': '#ffcc00',
             'lineStyle.linestyle': 2,
             'lineStyle.linewidth': 1,
+            showLabelsOnPriceScale: false,
+            showPriceLine: false,
             style: 2,
           },
           { checkLimit: false, priceScale: 'as-series' },
@@ -1145,48 +1476,46 @@ export function installBrowserAdvancedCharts(browserWindow) {
     mountState.currentLineEntities.nav = null;
     const time = Math.floor(latestSnapshotTime(snapshot) / 1_000);
 
-    if (visibility.currentPrice && Number(snapshot.currentPrice) > 0) {
+    try {
+      chart.applyOverrides({
+        'mainSeriesProperties.showLastValue': visibility.currentPrice,
+        'mainSeriesProperties.showPriceLine': visibility.currentPrice,
+      });
+    } catch (_) {}
+
+    async function createCurrentLine(price, color) {
+      if (!(Number(price) > 0)) return null;
       try {
-        mountState.currentLineEntities.price = await chart.createShape(
-          { time, price: Number(snapshot.currentPrice) },
+        return await chart.createShape(
+          { time, price: Number(price) },
           {
             disableSave: true,
             disableSelection: true,
             lock: true,
             overrides: {
-              linecolor: '#f4f4f1',
-              linestyle: 2,
+              linecolor: color,
+              linestyle: 1,
               linewidth: 1,
-              showLabel: true,
+              showLabel: false,
+              showPrice: true,
             },
             shape: 'horizontal_line',
           },
         );
       } catch (_) {
-        // The native last-price line remains available on older library builds.
+        return null;
       }
     }
 
-    if (visibility.currentNav && Number(snapshot.currentNav) > 0) {
-      try {
-        mountState.currentLineEntities.nav = await chart.createShape(
-          { time, price: Number(snapshot.currentNav) },
-          {
-            disableSave: true,
-            disableSelection: true,
-            lock: true,
-            overrides: {
-              linecolor: '#ffcc00',
-              linestyle: 2,
-              linewidth: 1,
-              showLabel: true,
-            },
-            shape: 'horizontal_line',
-          },
-        );
-      } catch (_) {
-        // NAV history remains visible if the reference drawing API is unavailable.
-      }
+    if (visibility.currentNav) {
+      const currentNav = finiteNumber(
+        snapshot.currentNav,
+        chartPointValue(snapshot.navBars?.at(-1)),
+      );
+      mountState.currentLineEntities.nav = await createCurrentLine(
+        currentNav,
+        '#ffcc00',
+      );
     }
   }
 
@@ -1217,6 +1546,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
       snapshot.projectedNavBars,
     );
     updateChartStats(mountState, snapshot);
+    refreshNavDropdown(mountState);
 
     const chart = mountState.widget.activeChart();
     if (String(chart.resolution?.() || '') !== String(resolution)) {
@@ -1258,6 +1588,18 @@ export function installBrowserAdvancedCharts(browserWindow) {
         mountState.pointerLeaveHandler,
       );
     }
+    mountState.cancelIndicatorRefresh?.();
+    mountState.indicatorObserver?.disconnect?.();
+    if (mountState.indicatorClickHandler && mountState.frameDocument) {
+      mountState.frameDocument.removeEventListener(
+        'click',
+        mountState.indicatorClickHandler,
+        true,
+      );
+    }
+    try {
+      mountState.widget?.unsubscribe?.('study_event', mountState.studyEventHandler);
+    } catch (_) {}
     try {
       mountState.widget?.remove?.();
     } catch (_) {}

@@ -2524,7 +2524,6 @@ export function mountFutardTerminal({
           ${renderLogo(asset, 'large')}
           <div>
             <p><strong>${escapeHtml(asset.ticker)}</strong><span>${escapeHtml(asset.name)}</span></p>
-            <small>Ownership coin · Spot market</small>
           </div>
         </div>
         ${metric({
