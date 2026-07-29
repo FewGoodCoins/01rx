@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const test = require('node:test');
@@ -1187,7 +1188,7 @@ test('homepage discovery uses only public stable proposal reads and canonical to
   cleanupMount(mounted);
 });
 
-test('token Markets keeps its workspace scoped while refreshing the global proposal index', async () => {
+test('token Markets loads the proposal archive for the selected token', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { requests, root, window } = makeWindow({
     url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
@@ -1207,10 +1208,10 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   assert.equal(byRole(root, 'proposal-title').textContent.trim(), 'Fund Loyal contributor growth for Q3');
   const proposalRequestsBefore = requests.filter(url => /view=proposals(?:&|$)/.test(url)).length;
   assert.ok(proposalRequestsBefore > 0);
-  assert.equal(
-    requests.some(url => new URL(url, 'https://navgator.xyz').searchParams.has('token')),
-    false,
-  );
+  assert.ok(requests.some(url => (
+    new URL(url, 'https://navgator.xyz').searchParams.get('view') === 'proposals'
+    && new URL(url, 'https://navgator.xyz').searchParams.get('token') === 'loyal'
+  )));
 
   await controller.setToken('meta');
   await settle(window);
@@ -1222,28 +1223,37 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     requests.filter(url => /view=proposals(?:&|$)/.test(url)).length
       > proposalRequestsBefore,
   );
-  assert.equal(
-    requests.some(url => new URL(url, 'https://navgator.xyz').searchParams.has('token')),
-    false,
-  );
+  assert.ok(requests.some(url => (
+    new URL(url, 'https://navgator.xyz').searchParams.get('view') === 'proposals'
+    && new URL(url, 'https://navgator.xyz').searchParams.get('token') === 'meta'
+  )));
   assert.equal(byAction(root, 'review-trade'), null);
 
   cleanupMount(mounted);
 });
 
-test('token market sidebar exposes resolved proposals beneath live markets', async () => {
+test('market sidebar keeps live decisions above tokens and filters past proposals by token', async () => {
+  const indexSource = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
+  assert.ok(indexSource.indexOf('id="tlp-decisions-panel"')
+    < indexSource.indexOf('id="tlp-all-panel"'));
+  assert.ok(indexSource.indexOf('id="tlp-all-panel"')
+    < indexSource.indexOf('id="tlp-past-decisions-panel"'));
+
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
     url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
   });
-  const sidebar = window.document.createElement('section');
-  sidebar.id = 'tlp-decisions-panel';
-  sidebar.hidden = true;
+  const sidebar = window.document.createElement('div');
   sidebar.innerHTML = `
-    <span id="tp-live-decision-count">0</span>
-    <div id="tlp-decisions-list"></div>
-    <span id="tp-past-decision-count">0</span>
-    <div id="tlp-past-decisions-list"></div>
+    <section id="tlp-decisions-panel" hidden>
+      <span id="tp-live-decision-count">0</span>
+      <div id="tlp-decisions-list"></div>
+    </section>
+    <section id="tlp-past-decisions-panel" hidden>
+      <span id="tp-past-decisions-title">Past Proposals</span>
+      <span id="tp-past-decision-count">0</span>
+      <div id="tlp-past-decisions-list"></div>
+    </section>
   `;
   window.document.body.prepend(sidebar);
 
@@ -1258,20 +1268,36 @@ test('token market sidebar exposes resolved proposals beneath live markets', asy
   await settle(window);
 
   const liveRows = sidebar.querySelectorAll('#tlp-decisions-list .tp-decision-item');
-  const pastRows = sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item');
-  assert.equal(sidebar.hidden, false);
+  assert.equal(sidebar.querySelector('#tlp-decisions-panel').hidden, false);
+  assert.equal(sidebar.querySelector('#tlp-past-decisions-panel').hidden, false);
   assert.equal(sidebar.querySelector('#tp-live-decision-count').textContent, '1');
-  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '2');
   assert.equal(liveRows.length, 1);
-  assert.equal(pastRows.length, 2);
+  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '0');
+  assert.equal(
+    sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item').length,
+    0,
+  );
+  assert.match(sidebar.querySelector('#tp-past-decisions-title').textContent, /LOYAL/);
+
+  await controller.setToken('meta');
+  await settle(window);
+  let pastRows = sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item');
+  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '1');
+  assert.equal(pastRows.length, 1);
   assert.match(pastRows[0].textContent, /META #41[\s\S]+Resolved[\s\S]+Passed/);
-  assert.match(pastRows[1].textContent, /SOLO #12[\s\S]+Resolved[\s\S]+Failed/);
   assert.equal(
     pastRows[0].getAttribute('href'),
     `/?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
   );
+
+  await controller.setToken('solo');
+  await settle(window);
+  pastRows = sidebar.querySelectorAll('#tlp-past-decisions-list .tp-decision-item');
+  assert.equal(sidebar.querySelector('#tp-past-decision-count').textContent, '1');
+  assert.equal(pastRows.length, 1);
+  assert.match(pastRows[0].textContent, /SOLO #12[\s\S]+Resolved[\s\S]+Failed/);
   assert.equal(
-    pastRows[1].getAttribute('href'),
+    pastRows[0].getAttribute('href'),
     `/?token=solo&view=markets&proposal=${FAILED_PROPOSAL_ID}`,
   );
 
@@ -1493,7 +1519,7 @@ test('invalid token proposal deep links fall back with a visible notice', async 
   cleanupMount(mounted);
 });
 
-test('token Markets aborts stale global proposal reads before committing a token switch', async () => {
+test('token Markets aborts stale token proposal reads before committing a token switch', async () => {
   let proposalSignal = null;
   let proposalAborted = false;
   let proposalRequestCount = 0;
@@ -1534,10 +1560,7 @@ test('token Markets aborts stale global proposal reads before committing a token
   assert.equal(proposalRows(root).length, 1);
   assert.equal(proposalRows(root)[0].dataset.ftProposalOutcome, 'passed');
   assert.ok(proposalRequestCount > 1);
-  assert.equal(
-    requests.some(url => new URL(url).searchParams.has('token')),
-    false,
-  );
+  assert.ok(requests.some(url => new URL(url).searchParams.get('token') === 'meta'));
 
   cleanupMount(mounted);
 });

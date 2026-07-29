@@ -3002,19 +3002,29 @@ export function mountFutardTerminal({
     const list = runtime.document.getElementById('tlp-decisions-list');
     if (!list) return;
     const section = runtime.document.getElementById('tlp-decisions-panel');
+    const pastSection = runtime.document.getElementById('tlp-past-decisions-panel');
     const count = runtime.document.getElementById('tp-live-decision-count');
     const pastList = runtime.document.getElementById('tlp-past-decisions-list');
     const pastCount = runtime.document.getElementById('tp-past-decision-count');
+    const pastTitle = runtime.document.getElementById('tp-past-decisions-title');
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
     const pastMarkets = state.sidebarMarkets.filter(
-      market => market.proposal.statusGroup === 'passed'
-        || market.proposal.statusGroup === 'failed',
+      market => (
+        market.proposal.statusGroup === 'passed'
+        || market.proposal.statusGroup === 'failed'
+      ) && marketMatchesToken(market),
     );
     if (count) count.textContent = String(liveMarkets.length);
     if (pastCount) pastCount.textContent = String(pastMarkets.length);
+    if (pastTitle) {
+      pastTitle.textContent = state.tokenFilter
+        ? `Past Proposals · ${state.tokenFilter.toUpperCase()}`
+        : 'Past Proposals';
+    }
     if (section) section.hidden = false;
+    if (pastSection) pastSection.hidden = false;
     if (!liveMarkets.length) {
       list.innerHTML = '<div class="tp-decisions-empty">0 live decision markets</div>';
     } else {
@@ -6732,7 +6742,10 @@ export function mountFutardTerminal({
       integrityResult,
     ] = await Promise.allSettled([
       client.futarchy.activeMarkets({ signal }),
-      client.futarchy.proposals({}, { signal }),
+      client.futarchy.proposals(
+        state.tokenFilter ? { token: state.tokenFilter } : {},
+        { signal },
+      ),
       client.core.homeBootstrap({ cacheOnly: true }, { signal }),
       client.futarchy.recurringConfig({ signal }),
       client.futarchy.programIntegrity({ signal }),
@@ -7467,6 +7480,7 @@ export function mountFutardTerminal({
     state.requestedProposalId = '';
     state.routeNotice = '';
     state.markets = [];
+    state.sidebarMarkets = [];
     state.activeMarkets = [];
     state.indexedProposals = [];
     state.proposalSummary = {};
