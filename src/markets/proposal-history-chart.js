@@ -721,8 +721,6 @@ export function createProposalHistoryChart({
   updateReadout(readout, lastTimestamp, latest);
   chartRoot.classList.remove('ft-hourly-chart-pending');
   chartRoot.classList.add('ft-hourly-chart-enhanced');
-  chartRoot.querySelector('.ft-hourly-fallback')
-    ?.setAttribute('aria-hidden', 'true');
 
   return {
     applyTheme,
@@ -780,12 +778,10 @@ export function createProposalHistoryChart({
       'ft-hourly-chart-enhanced',
       'ft-hourly-chart-pending',
     );
-    container.closest('.ft-hourly-chart')?.querySelector('.ft-hourly-fallback')
-      ?.removeAttribute('aria-hidden');
     try {
       chart?.remove();
     } catch (_) {
-      // Preserve the original setup failure for the semantic fallback path.
+      // Preserve the original setup failure for the caller.
     }
     throw error;
   }
