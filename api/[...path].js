@@ -104,7 +104,7 @@ export async function relayApiRequest(request, response, options = {}) {
   const upstreamOrigin = (
     options.upstreamOrigin
     || process.env.NAVGATOR_API_ORIGIN
-    || 'https://api.navgator.xyz'
+    || 'https://navgator.xyz'
   );
   const fetchImpl = options.fetchImpl || fetch;
 

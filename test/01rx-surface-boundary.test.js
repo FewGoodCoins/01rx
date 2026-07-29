@@ -28,9 +28,19 @@ test('01RX exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('01RX adds only NAV and Growth controls around the chart renderer', () => {
+test('01RX adds only functional NAV and Growth controls plus disabled TradingView placeholders', () => {
   assert.match(indexSource, /id="chart-nav-trigger"/);
   assert.match(indexSource, /id="btn-growth-chart-toolbar"/);
+  const placeholderButtons = [
+    ...indexSource.matchAll(
+      /<button class="chart-tv-placeholder-button[^"]*"[^>]*\sdisabled(?:\s|>)/g,
+    ),
+  ];
+  assert.equal(placeholderButtons.length, 11);
+  assert.doesNotMatch(
+    placeholderButtons.map(match => match[0]).join('\n'),
+    /onclick=|data-ft-action=/,
+  );
   [
     '.chart-toolbar-row > .chart-controls',
     '.chart-toolbar-row > .chart-series-control',

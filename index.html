@@ -454,6 +454,31 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         </div>
       </div>
     </div>
+    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title">
+      <div class="tp-unified-section-heading">
+        <span class="tp-unified-section-title-group">
+          <button
+            class="tp-unified-section-toggle tp-unified-section-toggle-live"
+            type="button"
+            aria-label="Collapse live decision markets"
+            aria-expanded="true"
+            onclick="toggleMarketProposalSection('tlp-decisions-panel', this)"
+          >
+            <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span id="tp-live-decisions-title">Live Decision Markets</span>
+        </span>
+        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
+      </div>
+      <div class="tp-decision-columns" aria-hidden="true">
+        <span>Market</span>
+        <span>Status</span>
+        <span>Result</span>
+      </div>
+      <div id="tlp-decisions-list">
+        <div class="tp-decisions-empty">0 live decision markets</div>
+      </div>
+    </section>
     <section class="tp-all-section" id="tlp-all-panel" aria-labelledby="tp-token-section-title">
       <div class="tp-unified-section-heading">
         <span id="tp-token-section-title">Tokens</span>
@@ -472,18 +497,33 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       </div>
       <div id="tlp-all-list"></div>
     </section>
-    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title">
+    <section
+      class="tp-decisions-section tp-past-proposals-section"
+      id="tlp-past-decisions-panel"
+      aria-labelledby="tp-past-decisions-title"
+    >
       <div class="tp-unified-section-heading">
-        <span id="tp-live-decisions-title">Live Decision Markets</span>
-        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
+        <span class="tp-unified-section-title-group">
+          <button
+            class="tp-unified-section-toggle tp-unified-section-toggle-past"
+            type="button"
+            aria-label="Collapse past proposals"
+            aria-expanded="true"
+            onclick="toggleMarketProposalSection('tlp-past-decisions-panel', this)"
+          >
+            <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 1L4 4L7 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span id="tp-past-decisions-title">Past Proposals</span>
+        </span>
+        <span class="tp-unified-section-count" id="tp-past-decision-count">0</span>
       </div>
       <div class="tp-decision-columns" aria-hidden="true">
-        <span>Market</span>
+        <span>Proposal</span>
         <span>Status</span>
         <span>Result</span>
       </div>
-      <div id="tlp-decisions-list">
-        <div class="tp-decisions-empty">0 live decision markets</div>
+      <div id="tlp-past-decisions-list">
+        <div class="tp-decisions-empty">Select a token to view past proposals</div>
       </div>
     </section>
     <div id="tlp-wl-section" class="tp-wl-section">
@@ -884,6 +924,71 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                       <path d="M2.5 14.5h13"/>
                       <path d="m3.5 11 3-3 2.5 2 5-6"/>
                       <path d="M11.5 4h2.5v2.5"/>
+                    </svg>
+                  </button>
+                </div>
+                <div
+                  class="chart-tv-placeholder-controls chart-tv-placeholder-controls-primary"
+                  aria-label="TradingView premium toolbar preview"
+                >
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-timeframe chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView weekly timeframe placeholder" title="TradingView weekly timeframe">
+                    <span>W</span>
+                  </button>
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-chart-type chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView chart type placeholder" title="TradingView chart type">
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="square" aria-hidden="true">
+                      <path d="M7 3.5v21M3.5 10.25H10.5M21 2.5v23M17.5 18H24.5"/>
+                    </svg>
+                  </button>
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-indicators chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView indicators placeholder" title="TradingView indicators">
+                    <span aria-hidden="true">ƒ<sub>x</sub></span>
+                  </button>
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-chevron chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView toolbar menu placeholder" title="TradingView toolbar menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m6 9 6 6 6-6"/>
+                    </svg>
+                  </button>
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-annotations chart-tv-placeholder-divider" type="button" disabled aria-label="Hide annotations placeholder" title="Hide annotations">
+                    <span>Hide annotations</span>
+                  </button>
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-history" type="button" disabled aria-label="TradingView undo placeholder" title="TradingView undo">
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m10.5 8-5 5 5 5"/>
+                      <path d="M6 13h9.5c4 0 6.5 2.7 6.5 7"/>
+                    </svg>
+                  </button>
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-history chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView redo placeholder" title="TradingView redo">
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m17.5 8 5 5-5 5"/>
+                      <path d="M22 13h-9.5C8.5 13 6 15.7 6 20"/>
+                    </svg>
+                  </button>
+                </div>
+                <div
+                  class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
+                  aria-label="TradingView premium view toolbar preview"
+                >
+                  <button class="chart-tv-placeholder-button chart-tv-placeholder-quick-search" type="button" disabled aria-label="TradingView quick search placeholder" title="TradingView quick search">
+                    <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="13.25" cy="13.25" r="9.25"/>
+                      <path d="m20 20 6 6"/>
+                      <path d="m14.25 4.5-4 8h4l-2 7 6-9h-4z" fill="#101010"/>
+                    </svg>
+                  </button>
+                  <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView settings placeholder" title="TradingView settings">
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M8 4.5h12l6 9.5-6 9.5H8L2 14z"/>
+                      <circle cx="14" cy="14" r="3.2"/>
+                    </svg>
+                  </button>
+                  <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView fullscreen placeholder" title="TradingView fullscreen">
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" aria-hidden="true">
+                      <path d="M10 4.5H4.5V10M18 4.5h5.5V10M10 23.5H4.5V18M18 23.5h5.5V18"/>
+                    </svg>
+                  </button>
+                  <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView snapshot placeholder" title="TradingView snapshot">
+                    <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m9.25 7.5 1.5-2h8.5l1.5 2h4.75a2 2 0 0 1 2 2v13.5H2.5V9.5a2 2 0 0 1 2-2z"/>
+                      <circle cx="15" cy="15.25" r="5"/>
                     </svg>
                   </button>
                 </div>

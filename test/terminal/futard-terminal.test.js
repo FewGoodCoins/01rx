@@ -1053,9 +1053,10 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   assert.doesNotMatch(chartHeader.textContent, /Fund Loyal contributor growth for Q3/);
   assert.equal(chartHeader.querySelector('.ft-chart-market-identity a'), null);
-  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Result', 'Liquidity']) {
+  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Result']) {
     assert.match(chartHeader.textContent, new RegExp(label));
   }
+  assert.doesNotMatch(chartHeader.textContent, /Liquidity/);
   assert.match(
     chartHeader.querySelector('[data-ft-chart-header-metric="price"] strong').textContent,
     /^\$/,
@@ -1076,6 +1077,16 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.equal(
     byRole(root, 'proposal-history-chart').querySelectorAll('[data-ft-series]').length,
     3,
+  );
+  const proposalChartPlaceholders = Array.from(
+    byRole(root, 'proposal-history-chart')
+      .querySelectorAll('.chart-tv-placeholder-button'),
+  );
+  assert.equal(proposalChartPlaceholders.length, 11);
+  assert.equal(proposalChartPlaceholders.every(button => button.disabled), true);
+  assert.equal(
+    proposalChartPlaceholders.some(button => button.dataset.ftAction),
+    false,
   );
   assert.ok(requests.some(url => (
     /view=proposal-history/.test(url)
@@ -1195,6 +1206,11 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   assert.equal(controller.getState().token, 'loyal');
   assert.equal(proposalRows(root).length, 1);
   assert.equal(byRole(root, 'proposal-title').textContent.trim(), 'Fund Loyal contributor growth for Q3');
+  assert.equal(byRole(root, 'proposal-history-fallback'), null);
+  assert.equal(
+    byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-fallback'),
+    null,
+  );
   const proposalRequestsBefore = requests.filter(url => /view=proposals(?:&|$)/.test(url)).length;
   assert.ok(proposalRequestsBefore > 0);
   assert.equal(
@@ -1217,6 +1233,63 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     false,
   );
   assert.equal(byAction(root, 'review-trade'), null);
+
+  cleanupMount(mounted);
+});
+
+test('market sidebar keeps live decisions above tokens and renders past proposals for the selected token', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=meta&view=markets&tab=tokens',
+  });
+  const sidebar = window.document.createElement('aside');
+  sidebar.innerHTML = `
+    <section id="tlp-decisions-panel">
+      <span id="tp-live-decision-count"></span>
+      <div id="tlp-decisions-list"></div>
+    </section>
+    <section id="tlp-all-panel"></section>
+    <section id="tlp-past-decisions-panel">
+      <span id="tp-past-decisions-title"></span>
+      <span id="tp-past-decision-count"></span>
+      <div id="tlp-past-decisions-list"></div>
+    </section>
+  `;
+  window.document.body.prepend(sidebar);
+
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'meta',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1');
+  assert.match(
+    window.document.getElementById('tlp-decisions-list').textContent,
+    /LOYAL[\s\S]+Live/,
+  );
+  assert.equal(window.document.getElementById('tp-past-decisions-title').textContent, 'Past Proposals · META');
+  assert.equal(window.document.getElementById('tp-past-decision-count').textContent, '1');
+  const metaArchive = window.document.querySelector('#tlp-past-decisions-list .tp-past-proposal-item');
+  assert.ok(metaArchive);
+  assert.match(metaArchive.textContent, /Proposal #41[\s\S]+Passed/);
+  assert.equal(
+    metaArchive.getAttribute('href'),
+    `/?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
+  );
+
+  await controller.setToken('solo');
+  await settle(window);
+
+  assert.equal(window.document.getElementById('tp-past-decisions-title').textContent, 'Past Proposals · SOLO');
+  assert.equal(window.document.getElementById('tp-past-decision-count').textContent, '1');
+  assert.match(
+    window.document.getElementById('tlp-past-decisions-list').textContent,
+    /Acquire the Atlas analytics business[\s\S]+Failed/,
+  );
 
   cleanupMount(mounted);
 });
@@ -1896,6 +1969,11 @@ test('interactive history chart controls update and clean up an injected chart a
   const activeChart = charts[charts.length - 1];
   assert.equal(activeChart.options.ticker, 'LOYAL');
   assert.equal(activeChart.options.history.series.length, 16);
+  assert.equal(
+    byRole(root, 'proposal-history-chart')
+      .classList.contains('ft-hourly-chart-pending'),
+    false,
+  );
 
   const failToggle = root.querySelector(
     '.ft-hourly-overlay-fail',
@@ -2002,11 +2080,22 @@ test('proposal browser presents compact live and resolved markets without exposi
   );
   const passedArchive = byRole(root, 'trade-ticket').querySelector('.ft-archive-ticket');
   assert.ok(passedArchive);
-  assert.equal(root.querySelector('.ft-read-only-badge'), null);
+  const historicalPreview = byRole(root, 'historical-trade-preview');
+  assert.ok(historicalPreview);
+  assert.match(historicalPreview.textContent, /PASS/);
+  assert.match(historicalPreview.textContent, /FAIL/);
+  assert.match(historicalPreview.textContent, /LIMIT/);
+  assert.match(historicalPreview.textContent, /SWAP/);
+  assert.match(historicalPreview.textContent, /BUY/);
+  assert.match(historicalPreview.textContent, /SELL/);
+  assert.match(historicalPreview.textContent, /read only/i);
+  assert.ok(byRole(root, 'historical-limit-price').disabled);
+  assert.ok(byRole(root, 'historical-amount').disabled);
   const closedCta = passedArchive.querySelector('[data-ft-role="archived-trade-cta"]');
   assert.ok(closedCta);
   assert.equal(closedCta.disabled, true);
   assert.match(closedCta.textContent, /trading closed/i);
+  assert.equal(byAction(root, 'review-trade'), null);
   assert.equal(byAction(root, 'open-execution'), null);
   assert.equal(byRole(root, 'amount'), null);
   const marketChart = byRegion(root, 'market-chart');

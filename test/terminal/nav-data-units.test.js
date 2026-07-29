@@ -4720,6 +4720,25 @@ test('lightweight NAV line uses a yellow to orange vertical gradient', () => {
   assert.equal(source.includes("gradient.addColorStop(1, 'rgba(255,138,0,' + opacity + ')');"), true);
 });
 
+test('lightweight Price and NAV histories have one consistent stroke owner', () => {
+  assert.match(source, /_lwPrice = _lwChart\.addSeries\(LightweightCharts\.AreaSeries, \{[\s\S]*?lineColor: 'rgba\(0,0,0,0\)',[\s\S]*?lineWidth: 0,/);
+  assert.match(source, /_lwNav = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*?color: 'rgba\(0,0,0,0\)',[\s\S]*?lineWidth: 0,/);
+  assert.match(source, /_drawSmoothStroke\(ctx, pricePts, \{[\s\S]*?width: 2,[\s\S]*?smoothness: 0/);
+  assert.match(source, /_drawSmoothStroke\(ctx, navPts, \{[\s\S]*?width: 2,[\s\S]*?smoothness: 0/);
+  const priceStroke = source.slice(
+    source.indexOf('_drawSmoothStroke(ctx, pricePts, {'),
+    source.indexOf('});', source.indexOf('_drawSmoothStroke(ctx, pricePts, {')),
+  );
+  const navStroke = source.slice(
+    source.indexOf('_drawSmoothStroke(ctx, navPts, {'),
+    source.indexOf('});', source.indexOf('_drawSmoothStroke(ctx, navPts, {')),
+  );
+  assert.equal(priceStroke.includes('halo:'), false);
+  assert.equal(priceStroke.includes('glow:'), false);
+  assert.equal(navStroke.includes('halo:'), false);
+  assert.equal(navStroke.includes('glow:'), false);
+});
+
 test('chart total summary background extends to the plot edge', () => {
   assert.equal(source.includes('var plotW = chartW;\n        var tsWidth = tsScale.width();\n        if (tsWidth > 0) plotW = Math.min(chartW, tsWidth);'), true);
   assert.equal(source.includes('var bgLeft = Math.max(0, textX - maxTextW - padX);\n          ctx.fillStyle = \'rgba(0,0,0,0.88)\';\n          ctx.fillRect(bgLeft, topY, plotW - bgLeft, bottomY - topY);'), true);
@@ -5899,7 +5918,7 @@ test('chart shows NAV and projected NAV badges as mutually exclusive states', ()
 
 test('embed renders current and projected NAV as one continuous dashed series', () => {
   assert.match(source, /_lwEmbedNavReference = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*lineWidth: 2,[\s\S]*lineStyle: LightweightCharts\.LineStyle\.Dashed,/);
-  assert.match(source, /_lwNavForecast = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*lineWidth: _isChartEmbed \? 2 : 1\.25,[\s\S]*lineStyle: LightweightCharts\.LineStyle\.Dashed,/);
+  assert.match(source, /_lwNavForecast = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*lineWidth: _isChartEmbed \? 2 : 0,[\s\S]*lineStyle: LightweightCharts\.LineStyle\.Dashed,/);
   assert.equal(source.includes('var _lwEmbedJoinedNavData = []; // one continuous current + projected NAV display path'), true);
   assert.equal(source.includes('_lwEmbedJoinedNavData = _lwEmbedNavReferenceData.slice();'), true);
   assert.equal(source.includes('forecastData = showEmbedNavSeries ? _lwEmbedJoinedNavData : [];'), true);

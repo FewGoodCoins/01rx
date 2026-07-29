@@ -193,6 +193,7 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
     'src/markets/decision-market-controller.js',
     'utf8',
   );
+  const marketStyles = fs.readFileSync('styles/futard-terminal.css', 'utf8');
   const tokenRuntime = fs.readFileSync('src/token/runtime.js', 'utf8');
 
   assert.doesNotMatch(main, /from ['"]\.\/token\//);
@@ -205,6 +206,30 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.match(tokenEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.doesNotMatch(marketController, /(?:\.\.\/home\/|\.\.\/token\/)/);
+  assert.match(
+    marketStyles,
+    /\.ft-ownership-chart-header\s*\{\s*border:\s*0;\s*border-bottom:\s*1px solid #343636;/,
+  );
+  assert.match(
+    marketStyles,
+    /\.ft-ownership-market \.ft-terminal-grid\s*\{\s*gap:\s*0;/,
+  );
+  assert.match(
+    marketStyles,
+    /data-01rx-chart-frame="true"[\s\S]+\.chart-section\s*\{[\s\S]+border:\s*0 !important;[\s\S]+box-shadow:\s*none !important;/,
+  );
+  assert.match(
+    marketStyles,
+    /data-01rx-chart-frame="true"[\s\S]+\.chart-topbar\s*\{[\s\S]+border-bottom:\s*1px solid #292929 !important;/,
+  );
+  assert.match(
+    marketStyles,
+    /\.ft-ownership-transactions-header\s*\{[\s\S]+height:\s*42px;[\s\S]+border-bottom-color:\s*#292929;/,
+  );
+  assert.match(
+    marketStyles,
+    /\.token-board-grid \.chart-body::before\s*\{[\s\S]+width:\s*42px;[\s\S]+border-right:\s*1px solid #292929;[\s\S]+background:\s*#101010;/,
+  );
   assert.match(tokenRuntime, /\.\/chart-data\.js/);
   assert.match(tokenRuntime, /\.\/nav-model\.js/);
   assert.match(tokenRuntime, /\.\/proposal-model\.js/);
@@ -212,4 +237,25 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(main, /window\.NAVGATOR\.ready = bootLegacyApplication\(\);/);
   assert.match(main, /window\.NAVGATOR\.ready\.catch/);
   assert.match(main, /installBrowserEmbed\(window\)/);
+});
+
+test('market sidebar orders live decisions, tokens, then selected-token proposal history', () => {
+  const document = fs.readFileSync('index.html', 'utf8');
+  const appCore = fs.readFileSync('src/legacy/app-core.js', 'utf8');
+  const liveDecisions = document.indexOf('id="tlp-decisions-panel"');
+  const tokens = document.indexOf('id="tlp-all-panel"');
+  const pastProposals = document.indexOf('id="tlp-past-decisions-panel"');
+
+  assert.ok(liveDecisions >= 0);
+  assert.ok(tokens > liveDecisions);
+  assert.ok(pastProposals > tokens);
+  assert.match(
+    document,
+    /tp-unified-section-toggle-live[\s\S]+aria-label="Collapse live decision markets"[\s\S]+M1 4L4 1L7 4/,
+  );
+  assert.match(
+    document,
+    /tp-unified-section-toggle-past[\s\S]+aria-label="Collapse past proposals"[\s\S]+M1 1L4 4L7 1/,
+  );
+  assert.match(appCore, /toggleMarketProposalSection[\s\S]+classList\.toggle\('is-collapsed'\)/);
 });
