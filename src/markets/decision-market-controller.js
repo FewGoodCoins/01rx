@@ -1,10 +1,5 @@
 import { create01ResolvedClient } from '@01resolved/api-client';
 import base58Module from 'bs58';
-import {
-  proposalChartPointTime,
-  proposalChartPoints,
-} from './proposal-history-model.js';
-
 // Shared by the homepage discovery and token-scoped Markets renderers.
 const THEME_STORAGE_KEY = 'navgator-terminal-theme';
 const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
@@ -736,64 +731,6 @@ export function proposalHistoryPhase(point, preTwap, interval = '1h') {
   };
 }
 
-function chartSegments(points, field, scales, intervalMs) {
-  const segments = [];
-  let current = [];
-  let previousTime = null;
-  for (const point of points) {
-    const time = proposalChartPointTime(point);
-    if (!Number.isFinite(time)) continue;
-    const value = point[field];
-    const hasGap = previousTime != null && time - previousTime > intervalMs * 1.5;
-    if (!Number.isFinite(value) || hasGap) {
-      if (current.length) segments.push(current);
-      current = [];
-    }
-    if (Number.isFinite(value)) {
-      current.push({
-        x: scales.x(time),
-        y: scales.y(value),
-        point,
-      });
-      previousTime = time;
-    } else {
-      previousTime = null;
-    }
-  }
-  if (current.length) segments.push(current);
-  return segments;
-}
-
-function renderChartSeries(points, field, className, label, scales, intervalMs) {
-  return chartSegments(points, field, scales, intervalMs).map((segment) => {
-    if (segment.length === 1) {
-      const item = segment[0];
-      return `
-        <circle
-          class="${className} ft-hourly-point"
-          data-ft-series="${field}"
-          cx="${item.x.toFixed(2)}"
-          cy="${item.y.toFixed(2)}"
-          r="7"
-          vector-effect="non-scaling-stroke"
-        ><title>${escapeHtml(`${label} · ${formatHistoryDate(item.point.chartTimestamp || item.point.observedAt || item.point.timestamp)} · ${formatChartPrice(item.point[field])}`)}</title></circle>
-      `;
-    }
-    const path = segment.map((item, index) => (
-      `${index === 0 ? 'M' : 'L'} ${item.x.toFixed(2)} ${item.y.toFixed(2)}`
-    )).join(' ');
-    return `
-      <path
-        class="${className}"
-        data-ft-series="${field}"
-        d="${path}"
-        fill="none"
-        vector-effect="non-scaling-stroke"
-      />
-    `;
-  }).join('');
-}
-
 function historyOverlayMetric({
   className,
   field,
@@ -915,51 +852,26 @@ function renderTradingViewToolbarPreview() {
 
 export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) {
   const observations = Array.isArray(history?.series) ? history.series : [];
-  const points = proposalChartPoints(history, { launchedAt: options.launchedAt });
   const interval = normalizeHistoryInterval(history?.interval);
-  const intervalMs = HISTORY_INTERVAL_MS[interval];
   const intervalLabel = interval === '15m' ? '15M' : '1H';
   const cadenceLabel = historyCadenceLabel(interval);
-  const values = points.flatMap(point => [
+  const values = observations.flatMap(point => [
     point.underlyingPrice,
     point.passPrice,
     point.failPrice,
   ]).filter(Number.isFinite);
   if (!observations.length || !values.length) return '';
 
-  const times = points.map(proposalChartPointTime).filter(Number.isFinite);
-  const minTime = Math.min(...times);
-  const maxTime = Math.max(...times);
-  const hasTimeRange = maxTime > minTime;
-  const timeRange = Math.max(1, maxTime - minTime);
-  const rawMin = Math.min(...values);
-  const rawMax = Math.max(...values);
-  const valuePadding = Math.max((rawMax - rawMin) * 0.08, Math.abs(rawMax || 1) * 0.01);
-  const minValue = Math.max(0, rawMin - valuePadding);
-  const maxValue = rawMax + valuePadding;
-  const valueRange = Math.max(Number.EPSILON, maxValue - minValue);
-  const scales = {
-    x: time => (hasTimeRange ? ((time - minTime) / timeRange) * 1_000 : 500),
-    y: value => 1_000 - ((value - minValue) / valueRange) * 1_000,
-  };
   const preTwapTime = new Date(history?.preTwap || '').getTime();
   const hasPreTwap = Number.isFinite(preTwapTime);
-  const preTwapInRange = hasPreTwap
-    && preTwapTime >= minTime
-    && preTwapTime <= maxTime;
-  const preTwapX = preTwapInRange ? scales.x(preTwapTime) : null;
-  const preTwapPercent = Number.isFinite(preTwapX) ? preTwapX / 10 : null;
   const twapEndTime = new Date(options.windowEndedAt || '').getTime();
   const hasTwapEnd = Number.isFinite(twapEndTime);
-  const twapEndInRange = hasTwapEnd
-    && twapEndTime >= minTime
-    && twapEndTime <= maxTime;
-  const twapEndX = twapEndInRange ? scales.x(twapEndTime) : null;
-  const twapEndPercent = Number.isFinite(twapEndX) ? twapEndX / 10 : null;
-  const yTicks = [maxValue, maxValue - valueRange / 2, minValue];
-  const midTime = minTime + timeRange / 2;
-  const xTicks = hasTimeRange ? [minTime, midTime, maxTime] : [null, minTime, null];
   const latestPoint = observations[observations.length - 1] || {};
+  const latestTime = firstText(
+    latestPoint.chartTimestamp,
+    latestPoint.observedAt,
+    latestPoint.timestamp,
+  );
   const latestValue = field => (
     Number.isFinite(latestPoint[field]) ? latestPoint[field] : null
   );
@@ -971,17 +883,9 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const selectedRangeOption = HISTORY_RANGE_OPTIONS.find(option => (
     option.value === selectedRange
   )) || HISTORY_RANGE_OPTIONS[HISTORY_RANGE_OPTIONS.length - 1];
-  const provider = firstText(history.source?.provider, 'Indexed market history');
   const latestPass = latestValue('passPrice');
   const latestFail = latestValue('failPrice');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
-  const launchAnchor = points.find(point => point.protocolLaunchAnchor === true);
-  const launchAnchorX = launchAnchor
-    ? scales.x(proposalChartPointTime(launchAnchor))
-    : null;
-  const launchAnchorY = launchAnchor
-    ? scales.y(launchAnchor.underlyingPrice)
-    : null;
   return `
     <div class="ft-hourly-chart ft-hourly-chart-pending" data-ft-role="proposal-history-chart">
       <div class="ft-hourly-toolbar">
@@ -1075,7 +979,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
             <span>${intervalLabel}</span>
             <i aria-hidden="true">·</i>
             <span data-ft-role="hourly-readout-time">${escapeHtml(
-              formatHistoryOverlayTimestamp(maxTime),
+              formatHistoryOverlayTimestamp(latestTime),
             )}</span>
           </div>
           <div class="ft-hourly-overlay-values" role="group" aria-label="Toggle chart series">
@@ -1112,88 +1016,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           role="img"
           aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
         ></div>
-        ${options.includeFallback === false ? '' : `
-        <div class="ft-hourly-fallback" data-ft-role="proposal-history-fallback">
-          <div class="ft-hourly-chart-layout">
-            <div class="ft-hourly-y-axis" aria-hidden="true">
-              ${yTicks.map(value => `<span>${escapeHtml(formatChartPrice(value))}</span>`).join('')}
-            </div>
-            <div class="ft-hourly-plot-column">
-              <div class="ft-hourly-plot">
-                <svg
-                  viewBox="0 0 1000 1000"
-                  preserveAspectRatio="none"
-                  role="img"
-                  aria-labelledby="ft-hourly-chart-title ft-hourly-chart-description"
-                >
-                  <title id="ft-hourly-chart-title">${escapeHtml(cadenceLabel)} ${escapeHtml(ticker)} proposal market prices</title>
-                  <desc id="ft-hourly-chart-description">Underlying token, proposal PASS, and proposal FAIL spot prices from ${escapeHtml(provider)}. All three series share a protocol launch anchor at the first indexed spot reference before the retained observations diverge.${hasPreTwap ? ` The TWAP observation window begins ${escapeHtml(formatHistoryDate(preTwapTime))} UTC; earlier prices are PRE-TWAP context.` : ''} Missing ${escapeHtml(cadenceLabel)} observations are left as gaps.</desc>
-                  ${preTwapInRange ? `
-                    <rect
-                      class="ft-hourly-pre-twap-region"
-                      x="0"
-                      y="0"
-                      width="${preTwapX.toFixed(2)}"
-                      height="1000"
-                      aria-hidden="true"
-                    />
-                  ` : ''}
-                  <g class="ft-hourly-grid" aria-hidden="true">
-                    <path d="M 0 0 H 1000 M 0 500 H 1000 M 0 1000 H 1000" />
-                    <path d="M 0 0 V 1000 M 500 0 V 1000 M 1000 0 V 1000" />
-                  </g>
-                  ${renderChartSeries(points, 'underlyingPrice', 'ft-hourly-line-price', 'Price', scales, intervalMs)}
-                  ${renderChartSeries(points, 'passPrice', 'ft-hourly-line-pass', 'Pass', scales, intervalMs)}
-                  ${renderChartSeries(points, 'failPrice', 'ft-hourly-line-fail', 'Fail', scales, intervalMs)}
-                  ${Number.isFinite(launchAnchorX) && Number.isFinite(launchAnchorY) ? `
-                    <circle
-                      class="ft-hourly-launch-anchor"
-                      data-ft-chart-anchor="shared-launch-reserve"
-                      cx="${launchAnchorX.toFixed(2)}"
-                      cy="${launchAnchorY.toFixed(2)}"
-                      r="6"
-                      vector-effect="non-scaling-stroke"
-                    ><title>Shared launch reserve · ${escapeHtml(formatChartCurrency(launchAnchor.underlyingPrice))}</title></circle>
-                  ` : ''}
-                  ${preTwapInRange ? `
-                    <path
-                      class="ft-hourly-fallback-twap-line"
-                      data-ft-chart-boundary="twap-start"
-                      d="M ${preTwapX.toFixed(2)} 0 V 1000"
-                      vector-effect="non-scaling-stroke"
-                    />
-                  ` : ''}
-                  ${twapEndInRange ? `
-                    <path
-                      class="ft-hourly-fallback-twap-line ft-hourly-fallback-twap-end-line"
-                      data-ft-chart-boundary="twap-end"
-                      d="M ${twapEndX.toFixed(2)} 0 V 1000"
-                      vector-effect="non-scaling-stroke"
-                    />
-                  ` : ''}
-                </svg>
-                ${preTwapInRange ? `
-                  <span
-                    class="ft-hourly-fallback-twap-label${preTwapPercent > 82 ? ' ft-is-near-right' : ''}"
-                    style="--ft-twap-start-x: ${preTwapPercent.toFixed(3)}%"
-                    aria-hidden="true"
-                  >TWAP Open</span>
-                ` : ''}
-                ${twapEndInRange ? `
-                  <span
-                    class="ft-hourly-fallback-twap-label ft-hourly-fallback-twap-end-label${twapEndPercent > 82 ? ' ft-is-near-right' : ''}"
-                    style="--ft-twap-end-x: ${twapEndPercent.toFixed(3)}%"
-                    aria-hidden="true"
-                  >TWAP Close</span>
-                ` : ''}
-              </div>
-              <div class="ft-hourly-x-axis" aria-hidden="true">
-                ${xTicks.map(value => `<span>${value === null ? '' : escapeHtml(formatHistoryDate(value))}</span>`).join('')}
-              </div>
-            </div>
-          </div>
-        </div>
-        `}
       </div>
     </div>
   `;
@@ -2926,7 +2748,6 @@ export function mountFutardTerminal({
           visibility: state.historySeriesVisibility,
           launchedAt: market.proposal.createdAt,
           windowEndedAt: market.proposal.endsAt,
-          includeFallback: state.hostMode !== 'token',
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">

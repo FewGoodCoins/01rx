@@ -825,8 +825,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     windowEndedAt: '2026-06-16T11:30:00.000Z',
   }));
   const chart = dom.window.document;
-  assert.equal(chart.querySelectorAll('[data-ft-series="underlyingPrice"]').length, 3);
-  assert.equal(chart.querySelectorAll('[data-ft-series="passPrice"]').length, 2);
+  assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
   assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 6);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 3);
   assert.equal(chart.querySelectorAll('[data-ft-role="hourly-range-trigger"]').length, 1);
@@ -846,16 +845,13 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     'tradingview-lightweight',
   );
   assert.equal(chart.querySelector('[data-ft-role="tradingview-attribution"]'), null);
-  assert.equal(
-    chart.querySelector('[data-ft-chart-anchor="shared-launch-reserve"]').tagName,
-    'circle',
-  );
+  assert.equal(chart.querySelector('[data-ft-role="proposal-history-fallback"]'), null);
+  assert.equal(chart.querySelector('.ft-hourly-plot-shell svg[viewBox="0 0 1000 1000"]'), null);
+  assert.equal(chart.querySelector('[data-ft-chart-anchor="shared-launch-reserve"]'), null);
   assert.equal(chart.querySelector('.ft-hourly-chart-foot'), null);
   assert.equal(chart.querySelector('.ft-hourly-values'), null);
   assert.equal(chart.querySelector('[data-ft-role="pre-twap-definition"]'), null);
-  assert.ok(chart.querySelector('[data-ft-chart-boundary="twap-start"]'));
-  assert.ok(chart.querySelector('[data-ft-chart-boundary="twap-end"]'));
-  assert.equal(chart.querySelectorAll('[data-ft-chart-boundary]').length, 2);
+  assert.equal(chart.querySelectorAll('[data-ft-chart-boundary]').length, 0);
   assert.deepEqual(
     proposalHistoryPhase(
       { timestamp: '2026-06-16T10:00:00.000Z' },
@@ -1061,9 +1057,10 @@ test('proposal-first terminal renders validated market state and a safe trade in
     chartHeader.querySelector('[data-ft-chart-header-metric="price"] strong').textContent,
     /^\$/,
   );
-  assert.ok(
+  assert.equal(
     byRole(root, 'proposal-history-chart')
       .querySelector('[data-ft-chart-anchor="shared-launch-reserve"]'),
+    null,
   );
   assert.equal(
     byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-chart-foot'),
@@ -1076,7 +1073,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.equal(byRole(root, 'proposal-history').querySelector('.ft-hourly-source-note'), null);
   assert.equal(
     byRole(root, 'proposal-history-chart').querySelectorAll('[data-ft-series]').length,
-    3,
+    0,
   );
   const proposalChartPlaceholders = Array.from(
     byRole(root, 'proposal-history-chart')
@@ -1711,18 +1708,16 @@ test('proposal history uses retained verified observations when live and hourly 
   await controller.ready;
   await settleUntil(terminal.window, () => (
     retainedRequests.length > 0
-    && /NAVgator retained 01Resolved history/i.test(
-      byRole(terminal.root, 'proposal-history').textContent,
-    )
+    && byRole(terminal.root, 'proposal-history-chart')
   ));
 
   assert.deepEqual(retainedRequests, [
     `/data/proposal-history/${PROPOSAL_ID}.json`,
   ]);
   assert.equal(hourlyHistorySettled, false);
-  assert.match(
-    byRole(terminal.root, 'proposal-history').textContent,
-    /NAVgator retained 01Resolved history/i,
+  assert.equal(
+    byRole(terminal.root, 'proposal-history').querySelector('svg[viewBox="0 0 1000 1000"]'),
+    null,
   );
   assert.equal(
     byRole(terminal.root, 'proposal-history-chart').querySelector('.ft-hourly-values'),
@@ -2103,13 +2098,13 @@ test('proposal browser presents compact live and resolved markets without exposi
   assert.equal(byRegion(root, 'market-stage').querySelector('[data-ft-role="proposal-history"]'), null);
   assert.match(marketChart.textContent, /\bPass\b/i);
   assert.match(marketChart.textContent, /\bFail\b/i);
-  assert.match(marketChart.textContent, /01Resolved/i);
+  assert.doesNotMatch(marketChart.textContent, /01Resolved/i);
   assert.equal(marketChart.querySelector('.ft-hourly-chart-foot'), null);
   assert.equal(marketChart.querySelector('.ft-hourly-values'), null);
   assert.equal(marketChart.querySelector('.ft-hourly-source-note'), null);
   assert.equal(
     byRole(root, 'proposal-history-chart').querySelectorAll('[data-ft-series]').length,
-    3,
+    0,
   );
   assert.match(byRegion(root, 'market-stage').textContent, /Proposal passed/i);
   assert.doesNotMatch(byRegion(root, 'market-stage').textContent, /Proposal timeline/i);
