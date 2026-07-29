@@ -105,6 +105,7 @@ try {
   }
   if (_bootParams.get('frame') === '01rx' && /^[a-z0-9][a-z0-9_-]*$/.test(_bootToken)) {
     document.documentElement.setAttribute('data-01rx-chart-frame', 'true');
+    document.documentElement.setAttribute('data-chart-engine', 'advanced-loading');
   }
   if (_bootEmbed && /^[a-z0-9][a-z0-9_-]*$/.test(_bootToken)) {
     document.documentElement.setAttribute('data-embed', 'chart');
@@ -328,12 +329,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
 </header>
 
 <div class="app-shell">
-<button class="shell-panel-toggle shell-panel-toggle-left" id="left-panel-toggle" onclick="toggleShellPanel('left')" type="button" aria-label="Collapse left panel" title="Collapse left panel" aria-expanded="true" aria-controls="app-left">
-  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" aria-hidden="true"><path d="M9 3L5 7L9 11"/></svg>
-</button>
-<button class="shell-panel-toggle shell-panel-toggle-right" id="right-panel-toggle" onclick="toggleShellPanel('right')" type="button" aria-label="Collapse right panel" title="Collapse right panel" aria-expanded="true" aria-controls="token-stats-col">
-  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" aria-hidden="true"><path d="M5 3L9 7L5 11"/></svg>
-</button>
 
 <!-- ════════════════════════════════════════════
      LEFT SIDEBAR — brand + token list (always visible)
@@ -437,18 +432,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         </div>
       </div>
     </div>
-    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title" hidden>
-      <div class="tp-unified-section-heading">
-        <span id="tp-live-decisions-title">Live Decisions</span>
-        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
-      </div>
-      <div class="tp-decision-columns" aria-hidden="true">
-        <span>Market</span>
-        <span>Status</span>
-        <span>Result</span>
-      </div>
-      <div id="tlp-decisions-list"></div>
-    </section>
     <section class="tp-all-section" id="tlp-all-panel" aria-labelledby="tp-token-section-title">
       <div class="tp-unified-section-heading">
         <span id="tp-token-section-title">Tokens</span>
@@ -466,6 +449,20 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         <span id="tp-token-secondary-label">24h</span>
       </div>
       <div id="tlp-all-list"></div>
+    </section>
+    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title">
+      <div class="tp-unified-section-heading">
+        <span id="tp-live-decisions-title">Live Decision Markets</span>
+        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
+      </div>
+      <div class="tp-decision-columns" aria-hidden="true">
+        <span>Market</span>
+        <span>Status</span>
+        <span>Result</span>
+      </div>
+      <div id="tlp-decisions-list">
+        <div class="tp-decisions-empty">0 live decision markets</div>
+      </div>
     </section>
     <div id="tlp-wl-section" class="tp-wl-section">
       <button class="tp-section-label collapsed" onclick="toggleWlCollapse()" type="button" aria-expanded="false">

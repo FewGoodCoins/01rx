@@ -2204,6 +2204,71 @@ export function mountFutardTerminal({
       && Boolean(state.tokenFilter);
   }
 
+  function normalizeOwnershipRecentTransactions(nav) {
+    const source = [
+      nav.recentTrades,
+      nav.recentTransactions,
+      nav.trades,
+      nav.transactions,
+      nav.dexTrades,
+    ].find(Array.isArray) || [];
+    return source
+      .map((row) => {
+        if (!isObject(row)) return null;
+        const direction = firstText(
+          row.side,
+          row.direction,
+          row.tradeSide,
+          row.type,
+        ).toLowerCase();
+        const rawTime = row.blockTime
+          ?? row.timestamp
+          ?? row.time
+          ?? row.createdAt
+          ?? row.observedAt;
+        const numericTime = Number(rawTime);
+        const time = Number.isFinite(numericTime) && numericTime > 0
+          ? isoTimestamp(numericTime < 1_000_000_000_000 ? numericTime * 1_000 : numericTime)
+          : isoTimestamp(rawTime);
+        return {
+          side: direction.includes('sell')
+            ? 'sell'
+            : direction.includes('buy')
+              ? 'buy'
+              : 'neutral',
+          price: firstNumber(row.price, row.priceUsd, row.usdPrice, row.spot),
+          size: firstNumber(
+            row.size,
+            row.baseAmount,
+            row.tokenAmount,
+            row.amount,
+            row.amountOut,
+          ),
+          valueUsd: firstNumber(
+            row.valueUsd,
+            row.volumeUsd,
+            row.quoteAmount,
+            row.usdAmount,
+          ),
+          trader: firstText(row.trader, row.wallet, row.owner, row.taker),
+          signature: safeSignature(
+            row.signature || row.txSignature || row.transactionSignature,
+          ),
+          time,
+        };
+      })
+      .filter(row => (
+        row
+        && (
+          Number.isFinite(row.price)
+          || Number.isFinite(row.size)
+          || Number.isFinite(row.valueUsd)
+        )
+      ))
+      .sort((left, right) => right.time.localeCompare(left.time))
+      .slice(0, 40);
+  }
+
   function ownershipTokenSnapshot() {
     const tokenKey = state.tokenFilter;
     const nav = state.navMap.get(tokenKey) || {};
@@ -2266,11 +2331,24 @@ export function mountFutardTerminal({
         ? spot * effectiveSupply
         : null,
     );
+    const mint = firstText(
+      nav.mint,
+      nav.tokenMint,
+      nav.token_mint,
+      nav.mintAddress,
+      nav.mint_address,
+      nav.contractAddress,
+      nav.contract_address,
+      nav.config?.mint,
+      nav.config?.mintAddress,
+      relatedMarket.mint,
+    );
     return {
       token: tokenKey,
       ticker,
       name,
       logo: firstText(nav.logo, nav.config?.logo, relatedMarket.logo),
+      mint,
       spot,
       nav: navPerToken,
       premiumPct,
@@ -2283,6 +2361,7 @@ export function mountFutardTerminal({
         nav.daoVolume24h,
       ),
       liquidityUsd: firstNumber(nav.liquidityUsd, relatedMarket.liquidityUsd),
+      recentTransactions: normalizeOwnershipRecentTransactions(nav),
     };
   }
 
@@ -2511,19 +2590,44 @@ export function mountFutardTerminal({
         <strong>${escapeHtml(value)}</strong>
       </div>
     `;
-    const changeTone = Number.isFinite(asset.change24h)
-      ? asset.change24h >= 0 ? 'positive' : 'negative'
+    const spreadLabel = Number(asset.premiumPct) > 0 ? 'Premium' : 'Discount';
+    const spreadTone = Number.isFinite(asset.premiumPct)
+      ? asset.premiumPct > 0
+        ? 'negative'
+        : asset.premiumPct < 0
+          ? 'positive'
+          : 'neutral'
       : 'muted';
-    const premiumTone = Number.isFinite(asset.premiumPct)
-      ? asset.premiumPct >= 0 ? 'positive' : 'negative'
-      : 'muted';
+    const identityMeta = asset.mint
+      ? asset.mint.length > 14
+        ? `${asset.mint.slice(0, 6)}…${asset.mint.slice(-4)}`
+        : asset.mint
+      : '';
+    const watchlist = runtime.NAVGATOR?.shell?.watchlist;
+    const watched = watchlist?.has?.(asset.token) === true;
 
     return `
       <header class="ft-chart-market-header ft-ownership-chart-header" data-ft-role="ownership-chart-header">
         <div class="ft-chart-market-identity">
+          <button
+            class="ft-chart-market-watchlist"
+            type="button"
+            data-ft-action="toggle-ownership-watchlist"
+            data-ft-token="${escapeHtml(asset.token)}"
+            aria-label="${watched ? 'Remove' : 'Add'} ${escapeHtml(asset.ticker)} ${watched ? 'from' : 'to'} watchlist"
+            aria-pressed="${String(watched)}"
+            title="${watched ? 'Remove from watchlist' : 'Add to watchlist'}"
+          >
+            <svg viewBox="0 0 20 19" aria-hidden="true">
+              <path d="m10 1.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L10 14.77 4.8 17.5l.99-5.79-4.21-4.1 5.82-.85L10 1.5Z"/>
+            </svg>
+          </button>
           ${renderLogo(asset, 'large')}
           <div>
-            <p><strong>${escapeHtml(asset.ticker)}</strong><span>${escapeHtml(asset.name)}</span></p>
+            <p><strong>${escapeHtml(asset.ticker)}</strong></p>
+            ${identityMeta
+              ? `<small title="${escapeHtml(asset.mint)}">${escapeHtml(identityMeta)}</small>`
+              : ''}
           </div>
         </div>
         ${metric({
@@ -2540,15 +2644,11 @@ export function mountFutardTerminal({
         })}
         ${metric({
           key: 'premium',
-          label: 'Prem / Disc',
-          value: formatPercent(asset.premiumPct),
-          tone: premiumTone,
-        })}
-        ${metric({
-          key: 'change',
-          label: '24h',
-          value: formatPercent(asset.change24h),
-          tone: changeTone,
+          label: spreadLabel,
+          value: Number.isFinite(asset.premiumPct)
+            ? formatPercent(Math.abs(asset.premiumPct), { sign: false })
+            : '—',
+          tone: spreadTone,
         })}
         ${metric({
           key: 'market-cap',
@@ -2561,9 +2661,9 @@ export function mountFutardTerminal({
           value: formatCompactMoney(asset.treasury),
         })}
         ${metric({
-          key: 'volume',
-          label: '24h volume',
-          value: formatCompactMoney(asset.volume24h),
+          key: 'liquidity',
+          label: 'Liquidity',
+          value: formatCompactMoney(asset.liquidityUsd),
         })}
       </header>
     `;
@@ -2901,9 +3001,9 @@ export function mountFutardTerminal({
       market => market.proposal.statusGroup === 'live',
     );
     if (count) count.textContent = String(liveMarkets.length);
-    if (section) section.hidden = liveMarkets.length === 0;
+    if (section) section.hidden = false;
     if (!liveMarkets.length) {
-      list.innerHTML = '';
+      list.innerHTML = '<div class="tp-decisions-empty">0 live decision markets</div>';
       runtime.applyMarketSidebarSearch?.();
       return;
     }
@@ -4692,7 +4792,62 @@ export function mountFutardTerminal({
 
   function renderPositions() {
     if (isOwnershipWorkspace()) {
-      regions.positions.innerHTML = '';
+      const asset = ownershipTokenSnapshot();
+      const transactions = asset.recentTransactions || [];
+      regions.positions.innerHTML = `
+        <section
+          class="ft-ownership-transactions"
+          data-ft-role="ownership-recent-transactions"
+          aria-label="Recent ${escapeHtml(asset.ticker)} transactions"
+        >
+          <header class="ft-ownership-transactions-header">
+            <strong>Recent transactions</strong>
+            <span>${transactions.length}</span>
+          </header>
+          <div class="ft-ownership-transactions-columns" aria-hidden="true">
+            <span>Price</span>
+            <span>Size</span>
+            <span>Trader</span>
+            <span>Age</span>
+          </div>
+          <div class="ft-ownership-transactions-list">
+            ${transactions.length ? transactions.map((transaction) => {
+              const rowContent = `
+                <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${Number.isFinite(transaction.price)
+                  ? formatChartCurrency(transaction.price)
+                  : '—'}</span>
+                <span>${Number.isFinite(transaction.size)
+                  ? formatTokenAmount(transaction.size, 4)
+                  : Number.isFinite(transaction.valueUsd)
+                    ? formatCompactMoney(transaction.valueUsd)
+                    : '—'}</span>
+                <span title="${escapeHtml(transaction.trader)}">${transaction.trader
+                  ? escapeHtml(shortenAddress(transaction.trader, 3))
+                  : '—'}</span>
+                <span>${transaction.time
+                  ? escapeHtml(formatRelativeTime(transaction.time).replace(/\s+ago$/i, ''))
+                  : '—'}</span>
+              `;
+              return transaction.signature
+                ? `
+                  <a
+                    class="ft-ownership-transaction-row"
+                    href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Open transaction on Solscan"
+                  >${rowContent}</a>
+                `
+                : `<div class="ft-ownership-transaction-row">${rowContent}</div>`;
+            }).join('') : `
+              <div class="ft-ownership-transactions-empty">
+                No recent indexed transactions
+              </div>
+            `}
+          </div>
+          <p class="ft-ownership-transactions-source">Public indexed spot activity</p>
+        </section>
+      `;
       return;
     }
 
@@ -6649,6 +6804,14 @@ export function mountFutardTerminal({
     if (action === 'refresh') {
       event.preventDefault();
       refresh();
+    } else if (action === 'toggle-ownership-watchlist') {
+      event.preventDefault();
+      const watchlist = runtime.NAVGATOR?.shell?.watchlist;
+      if (!watchlist?.toggle) return;
+      watchlist.toggle(target.dataset.ftToken || state.tokenFilter);
+      regions.marketChartHeader.innerHTML = renderOwnershipChartHeader(
+        ownershipTokenSnapshot(),
+      );
     } else if (action === 'select-proposal') {
       if (state.hostMode === 'discovery') event.preventDefault();
       selectProposal(target.dataset.ftProposalId, { focus: true });

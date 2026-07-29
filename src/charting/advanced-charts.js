@@ -37,9 +37,21 @@ const TIMEFRAME_SECONDS = Object.freeze({
   '1W': 7 * 24 * 60 * 60,
 });
 
-const SYMBOL_KINDS = new Set(['price', 'nav', 'projected-nav']);
+const SYMBOL_KINDS = new Set(['price', 'nav', 'projected-nav', 'growth']);
 const SCRIPT_LOAD_TIMEOUT_MS = 15_000;
 const REALTIME_POLL_MS = 30_000;
+const CHART_CONTROL_SYNC_DEBOUNCE_MS = 80;
+const PROJECTED_NAV_MIN_CONTEXT_SECONDS = 30 * 24 * 60 * 60;
+const PROJECTED_NAV_MAX_CONTEXT_SECONDS = 90 * 24 * 60 * 60;
+const GROWTH_INDICATOR_LABELS = Object.freeze([
+  'Growth',
+  'TVL',
+  'AUM',
+  'Revenue',
+  'Volume',
+  'Active Users',
+  'Transactions',
+]);
 const NAV_DROPDOWN_OPTIONS = Object.freeze([
   {
     action: 'current-nav',
@@ -156,6 +168,7 @@ export function tradingViewSymbol(tokenKey, kind = 'price', ticker = '') {
   const normalizedKind = SYMBOL_KINDS.has(kind) ? kind : 'price';
   if (normalizedKind === 'nav') return `01RX:${symbolTicker}.NAV`;
   if (normalizedKind === 'projected-nav') return `01RX:${symbolTicker}.PNAV`;
+  if (normalizedKind === 'growth') return `01RX:${symbolTicker}.GROWTH`;
   return `01RX:${symbolTicker}`;
 }
 
@@ -167,6 +180,9 @@ export function parseTradingViewSymbol(value, fallbackToken = '') {
   if (ticker.endsWith('.PNAV')) {
     kind = 'projected-nav';
     ticker = ticker.slice(0, -5);
+  } else if (ticker.endsWith('.GROWTH')) {
+    kind = 'growth';
+    ticker = ticker.slice(0, -7);
   } else if (ticker.endsWith('.NAV')) {
     kind = 'nav';
     ticker = ticker.slice(0, -4);
@@ -462,7 +478,9 @@ export function create01rxAdvancedChartsDatafeed({
         ? ' NAV'
         : kind === 'projected-nav'
           ? ' Projected NAV'
-          : ' / USD';
+          : kind === 'growth'
+            ? ' Growth'
+            : ' / USD';
       nextTask(runtime, () => onResolve({
         name: canonical,
         ticker: canonical,
@@ -506,11 +524,17 @@ export function create01rxAdvancedChartsDatafeed({
 
     searchSymbols(userInput, exchange, symbolType, onResult) {
       const query = String(userInput || '').trim().toUpperCase();
-      const symbols = ['price', 'nav', 'projected-nav'].map(kind => ({
+      const symbols = ['price', 'nav', 'projected-nav', 'growth'].map(kind => ({
         symbol: tradingViewSymbol(normalizedToken, kind, normalizedTicker),
         ticker: tradingViewSymbol(normalizedToken, kind, normalizedTicker),
         description: `${normalizedTicker} ${
-          kind === 'price' ? 'Price' : kind === 'nav' ? 'NAV' : 'Projected NAV'
+          kind === 'price'
+            ? 'Price'
+            : kind === 'nav'
+              ? 'NAV'
+              : kind === 'projected-nav'
+                ? 'Projected NAV'
+                : 'Growth'
         }`,
         exchange: '01RX',
         type: 'crypto',
@@ -614,6 +638,7 @@ function chartSnapshotVisibility(snapshot) {
     historicNav: snapshot?.visibility?.historicNav !== false,
     projectedNav: snapshot?.visibility?.projectedNav === true,
     gradient: snapshot?.visibility?.gradient === true,
+    growth: snapshot?.visibility?.growth === true,
   };
 }
 
@@ -631,6 +656,83 @@ function checkboxIcon(checked) {
     ? '<path d="m5.25 9 2.35 2.4 5.15-5.1"/>'
     : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="13" height="13" rx="2"/>${check}</svg>`;
+}
+
+export function growthStudyLabel(meta) {
+  const identity = `${meta?.key || ''} ${meta?.label || ''}`.toLowerCase();
+  if (identity.includes('tvl')) return 'TVL';
+  if (identity.includes('aum')) return 'AUM';
+  if (identity.includes('revenue')) return 'Revenue';
+  if (identity.includes('volume')) return 'Volume';
+  if (identity.includes('user')) return 'Active Users';
+  if (identity.includes('transaction')) return 'Transactions';
+  return 'Growth';
+}
+
+function growthIndicatorName(meta) {
+  return `01RX ${growthStudyLabel(meta)}`;
+}
+
+function growthIndicatorDefinition(PineJS, symbol, label) {
+  const name = `01RX ${label}`;
+  const id = `RXGrowth${label.replace(/[^A-Za-z0-9]/g, '')}@tv-basicstudies-1`;
+  return {
+    name,
+    metainfo: {
+      _metainfoVersion: 53,
+      id,
+      name,
+      description: name,
+      shortDescription: label,
+      is_price_study: false,
+      isCustomIndicator: true,
+      format: {
+        type: 'price',
+        precision: 2,
+      },
+      plots: [{ id: 'plot_0', type: 'line' }],
+      defaults: {
+        styles: {
+          plot_0: {
+            color: '#27d980',
+            linestyle: 0,
+            linewidth: 2,
+            plottype: 0,
+            trackPrice: false,
+            transparency: 0,
+            visible: true,
+          },
+        },
+        inputs: {},
+      },
+      styles: {
+        plot_0: {
+          title: label,
+          histogramBase: 0,
+        },
+      },
+      inputs: [],
+    },
+    constructor: function growthIndicator() {
+      this.init = function init(context, inputCallback) {
+        this._context = context;
+        this._input = inputCallback;
+        this._context.new_sym(symbol, PineJS.Std.period(this._context));
+      };
+      this.main = function main(context, inputCallback) {
+        this._context = context;
+        this._input = inputCallback;
+        this._context.select_sym(0);
+        const mainTime = this._context.new_var(this._context.symbol.time);
+        this._context.select_sym(1);
+        const growthTime = this._context.new_var(this._context.symbol.time);
+        const growthValue = this._context.new_var(PineJS.Std.close(this._context));
+        const alignedValue = growthValue.adopt(growthTime, mainTime, 1);
+        this._context.select_sym(0);
+        return [alignedValue];
+      };
+    },
+  };
 }
 
 function legacyNavVisibility(runtime, snapshot) {
@@ -856,6 +958,48 @@ function moveChartStatsIntoFrame(mountState) {
           background: transparent !important;
           box-shadow: none !important;
         }
+        .rx-growth-button,
+        .rx-growth-button:hover,
+        .rx-growth-button:focus,
+        .rx-growth-button:active {
+          box-sizing: border-box !important;
+          display: flex !important;
+          width: 38px !important;
+          min-width: 38px !important;
+          max-width: 38px !important;
+          height: 38px !important;
+          padding: 0 !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          outline: none !important;
+          color: #787b86 !important;
+        }
+        .rx-growth-button > *,
+        .rx-growth-button svg {
+          color: #787b86 !important;
+        }
+        .rx-growth-button:hover,
+        .rx-growth-button:focus,
+        .rx-growth-button:active,
+        .rx-growth-button:hover > *,
+        .rx-growth-button:focus > *,
+        .rx-growth-button:active > *,
+        .rx-growth-button:hover svg,
+        .rx-growth-button:focus svg,
+        .rx-growth-button:active svg {
+          color: #fff !important;
+        }
+        .rx-growth-button.rx-growth-active,
+        .rx-growth-button.rx-growth-active > *,
+        .rx-growth-button.rx-growth-active svg {
+          color: #fff !important;
+        }
+        .rx-growth-button.rx-growth-disabled {
+          cursor: default !important;
+          opacity: 0.42 !important;
+        }
         div:has(> button[aria-label="NAV variants"]) {
           background: #0f0f0f !important;
         }
@@ -995,6 +1139,295 @@ function moveChartStatsIntoFrame(mountState) {
   }
 }
 
+function removeProjectedNavOverlay(mountState) {
+  mountState?.projectedNavOverlay?.remove?.();
+  mountState?.projectedNavAxisLabel?.remove?.();
+  if (mountState) {
+    mountState.projectedNavOverlay = null;
+    mountState.projectedNavAxisLabel = null;
+  }
+}
+
+function removeCurrentReferenceFallback(mountState) {
+  mountState?.currentReferenceOverlay?.remove?.();
+  Object.values(mountState?.currentReferenceAxisLabels || {}).forEach(
+    label => label?.remove?.(),
+  );
+  if (mountState) {
+    mountState.currentReferenceOverlay = null;
+    mountState.currentReferenceAxisLabels = {};
+  }
+}
+
+function renderCurrentReferenceFallback(mountState) {
+  if (!mountState?.widget || !mountState.frameDocument) {
+    removeCurrentReferenceFallback(mountState);
+    return;
+  }
+  const chart = mountState.widget.activeChart();
+  const frameDocument = mountState.frameDocument;
+  const canvas = [...frameDocument.querySelectorAll('canvas')].find((item) => {
+    const rect = item.getBoundingClientRect();
+    return rect.width > 300 && rect.height > 200 && rect.left < 200;
+  });
+  const priceRange = chart.getPanes?.()
+    ?.find(pane => pane.hasMainSeries())
+    ?.getMainSourcePriceScale()
+    ?.getVisiblePriceRange();
+  if (
+    !canvas
+    || !Number.isFinite(priceRange?.from)
+    || !Number.isFinite(priceRange?.to)
+    || priceRange.to <= priceRange.from
+  ) {
+    removeCurrentReferenceFallback(mountState);
+    return;
+  }
+
+  const snapshot = mountState.latestSnapshot;
+  const visibility = chartSnapshotVisibility(snapshot);
+  const activeReferences = [
+    {
+      color: '#ffcc00',
+      key: 'nav',
+      nativeEntity: mountState.currentLineEntities.nav,
+      value: finiteNumber(
+        snapshot?.currentNav,
+        chartPointValue(snapshot?.navBars?.at(-1)),
+      ),
+      visible: visibility.currentNav,
+    },
+    {
+      color: '#f4f4f1',
+      key: 'price',
+      nativeEntity: mountState.currentLineEntities.price,
+      value: finiteNumber(
+        snapshot?.currentPrice,
+        chartPointValue(snapshot?.priceBars?.at(-1)),
+      ),
+      visible: visibility.currentPrice,
+    },
+  ].filter(reference => (
+    reference.visible
+    && Number(reference.value) > 0
+  ));
+  const references = activeReferences.filter(reference => (
+    mountState.currentReferenceFallbackHold || !reference.nativeEntity
+  ));
+  if (!references.length) {
+    removeCurrentReferenceFallback(mountState);
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const drawable = references.map(reference => ({
+    ...reference,
+    y: rect.top
+      + ((priceRange.to - reference.value) / (priceRange.to - priceRange.from))
+        * rect.height,
+  })).filter(reference => reference.y >= rect.top && reference.y <= rect.bottom);
+  if (!drawable.length) {
+    removeCurrentReferenceFallback(mountState);
+    return;
+  }
+
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+  let svg = mountState.currentReferenceOverlay;
+  if (!svg?.isConnected) {
+    svg = frameDocument.createElementNS(svgNamespace, 'svg');
+    svg.classList.add('rx-current-reference-fallback');
+    Object.assign(svg.style, {
+      height: '100%',
+      inset: '0',
+      overflow: 'visible',
+      pointerEvents: 'none',
+      position: 'fixed',
+      width: '100%',
+      zIndex: '2',
+    });
+    frameDocument.body.appendChild(svg);
+    mountState.currentReferenceOverlay = svg;
+  }
+
+  const drawableKeys = new Set(drawable.map(reference => reference.key));
+  svg.querySelectorAll('[data-rx-current-reference]').forEach((line) => {
+    if (!drawableKeys.has(line.dataset.rxCurrentReference)) line.remove();
+  });
+  mountState.currentReferenceAxisLabels ||= {};
+  Object.entries(mountState.currentReferenceAxisLabels).forEach(([key, label]) => {
+    if (drawableKeys.has(key)) return;
+    label?.remove?.();
+    delete mountState.currentReferenceAxisLabels[key];
+  });
+
+  drawable.forEach((reference) => {
+    let line = svg.querySelector(
+      `[data-rx-current-reference="${reference.key}"]`,
+    );
+    if (!line) {
+      line = frameDocument.createElementNS(svgNamespace, 'line');
+      line.dataset.rxCurrentReference = reference.key;
+      line.setAttribute('stroke-dasharray', '1 3');
+      line.setAttribute('stroke-linecap', 'round');
+      line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+    }
+    line.setAttribute('stroke', reference.color);
+    line.setAttribute('x1', rect.left.toFixed(2));
+    line.setAttribute('x2', rect.right.toFixed(2));
+    line.setAttribute('y1', reference.y.toFixed(2));
+    line.setAttribute('y2', reference.y.toFixed(2));
+
+    let label = mountState.currentReferenceAxisLabels[reference.key];
+    if (!label?.isConnected) {
+      label = frameDocument.createElement('div');
+      label.className = `rx-current-reference-axis-label rx-current-reference-${reference.key}`;
+      Object.assign(label.style, {
+        color: '#111',
+        font: '12px -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, sans-serif',
+        fontVariantNumeric: 'tabular-nums',
+        height: '22px',
+        lineHeight: '22px',
+        padding: '0 5px',
+        pointerEvents: 'none',
+        position: 'fixed',
+        zIndex: '3',
+      });
+      frameDocument.body.appendChild(label);
+      mountState.currentReferenceAxisLabels[reference.key] = label;
+    }
+    label.textContent = formatStatusPrice(reference.value);
+    label.style.background = reference.color;
+    label.style.left = `${rect.right}px`;
+    label.style.top = `${Math.max(
+      rect.top,
+      Math.min(rect.bottom - 22, reference.y - 11),
+    )}px`;
+  });
+
+  if (
+    mountState.currentReferenceFallbackHold
+    && activeReferences.length > 0
+    && activeReferences.every(reference => reference.nativeEntity)
+  ) {
+    mountState.currentReferenceFallbackHold = false;
+    frameDocument.defaultView?.requestAnimationFrame?.(() => {
+      renderCurrentReferenceFallback(mountState);
+    });
+  }
+}
+
+function renderProjectedNavOverlay(mountState) {
+  if (
+    !mountState?.projectedNavVisible
+    || !mountState.widget
+    || !mountState.frameDocument
+  ) {
+    removeProjectedNavOverlay(mountState);
+    return;
+  }
+  const chart = mountState.widget.activeChart();
+  const frameDocument = mountState.frameDocument;
+  const canvas = [...frameDocument.querySelectorAll('canvas')].find((item) => {
+    const rect = item.getBoundingClientRect();
+    return rect.width > 300 && rect.height > 200 && rect.left < 200;
+  });
+  const visibleRange = chart.getVisibleRange?.();
+  const priceRange = chart.getPanes?.()
+    ?.find(pane => pane.hasMainSeries())
+    ?.getMainSourcePriceScale()
+    ?.getVisiblePriceRange();
+  const points = projectedNavOverlayPoints(mountState.latestSnapshot);
+  if (
+    !canvas
+    || points.length < 2
+    || !Number.isFinite(visibleRange?.from)
+    || !Number.isFinite(visibleRange?.to)
+    || visibleRange.to <= visibleRange.from
+    || !Number.isFinite(priceRange?.from)
+    || !Number.isFinite(priceRange?.to)
+    || priceRange.to <= priceRange.from
+  ) {
+    removeProjectedNavOverlay(mountState);
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const visiblePoints = points.map(point => ({
+    ...point,
+    x: rect.left
+      + ((point.time - visibleRange.from) / (visibleRange.to - visibleRange.from)) * rect.width,
+    y: rect.top
+      + ((priceRange.to - point.price) / (priceRange.to - priceRange.from)) * rect.height,
+  })).filter(point => (
+    point.x >= rect.left - 2
+    && point.x <= rect.right + 2
+    && point.y >= rect.top - 2
+    && point.y <= rect.bottom + 2
+  ));
+  if (visiblePoints.length < 2) {
+    removeProjectedNavOverlay(mountState);
+    return;
+  }
+
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+  let svg = mountState.projectedNavOverlay;
+  if (!svg?.isConnected) {
+    svg = frameDocument.createElementNS(svgNamespace, 'svg');
+    svg.classList.add('rx-projected-nav-overlay');
+    Object.assign(svg.style, {
+      height: '100%',
+      inset: '0',
+      overflow: 'visible',
+      pointerEvents: 'none',
+      position: 'fixed',
+      width: '100%',
+      zIndex: '2',
+    });
+    const path = frameDocument.createElementNS(svgNamespace, 'path');
+    path.setAttribute('data-rx-projected-nav-path', '');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#ffcc00');
+    path.setAttribute('stroke-dasharray', '6 4');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2');
+    svg.appendChild(path);
+    frameDocument.body.appendChild(svg);
+    mountState.projectedNavOverlay = svg;
+  }
+  svg.querySelector('[data-rx-projected-nav-path]')?.setAttribute(
+    'd',
+    visiblePoints.map((point, index) => (
+      `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+    )).join(' '),
+  );
+
+  const lastPoint = visiblePoints.at(-1);
+  let label = mountState.projectedNavAxisLabel;
+  if (!label?.isConnected) {
+    label = frameDocument.createElement('div');
+    label.className = 'rx-projected-nav-axis-label';
+    Object.assign(label.style, {
+      background: '#ffcc00',
+      color: '#111',
+      font: '12px -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, sans-serif',
+      fontVariantNumeric: 'tabular-nums',
+      height: '22px',
+      lineHeight: '22px',
+      padding: '0 5px',
+      pointerEvents: 'none',
+      position: 'fixed',
+      zIndex: '3',
+    });
+    frameDocument.body.appendChild(label);
+    mountState.projectedNavAxisLabel = label;
+  }
+  label.textContent = formatStatusPrice(lastPoint.price);
+  label.style.left = `${rect.right}px`;
+  label.style.top = `${Math.max(rect.top, Math.min(rect.bottom - 22, lastPoint.y - 11))}px`;
+}
+
 function updateChartStats(mountState, snapshot, time = null) {
   if (!mountState?.stats) return;
   const values = advancedChartStatusValues(snapshot, time);
@@ -1032,15 +1465,81 @@ function latestSnapshotTime(snapshot) {
   return candidates.length ? Math.max(...candidates) : Date.now();
 }
 
+export function projectedNavOverlayPoints(snapshot) {
+  const projected = (snapshot?.projectedNavBars || []).map(item => ({
+    price: chartPointValue(item),
+    time: Math.floor(milliseconds(item?.time ?? item?.ts ?? item?.timestamp) / 1_000),
+  })).filter(point => (
+    Number.isFinite(point.price) && Number.isFinite(point.time)
+  )).sort((left, right) => left.time - right.time);
+  const currentNav = finiteNumber(
+    snapshot?.currentNav,
+    chartPointValue(snapshot?.navBars?.at(-1)),
+  );
+  const anchorTime = Math.floor(latestSnapshotTime(snapshot) / 1_000);
+  if (!Number.isFinite(currentNav) || !(currentNav > 0)) return projected;
+  return [
+    { price: currentNav, time: anchorTime },
+    ...projected.filter(point => point.time > anchorTime),
+  ];
+}
+
+export function projectedNavVisibleRange(snapshot) {
+  const times = projectedNavOverlayPoints(snapshot).map(point => point.time * 1_000);
+  if (times.length < 2) return null;
+  const projectionStart = Math.floor(times[0] / 1_000);
+  const projectionEnd = Math.ceil(times.at(-1) / 1_000);
+  const projectionSpan = projectionEnd - projectionStart;
+  if (!(projectionSpan > 0)) return null;
+  const context = Math.min(
+    PROJECTED_NAV_MAX_CONTEXT_SECONDS,
+    Math.max(PROJECTED_NAV_MIN_CONTEXT_SECONDS, Math.round(projectionSpan * 0.2)),
+  );
+  return {
+    from: projectionStart - context,
+    to: projectionEnd,
+  };
+}
+
+export function waitForAdvancedChartData(runtime, chart, timeoutMs = 1_500) {
+  if (typeof chart?.dataReady !== 'function') return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timer !== null) runtime.clearTimeout?.(timer);
+      resolve();
+    };
+    try {
+      if (chart.dataReady(finish) === true) {
+        finish();
+        return;
+      }
+    } catch (_) {
+      finish();
+      return;
+    }
+    timer = runtime.setTimeout?.(finish, timeoutMs) ?? null;
+  });
+}
+
 export function installBrowserAdvancedCharts(browserWindow) {
   const runtime = browserWindow || globalThis.window;
   const configuration = resolveAdvancedChartsConfiguration(runtime);
   const mounts = new WeakMap();
   runtime.NAVGATOR = runtime.NAVGATOR || {};
   runtime.NAVGATOR.chartEngines = runtime.NAVGATOR.chartEngines || {};
+  if (configuration.enabled) {
+    runtime.document.documentElement.dataset.chartEngine = 'advanced-loading';
+  } else if (runtime.document.documentElement.dataset.chartEngine === 'advanced-loading') {
+    runtime.document.documentElement.dataset.chartEngine = 'lightweight';
+  }
 
   function navDropdownItems(mountState) {
-    const visibility = legacyNavVisibility(runtime, mountState.latestSnapshot);
+    const visibility = mountState.navVisibilityDesired
+      || legacyNavVisibility(runtime, mountState.latestSnapshot);
     return NAV_DROPDOWN_OPTIONS.map(option => ({
       icon: checkboxIcon(visibility[option.key]),
       onSelect: () => toggleNavDropdownItem(mountState, option),
@@ -1055,25 +1554,134 @@ export function installBrowserAdvancedCharts(browserWindow) {
     });
   }
 
-  function toggleNavDropdownItem(mountState, option) {
-    invokeLegacyChartAction(runtime, option.action);
-    nextTask(runtime, () => {
+  function scheduleControlSync(
+    mountState,
+    { growth = false, references = false, studies = false } = {},
+  ) {
+    if (!mountState || mountState.destroyed) return;
+    mountState.controlSyncNeedsGrowth ||= growth;
+    mountState.controlSyncNeedsReferences ||= references;
+    mountState.controlSyncNeedsStudies ||= studies;
+    if (mountState.controlSyncTimer != null) {
+      runtime.clearTimeout?.(mountState.controlSyncTimer);
+    }
+    mountState.controlSyncTimer = runtime.setTimeout(async () => {
+      mountState.controlSyncTimer = null;
       if (mountState.destroyed) return;
-      const visibility = legacyNavVisibility(runtime, mountState.latestSnapshot);
-      const snapshot = {
+      const syncGrowth = mountState.controlSyncNeedsGrowth;
+      const syncReferences = mountState.controlSyncNeedsReferences;
+      const syncStudiesRequested = mountState.controlSyncNeedsStudies;
+      mountState.controlSyncNeedsGrowth = false;
+      mountState.controlSyncNeedsReferences = false;
+      mountState.controlSyncNeedsStudies = false;
+      mountState.studySync = mountState.studySync.then(async () => {
+        if (mountState.destroyed) return;
+        const snapshot = mountState.latestSnapshot;
+        if (syncStudiesRequested) await syncStudies(mountState, snapshot);
+        else if (syncGrowth) await syncGrowthStudy(mountState, snapshot);
+        if (syncReferences) await syncReferenceLines(mountState, snapshot);
+      });
+      await mountState.studySync;
+    }, CHART_CONTROL_SYNC_DEBOUNCE_MS);
+  }
+
+  function toggleNavDropdownItem(mountState, option) {
+    if (mountState.destroyed) return;
+    const currentVisibility = mountState.navVisibilityDesired
+      || legacyNavVisibility(runtime, mountState.latestSnapshot);
+    const visibility = {
+      ...currentVisibility,
+      [option.key]: !currentVisibility[option.key],
+    };
+    mountState.navVisibilityDesired = visibility;
+    mountState.latestSnapshot = {
+      ...mountState.latestSnapshot,
+      visibility: {
+        ...mountState.latestSnapshot?.visibility,
+        ...visibility,
+      },
+    };
+    refreshNavDropdown(mountState);
+
+    const legacyVisibility = legacyNavVisibility(runtime, mountState.latestSnapshot);
+    if (legacyVisibility[option.key] !== visibility[option.key]) {
+      invokeLegacyChartAction(runtime, option.action);
+    }
+    scheduleControlSync(mountState, {
+      references: true,
+      studies: true,
+    });
+  }
+
+  function growthAvailable(snapshot) {
+    return Array.isArray(snapshot?.growthBars) && snapshot.growthBars.length > 0;
+  }
+
+  function growthStudyIsActive(mountState) {
+    if (!mountState?.growthStudy || !mountState.widget) return false;
+    return mountState.widget.activeChart().getAllStudies().some(
+      study => study.id === mountState.growthStudy,
+    );
+  }
+
+  function refreshGrowthButton(mountState) {
+    const button = mountState?.growthButton;
+    if (!button || mountState.destroyed) return;
+    const available = growthAvailable(mountState.latestSnapshot);
+    const active = available && (
+      typeof mountState.growthVisibleDesired === 'boolean'
+        ? mountState.growthVisibleDesired
+        : growthStudyIsActive(mountState)
+    );
+    button.classList.toggle('rx-growth-active', active);
+    button.classList.toggle('rx-growth-disabled', !available);
+    button.setAttribute('aria-disabled', String(!available));
+    button.setAttribute('aria-pressed', String(active));
+    button.title = available
+      ? active ? 'Hide growth pane' : 'Show growth pane'
+      : 'Growth data unavailable';
+  }
+
+  function installGrowthButton(mountState) {
+    const button = mountState.widget.createButton({
+      align: 'left',
+      useTradingViewStyle: false,
+    });
+    button.classList.add('rx-growth-button');
+    button.setAttribute('aria-label', 'Growth');
+    button.setAttribute('role', 'button');
+    button.setAttribute('tabindex', '0');
+    button.innerHTML = '<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 14.5h13"/><path d="m3.5 11 3-3 2.5 2 5-6"/><path d="M11.5 4h2.5v2.5"/></svg>';
+    const toggle = () => {
+      if (!growthAvailable(mountState.latestSnapshot)) return;
+      const currentlyVisible = typeof mountState.growthVisibleDesired === 'boolean'
+        ? mountState.growthVisibleDesired
+        : growthStudyIsActive(mountState);
+      const nextVisible = !currentlyVisible;
+      mountState.growthVisibleDesired = nextVisible;
+      mountState.latestSnapshot = {
         ...mountState.latestSnapshot,
         visibility: {
           ...mountState.latestSnapshot?.visibility,
-          ...visibility,
+          growth: nextVisible,
         },
       };
-      mountState.latestSnapshot = snapshot;
-      refreshNavDropdown(mountState);
-      mountState.studySync = mountState.studySync.then(async () => {
-        await syncStudies(mountState, snapshot);
-        await syncReferenceLines(mountState, snapshot);
-      });
+      refreshGrowthButton(mountState);
+
+      const legacyButton = runtime.document.getElementById('btn-growth-chart');
+      const legacyVisible = legacyButton?.getAttribute('aria-expanded') === 'true';
+      if (legacyVisible !== nextVisible) runtime.toggleGrowthChart?.();
+      scheduleControlSync(mountState, { growth: true });
+    };
+    button.addEventListener('click', toggle);
+    button.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle();
     });
+    mountState.growthButton = button;
+    mountState.growthButtonToggle = toggle;
+    refreshGrowthButton(mountState);
   }
 
   function normalizeStudyName(value) {
@@ -1093,7 +1701,10 @@ export function installBrowserAdvancedCharts(browserWindow) {
 
   function userStudies(mountState) {
     const internalIds = new Set(
-      Object.values(mountState.overlayStudies || {}).filter(Boolean),
+      [
+        ...Object.values(mountState.overlayStudies || {}),
+        mountState.growthStudy,
+      ].filter(Boolean),
     );
     try {
       return mountState.widget.activeChart().getAllStudies()
@@ -1199,7 +1810,30 @@ export function installBrowserAdvancedCharts(browserWindow) {
       subtree: true,
     });
 
-    mountState.studyEventHandler = () => scheduleIndicatorCheckRefresh(mountState);
+    mountState.studyEventHandler = () => {
+      if (
+        !mountState.growthSyncInProgress
+        && mountState.growthStudy
+        && !growthStudyIsActive(mountState)
+      ) {
+        mountState.growthStudy = null;
+        mountState.growthStudyName = '';
+        mountState.growthVisibleDesired = false;
+        mountState.latestSnapshot = {
+          ...mountState.latestSnapshot,
+          visibility: {
+            ...mountState.latestSnapshot?.visibility,
+            growth: false,
+          },
+        };
+        const legacyButton = runtime.document.getElementById('btn-growth-chart');
+        if (legacyButton?.getAttribute('aria-expanded') === 'true') {
+          runtime.toggleGrowthChart?.();
+        }
+      }
+      refreshGrowthButton(mountState);
+      scheduleIndicatorCheckRefresh(mountState);
+    };
     mountState.widget.subscribe?.('study_event', mountState.studyEventHandler);
     scheduleIndicatorCheckRefresh(mountState);
   }
@@ -1212,12 +1846,31 @@ export function installBrowserAdvancedCharts(browserWindow) {
 
     const mountState = {
       configuration,
+      currentReferenceAxisLabels: {},
+      currentReferenceFallbackHold: true,
+      currentReferenceOverlay: null,
+      currentReferenceRenderFrame: null,
       currentLineEntities: { nav: null, price: null },
+      controlSyncNeedsGrowth: false,
+      controlSyncNeedsReferences: false,
+      controlSyncNeedsStudies: false,
+      controlSyncTimer: null,
       datafeed: null,
       destroyed: false,
+      growthButton: null,
+      growthStudy: null,
+      growthStudyName: '',
+      growthSyncInProgress: false,
+      growthVisibleDesired: chartSnapshotVisibility(snapshot).growth,
       latestSnapshot: snapshot,
       mountPromise: null,
+      navVisibilityDesired: legacyNavVisibility(runtime, snapshot),
       overlayStudies: { nav: null, projectedNav: null },
+      projectedNavAxisLabel: null,
+      projectedNavOverlay: null,
+      projectedNavRenderFrame: null,
+      projectedNavRestoreRange: null,
+      projectedNavVisible: false,
       resetFrame: null,
       studySync: Promise.resolve(),
       widget: null,
@@ -1233,6 +1886,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
         const priceSymbol = tradingViewSymbol(token, 'price', ticker);
         const navSymbol = tradingViewSymbol(token, 'nav', ticker);
         const projectedNavSymbol = tradingViewSymbol(token, 'projected-nav', ticker);
+        const growthSymbol = tradingViewSymbol(token, 'growth', ticker);
         const feed = create01rxAdvancedChartsDatafeed({
           runtime,
           tokenKey: token,
@@ -1242,6 +1896,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
         feed.setSeries(priceSymbol, resolution, snapshot.priceBars);
         feed.setSeries(navSymbol, resolution, snapshot.navBars);
         feed.setSeries(projectedNavSymbol, resolution, snapshot.projectedNavBars);
+        feed.setSeries(growthSymbol, resolution, snapshot.growthBars);
 
         const container = runtime.document.createElement('div');
         container.className = 'advanced-charts-surface';
@@ -1257,10 +1912,16 @@ export function installBrowserAdvancedCharts(browserWindow) {
         host.appendChild(stats);
         mountState.stats = stats;
         updateChartStats(mountState, snapshot);
+        stats.hidden = true;
 
         const widget = new runtime.TradingView.widget({
           autosize: true,
           container,
+          custom_indicators_getter: PineJS => Promise.resolve(
+            GROWTH_INDICATOR_LABELS.map(
+              label => growthIndicatorDefinition(PineJS, growthSymbol, label),
+            ),
+          ),
           datafeed: feed.datafeed,
           disabled_features: [
             'auto_enable_symbol_labels',
@@ -1271,7 +1932,6 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'header_quick_search',
             'header_saveload',
             'header_symbol_search',
-            'legend_widget',
             'save_chart_properties_to_local_storage',
             'symbol_info',
             'symbol_search_hot_key',
@@ -1307,26 +1967,29 @@ export function installBrowserAdvancedCharts(browserWindow) {
             'mainSeriesProperties.candleStyle.wickUpColor': '#35d093',
             'mainSeriesProperties.priceLineColor': '#f4f4f1',
             'mainSeriesProperties.priceLineWidth': 1,
-            'mainSeriesProperties.showLastValue': true,
-            'mainSeriesProperties.showPriceLine': true,
+            'mainSeriesProperties.showPriceLine': false,
             'paneProperties.background': '#101010',
             'paneProperties.backgroundType': 'solid',
             'paneProperties.horzGridProperties.color': '#20201f',
             'paneProperties.legendProperties.showBarChange': false,
+            'paneProperties.legendProperties.showLegend': true,
             'paneProperties.legendProperties.showSeriesOHLC': false,
             'paneProperties.legendProperties.showSeriesTitle': false,
             'paneProperties.legendProperties.showStudyArguments': false,
-            'paneProperties.legendProperties.showStudyTitles': false,
-            'paneProperties.legendProperties.showStudyValues': false,
+            'paneProperties.legendProperties.showStudyTitles': true,
+            'paneProperties.legendProperties.showStudyValues': true,
             'paneProperties.vertGridProperties.color': '#1a1a19',
             'scalesProperties.lineColor': '#292929',
-            'scalesProperties.showSeriesLastValue': true,
+            'scalesProperties.showSeriesLastValue': false,
             'scalesProperties.showSymbolLabels': false,
             'scalesProperties.textColor': '#8e8e88',
           },
           symbol: priceSymbol,
           theme: 'dark',
           timezone: 'Etc/UTC',
+          workers: {
+            enabled: false,
+          },
         });
         mountState.widget = widget;
 
@@ -1335,6 +1998,9 @@ export function installBrowserAdvancedCharts(browserWindow) {
           runtime.document.documentElement.dataset.chartEngine = 'advanced';
           container.classList.add('is-ready');
           moveChartStatsIntoFrame(mountState);
+          updateChartStats(mountState, mountState.latestSnapshot);
+          mountState.currentReferenceFallbackHold = true;
+          scheduleCurrentReferenceRender(mountState);
           const chart = widget.activeChart();
           mountState.crosshairSubscription = chart.crossHairMoved?.();
           mountState.crosshairHandler = ({ time } = {}) => {
@@ -1355,6 +2021,60 @@ export function installBrowserAdvancedCharts(browserWindow) {
             );
             option?.click();
           });
+          mountState.visibleRangeSubscription = chart.onVisibleRangeChanged?.();
+          mountState.visibleRangeHandler = () => {
+            scheduleCurrentReferenceRender(mountState);
+            scheduleProjectedNavRender(mountState);
+          };
+          mountState.visibleRangeSubscription?.subscribe?.(
+            null,
+            mountState.visibleRangeHandler,
+          );
+          mountState.projectedNavInteractionHandler = () => {
+            scheduleCurrentReferenceRender(mountState);
+            scheduleProjectedNavRender(mountState);
+          };
+          mountState.frameDocument?.addEventListener?.(
+            'pointerup',
+            mountState.projectedNavInteractionHandler,
+            true,
+          );
+          mountState.frameDocument?.addEventListener?.(
+            'wheel',
+            mountState.projectedNavInteractionHandler,
+            { capture: true, passive: true },
+          );
+          mountState.frameDocument?.defaultView?.addEventListener?.(
+            'resize',
+            mountState.projectedNavInteractionHandler,
+          );
+          const ResizeObserverImpl = mountState.frameDocument?.defaultView?.ResizeObserver;
+          if (typeof ResizeObserverImpl === 'function') {
+            mountState.projectedNavResizeObserver = new ResizeObserverImpl(
+              mountState.projectedNavInteractionHandler,
+            );
+            mountState.projectedNavResizeObserver.observe(
+              mountState.frameDocument.body,
+            );
+            [...mountState.frameDocument.querySelectorAll('canvas')]
+              .filter((item) => {
+                const rect = item.getBoundingClientRect();
+                return rect.width > 300 && rect.height > 200;
+              })
+              .forEach(item => mountState.projectedNavResizeObserver.observe(item));
+          }
+          mountState.chartTypeSubscription = chart.onChartTypeChanged?.();
+          mountState.chartTypeHandler = () => {
+            scheduleCurrentReferenceRender(mountState);
+            scheduleProjectedNavRender(mountState);
+            mountState.studySync = mountState.studySync.then(
+              () => syncReferenceLines(mountState, mountState.latestSnapshot),
+            );
+          };
+          mountState.chartTypeSubscription?.subscribe?.(
+            null,
+            mountState.chartTypeHandler,
+          );
 
           await widget.headerReady();
           mountState.navDropdown = await widget.createDropdown({
@@ -1362,6 +2082,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
             title: 'NAV',
             tooltip: 'NAV variants',
           });
+          installGrowthButton(mountState);
           installIndicatorToggleChecks(mountState);
           return mountState;
         });
@@ -1381,8 +2102,15 @@ export function installBrowserAdvancedCharts(browserWindow) {
     if (
       !mountState?.widget
       || mountState.destroyed
-      || mountState.resetFrame != null
-    ) return;
+    ) return Promise.resolve(false);
+    if (mountState.resetFrame != null) {
+      return mountState.resetPromise || Promise.resolve(false);
+    }
+    let resolveReset;
+    mountState.resetPromise = new Promise((resolve) => {
+      resolveReset = resolve;
+    });
+    mountState.resetResolve = resolveReset;
     const reset = () => {
       mountState.resetFrame = null;
       try {
@@ -1391,10 +2119,96 @@ export function installBrowserAdvancedCharts(browserWindow) {
       } catch (_) {
         // Chart may still be completing its first data request.
       }
+      mountState.resetResolve?.(true);
+      mountState.resetResolve = null;
+      mountState.resetPromise = null;
     };
     mountState.resetFrame = runtime.requestAnimationFrame
       ? runtime.requestAnimationFrame(reset)
       : runtime.setTimeout(reset, 0);
+    return mountState.resetPromise;
+  }
+
+  function scheduleProjectedNavRender(mountState) {
+    if (
+      !mountState
+      || mountState.destroyed
+      || mountState.projectedNavRenderFrame != null
+    ) return;
+    const render = () => {
+      mountState.projectedNavRenderFrame = null;
+      renderProjectedNavOverlay(mountState);
+    };
+    mountState.projectedNavRenderFrame = runtime.requestAnimationFrame
+      ? runtime.requestAnimationFrame(render)
+      : runtime.setTimeout(render, 0);
+  }
+
+  function scheduleCurrentReferenceRender(mountState) {
+    if (
+      !mountState
+      || mountState.destroyed
+      || mountState.currentReferenceRenderFrame != null
+    ) return;
+    const render = () => {
+      mountState.currentReferenceRenderFrame = null;
+      renderCurrentReferenceFallback(mountState);
+    };
+    mountState.currentReferenceRenderFrame = runtime.requestAnimationFrame
+      ? runtime.requestAnimationFrame(render)
+      : runtime.setTimeout(render, 0);
+  }
+
+  async function syncGrowthStudy(mountState, snapshot) {
+    const widget = mountState?.widget;
+    if (!widget || mountState.destroyed) return;
+    const chart = widget.activeChart();
+    mountState.growthSyncInProgress = true;
+    try {
+      if (mountState.growthStudy && !growthStudyIsActive(mountState)) {
+        mountState.growthStudy = null;
+        mountState.growthStudyName = '';
+      }
+      const visible = chartSnapshotVisibility(snapshot).growth
+        && growthAvailable(snapshot);
+      const studyName = growthIndicatorName(snapshot.growthMeta);
+      if (
+        visible
+        && mountState.growthStudy
+        && mountState.growthStudyName !== studyName
+      ) {
+        await removeEntity(chart, mountState.growthStudy);
+        mountState.growthStudy = null;
+        mountState.growthStudyName = '';
+      }
+      if (visible && !mountState.growthStudy) {
+        try {
+          mountState.growthStudy = await chart.createStudy(
+            studyName,
+            false,
+            false,
+            {},
+            {},
+            {
+              checkLimit: false,
+              disableUndo: true,
+              priceScale: 'new-right',
+            },
+          );
+          mountState.growthStudyName = mountState.growthStudy ? studyName : '';
+        } catch (error) {
+          console.warn('[01RX] Unable to add Growth pane to Advanced Charts.', error);
+        }
+      } else if (!visible && mountState.growthStudy) {
+        await removeEntity(chart, mountState.growthStudy);
+        mountState.growthStudy = null;
+        mountState.growthStudyName = '';
+      }
+    } finally {
+      mountState.growthSyncInProgress = false;
+    }
+    refreshGrowthButton(mountState);
+    scheduleIndicatorCheckRefresh(mountState);
   }
 
   async function syncStudies(mountState, snapshot) {
@@ -1405,7 +2219,6 @@ export function installBrowserAdvancedCharts(browserWindow) {
     const token = normalizeTokenKey(snapshot.tokenKey);
     const ticker = normalizeTicker(snapshot.ticker, token);
     const navSymbol = tradingViewSymbol(token, 'nav', ticker);
-    const projectedNavSymbol = tradingViewSymbol(token, 'projected-nav', ticker);
 
     if (visibility.historicNav && !mountState.overlayStudies.nav) {
       try {
@@ -1421,7 +2234,11 @@ export function installBrowserAdvancedCharts(browserWindow) {
             showPriceLine: false,
             style: 2,
           },
-          { checkLimit: false, priceScale: 'as-series' },
+          {
+            checkLimit: false,
+            disableUndo: true,
+            priceScale: 'as-series',
+          },
         );
       } catch (error) {
         console.warn('[01RX] Unable to add NAV overlay to Advanced Charts.', error);
@@ -1431,29 +2248,45 @@ export function installBrowserAdvancedCharts(browserWindow) {
       mountState.overlayStudies.nav = null;
     }
 
-    if (visibility.projectedNav && !mountState.overlayStudies.projectedNav) {
+    const projectedNavTurningOn = visibility.projectedNav
+      && !mountState.projectedNavVisible;
+    if (projectedNavTurningOn) {
       try {
-        mountState.overlayStudies.projectedNav = await chart.createStudy(
-          'Overlay',
-          true,
-          true,
-          { symbol: projectedNavSymbol },
-          {
-            'lineStyle.color': '#ffcc00',
-            'lineStyle.linestyle': 2,
-            'lineStyle.linewidth': 1,
-            showLabelsOnPriceScale: false,
-            showPriceLine: false,
-            style: 2,
-          },
-          { checkLimit: false, priceScale: 'as-series' },
-        );
-      } catch (error) {
-        console.warn('[01RX] Unable to add projected NAV to Advanced Charts.', error);
+        mountState.projectedNavRestoreRange = chart.getVisibleRange();
+      } catch (_) {
+        mountState.projectedNavRestoreRange = null;
       }
-    } else if (!visibility.projectedNav && mountState.overlayStudies.projectedNav) {
-      await removeEntity(chart, mountState.overlayStudies.projectedNav);
-      mountState.overlayStudies.projectedNav = null;
+    }
+
+    if (projectedNavTurningOn) {
+      const range = projectedNavVisibleRange(snapshot);
+      if (range) {
+        try {
+          await chart.setVisibleRange(range, { rejectByTimeout: 3_000 });
+        } catch (_) {
+          // The path can still render in the portion of the forecast already visible.
+        }
+      }
+      mountState.projectedNavVisible = true;
+      scheduleProjectedNavRender(mountState);
+    } else if (!visibility.projectedNav && mountState.projectedNavVisible) {
+      const restoreRange = mountState.projectedNavRestoreRange;
+      mountState.projectedNavVisible = false;
+      mountState.projectedNavRestoreRange = null;
+      removeProjectedNavOverlay(mountState);
+      if (
+        Number.isFinite(restoreRange?.from)
+        && Number.isFinite(restoreRange?.to)
+        && restoreRange.to > restoreRange.from
+      ) {
+        try {
+          await chart.setVisibleRange(restoreRange, { rejectByTimeout: 3_000 });
+        } catch (_) {
+          // Preserve the current view if restoring is unsupported.
+        }
+      }
+    } else if (visibility.projectedNav) {
+      scheduleProjectedNavRender(mountState);
     }
 
     try {
@@ -1463,6 +2296,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
     } catch (_) {
       // Older approved library builds can omit per-chart applyOverrides.
     }
+    await syncGrowthStudy(mountState, snapshot);
   }
 
   async function syncReferenceLines(mountState, snapshot) {
@@ -1474,12 +2308,14 @@ export function installBrowserAdvancedCharts(browserWindow) {
     await removeEntity(chart, mountState.currentLineEntities.nav);
     mountState.currentLineEntities.price = null;
     mountState.currentLineEntities.nav = null;
+    mountState.currentReferenceFallbackHold = true;
+    scheduleCurrentReferenceRender(mountState);
     const time = Math.floor(latestSnapshotTime(snapshot) / 1_000);
 
     try {
       chart.applyOverrides({
-        'mainSeriesProperties.showLastValue': visibility.currentPrice,
-        'mainSeriesProperties.showPriceLine': visibility.currentPrice,
+        'mainSeriesProperties.showPriceLine': false,
+        'scalesProperties.showSeriesLastValue': false,
       });
     } catch (_) {}
 
@@ -1491,6 +2327,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           {
             disableSave: true,
             disableSelection: true,
+            disableUndo: true,
             lock: true,
             overrides: {
               linecolor: color,
@@ -1517,6 +2354,17 @@ export function installBrowserAdvancedCharts(browserWindow) {
         '#ffcc00',
       );
     }
+    if (visibility.currentPrice) {
+      const currentPrice = finiteNumber(
+        snapshot.currentPrice,
+        chartPointValue(snapshot.priceBars?.at(-1)),
+      );
+      mountState.currentLineEntities.price = await createCurrentLine(
+        currentPrice,
+        '#f4f4f1',
+      );
+    }
+    scheduleCurrentReferenceRender(mountState);
   }
 
   async function updateTokenChart(snapshot) {
@@ -1524,6 +2372,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
     const mountState = await mount(snapshot);
     if (!mountState) return false;
     mountState.latestSnapshot = snapshot;
+    mountState.navVisibilityDesired = legacyNavVisibility(runtime, snapshot);
+    mountState.growthVisibleDesired = chartSnapshotVisibility(snapshot).growth;
     const readyState = await mountState.mountPromise;
     if (!readyState || mountState.destroyed) return false;
 
@@ -1545,8 +2395,16 @@ export function installBrowserAdvancedCharts(browserWindow) {
       resolution,
       snapshot.projectedNavBars,
     );
+    mountState.datafeed.setSeries(
+      tradingViewSymbol(token, 'growth', ticker),
+      resolution,
+      snapshot.growthBars,
+    );
     updateChartStats(mountState, snapshot);
     refreshNavDropdown(mountState);
+    refreshGrowthButton(mountState);
+    mountState.currentReferenceFallbackHold = true;
+    scheduleCurrentReferenceRender(mountState);
 
     const chart = mountState.widget.activeChart();
     if (String(chart.resolution?.() || '') !== String(resolution)) {
@@ -1556,11 +2414,62 @@ export function installBrowserAdvancedCharts(browserWindow) {
         // The datafeed still serves the requested resolution after the next UI change.
       }
     }
-    scheduleReset(mountState);
+    const resetPromise = scheduleReset(mountState);
     mountState.studySync = mountState.studySync.then(async () => {
+      await resetPromise;
+      await waitForAdvancedChartData(runtime, chart);
       await syncStudies(mountState, snapshot);
       await syncReferenceLines(mountState, snapshot);
     });
+    await mountState.studySync;
+    return true;
+  }
+
+  async function updateGrowthChart({
+    container,
+    tokenKey,
+    ticker,
+    timeframe,
+    bars,
+    meta,
+    visible,
+  } = {}) {
+    const mountState = mounts.get(container);
+    if (!mountState || mountState.destroyed) return false;
+    const readyState = await mountState.mountPromise;
+    if (!readyState || mountState.destroyed) return false;
+    const token = normalizeTokenKey(tokenKey || mountState.latestSnapshot?.tokenKey);
+    const symbolTicker = normalizeTicker(
+      ticker || mountState.latestSnapshot?.ticker,
+      token,
+    );
+    const resolution = tradingViewResolutionForTimeframe(
+      timeframe || mountState.latestSnapshot?.timeframe,
+    );
+    const growthBars = Array.isArray(bars) ? bars : [];
+    mountState.latestSnapshot = {
+      ...mountState.latestSnapshot,
+      growthBars,
+      growthMeta: meta || null,
+      visibility: {
+        ...mountState.latestSnapshot?.visibility,
+        growth: visible === true && growthBars.length > 0,
+      },
+    };
+    mountState.growthVisibleDesired = visible === true && growthBars.length > 0;
+    mountState.datafeed.setSeries(
+      tradingViewSymbol(token, 'growth', symbolTicker),
+      resolution,
+      growthBars,
+    );
+    if (!mountState.growthVisibleDesired && !growthStudyIsActive(mountState)) {
+      refreshGrowthButton(mountState);
+      return true;
+    }
+    scheduleReset(mountState);
+    mountState.studySync = mountState.studySync.then(
+      () => syncGrowthStudy(mountState, mountState.latestSnapshot),
+    );
     await mountState.studySync;
     return true;
   }
@@ -1569,12 +2478,46 @@ export function installBrowserAdvancedCharts(browserWindow) {
     const mountState = mounts.get(container);
     if (!mountState) return;
     mountState.destroyed = true;
+    if (mountState.controlSyncTimer != null) {
+      runtime.clearTimeout?.(mountState.controlSyncTimer);
+      mountState.controlSyncTimer = null;
+    }
     if (mountState.resetFrame != null) {
       if (runtime.cancelAnimationFrame) runtime.cancelAnimationFrame(mountState.resetFrame);
       else runtime.clearTimeout?.(mountState.resetFrame);
+      mountState.resetFrame = null;
+    }
+    mountState.resetResolve?.(false);
+    mountState.resetResolve = null;
+    mountState.resetPromise = null;
+    if (mountState.projectedNavRenderFrame != null) {
+      if (runtime.cancelAnimationFrame) {
+        runtime.cancelAnimationFrame(mountState.projectedNavRenderFrame);
+      } else {
+        runtime.clearTimeout?.(mountState.projectedNavRenderFrame);
+      }
+    }
+    if (mountState.currentReferenceRenderFrame != null) {
+      if (runtime.cancelAnimationFrame) {
+        runtime.cancelAnimationFrame(mountState.currentReferenceRenderFrame);
+      } else {
+        runtime.clearTimeout?.(mountState.currentReferenceRenderFrame);
+      }
     }
     try {
       mountState.intervalSubscription?.unsubscribe?.(null);
+    } catch (_) {}
+    try {
+      mountState.chartTypeSubscription?.unsubscribe?.(
+        null,
+        mountState.chartTypeHandler,
+      );
+    } catch (_) {}
+    try {
+      mountState.visibleRangeSubscription?.unsubscribe?.(
+        null,
+        mountState.visibleRangeHandler,
+      );
     } catch (_) {}
     try {
       mountState.crosshairSubscription?.unsubscribe?.(
@@ -1588,8 +2531,25 @@ export function installBrowserAdvancedCharts(browserWindow) {
         mountState.pointerLeaveHandler,
       );
     }
+    if (mountState.projectedNavInteractionHandler && mountState.frameDocument) {
+      mountState.frameDocument.removeEventListener(
+        'pointerup',
+        mountState.projectedNavInteractionHandler,
+        true,
+      );
+      mountState.frameDocument.removeEventListener(
+        'wheel',
+        mountState.projectedNavInteractionHandler,
+        true,
+      );
+      mountState.frameDocument.defaultView?.removeEventListener?.(
+        'resize',
+        mountState.projectedNavInteractionHandler,
+      );
+    }
     mountState.cancelIndicatorRefresh?.();
     mountState.indicatorObserver?.disconnect?.();
+    mountState.projectedNavResizeObserver?.disconnect?.();
     if (mountState.indicatorClickHandler && mountState.frameDocument) {
       mountState.frameDocument.removeEventListener(
         'click',
@@ -1604,6 +2564,8 @@ export function installBrowserAdvancedCharts(browserWindow) {
       mountState.widget?.remove?.();
     } catch (_) {}
     mountState.datafeed?.destroy?.();
+    removeCurrentReferenceFallback(mountState);
+    removeProjectedNavOverlay(mountState);
     mountState.container?.remove();
     mountState.stats?.remove();
     mounts.delete(container);
@@ -1613,6 +2575,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
     configuration,
     destroyTokenChart,
     enabled: configuration.enabled,
+    updateGrowthChart,
     updateTokenChart,
   };
   runtime.NAVGATOR.chartEngines.advanced = bridge;

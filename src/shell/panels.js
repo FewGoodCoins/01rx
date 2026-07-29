@@ -9,11 +9,12 @@ export function createShellPanelController(options = {}) {
   const EventImpl = options.Event;
   const state = {
     left: false,
-    right: storage.getItem(RIGHT_PANEL_STORAGE_KEY) === '1',
+    right: false,
   };
 
-  // The left rail is intentionally pinned open on every page load.
+  // The trading workspace keeps both rails pinned open.
   storage.removeItem(LEFT_PANEL_STORAGE_KEY);
+  storage.removeItem(RIGHT_PANEL_STORAGE_KEY);
 
   function refreshControls() {
     const leftButton = documentRef.getElementById('left-panel-toggle');
@@ -57,11 +58,9 @@ export function createShellPanelController(options = {}) {
   }
 
   function togglePanel(side) {
-    if (side !== 'left' && side !== 'right') return;
-    state[side] = !state[side];
-    storage.setItem(`navgator_${side}_panel_collapsed`, state[side] ? '1' : '0');
+    if (side !== 'left' && side !== 'right') return false;
     refreshControls();
-    notifyResize();
+    return false;
   }
 
   return {
