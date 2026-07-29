@@ -8678,7 +8678,7 @@ function startChartLoadingState(label) {
     clearTimeout(el._hideTimer);
     el._hideTimer = null;
   }
-  if (wasActive && el.style.display !== 'none' && !el.classList.contains('chart-loading-complete') && el.querySelector('.chart-loading-traces')) {
+  if (wasActive && el.style.display !== 'none' && !el.classList.contains('chart-loading-complete') && el.querySelector('.chart-loading-copy')) {
     _updateChartLoadingLabel(el, loadingLabel);
     return;
   }
@@ -8696,39 +8696,11 @@ function startChartLoadingState(label) {
   var shell = document.createElement('div');
   shell.className = 'chart-loading-shell';
 
-  var grid = document.createElement('div');
-  grid.className = 'chart-loading-grid';
-  grid.setAttribute('aria-hidden', 'true');
-  var variant = _chartLoadingTraceVariant();
-  grid.innerHTML = '<svg class="chart-loading-traces chart-loading-traces-' + variant.key + '" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false" aria-hidden="true">' +
-    '<path class="chart-loading-trace price" d="' + variant.price + '"/>' +
-    '<path class="chart-loading-trace nav" d="' + variant.nav + '"/>' +
-    '</svg>';
-  shell.appendChild(grid);
-
   var copy = document.createElement('div');
   copy.className = 'chart-loading-copy';
-  var spinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  var spinner = document.createElement('span');
   spinner.setAttribute('class', 'chart-loading-spinner');
-  spinner.setAttribute('width', '14');
-  spinner.setAttribute('height', '14');
-  spinner.setAttribute('viewBox', '0 0 18 18');
-  spinner.setAttribute('fill', 'none');
-
-  var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  circle.setAttribute('cx', '9');
-  circle.setAttribute('cy', '9');
-  circle.setAttribute('r', '7');
-  circle.setAttribute('stroke', '#333');
-  circle.setAttribute('stroke-width', '2.5');
-  spinner.appendChild(circle);
-
-  var arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  arc.setAttribute('d', 'M9 2a7 7 0 0 1 7 7');
-  arc.setAttribute('stroke', '#FFB000');
-  arc.setAttribute('stroke-width', '2.5');
-  arc.setAttribute('stroke-linecap', 'round');
-  spinner.appendChild(arc);
+  spinner.setAttribute('aria-hidden', 'true');
 
   copy.appendChild(spinner);
   var labelEl = document.createElement('span');
@@ -8747,37 +8719,6 @@ function _updateChartLoadingLabel(el, label) {
   if (labelEl) labelEl.textContent = loadingLabel;
 }
 
-function _chartLoadingTraceVariant() {
-  var variants = [
-    {
-      key: 'cross-a',
-      price: 'M0 64 C9 57 19 51 29 57 C39 64 47 75 58 62 C69 49 76 43 85 52 C93 60 97 49 100 43',
-      nav:   'M0 64 C10 69 20 75 30 70 C41 64 49 50 60 55 C71 61 78 75 89 68 C95 64 98 58 100 55'
-    },
-    {
-      key: 'cross-b',
-      price: 'M0 64 C10 58 20 55 29 61 C39 68 46 48 57 46 C67 44 72 67 83 62 C92 58 97 47 100 45',
-      nav:   'M0 64 C12 66 23 60 33 55 C43 49 50 55 59 62 C68 70 76 63 85 54 C93 47 98 52 100 50'
-    },
-    {
-      key: 'cross-c',
-      price: 'M0 64 C12 72 22 71 32 62 C41 53 49 39 59 49 C68 58 73 74 83 66 C92 58 96 43 100 36',
-      nav:   'M0 64 C11 55 22 49 32 52 C43 56 50 75 61 69 C72 63 79 48 89 50 C95 52 98 60 100 56'
-    },
-    {
-      key: 'cross-d',
-      price: 'M0 64 C8 62 16 70 25 68 C35 65 42 45 53 50 C64 56 69 41 79 39 C90 37 95 54 100 48',
-      nav:   'M0 64 C9 59 18 54 28 57 C38 61 45 69 55 65 C66 59 72 46 82 52 C91 58 96 47 100 44'
-    }
-  ];
-  var idx = Math.floor(Math.random() * variants.length);
-  if (variants.length > 1 && idx === _chartLoadingTraceVariant._lastIdx) {
-    idx = (idx + 1) % variants.length;
-  }
-  _chartLoadingTraceVariant._lastIdx = idx;
-  return variants[idx];
-}
-
 function stopChartLoadingState() {
   var el = document.getElementById('chart-loading');
   function restoreChartOverlayAfterLoading() {
@@ -8788,13 +8729,11 @@ function stopChartLoadingState() {
   }
   if (el && el.style.display !== 'none') {
     el.setAttribute('aria-busy', 'false');
-    _setChartLoadingFinishStart(el);
     el.classList.add('chart-loading-complete');
     if (el._hideTimer) clearTimeout(el._hideTimer);
     el._hideTimer = setTimeout(function() {
       el.style.display = 'none';
       el.style.opacity = '';
-      el.style.removeProperty('--chart-loading-finish-start');
       el.classList.remove('chart-loading-complete');
       el._hideTimer = null;
       _chartLoadingActive = false;
@@ -8806,7 +8745,7 @@ function stopChartLoadingState() {
       if (window._updateLiveDots) {
         try { window._updateLiveDots(); } catch(e) {}
       }
-    }, 420);
+    }, 160);
   } else {
     _chartLoadingActive = false;
     restoreChartOverlayAfterLoading();
@@ -8820,16 +8759,6 @@ function stopChartLoadingState() {
 function _setChartLiveTagsLoadingHidden(hidden) {
   var clip = document.getElementById('live-dot-clip');
   if (clip) clip.style.display = hidden ? 'none' : '';
-}
-
-function _setChartLoadingFinishStart(el) {
-  try {
-    var traces = el && el.querySelector ? el.querySelector('.chart-loading-traces') : null;
-    if (!traces || !window.getComputedStyle) return;
-    var clip = window.getComputedStyle(traces).clipPath || '';
-    var match = clip.match(/inset\(\s*\S+\s+(\S+)\s+/);
-    if (match && match[1]) el.style.setProperty('--chart-loading-finish-start', match[1]);
-  } catch(e) {}
 }
 
 function setChartOverlayControlsReady(ready) {

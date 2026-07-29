@@ -6915,3 +6915,12 @@ test('growth screenshot preview interpolates weekly observations into daily bars
     { time: 103 * 86400, value: 160 },
   ]);
 });
+
+test('chart loading state never paints the retired SVG chart preview', () => {
+  const tokenPageSource = fs.readFileSync('src/legacy/token-page.js', 'utf8');
+  const loadingState = extractFunction('startChartLoadingState');
+
+  assert.doesNotMatch(loadingState, /createElementNS|<svg|chart-loading-traces/);
+  assert.doesNotMatch(tokenPageSource, /_chartLoadingTraceVariant/);
+  assert.match(loadingState, /createElement\('span'\)/);
+});
