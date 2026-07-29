@@ -7100,7 +7100,7 @@ var _growthMetricProjectKey = '';
 var _growthMetricResponseUpdatedAt = null;
 var _growthMetricSelectionByProject = {}; // in-memory fallback for per-project session choice
 var _growthMetricRequestSeq = 0;
-var _growthChartOpen = true;
+var _growthChartOpen = false;
 var _growthChartPreferenceLoaded = false;
 var _lwBsPut        = null; // LineSeries — BS put value over time
 var _lwPreIco       = null; // reserved for legacy pre-ICO padding (disabled)
@@ -7599,7 +7599,7 @@ function _rememberGrowthMetricKey(projectKey, metricKey) {
 function _loadGrowthChartOpenPreference() {
   if (_growthChartPreferenceLoaded) return;
   _growthChartPreferenceLoaded = true;
-  try { _growthChartOpen = sessionStorage.getItem('navgator_growth_chart_open') !== '0'; } catch(e) {}
+  _growthChartOpen = false;
 }
 
 function _rememberGrowthChartOpen() {
@@ -8077,6 +8077,24 @@ function _repaintGrowthChartLayout() {
   requestAnimationFrame(repaint);
 }
 
+function _syncAdvancedGrowthChart() {
+  var bridge = window.NAVGATOR
+    && window.NAVGATOR.chartEngines
+    && window.NAVGATOR.chartEngines.advanced;
+  if (!bridge || !bridge.enabled || typeof bridge.updateGrowthChart !== 'function') return;
+  bridge.updateGrowthChart({
+    container: document.getElementById('lw-chart-container'),
+    tokenKey: tokenKey,
+    ticker: (CFG && CFG.ticker) || String(tokenKey || '').toUpperCase(),
+    timeframe: _chartTF,
+    bars: _growthMetricData,
+    meta: _growthMetricMeta,
+    visible: _growthChartHasData() && _growthChartOpen,
+  }).catch(function(error) {
+    console.warn('[01RX] Unable to update Advanced Charts growth pane.', error);
+  });
+}
+
 function _setGrowthChartOpen(open, rememberPreference) {
   _growthChartOpen = !!open;
   if (rememberPreference) _rememberGrowthChartOpen();
@@ -8115,6 +8133,7 @@ function _setGrowthChartOpen(open, rememberPreference) {
   _syncGrowthChartToggle();
   _renderGrowthChartReadout(null);
   _repaintGrowthChartLayout();
+  _syncAdvancedGrowthChart();
 }
 
 function toggleGrowthChart() {
@@ -8179,6 +8198,7 @@ function _selectGrowthChartMetric(metricKey, rememberSelection) {
   _sizeGrowthChartPane();
   _renderGrowthMetricSelector();
   _renderGrowthChartReadout(null);
+  _syncAdvancedGrowthChart();
   if (rememberSelection) _rememberGrowthMetricKey(_growthMetricProjectKey, selected.key);
   return metric;
 }
@@ -8191,6 +8211,7 @@ async function _loadGrowthChartMetric(key) {
   _growthMetricMeta = null;
   _clearGrowthMetricChoices();
   _renderGrowthChartReadout(null);
+  _syncAdvancedGrowthChart();
   try {
     var data = await _fetchGrowthMetricResponse(key);
     if (requestSeq !== _growthMetricRequestSeq || String(tokenKey) !== String(key)) return null;
@@ -8220,6 +8241,7 @@ async function _loadGrowthChartMetric(key) {
       }
       _renderGrowthStatsSection(null);
       _renderGrowthChartReadout(null);
+      _syncAdvancedGrowthChart();
     }
     return null;
   }
@@ -16322,6 +16344,8 @@ function setChartData(candles, navPerToken) {
       priceBars: candleDisplayData,
       navBars: navDisplayData,
       projectedNavBars: _lwNavForecastData,
+      growthBars: _growthMetricData,
+      growthMeta: _growthMetricMeta,
       currentPrice: spotVal,
       currentNav: navAxisVal,
       treasury: _advancedNavSnapshot.treasuryUSDC,
@@ -16346,6 +16370,7 @@ function setChartData(candles, navPerToken) {
         historicNav: !_isMetricChartMode() && _layerNav && navSeriesData.length > 0,
         projectedNav: !_isMetricChartMode() && _layerNavForecast,
         gradient: !_isMetricChartMode() && _showGradient === true,
+        growth: _growthChartHasData() && _growthChartOpen,
       },
     }).catch(function(error) {
       console.warn('[01RX] Advanced Charts update failed; keeping Lightweight Charts.', error);

@@ -89,7 +89,7 @@ test('route helpers canonicalize legacy terminal paths and preserve clean query 
   assert.equal(routes.appRootPath(), '/');
 });
 
-test('panel controller preserves storage keys, pinned-left startup, controls, and resize events', async () => {
+test('panel controller pins both workspace rails open', async () => {
   const { createShellPanelController } = await importShell('panels.js');
   const storage = createStorage({
     navgator_left_panel_collapsed: '1',
@@ -124,29 +124,30 @@ test('panel controller preserves storage keys, pinned-left startup, controls, an
     window: runtime,
   });
 
-  assert.deepEqual(controller.state, { left: false, right: true });
+  assert.deepEqual(controller.state, { left: false, right: false });
   assert.equal(storage.getItem('navgator_left_panel_collapsed'), null);
+  assert.equal(storage.getItem('navgator_right_panel_collapsed'), null);
   controller.refreshControls();
   assert.equal(bodyClasses.contains('left-panel-collapsed'), false);
-  assert.equal(bodyClasses.contains('right-panel-collapsed'), true);
+  assert.equal(bodyClasses.contains('right-panel-collapsed'), false);
   assert.equal(leftButton.attributes.get('aria-expanded'), 'true');
   assert.equal(leftButton.attributes.get('aria-label'), 'Collapse left panel');
   assert.equal(leftButton.title, 'Collapse left panel');
-  assert.equal(rightButton.attributes.get('aria-expanded'), 'false');
-  assert.equal(rightButton.attributes.get('aria-label'), 'Expand right panel');
-  assert.equal(rightButton.title, 'Expand right panel');
+  assert.equal(rightButton.attributes.get('aria-expanded'), 'true');
+  assert.equal(rightButton.attributes.get('aria-label'), 'Collapse right panel');
+  assert.equal(rightButton.title, 'Collapse right panel');
 
   controller.togglePanel('right');
   assert.equal(controller.state.right, false);
-  assert.equal(storage.getItem('navgator_right_panel_collapsed'), '0');
+  assert.equal(storage.getItem('navgator_right_panel_collapsed'), null);
   assert.equal(bodyClasses.contains('right-panel-collapsed'), false);
-  assert.deepEqual(timers.map((timer) => timer.ms), [40, 180]);
+  assert.deepEqual(timers.map((timer) => timer.ms), []);
   timers.forEach((timer) => timer.callback());
-  assert.deepEqual(events.map((event) => event.type), ['resize', 'resize']);
-  assert.equal(sparklineDraws, 2);
+  assert.deepEqual(events.map((event) => event.type), []);
+  assert.equal(sparklineDraws, 0);
 
   controller.togglePanel('middle');
-  assert.equal(timers.length, 2);
+  assert.equal(timers.length, 0);
 });
 
 test('all-token navigation preserves view, URL, title, breadcrumb, and lifecycle callbacks', async () => {

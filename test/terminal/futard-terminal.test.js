@@ -1221,6 +1221,48 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   cleanupMount(mounted);
 });
 
+test('ownership workspace renders indexed spot transactions in its dedicated column', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=loyal&tab=tokens',
+    homeBootstrap: {
+      ...HOME_BOOTSTRAP,
+      currentNav: {
+        tokens: [{
+          ...HOME_BOOTSTRAP.currentNav.tokens[0],
+          recentTrades: [{
+            side: 'buy',
+            price: 0.1291,
+            baseAmount: 1250,
+            trader: WALLET_ADDRESS,
+            blockTime: '2026-07-24T11:59:30.000Z',
+            signature: TRANSACTION_SIGNATURE,
+          }],
+        }],
+      },
+    },
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const recentTransactions = byRole(root, 'ownership-recent-transactions');
+  const rows = recentTransactions.querySelectorAll('.ft-ownership-transaction-row');
+  assert.equal(rows.length, 1);
+  assert.match(rows[0].textContent, /\$0\.1291[\s\S]+1,250/);
+  assert.equal(
+    rows[0].getAttribute('href'),
+    `https://solscan.io/tx/${TRANSACTION_SIGNATURE}`,
+  );
+
+  cleanupMount(mounted);
+});
+
 test('ownership market orders quote through DFlow and submit only after explicit review', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const fingerprint = 'a'.repeat(64);
@@ -1335,6 +1377,10 @@ test('ownership market orders quote through DFlow and submit only after explicit
   });
   const mounted = trackMount(controller, terminal.window);
   await controller.ready;
+
+  const recentTransactions = byRole(terminal.root, 'ownership-recent-transactions');
+  assert.ok(recentTransactions);
+  assert.match(recentTransactions.textContent, /No recent indexed transactions/i);
 
   byAction(terminal.root, 'connect-wallet').click();
   await settleUntil(terminal.window, () => controller.getState().walletAddress === WALLET_ADDRESS);

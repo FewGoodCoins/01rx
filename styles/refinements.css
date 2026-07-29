@@ -642,7 +642,7 @@ html[data-workspace="markets"] .tp-footer {
 }
 
 html[data-workspace="markets"] {
-  --sidebar-width: 300px;
+  --sidebar-width: 250px;
   --bg: #101010;
   --chart-bg: #101010;
   background: #101010 !important;
@@ -995,7 +995,7 @@ html[data-workspace="markets"] .tp-token-columns {
   height: 36px;
   min-height: 36px;
   flex: 0 0 36px;
-  grid-template-columns: minmax(0, 1fr) 60px 64px;
+  grid-template-columns: minmax(0, 1fr) 52px 52px;
   align-items: center;
   column-gap: 8px;
   box-sizing: border-box;
@@ -1030,7 +1030,7 @@ html[data-workspace="markets"] .tp-token-columns span:first-child {
 }
 
 html[data-workspace="markets"] .tp-decision-columns {
-  grid-template-columns: minmax(0, 1fr) 60px 64px;
+  grid-template-columns: minmax(0, 1fr) 52px 52px;
 }
 
 html[data-workspace="markets"] .tp-decision-columns span:nth-child(n + 2) {
@@ -1040,7 +1040,7 @@ html[data-workspace="markets"] .tp-decision-columns span:nth-child(n + 2) {
 html[data-workspace="markets"] #tlp-all-list .tp-item {
   display: grid !important;
   min-height: 42px !important;
-  grid-template-columns: 14px 6px 22px 8px minmax(0, 1fr) 8px 60px 8px 64px;
+  grid-template-columns: 12px 4px 20px 6px minmax(0, 1fr) 4px 52px 4px 52px;
   column-gap: 0 !important;
   align-items: center !important;
   margin: 0 !important;
@@ -1050,7 +1050,7 @@ html[data-workspace="markets"] #tlp-all-list .tp-item {
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-item:not(:has(> .wl-star)) {
-  grid-template-columns: 14px 6px 22px 8px minmax(0, 1fr) 8px 60px 8px 64px;
+  grid-template-columns: 12px 4px 20px 6px minmax(0, 1fr) 4px 52px 4px 52px;
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-content,
@@ -1068,19 +1068,19 @@ html[data-workspace="markets"] #tlp-all-list .tp-item.active {
 html[data-workspace="markets"] #tlp-all-list .wl-star {
   display: inline-flex;
   grid-column: 1;
-  flex: 0 0 14px;
+  flex: 0 0 12px;
   color: #737378;
 }
 
 html[data-workspace="markets"] #tlp-all-list .wl-star svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-icon {
   grid-column: 3;
-  width: 22px !important;
-  height: 22px !important;
+  width: 20px !important;
+  height: 20px !important;
   border-radius: 50%;
 }
 
@@ -1121,7 +1121,7 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
 .tp-decision-item {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 60px 64px;
+  grid-template-columns: minmax(0, 1fr) 52px 52px;
   align-items: center;
   column-gap: 8px;
   min-height: 42px;

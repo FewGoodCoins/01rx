@@ -60,6 +60,10 @@ test('Advanced Charts generates and parses 01RX price and NAV symbols', async ()
     tradingViewSymbol('solo', 'projected-nav', 'SOLO'),
     '01RX:SOLO.PNAV',
   );
+  assert.equal(
+    tradingViewSymbol('solo', 'growth', 'SOLO'),
+    '01RX:SOLO.GROWTH',
+  );
   assert.deepEqual(parseTradingViewSymbol('01RX:SOLO.NAV', 'solo'), {
     kind: 'nav',
     ticker: 'SOLO',
@@ -67,6 +71,11 @@ test('Advanced Charts generates and parses 01RX price and NAV symbols', async ()
   });
   assert.deepEqual(parseTradingViewSymbol('01RX:SOLO.PNAV'), {
     kind: 'projected-nav',
+    ticker: 'SOLO',
+    tokenKey: 'solo',
+  });
+  assert.deepEqual(parseTradingViewSymbol('01RX:SOLO.GROWTH'), {
+    kind: 'growth',
     ticker: 'SOLO',
     tokenKey: 'solo',
   });
@@ -145,6 +154,83 @@ test('Advanced Charts status reports price, interpolated NAV, and discount', asy
   });
 });
 
+test('Advanced Charts names Growth studies after their canonical metric', async () => {
+  const { growthStudyLabel } = await advancedChartsModulePromise;
+
+  assert.equal(
+    growthStudyLabel({ key: 'tvl_usd', label: 'USDv Outstanding' }),
+    'TVL',
+  );
+  assert.equal(growthStudyLabel({ key: 'managed_aum', label: 'Managed AUM' }), 'AUM');
+  assert.equal(growthStudyLabel({ key: 'daily_revenue_usd' }), 'Revenue');
+  assert.equal(growthStudyLabel({ key: 'active_users' }), 'Active Users');
+  assert.equal(growthStudyLabel({ key: 'custom_metric' }), 'Growth');
+});
+
+test('Advanced Charts frames projected NAV with recent context and its full horizon', async () => {
+  const {
+    projectedNavOverlayPoints,
+    projectedNavVisibleRange,
+  } = await advancedChartsModulePromise;
+  const day = 24 * 60 * 60;
+  const start = 1_800_000_000;
+
+  assert.deepEqual(projectedNavOverlayPoints({
+    currentNav: 0.7,
+    priceBars: [{ time: start * 1_000, close: 0.6 }],
+    navBars: [{ time: (start - day) * 1_000, value: 0.69 }],
+    projectedNavBars: [
+      { time: start - day, value: 0.71 },
+      { time: start + day, value: 0.68 },
+    ],
+  }), [
+    { time: start, price: 0.7 },
+    { time: start + day, price: 0.68 },
+  ]);
+
+  assert.deepEqual(projectedNavVisibleRange({
+    projectedNavBars: [
+      { time: start, value: 1 },
+      { time: start + 365 * day, value: 0.8 },
+    ],
+  }), {
+    from: start - 73 * day,
+    to: start + 365 * day,
+  });
+  assert.equal(projectedNavVisibleRange({ projectedNavBars: [] }), null);
+});
+
+test('Advanced Charts waits for TradingView data before initial reference lines', async () => {
+  const { waitForAdvancedChartData } = await advancedChartsModulePromise;
+  let readyCallback = null;
+  let clearedTimer = null;
+  const runtime = {
+    clearTimeout(timer) {
+      clearedTimer = timer;
+    },
+    setTimeout() {
+      return 17;
+    },
+  };
+  const pending = waitForAdvancedChartData(runtime, {
+    dataReady(callback) {
+      readyCallback = callback;
+      return false;
+    },
+  });
+
+  assert.equal(typeof readyCallback, 'function');
+  readyCallback();
+  await pending;
+  assert.equal(clearedTimer, 17);
+
+  await waitForAdvancedChartData(runtime, {
+    dataReady() {
+      return true;
+    },
+  });
+});
+
 test('Advanced Charts only uses the official playground locally and approved paths in production', async () => {
   const { resolveAdvancedChartsConfiguration } = await advancedChartsModulePromise;
 
@@ -178,6 +264,34 @@ test('Advanced Charts only uses the official playground locally and approved pat
   assert.equal(resolveAdvancedChartsConfiguration(createRuntime({
     search: '?token=solo&frame=01rx&chartEngine=lightweight',
   })).enabled, false);
+});
+
+test('Advanced Charts claims the renderer before mounting and releases disabled startup state', async () => {
+  const { installBrowserAdvancedCharts } = await advancedChartsModulePromise;
+  const advancedRuntime = createRuntime();
+
+  assert.equal(
+    installBrowserAdvancedCharts(advancedRuntime).enabled,
+    true,
+  );
+  assert.equal(
+    advancedRuntime.document.documentElement.dataset.chartEngine,
+    'advanced-loading',
+  );
+
+  const lightweightRuntime = createRuntime({
+    search: '?token=solo&frame=01rx&chartEngine=lightweight',
+  });
+  lightweightRuntime.document.documentElement.dataset.chartEngine = 'advanced-loading';
+
+  assert.equal(
+    installBrowserAdvancedCharts(lightweightRuntime).enabled,
+    false,
+  );
+  assert.equal(
+    lightweightRuntime.document.documentElement.dataset.chartEngine,
+    'lightweight',
+  );
 });
 
 test('Advanced Charts datafeed serves exact in-memory series to the widget', async () => {
