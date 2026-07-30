@@ -1416,9 +1416,14 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     token: 'loyal',
   });
   const mounted = trackMount(controller, window);
+  assert.equal(root.dataset.ftTransition, 'pending');
+  assert.equal(root.getAttribute('aria-busy'), 'true');
+  assert.equal(root.classList.contains('ft-proposal-focus'), true);
   await controller.ready;
   await settle(window);
 
+  assert.equal(root.hasAttribute('data-ft-transition'), false);
+  assert.equal(root.hasAttribute('aria-busy'), false);
   assert.equal(controller.getState().token, 'loyal');
   assert.equal(proposalRows(root).length, 1);
   assert.equal(byRole(root, 'proposal-title').textContent.trim(), 'Fund Loyal contributor growth for Q3');
@@ -1440,9 +1445,14 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     false,
   );
 
-  await controller.setToken('meta');
+  const tokenSwitch = controller.setToken('meta');
+  assert.equal(root.dataset.ftTransition, 'pending');
+  assert.equal(root.getAttribute('aria-busy'), 'true');
+  await tokenSwitch;
   await settle(window);
 
+  assert.equal(root.hasAttribute('data-ft-transition'), false);
+  assert.equal(root.hasAttribute('aria-busy'), false);
   assert.equal(controller.getState().token, 'meta');
   assert.equal(proposalRows(root).length, 1);
   assert.equal(proposalRows(root)[0].dataset.ftProposalOutcome, 'passed');
@@ -1651,6 +1661,9 @@ test('live proposal sidebar navigation switches tokens without reloading the doc
   const liveProposal = window.document.querySelector(
     '#tlp-decisions-list .tp-decision-item',
   );
+  const sidebarBeforeTransition = window.document
+    .getElementById('tlp-decisions-list')
+    .innerHTML;
   const selectionClick = new window.MouseEvent('click', {
     bubbles: true,
     button: 0,
@@ -1662,10 +1675,17 @@ test('live proposal sidebar navigation switches tokens without reloading the doc
     window.location.search,
     `?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
   );
+  assert.equal(root.dataset.ftTransition, 'pending');
+  assert.equal(
+    window.document.getElementById('tlp-decisions-list').innerHTML,
+    sidebarBeforeTransition,
+  );
   await settleUntil(window, () => (
     controller.getState().token === 'loyal'
     && controller.getState().selectedId === PROPOSAL_ID
+    && !root.hasAttribute('data-ft-transition')
   ));
+  assert.equal(root.hasAttribute('data-ft-transition'), false);
   assert.equal(controller.getState().token, 'loyal');
   assert.equal(controller.getState().selectedId, PROPOSAL_ID);
 
@@ -2177,7 +2197,13 @@ test('proposal history retries hourly while an older public API rejects 15-minut
   const controller = mountFutardTerminal({ window, root });
   const mounted = trackMount(controller, window);
   await controller.ready;
-  await settleUntil(window, () => intervals.includes('1h'));
+  await settleUntil(window, () => (
+    intervals.includes('1h')
+    && Boolean(
+      byRole(root, 'proposal-history-chart')
+        ?.querySelector('.ft-hourly-readout-header'),
+    )
+  ));
 
   assert.deepEqual(intervals.slice(0, 2), ['15m', '1h']);
   assert.match(

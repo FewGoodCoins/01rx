@@ -238,6 +238,24 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(tokenEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.match(homeEntry, /revealMarketWorkspace\(document\)/);
   assert.match(tokenEntry, /revealMarketWorkspace\(document\)/);
+  assert.match(
+    homeEntry,
+    /marketWorkspace\.getState\(\)\.navigationPending\) return;/,
+  );
+  assert.ok(
+    homeEntry.indexOf('await window.NAVGATOR.marketWorkspace.ready')
+      < homeEntry.indexOf('revealMarketWorkspace(document)'),
+    'market discovery must remain guarded until its first data-backed render',
+  );
+  assert.ok(
+    tokenEntry.indexOf('await window.NAVGATOR.marketWorkspace.ready')
+      < tokenEntry.indexOf('revealMarketWorkspace(document)'),
+    'token decision markets must remain guarded until their first data-backed render',
+  );
+  assert.match(
+    document,
+    /id="critical-paint"[\s\S]+html\[data-workspace="markets"\] \.dash-body\s*\{[\s\S]+display:\s*none !important;/,
+  );
   assert.doesNotMatch(marketController, /(?:\.\.\/home\/|\.\.\/token\/)/);
   assert.match(
     marketStyles,

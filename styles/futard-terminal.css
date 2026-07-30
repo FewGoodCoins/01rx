@@ -4842,6 +4842,45 @@ body.is-futard-terminal #token-switch-loader {
   min-width: 0;
 }
 
+[data-navgator-app="decision-markets"][data-ft-transition="pending"] {
+  position: relative;
+  min-height: calc(100dvh - 45px);
+  isolation: isolate;
+}
+
+[data-navgator-app="decision-markets"][data-ft-transition="pending"] > .ft-shell {
+  visibility: hidden !important;
+  pointer-events: none;
+}
+
+[data-navgator-app="decision-markets"][data-ft-transition="pending"]::before {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background:
+    radial-gradient(
+      circle at 50% calc(50% - 24px),
+      #35d093 0 4px,
+      rgba(53, 208, 147, 0.16) 5px 9px,
+      transparent 10px
+    ),
+    #101010;
+  content: "";
+}
+
+[data-navgator-app="decision-markets"][data-ft-transition="pending"]::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  z-index: 21;
+  color: #8b9691;
+  content: "01RX  ·  LOADING MARKET";
+  font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
 .decision-markets-home-root,
 .token-markets-root,
 .decision-markets-home-root[data-theme],

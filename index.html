@@ -17,18 +17,34 @@
     background: #101010;
     color: #bbbbbb;
   }
-  html.app-css-pending body > * {
-    visibility: hidden;
+  html.app-css-pending body > *,
+  html.app-css-pending body * {
+    visibility: hidden !important;
   }
   html[data-market-boot="pending"] body,
+  html[data-market-navigation="pending"] body,
   html[data-market-boot="error"] body {
     overflow: hidden;
   }
   html[data-market-boot="pending"] body > *,
-  html[data-market-boot="error"] body > * {
+  html[data-market-boot="pending"] body *,
+  html[data-market-navigation="pending"] body > *,
+  html[data-market-navigation="pending"] body *,
+  html[data-market-boot="error"] body > *,
+  html[data-market-boot="error"] body * {
     visibility: hidden !important;
   }
+  html[data-market-boot="pending"]::before,
+  html[data-market-navigation="pending"]::before,
+  html[data-market-boot="error"]::before {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    background: #101010;
+    content: "";
+  }
   html[data-market-boot="pending"] body::before,
+  html[data-market-navigation="pending"] body::before,
   html[data-market-boot="error"] body::before {
     position: fixed;
     top: calc(50% - 30px);
@@ -43,6 +59,7 @@
     transform: translateX(-50%);
   }
   html[data-market-boot="pending"] body::after,
+  html[data-market-navigation="pending"] body::after,
   html[data-market-boot="error"] body::after {
     position: fixed;
     top: calc(50% - 4px);
@@ -62,6 +79,9 @@
   html[data-market-boot="error"] body::after {
     color: #b9aaa9;
     content: "01RX  ·  MARKET FAILED TO LOAD  ·  REFRESH TO RETRY";
+  }
+  html[data-workspace="markets"] .dash-body {
+    display: none !important;
   }
   html[data-embed="chart"][data-embed-theme="light"],
   html[data-embed="chart"][data-embed-theme="light"] body {
@@ -125,17 +145,24 @@
 <link rel="preconnect" href="https://navgator.xyz" crossorigin>
 <script>
 try {
-  if (/\/index\.html$/.test(window.location.pathname)) {
-    history.replaceState(null, '', window.location.pathname.replace(/\/index\.html$/, '/') + window.location.search + window.location.hash);
-  }
   var _bootParams = new URLSearchParams(window.location.search);
   var _bootPath = window.location.pathname.replace(/\/+$/, '') || '/';
   var _bootToken = (_bootParams.get('token') || '').trim().toLowerCase();
-  var _bootEmbed = _bootPath === '/embed' || _bootParams.get('embed') === '1' || _bootParams.get('embed') === 'true';
   if (_bootParams.get('view') === 'markets') {
     document.documentElement.setAttribute('data-workspace', 'markets');
     document.documentElement.setAttribute('data-market-boot', 'pending');
   }
+} catch (e) {}
+try {
+  if (/\/index\.html$/.test(window.location.pathname)) {
+    history.replaceState(null, '', window.location.pathname.replace(/\/index\.html$/, '/') + window.location.search + window.location.hash);
+  }
+} catch (e) {}
+try {
+  var _bootParams = _bootParams || new URLSearchParams(window.location.search);
+  var _bootPath = _bootPath || window.location.pathname.replace(/\/+$/, '') || '/';
+  var _bootToken = _bootToken || (_bootParams.get('token') || '').trim().toLowerCase();
+  var _bootEmbed = _bootPath === '/embed' || _bootParams.get('embed') === '1' || _bootParams.get('embed') === 'true';
   if (_bootParams.get('frame') === '01rx' && /^[a-z0-9][a-z0-9_-]*$/.test(_bootToken)) {
     document.documentElement.setAttribute('data-01rx-chart-frame', 'true');
     document.documentElement.setAttribute('data-chart-engine', 'advanced-loading');

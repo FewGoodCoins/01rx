@@ -703,10 +703,17 @@ test('document establishes a dark canvas before module CSS loads', () => {
   assert.match(html, /<meta name="theme-color" content="#101010">/);
   assert.match(html, /html \{[\s\S]*background: #101010;[\s\S]*color-scheme: dark;/);
   assert.match(html, /body \{[\s\S]*background: #101010;[\s\S]*color: #bbbbbb;/);
-  assert.match(html, /html\.app-css-pending body > \* \{[\s\S]*visibility: hidden;/);
   assert.match(
     html,
-    /html\[data-market-boot="pending"\] body > \*,[\s\S]*visibility: hidden !important;/,
+    /html\.app-css-pending body > \*,\s*html\.app-css-pending body \* \{[\s\S]*visibility: hidden !important;/,
+  );
+  assert.match(
+    html,
+    /html\[data-market-boot="pending"\] body > \*,[\s\S]*html\[data-market-navigation="pending"\] body \*,[\s\S]*visibility: hidden !important;/,
+  );
+  assert.match(
+    html,
+    /html\[data-market-navigation="pending"\]::before,[\s\S]*position: fixed;[\s\S]*inset: 0;[\s\S]*background: #101010;/,
   );
   assert.match(html, /content: "01RX  ·  LOADING MARKET";/);
   assert.match(
