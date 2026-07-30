@@ -5,6 +5,7 @@ const THEME_STORAGE_KEY = 'navgator-terminal-theme';
 const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
 const MAX_STORED_TRANSACTIONS = 30;
 const TRANSACTION_STATUS_INTERVAL_MS = 5_000;
+const LIVE_PRICE_INTERVAL_MS = 5_000;
 const POLL_INTERVAL_MS = 30_000;
 const MAX_PROPOSAL_HISTORY_POINTS = 1_000;
 const REVIEWED_PROGRAM_COUNT = 4;
@@ -1814,8 +1815,12 @@ export function mountFutardTerminal({
       failPrice: true,
     },
     pollTimer: null,
+    pricePollTimer: null,
     clockTimer: null,
     transactionTimer: null,
+    priceRequestId: 0,
+    priceAbortController: null,
+    priceRefreshing: false,
     transactionStatusLoading: false,
     noticeTimer: null,
     theme: hostMode === 'standalone' ? preferredTheme(runtime) : 'dark',
@@ -3436,6 +3441,29 @@ export function mountFutardTerminal({
     `;
   }
 
+  function renderLivePriceSurfaces(market, options = {}) {
+    if (
+      state.destroyed
+      || !market
+      || selectedMarket()?.id !== market.id
+    ) return;
+
+    const metricValues = {
+      price: formatChartCurrency(firstNumber(market.spot.price, market.nav.spot)),
+      pass: formatChartCurrency(market.pass.price),
+      fail: formatChartCurrency(market.fail.price),
+    };
+    Object.entries(metricValues).forEach(([key, value]) => {
+      const metric = root.querySelector(
+        `[data-ft-chart-header-metric="${key}"] strong`,
+      );
+      if (metric) metric.textContent = value;
+    });
+
+    if (options.renderBooks !== false) renderLiveMarketStage(market);
+    renderTradeTicket();
+  }
+
   function clearOwnershipChartExpansion() {
     runtime.document.body.classList.remove('chart-frame-expanded');
     regions.marketChart
@@ -4119,8 +4147,8 @@ export function mountFutardTerminal({
         </div>
 
         ${state.execution.error ? `<p class="ft-ticket-error">${escapeHtml(state.execution.error)}</p>` : ''}
-        ${renderTicketTransactionStatus(market)}
         ${cta}
+        ${renderTicketTransactionStatus(market)}
 
         <details class="ft-decision-advanced"${isLimit || isRecurring ? ' open' : ''}>
           <summary>${isRecurring
@@ -5735,9 +5763,13 @@ export function mountFutardTerminal({
       owner,
     });
     if (selectedMarket()?.id === market.id) {
-      renderMarketStage();
-      renderTradeTicket();
-      renderPositions();
+      if (options.preserveChart) {
+        renderLivePriceSurfaces(market, { renderBooks: false });
+      } else {
+        renderMarketStage();
+        renderTradeTicket();
+        renderPositions();
+      }
     }
 
     try {
@@ -5778,11 +5810,82 @@ export function mountFutardTerminal({
         const entry = state.marketDataByProposal.get(market.id);
         if (entry) entry.loading = false;
         if (selectedMarket()?.id === market.id) {
-          renderMarketStage();
-          renderTradeTicket();
-          renderPositions();
+          if (options.preserveChart) {
+            renderLivePriceSurfaces(selectedMarket());
+          } else {
+            renderMarketStage();
+            renderTradeTicket();
+            renderPositions();
+          }
         }
       }
+    }
+  }
+
+  async function refreshLivePrices() {
+    const market = selectedMarket();
+    if (
+      state.destroyed
+      || state.hostMode === 'discovery'
+      || isOwnershipWorkspace()
+      || state.refreshing
+      || state.priceRefreshing
+      || !market
+      || market.proposal.statusGroup !== 'live'
+    ) return null;
+
+    const requestId = ++state.priceRequestId;
+    state.priceAbortController?.abort();
+    state.priceAbortController = typeof runtime.AbortController === 'function'
+      ? new runtime.AbortController()
+      : null;
+    state.priceRefreshing = true;
+
+    try {
+      const payload = await client.futarchy.activeMarkets({
+        signal: state.priceAbortController?.signal,
+      });
+      if (state.destroyed || requestId !== state.priceRequestId) return null;
+
+      const snapshot = normalizeMarketPayload(
+        payload,
+        state.navMap,
+        { forceLive: true },
+      );
+      const liveMarkets = snapshot.markets.filter(marketMatchesToken);
+      if (!liveMarkets.some(candidate => candidate.id === market.id)) return null;
+
+      state.activeMarkets = liveMarkets;
+      state.markets = mergeProposalLists(state.indexedProposals, liveMarkets);
+      state.sidebarMarkets = mergeProposalLists(
+        state.sidebarMarkets.filter(candidate => (
+          candidate.proposal.statusGroup !== 'live'
+        )),
+        liveMarkets,
+      );
+      state.asOf = snapshot.asOf || state.asOf;
+      state.slot = snapshot.slot ?? state.slot;
+      state.source = snapshot.source;
+      state.liveError = '';
+
+      const refreshedMarket = selectedMarket();
+      if (!refreshedMarket || refreshedMarket.id !== market.id) return null;
+      await loadProposalMarketData(refreshedMarket, {
+        force: true,
+        preserveChart: true,
+      });
+      if (state.destroyed || requestId !== state.priceRequestId) return null;
+      renderLivePriceSurfaces(selectedMarket());
+      return selectedMarket();
+    } catch (error) {
+      if (
+        state.destroyed
+        || requestId !== state.priceRequestId
+        || error?.name === 'AbortError'
+      ) return null;
+      return null;
+    } finally {
+      if (requestId === state.priceRequestId) state.priceRefreshing = false;
     }
   }
 
@@ -6840,6 +6943,9 @@ export function mountFutardTerminal({
 
   async function refresh(options = {}) {
     if (state.destroyed) return [];
+    state.priceAbortController?.abort();
+    state.priceRequestId += 1;
+    state.priceRefreshing = false;
     const requestId = ++state.requestId;
     state.abortController?.abort();
     state.abortController = typeof runtime.AbortController === 'function'
@@ -7662,11 +7768,14 @@ export function mountFutardTerminal({
     state.paginationAbortController?.abort();
     state.positionAbortController?.abort();
     state.marketDataAbortController?.abort();
+    state.priceAbortController?.abort();
     state.historyAbortController?.abort();
     state.requestId += 1;
     state.paginationRequestId += 1;
     state.positionRequestId += 1;
     state.marketDataRequestId += 1;
+    state.priceRequestId += 1;
+    state.priceRefreshing = false;
     state.historyRequestId += 1;
     state.recurringRequestId += 1;
     invalidateOwnershipQuote();
@@ -7742,6 +7851,7 @@ export function mountFutardTerminal({
     state.paginationAbortController?.abort();
     state.positionAbortController?.abort();
     state.marketDataAbortController?.abort();
+    state.priceAbortController?.abort();
     state.historyAbortController?.abort();
     state.ownershipOrder.quoteAbortController?.abort();
     if (state.ownershipOrder.quoteTimer) {
@@ -7750,6 +7860,7 @@ export function mountFutardTerminal({
     }
     state.wallet.adapter?.unsubscribe?.();
     if (state.pollTimer) runtime.clearInterval(state.pollTimer);
+    if (state.pricePollTimer) runtime.clearInterval(state.pricePollTimer);
     if (state.clockTimer) runtime.clearInterval(state.clockTimer);
     if (state.transactionTimer) runtime.clearInterval(state.transactionTimer);
     if (state.noticeTimer) runtime.clearTimeout(state.noticeTimer);
@@ -7788,6 +7899,9 @@ export function mountFutardTerminal({
   state.pollTimer = runtime.setInterval(() => {
     if (runtime.document.visibilityState !== 'hidden') refresh();
   }, POLL_INTERVAL_MS);
+  state.pricePollTimer = runtime.setInterval(() => {
+    if (runtime.document.visibilityState !== 'hidden') refreshLivePrices();
+  }, LIVE_PRICE_INTERVAL_MS);
   state.clockTimer = runtime.setInterval(renderClock, 1_000);
   state.transactionTimer = runtime.setInterval(() => {
     if (runtime.document.visibilityState !== 'hidden') refreshTransactionStatuses();
@@ -7796,6 +7910,7 @@ export function mountFutardTerminal({
   const controller = {
     destroy,
     refresh,
+    refreshLivePrices,
     loadMoreProposals,
     loadProposalMarketData,
     loadProposalHistory,
