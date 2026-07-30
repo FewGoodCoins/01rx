@@ -1955,15 +1955,36 @@ export function mountFutardTerminal({
   let workspaceTransitionId = 0;
   let activeWorkspaceTransitionPromise = null;
 
+  function concealWorkspaceShell() {
+    const shell = root.querySelector?.('[data-ft-role="terminal"]');
+    if (!shell) return;
+    shell.style.visibility = 'hidden';
+    shell.setAttribute('aria-hidden', 'true');
+  }
+
+  function revealWorkspaceShell() {
+    const shell = root.querySelector?.('[data-ft-role="terminal"]');
+    if (!shell) return;
+    shell.style.removeProperty('visibility');
+    shell.removeAttribute('aria-hidden');
+  }
+
   function beginWorkspaceTransition() {
     const transitionId = ++workspaceTransitionId;
     root.dataset.ftTransition = 'pending';
     root.setAttribute('aria-busy', 'true');
+    concealWorkspaceShell();
     return transitionId;
   }
 
   function endWorkspaceTransition(transitionId) {
     if (state.destroyed || transitionId !== workspaceTransitionId) return;
+    // Never expose the controller's generic governance-loading scaffold. It is
+    // structurally useful while data is assembled, but it is not a user-facing
+    // state in the token workspace. Keeping the shell concealed at the DOM
+    // level also protects against a late stylesheet or a transition-cover race.
+    if (state.loading || state.navigationPending) return;
+    revealWorkspaceShell();
     root.removeAttribute('data-ft-transition');
     root.removeAttribute('aria-busy');
     renderDecisionSidebar();
@@ -2023,7 +2044,12 @@ export function mountFutardTerminal({
   root.setAttribute('data-navgator-app', 'decision-markets');
   const initialTransitionId = beginWorkspaceTransition();
   root.innerHTML = `
-    <div class="ft-shell" data-ft-role="terminal">
+    <div
+      class="ft-shell"
+      data-ft-role="terminal"
+      style="visibility: hidden"
+      aria-hidden="true"
+    >
       <header class="ft-header">
         <div class="ft-header-inner">
           <a class="ft-brand" href="/?token=solo&view=markets&tab=tokens" aria-label="01RX market home">
