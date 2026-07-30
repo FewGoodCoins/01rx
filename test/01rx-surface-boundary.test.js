@@ -74,6 +74,13 @@ test('proposal recent transactions header aligns with the chart toolbar', () => 
   );
 });
 
+test('token markets do not reserve a second empty header row', () => {
+  assert.match(
+    frameCss,
+    /\[data-ft-mode="token"\] \.ft-header \{\s*display: none;/,
+  );
+});
+
 test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the plot rail', () => {
   assert.match(
     frameCss,
