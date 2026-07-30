@@ -1559,6 +1559,29 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     rows[0].getAttribute('href'),
     `https://solscan.io/tx/${TRANSACTION_SIGNATURE}`,
   );
+  const accountActivity = byRole(root, 'ownership-account-activity');
+  assert.deepEqual(
+    [...accountActivity.querySelectorAll('[data-ft-action="select-ownership-activity"]')]
+      .map(control => control.textContent.trim()),
+    ['Balances', 'Open Orders', 'Trade History'],
+  );
+  assert.match(
+    accountActivity.querySelector('[data-ft-ownership-activity-panel="balances"]').textContent,
+    /Connect wallet to view balances/,
+  );
+  accountActivity.querySelector('[data-ft-ownership-activity="orders"]').click();
+  assert.equal(
+    byRole(root, 'ownership-account-activity')
+      .querySelector('[data-ft-ownership-activity="orders"]')
+      .getAttribute('aria-selected'),
+    'true',
+  );
+  assert.match(
+    byRole(root, 'ownership-account-activity')
+      .querySelector('[data-ft-ownership-activity-panel="orders"]')
+      .textContent,
+    /Connect wallet to view open orders/,
+  );
 
   cleanupMount(mounted);
 });

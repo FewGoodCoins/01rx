@@ -1873,6 +1873,7 @@ export function mountFutardTerminal({
       quoteTimer: null,
     },
     activityTab: 'balances',
+    ownershipActivityTab: 'balances',
     bookTab: 'pass',
     recurring: {
       enabled: false,
@@ -2014,6 +2015,12 @@ export function mountFutardTerminal({
 
           <section class="ft-market-chart" data-ft-region="market-chart" aria-live="polite"></section>
 
+          <section
+            class="ft-account-row"
+            data-ft-region="ownership-account"
+            aria-live="polite"
+          ></section>
+
           <section class="ft-market-stage" data-ft-region="market-stage" aria-live="polite"></section>
 
           <aside class="ft-ticket-column" data-ft-role="trade-ticket" aria-label="Trade intent and positions">
@@ -2046,6 +2053,7 @@ export function mountFutardTerminal({
     pagination: root.querySelector('[data-ft-role="proposal-pagination"]'),
     marketChartHeader: root.querySelector('[data-ft-region="market-chart-header"]'),
     marketChart: root.querySelector('[data-ft-region="market-chart"]'),
+    ownershipAccount: root.querySelector('[data-ft-region="ownership-account"]'),
     marketStage: root.querySelector('[data-ft-region="market-stage"]'),
     tradeTicket: root.querySelector('[data-ft-region="trade-ticket"]'),
     positions: root.querySelector('[data-ft-role="positions"]'),
@@ -4885,10 +4893,91 @@ export function mountFutardTerminal({
     `;
   }
 
+  function renderOwnershipAccountActivity(asset, transactions) {
+    const activityTab = ['balances', 'orders', 'trades'].includes(
+      state.ownershipActivityTab,
+    )
+      ? state.ownershipActivityTab
+      : 'balances';
+    state.ownershipActivityTab = activityTab;
+    const walletTransactions = state.wallet.address
+      ? transactions.filter(transaction => (
+        transaction.trader
+        && transaction.trader.toLowerCase() === state.wallet.address.toLowerCase()
+      ))
+      : [];
+    let accountBody = '';
+    if (!state.wallet.address) {
+      accountBody = `Connect wallet to view ${activityTab === 'orders'
+        ? 'open orders'
+        : activityTab === 'trades'
+          ? 'trade history'
+          : 'balances'}`;
+    } else if (activityTab === 'orders') {
+      accountBody = 'No open spot orders for this wallet';
+    } else if (activityTab === 'trades') {
+      accountBody = walletTransactions.length
+        ? `
+          <div class="ft-ownership-account-trades">
+            ${walletTransactions.map(transaction => `
+              <span class="ft-ownership-account-trade">
+                <strong data-side="${escapeHtml(transaction.side)}">${escapeHtml(transaction.side.toUpperCase())}</strong>
+                <span>${Number.isFinite(transaction.price)
+                  ? formatChartCurrency(transaction.price)
+                  : '—'}</span>
+                <span>${Number.isFinite(transaction.size)
+                  ? formatTokenAmount(transaction.size, 4)
+                  : Number.isFinite(transaction.valueUsd)
+                    ? formatCompactMoney(transaction.valueUsd)
+                    : '—'}</span>
+                <span>${transaction.time
+                  ? escapeHtml(formatRelativeTime(transaction.time))
+                  : '—'}</span>
+              </span>
+            `).join('')}
+          </div>
+        `
+        : 'No indexed spot trades for this wallet';
+    } else {
+      accountBody = 'No indexed spot balances for this wallet';
+    }
+
+    regions.ownershipAccount.innerHTML = `
+      <section
+        class="ft-ownership-account"
+        data-ft-role="ownership-account-activity"
+        aria-label="${escapeHtml(asset.ticker)} account activity"
+      >
+        <div class="ft-ownership-account-tabs" role="tablist" aria-label="Trading account views">
+          ${[
+            ['balances', 'Balances'],
+            ['orders', 'Open Orders'],
+            ['trades', 'Trade History'],
+          ].map(([key, label]) => `
+            <button
+              type="button"
+              role="tab"
+              data-ft-action="select-ownership-activity"
+              data-ft-ownership-activity="${key}"
+              aria-selected="${activityTab === key}"
+              class="${activityTab === key ? 'ft-is-active' : ''}"
+            >${label}</button>
+          `).join('')}
+        </div>
+        <div
+          class="ft-ownership-account-panel"
+          role="tabpanel"
+          data-ft-ownership-activity-panel="${escapeHtml(activityTab)}"
+        >${accountBody}</div>
+      </section>
+    `;
+  }
+
   function renderPositions() {
     if (isOwnershipWorkspace()) {
       const asset = ownershipTokenSnapshot();
       const transactions = asset.recentTransactions || [];
+      renderOwnershipAccountActivity(asset, transactions);
       regions.positions.innerHTML = `
         <section
           class="ft-ownership-transactions"
@@ -4946,6 +5035,7 @@ export function mountFutardTerminal({
       return;
     }
 
+    regions.ownershipAccount.innerHTML = '';
     const market = selectedMarket();
     if (state.hostMode === 'token' && market) {
       const entry = state.marketDataByProposal.get(market.id);
@@ -7071,6 +7161,12 @@ export function mountFutardTerminal({
       const tab = target.dataset.ftActivity;
       if (['balances', 'orders', 'trades', 'automatic'].includes(tab)) {
         state.activityTab = tab;
+        renderPositions();
+      }
+    } else if (action === 'select-ownership-activity') {
+      const tab = target.dataset.ftOwnershipActivity;
+      if (['balances', 'orders', 'trades'].includes(tab)) {
+        state.ownershipActivityTab = tab;
         renderPositions();
       }
     } else if (action === 'select-book') {
