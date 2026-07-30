@@ -65,3 +65,14 @@ test('proposal recent transactions header aligns with the chart toolbar', () => 
     /\.ft-decision-transactions \.ft-ownership-transactions-header \{\s*height: 42px;\s*min-height: 42px;\s*flex: 0 0 42px;\s*border-bottom-color: #292929;\s*\}/,
   );
 });
+
+test('spot chart puts timeframe before NAV and keeps fullscreen on the far edge', () => {
+  assert.match(
+    frameCss,
+    /\.chart-tv-placeholder-controls-primary\s*\{\s*min-width: 50px;\s*flex: 0 0 50px;\s*order: -1;\s*\}/,
+  );
+  assert.match(
+    frameCss,
+    /\.chart-tv-placeholder-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,
+  );
+});

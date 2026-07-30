@@ -9592,12 +9592,14 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls 
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-primary {
-  flex: 1 1 auto;
-  min-width: 0;
+  min-width: 50px;
+  flex: 0 0 50px;
+  order: -1;
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary {
   flex: 0 0 56px;
+  margin-left: auto;
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button {
