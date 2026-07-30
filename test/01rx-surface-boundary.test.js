@@ -5,6 +5,10 @@ import test from 'node:test';
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
+const refinementCss = fs.readFileSync(
+  new URL('../styles/refinements.css', import.meta.url),
+  'utf8',
+);
 const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
@@ -78,6 +82,25 @@ test('token markets do not reserve a second empty header row', () => {
   assert.match(
     frameCss,
     /\[data-ft-mode="token"\] \.ft-header \{\s*display: none;/,
+  );
+});
+
+test('market sidebar pins history below tokens and shows threshold for live decisions', () => {
+  assert.match(
+    indexSource,
+    /id="tlp-decisions-panel"[\s\S]*?<span>Threshold<\/span>[\s\S]*?id="tlp-all-panel"/,
+  );
+  assert.ok(
+    indexSource.indexOf('id="tlp-decision-history-toggle-slot"')
+      > indexSource.indexOf('id="tlp-past-decisions-panel"'),
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-decision-history-slot\s*\{[\s\S]*?flex: 0 0 auto;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-decision-live-dot\s*\{[\s\S]*?animation: tp-decision-live-pulse 1\.6s ease-out infinite;/,
   );
 });
 

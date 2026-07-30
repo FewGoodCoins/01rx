@@ -1386,9 +1386,31 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
   font-weight: 500;
 }
 
+.tp-decision-state[data-state="live"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.tp-decision-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #00cc66;
+  box-shadow: 0 0 0 0 rgba(0, 204, 102, 0.48);
+  animation: tp-decision-live-pulse 1.6s ease-out infinite;
+}
+
 .tp-decision-state,
 .tp-decision-result {
   color: #e6e6e6;
+}
+
+.tp-decision-threshold {
+  color: #f5b83d;
 }
 
 .tp-decision-result[data-result="passing"],
@@ -1441,6 +1463,16 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
   text-align: left;
 }
 
+.tp-decision-history-slot {
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+.tp-decision-history-slot:empty,
+html[data-market-sidebar-tab="watchlist"] .tp-decision-history-slot {
+  display: none;
+}
+
 .tp-decision-history-toggle:hover {
   background: #1b1b1b;
   color: #eeeeeb;
@@ -1466,6 +1498,23 @@ html[data-decision-history="open"] .tp-decision-history-meta svg {
 
 html[data-decision-history="closed"] .tp-decision-prior {
   display: none !important;
+}
+
+@keyframes tp-decision-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 204, 102, 0.48);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 5px rgba(0, 204, 102, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-decision-live-dot {
+    animation: none;
+  }
 }
 
 .tp-decision-prior {

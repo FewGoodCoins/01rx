@@ -533,6 +533,7 @@ function makeWindow(options = {}) {
         <span id="tp-live-decision-count">0 active</span>
         <div id="tlp-decisions-list"></div>
       </section>
+      <div id="tlp-decision-history-toggle-slot"></div>
     `
     : '';
   const dom = new JSDOM(`<!doctype html>${marketWalletSlot}${sidebar}<div id="root"></div>`, {
@@ -1372,12 +1373,19 @@ test('decision sidebar shows an honest empty state and reveals prior markets on 
   assert.equal(window.document.documentElement.dataset.decisionHistory, 'closed');
   assert.equal(window.document.getElementById('tlp-past-decisions-panel').hidden, true);
 
-  section.querySelector('[data-decision-sidebar-action="toggle-history"]').click();
+  const historyToggle = window.document.querySelector(
+    '#tlp-decision-history-toggle-slot [data-decision-sidebar-action="toggle-history"]',
+  );
+  assert.ok(historyToggle);
+  assert.equal(section.contains(historyToggle), false);
+  historyToggle.click();
 
   assert.equal(window.document.documentElement.dataset.decisionHistory, 'open');
   assert.equal(window.document.getElementById('tlp-past-decisions-panel').hidden, false);
   assert.match(
-    section.querySelector('[data-decision-sidebar-action="toggle-history"]').textContent,
+    window.document.querySelector(
+      '#tlp-decision-history-toggle-slot [data-decision-sidebar-action="toggle-history"]',
+    ).textContent,
     /Hide prior decision markets/,
   );
 
@@ -1507,6 +1515,12 @@ test('market sidebar keeps live decisions above tokens and renders past proposal
   await controller.ready;
 
   assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1 active');
+  const liveDecision = window.document.querySelector(
+    '#tlp-decisions-list .tp-decision-item',
+  );
+  assert.ok(liveDecision.querySelector('.tp-decision-live-dot'));
+  assert.match(liveDecision.textContent, /Live[\s\S]+1\.50%/);
+  assert.doesNotMatch(liveDecision.textContent, /Awaiting/);
   assert.match(
     window.document.getElementById('tlp-decisions-list').textContent,
     /LOYAL[\s\S]+Live/,
