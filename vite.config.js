@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
     'DFLOW_API_KEY',
     'DFLOW_TRADE_API_URL',
     'NAVGATOR_API_ORIGIN',
+    'O1RX_ATTRIBUTION_PUBLIC_KEY',
+    'O1RX_ATTRIBUTION_SIGNING_KEY',
     'SOLANA_RPC_URL',
   ].forEach((name) => {
     if (env[name]) process.env[name] = env[name];

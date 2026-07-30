@@ -129,6 +129,9 @@ export function create01ResolvedClient(options = {}) {
       },
     }),
     trading: Object.freeze({
+      decisionAttest(body, callOptions) {
+        return post('trading.decisionAttest', body, callOptions);
+      },
       spotOrder(body, callOptions) {
         return post('trading.spotOrder', body, callOptions);
       },

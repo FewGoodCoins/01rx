@@ -56,10 +56,15 @@ serverless API and uses the server-only DFlow and Solana configuration. In the
 NAVGATOR_API_ORIGIN=https://api.navgator.xyz
 DFLOW_API_KEY=...
 SOLANA_RPC_URL=https://...
+O1RX_ATTRIBUTION_PUBLIC_KEY=...
+O1RX_ATTRIBUTION_SIGNING_KEY=...
 ```
 
-Apply the two secrets to Production and Preview. Do not create `VITE_DFLOW_*`
-or `VITE_SOLANA_RPC_*` variables.
+Generate the stable attribution authority once with
+`npm run generate:attribution-key`. Store its signing key only in Vercel and
+publish its public key for indexers. Apply the server configuration to
+Production and Preview. Do not create `VITE_DFLOW_*`, `VITE_SOLANA_RPC_*`, or
+`VITE_*ATTRIBUTION*` variables.
 
 See [docs/deployment-cutover.md](docs/deployment-cutover.md) for the verified
 order of operations and rollback path.
@@ -70,6 +75,15 @@ order of operations and rollback path.
 program IDs, exact transaction bytes, a recent blockhash, simulation output,
 the connected fee payer, and explicit user approval. DFlow responses and signed
 transactions are revalidated by 01RX's server-only guard before submission.
+
+Decision-market swaps receive a server-validated, zero-fee 01RX co-signature
+before simulation. The co-signature is attached to a Memo instruction containing
+`01RX:D1:0`; the marker means decision attribution version 1 with a 0 bps 01RX
+fee. Market PASS/FAIL swaps always execute through the MetaDAO Futarchy AMM;
+Manifest is reserved for explicit order-book actions such as limit orders. The
+MetaDAO swap and attribution succeed or fail atomically. If conditional token
+accounts are missing, account setup is shown as a separate reviewed wallet
+transaction before the attributed swap is prepared.
 
 The current Solana dependency tree has one inherited, unfixed
 `bigint-buffer` advisory. See [docs/security-notes.md](docs/security-notes.md)

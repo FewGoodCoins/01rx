@@ -9,6 +9,7 @@ export type EndpointId =
   | 'futarchy.positions'
   | 'futarchy.recurringConfig'
   | 'futarchy.solanaRpc'
+  | 'trading.decisionAttest'
   | 'trading.spotOrder'
   | 'trading.spotSubmit';
 
@@ -190,6 +191,21 @@ export interface SpotSubmitData {
   readonly status: 'submitted';
 }
 
+export interface DecisionAttestData {
+  readonly authority: string;
+  readonly cluster: 'solana:mainnet';
+  readonly feeBps: 0;
+  readonly inputAmountRaw: string;
+  readonly marker: string;
+  readonly minimumOutputAmountRaw: string;
+  readonly outcome: 'pass' | 'fail';
+  readonly proposal: string;
+  readonly side: 'buy' | 'sell';
+  readonly trader: string;
+  readonly transaction: string;
+  readonly version: 1;
+}
+
 export interface EndpointResponseMap {
   readonly 'core.homeBootstrap': HomeBootstrapData;
   readonly 'futarchy.activeMarkets': ActiveMarketsData;
@@ -200,6 +216,7 @@ export interface EndpointResponseMap {
   readonly 'futarchy.positions': PositionsData;
   readonly 'futarchy.recurringConfig': RecurringConfigData;
   readonly 'futarchy.solanaRpc': unknown;
+  readonly 'trading.decisionAttest': DecisionAttestData;
   readonly 'trading.spotOrder': SpotOrderData;
   readonly 'trading.spotSubmit': SpotSubmitData;
 }
@@ -207,6 +224,12 @@ export interface EndpointResponseMap {
 export const CONTRACT_RELEASE: string;
 export const CONTRACT_HEADERS: Readonly<Record<'contract' | 'release' | 'surface', string>>;
 export const API_SURFACES: Readonly<Record<'STABLE' | 'BETA', ApiSurface>>;
+export const DECISION_ATTRIBUTION: Readonly<{
+  feeBps: 0;
+  marker: string;
+  memoProgramId: string;
+  version: 1;
+}>;
 export const API_ENDPOINTS: Readonly<Record<EndpointId, EndpointDefinition>>;
 export const FUTARCHY_STABLE_V1_VIEWS: readonly string[];
 export const FUTARCHY_BETA_VIEWS: readonly string[];

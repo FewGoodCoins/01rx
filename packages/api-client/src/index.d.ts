@@ -8,6 +8,7 @@ import type {
   ProposalHistoryData,
   ProposalMarketData,
   RecurringConfigData,
+  DecisionAttestData,
   SpotOrderData,
   SpotSubmitData,
 } from '@01resolved/contracts';
@@ -52,6 +53,9 @@ export interface FutarchyClient {
 }
 
 export interface TradingClient {
+  decisionAttest(body: {
+    transaction: string;
+  }, options?: ClientCallOptions): Promise<DecisionAttestData>;
   spotOrder(body: {
     token: string;
     side: 'buy' | 'sell';
