@@ -36,14 +36,14 @@ test('01RX adds only functional NAV and Growth controls plus disabled TradingVie
       /<button class="chart-tv-placeholder-button[^"]*"[^>]*\sdisabled(?:\s|>)/g,
     ),
   ];
-  assert.equal(placeholderButtons.length, 7);
+  assert.equal(placeholderButtons.length, 2);
   assert.doesNotMatch(
     placeholderButtons.map(match => match[0]).join('\n'),
     /onclick=|data-ft-action=/,
   );
   assert.doesNotMatch(
     indexSource,
-    /Hide annotations placeholder|TradingView (?:undo|redo|snapshot) placeholder/,
+    /Hide annotations placeholder|TradingView (?:chart type|indicators|toolbar menu|quick search|settings|undo|redo|snapshot) placeholder/,
   );
   [
     '.chart-toolbar-row > .chart-controls',
@@ -57,4 +57,11 @@ test('01RX adds only functional NAV and Growth controls plus disabled TradingVie
     assert.equal(tokenCss.includes(selector), true, selector);
     assert.equal(frameCss.includes(selector), true, selector);
   });
+});
+
+test('proposal recent transactions header aligns with the chart toolbar', () => {
+  assert.match(
+    frameCss,
+    /\.ft-decision-transactions \.ft-ownership-transactions-header \{\s*height: 42px;\s*min-height: 42px;\s*flex: 0 0 42px;\s*border-bottom-color: #292929;\s*\}/,
+  );
 });
