@@ -1430,11 +1430,27 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   assert.equal(root.dataset.ftTransition, 'pending');
   assert.equal(root.getAttribute('aria-busy'), 'true');
   assert.equal(root.classList.contains('ft-proposal-focus'), true);
+  assert.equal(
+    root.querySelector('[data-ft-role="terminal"]').style.visibility,
+    'hidden',
+  );
+  assert.equal(
+    root.querySelector('[data-ft-role="terminal"]').getAttribute('aria-hidden'),
+    'true',
+  );
   await controller.ready;
   await settle(window);
 
   assert.equal(root.hasAttribute('data-ft-transition'), false);
   assert.equal(root.hasAttribute('aria-busy'), false);
+  assert.equal(
+    root.querySelector('[data-ft-role="terminal"]').style.visibility,
+    '',
+  );
+  assert.equal(
+    root.querySelector('[data-ft-role="terminal"]').hasAttribute('aria-hidden'),
+    false,
+  );
   assert.equal(controller.getState().token, 'loyal');
   assert.equal(proposalRows(root).length, 1);
   assert.equal(byRole(root, 'proposal-title').textContent.trim(), 'Fund Loyal contributor growth for Q3');
@@ -1459,11 +1475,19 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   const tokenSwitch = controller.setToken('meta');
   assert.equal(root.dataset.ftTransition, 'pending');
   assert.equal(root.getAttribute('aria-busy'), 'true');
+  assert.equal(
+    root.querySelector('[data-ft-role="terminal"]').style.visibility,
+    'hidden',
+  );
   await tokenSwitch;
   await settle(window);
 
   assert.equal(root.hasAttribute('data-ft-transition'), false);
   assert.equal(root.hasAttribute('aria-busy'), false);
+  assert.equal(
+    root.querySelector('[data-ft-role="terminal"]').style.visibility,
+    '',
+  );
   assert.equal(controller.getState().token, 'meta');
   assert.equal(proposalRows(root).length, 1);
   assert.equal(proposalRows(root)[0].dataset.ftProposalOutcome, 'passed');
