@@ -721,6 +721,8 @@ export function createProposalHistoryChart({
   updateReadout(readout, lastTimestamp, latest);
   chartRoot.classList.remove('ft-hourly-chart-pending');
   chartRoot.classList.add('ft-hourly-chart-enhanced');
+  chartRoot.dataset.ftChartState = 'ready';
+  chartRoot.setAttribute('aria-busy', 'false');
 
   return {
     applyTheme,

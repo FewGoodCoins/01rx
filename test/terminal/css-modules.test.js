@@ -16,7 +16,7 @@ const expectedImportOrder = [
   'embed.css',
   'geometry.css',
 ];
-const expectedNormalizedSha256 = '7f9dbf040d20bfa9636f60b4e9bfc3c852bc5baff569238c9c1a1ed16dc52de3';
+const expectedNormalizedSha256 = '0dc5fbb61825d102dcca804395d030a8acf3aab8078f3ded84d70463f0112a13';
 
 function normalizeNewlines(source) {
   return source.replace(/\r\n?/g, '\n');
@@ -41,4 +41,15 @@ test('CSS modules preserve the original monolith byte order', () => {
   const hash = crypto.createHash('sha256').update(reconstructed).digest('hex');
 
   assert.equal(hash, expectedNormalizedSha256);
+});
+
+test('market routes hide the static spot workspace before token scripts boot', () => {
+  const refinements = normalizeNewlines(
+    fs.readFileSync(path.join(stylesDir, 'refinements.css'), 'utf8'),
+  );
+
+  assert.match(
+    refinements,
+    /html\[data-workspace="markets"\] \.dash-body\s*\{\s*display:\s*none !important;/,
+  );
 });

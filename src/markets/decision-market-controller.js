@@ -850,6 +850,57 @@ function renderTradingViewToolbarPreview() {
   `;
 }
 
+function renderProposalChartStatusShell({
+  state = 'loading',
+  title = 'Loading public market history',
+  detail = 'Reading underlying, PROP PASS, and PROP FAIL prices. No wallet is required.',
+} = {}) {
+  const failed = state === 'error';
+  return `
+    <div
+      class="ft-hourly-chart ft-hourly-chart-pending ft-hourly-chart-status-shell${failed ? ' ft-hourly-chart-failed' : ''}"
+      data-ft-role="proposal-history-chart"
+      data-ft-chart-state="${failed ? 'error' : 'loading'}"
+      aria-busy="${failed ? 'false' : 'true'}"
+    >
+      <div class="ft-hourly-toolbar" aria-hidden="true">
+        <div class="ft-hourly-range">
+          <button class="ft-hourly-range-trigger" type="button" disabled>ALL</button>
+        </div>
+        <div class="ft-hourly-series-control">
+          <button class="ft-hourly-style-cell" type="button" disabled tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 17L9 11L13 14L20 6"/>
+            </svg>
+          </button>
+        </div>
+        ${renderTradingViewToolbarPreview()}
+      </div>
+      <div class="ft-hourly-plot-shell">
+        <div class="ft-chart-crosshair-rail" aria-hidden="true">
+          <button class="ft-chart-crosshair-tool" type="button" disabled tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>
+              <circle cx="12" cy="12" r="2.25"/>
+            </svg>
+          </button>
+        </div>
+        <div
+          class="ft-hourly-chart-mount-status${failed ? ' ft-hourly-chart-mount-error' : ''}"
+          data-ft-role="proposal-chart-mount-status"
+          role="status"
+        >
+          <span class="${failed ? '' : 'ft-loader'}" aria-hidden="true">${failed ? '!' : ''}</span>
+          <div>
+            <strong>${escapeHtml(title)}</strong>
+            <p>${escapeHtml(detail)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) {
   const observations = Array.isArray(history?.series) ? history.series : [];
   const interval = normalizeHistoryInterval(history?.interval);
@@ -887,7 +938,12 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const latestFail = latestValue('failPrice');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
   return `
-    <div class="ft-hourly-chart ft-hourly-chart-pending" data-ft-role="proposal-history-chart">
+    <div
+      class="ft-hourly-chart ft-hourly-chart-pending"
+      data-ft-role="proposal-history-chart"
+      data-ft-chart-state="mounting"
+      aria-busy="true"
+    >
       <div class="ft-hourly-toolbar">
         <div class="ft-hourly-range" data-ft-role="hourly-range-select">
           <button
@@ -1007,6 +1063,17 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               count: coverage.fail || 0,
               visible: visibility.failPrice !== false,
             })}
+          </div>
+        </div>
+        <div
+          class="ft-hourly-chart-mount-status"
+          data-ft-role="proposal-chart-mount-status"
+          role="status"
+        >
+          <span class="ft-loader" aria-hidden="true"></span>
+          <div>
+            <strong>Preparing proposal chart</strong>
+            <p>Applying the indexed price series and market boundaries.</p>
           </div>
         </div>
         <div
@@ -1749,6 +1816,23 @@ function executionEstimate(market, outcome, side, amount, slippageBps) {
  * Proposal browsing and market data remain public. Wallet connection is only
  * required when a user chooses to review and submit an on-chain action.
  */
+export function shouldHandleSidebarProposalClick(event, anchor, hostMode = 'token') {
+  if (
+    hostMode !== 'token'
+    || !event
+    || !anchor
+    || event.defaultPrevented
+    || Number(event.button || 0) !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+    || anchor.hasAttribute?.('download')
+  ) return false;
+  const target = String(anchor.getAttribute?.('target') || '').toLowerCase();
+  return !target || target === '_self';
+}
+
 export function mountFutardTerminal({
   window: runtime = globalThis.window,
   root,
@@ -2435,24 +2519,44 @@ export function mountFutardTerminal({
     state.historyChart = null;
   }
 
+  function showHourlyChartMountError(chartRoot) {
+    if (!chartRoot) return;
+    chartRoot.classList.remove('ft-hourly-chart-pending', 'ft-hourly-chart-enhanced');
+    chartRoot.classList.add('ft-hourly-chart-failed');
+    chartRoot.dataset.ftChartState = 'error';
+    chartRoot.setAttribute('aria-busy', 'false');
+    const status = chartRoot.querySelector(
+      '[data-ft-role="proposal-chart-mount-status"]',
+    );
+    if (!status) return;
+    status.classList.add('ft-hourly-chart-mount-error');
+    status.innerHTML = `
+      <span aria-hidden="true">!</span>
+      <div>
+        <strong>Proposal chart unavailable</strong>
+        <p>The indexed history remains available, but the interactive chart could not be initialized.</p>
+      </div>
+    `;
+  }
+
   function mountHourlyChart(market = selectedMarket()) {
     const chartRoot = regions.marketChart.querySelector(
       '[data-ft-role="proposal-history-chart"]',
     );
-    if (
-      typeof createProposalHistoryChart !== 'function'
-      || !market?.id
-      || state.destroyed
-    ) {
-      chartRoot?.classList.remove('ft-hourly-chart-pending');
-      return;
-    }
+    if (!market?.id || state.destroyed) return;
     const history = state.historyByProposal.get(market.id)?.data;
     const container = regions.marketChart.querySelector(
       '[data-ft-role="proposal-history-tradingview"]',
     );
-    if (!container || !history?.series?.length) {
-      chartRoot?.classList.remove('ft-hourly-chart-pending');
+    if (!history?.series?.length) {
+      return;
+    }
+    if (typeof createProposalHistoryChart !== 'function') {
+      showHourlyChartMountError(chartRoot);
+      return;
+    }
+    if (!container) {
+      showHourlyChartMountError(chartRoot);
       return;
     }
     try {
@@ -2468,11 +2572,18 @@ export function mountFutardTerminal({
         launchedAt: market.proposal.createdAt,
         windowEndedAt: market.proposal.endsAt,
       }) || null;
-      chartRoot?.classList.remove('ft-hourly-chart-pending');
+      if (!state.historyChart) {
+        showHourlyChartMountError(chartRoot);
+        return;
+      }
+      chartRoot?.classList.remove('ft-hourly-chart-pending', 'ft-hourly-chart-failed');
+      if (chartRoot) {
+        chartRoot.dataset.ftChartState = 'ready';
+        chartRoot.setAttribute('aria-busy', 'false');
+      }
     } catch (_) {
       state.historyChart = null;
-      chartRoot?.classList.remove('ft-hourly-chart-pending');
-      // The semantic SVG and exact-value table remain available as fallbacks.
+      showHourlyChartMountError(chartRoot);
     }
   }
 
@@ -2687,13 +2798,7 @@ export function mountFutardTerminal({
       return `
         <section class="ft-hourly-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
           ${chartHeader()}
-          <div class="ft-hourly-loading" role="status">
-            <span class="ft-loader" aria-hidden="true"></span>
-            <div>
-              <strong>Loading public market history</strong>
-              <p>Reading underlying, PROP PASS, and PROP FAIL prices. No wallet is required.</p>
-            </div>
-          </div>
+          ${renderProposalChartStatusShell()}
         </section>
       `;
     }
@@ -2935,6 +3040,8 @@ export function mountFutardTerminal({
             class="tp-decision-item"
             href="${escapeHtml(destination)}"
             title="${escapeHtml(market.proposal.title)}"
+            data-ft-proposal-id="${escapeHtml(market.id)}"
+            data-ft-token="${escapeHtml(market.token || '')}"
             data-market-search-primary="${escapeHtml(ticker)}"
             data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
             ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
@@ -3001,6 +3108,8 @@ export function mountFutardTerminal({
               class="tp-decision-item tp-past-proposal-item"
               href="${escapeHtml(destination)}"
               title="${escapeHtml(market.proposal.title)}"
+              data-ft-proposal-id="${escapeHtml(market.id)}"
+              data-ft-token="${escapeHtml(market.token || '')}"
               data-market-search-primary="${escapeHtml(`${ticker} ${proposalNumber}`)}"
               data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${proposalNumber} ${market.proposal.title || ''} ${result}`)}"
               ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
@@ -6912,7 +7021,54 @@ export function mountFutardTerminal({
     });
   }
 
+  async function selectSidebarProposal(anchor) {
+    const proposalId = safeBase58(anchor?.dataset?.ftProposalId);
+    const market = state.sidebarMarkets.find(candidate => candidate.id === proposalId);
+    if (!market) return;
+    const token = routes.normalizeTokenKey?.(anchor.dataset.ftToken)
+      || normalizeKey(anchor.dataset.ftToken);
+    if (!token || token === state.tokenFilter) {
+      selectProposal(proposalId, { focus: true });
+      return;
+    }
+
+    const destination = tokenMarketsUrl(token, proposalId);
+    state.workspaceTab = 'decisions';
+    state.proposalFocus = true;
+    try {
+      runtime.history?.pushState?.(null, '', destination);
+      syncCanonicalUrl(destination);
+    } catch (_) {
+      // In-app selection remains functional when history access is restricted.
+    }
+    await setToken(token, { proposalId });
+    if (
+      !state.destroyed
+      && state.markets.some(candidate => candidate.id === proposalId)
+    ) {
+      selectProposal(proposalId, {
+        focus: true,
+        updateUrl: false,
+        reveal: false,
+      });
+    }
+  }
+
   function handleDocumentClick(event) {
+    const sidebarProposal = event.target?.closest?.(
+      '.tp-decision-item[data-ft-proposal-id]',
+    );
+    if (
+      sidebarProposal
+      && shouldHandleSidebarProposalClick(event, sidebarProposal, state.hostMode)
+      && state.sidebarMarkets.some(
+        market => market.id === safeBase58(sidebarProposal.dataset.ftProposalId),
+      )
+    ) {
+      event.preventDefault();
+      void selectSidebarProposal(sidebarProposal);
+      return;
+    }
     const rangeSelector = root.querySelector('[data-ft-role="hourly-range-select"]');
     const rangeMenu = root.querySelector('[data-ft-role="hourly-range-menu"]');
     if (rangeSelector && rangeMenu && !rangeMenu.hidden && !rangeSelector.contains(event.target)) {
@@ -7366,8 +7522,9 @@ export function mountFutardTerminal({
     }
   }
 
-  async function setToken(nextToken) {
+  async function setToken(nextToken, options = {}) {
     const normalized = routes.normalizeTokenKey?.(nextToken) || normalizeKey(nextToken);
+    const requestedProposalId = safeBase58(options.proposalId);
     if (
       state.destroyed
       || state.hostMode !== 'token'
@@ -7388,8 +7545,12 @@ export function mountFutardTerminal({
     state.recurringRequestId += 1;
     invalidateOwnershipQuote();
     state.tokenFilter = normalized;
-    state.selectedId = '';
-    state.requestedProposalId = '';
+    state.selectedId = requestedProposalId;
+    state.requestedProposalId = requestedProposalId;
+    if (requestedProposalId) {
+      state.proposalFocus = true;
+      state.workspaceTab = 'decisions';
+    }
     state.routeNotice = '';
     state.markets = [];
     state.activeMarkets = [];

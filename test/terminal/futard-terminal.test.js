@@ -1235,7 +1235,10 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
 });
 
 test('market sidebar keeps live decisions above tokens and renders past proposals for the selected token', async () => {
-  const { mountFutardTerminal } = await loadTerminalModule();
+  const {
+    mountFutardTerminal,
+    shouldHandleSidebarProposalClick,
+  } = await loadTerminalModule();
   const { root, window } = makeWindow({
     url: 'https://navgator.xyz/?token=meta&view=markets&tab=tokens',
   });
@@ -1277,6 +1280,53 @@ test('market sidebar keeps live decisions above tokens and renders past proposal
     metaArchive.getAttribute('href'),
     `/?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
   );
+  assert.equal(metaArchive.dataset.ftProposalId, PASSED_PROPOSAL_ID);
+  assert.equal(metaArchive.dataset.ftToken, 'meta');
+  assert.equal(
+    shouldHandleSidebarProposalClick({
+      button: 0,
+      defaultPrevented: false,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    }, metaArchive, 'token'),
+    true,
+  );
+  assert.equal(
+    shouldHandleSidebarProposalClick({
+      button: 0,
+      defaultPrevented: false,
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    }, metaArchive, 'token'),
+    false,
+  );
+
+  const selectionClick = new window.MouseEvent('click', {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+  });
+  assert.equal(metaArchive.dispatchEvent(selectionClick), false);
+  assert.equal(selectionClick.defaultPrevented, true);
+  assert.equal(controller.getState().selectedId, PASSED_PROPOSAL_ID);
+  assert.equal(
+    window.location.search,
+    `?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
+  );
+  const loadingChart = byRole(root, 'proposal-history-chart');
+  assert.ok(loadingChart.classList.contains('ft-hourly-chart-status-shell'));
+  assert.equal(loadingChart.dataset.ftChartState, 'loading');
+  assert.equal(loadingChart.getAttribute('aria-busy'), 'true');
+  assert.ok(loadingChart.querySelector('.ft-hourly-toolbar'));
+  assert.ok(loadingChart.querySelector('.ft-hourly-plot-shell'));
+  assert.equal(
+    loadingChart.querySelector('[data-ft-role="proposal-history-tradingview"]'),
+    null,
+  );
 
   await controller.setToken('solo');
   await settle(window);
@@ -1287,6 +1337,178 @@ test('market sidebar keeps live decisions above tokens and renders past proposal
     window.document.getElementById('tlp-past-decisions-list').textContent,
     /Acquire the Atlas analytics business[\s\S]+Failed/,
   );
+
+  cleanupMount(mounted);
+});
+
+test('live proposal sidebar navigation switches tokens without reloading the document', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=meta&view=markets&tab=tokens',
+  });
+  const sidebar = window.document.createElement('aside');
+  sidebar.innerHTML = `
+    <section id="tlp-decisions-panel">
+      <span id="tp-live-decision-count"></span>
+      <div id="tlp-decisions-list"></div>
+    </section>
+    <section id="tlp-all-panel"></section>
+    <section id="tlp-past-decisions-panel">
+      <span id="tp-past-decisions-title"></span>
+      <span id="tp-past-decision-count"></span>
+      <div id="tlp-past-decisions-list"></div>
+    </section>
+  `;
+  window.document.body.prepend(sidebar);
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'meta',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const liveProposal = window.document.querySelector(
+    '#tlp-decisions-list .tp-decision-item',
+  );
+  const selectionClick = new window.MouseEvent('click', {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+  });
+  assert.equal(liveProposal.dispatchEvent(selectionClick), false);
+  assert.equal(selectionClick.defaultPrevented, true);
+  assert.equal(
+    window.location.search,
+    `?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  );
+  await settleUntil(window, () => (
+    controller.getState().token === 'loyal'
+    && controller.getState().selectedId === PROPOSAL_ID
+  ));
+  assert.equal(controller.getState().token, 'loyal');
+  assert.equal(controller.getState().selectedId, PROPOSAL_ID);
+
+  cleanupMount(mounted);
+});
+
+test('past proposal navigation keeps the final chart shell mounted until delayed history is ready', async () => {
+  let resolveHistory;
+  const historyGate = new Promise((resolve) => {
+    resolveHistory = resolve;
+  });
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=meta&view=markets&tab=tokens',
+    proposalHistoryResponder(url) {
+      const proposalId = new URL(url).searchParams.get('proposal');
+      if (proposalId === PASSED_PROPOSAL_ID) return historyGate;
+      return {
+        ok: true,
+        data: PROPOSAL_HISTORIES[proposalId]
+          || hourlyHistory(proposalId, 'TOKEN', 1, { empty: true }),
+      };
+    },
+  });
+  const sidebar = window.document.createElement('aside');
+  sidebar.innerHTML = `
+    <section id="tlp-decisions-panel">
+      <span id="tp-live-decision-count"></span>
+      <div id="tlp-decisions-list"></div>
+    </section>
+    <section id="tlp-all-panel"></section>
+    <section id="tlp-past-decisions-panel">
+      <span id="tp-past-decisions-title"></span>
+      <span id="tp-past-decision-count"></span>
+      <div id="tlp-past-decisions-list"></div>
+    </section>
+  `;
+  window.document.body.prepend(sidebar);
+  const chartMounts = [];
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'meta',
+    createProposalHistoryChart(options) {
+      chartMounts.push(options);
+      options.container.closest('.ft-hourly-chart')
+        ?.classList.add('ft-hourly-chart-enhanced');
+      return { destroy() {} };
+    },
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const proposalLink = window.document.querySelector(
+    '#tlp-past-decisions-list .tp-past-proposal-item',
+  );
+  proposalLink.dispatchEvent(new window.MouseEvent('click', {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+  }));
+
+  const pendingChart = byRole(root, 'proposal-history-chart');
+  assert.ok(pendingChart.classList.contains('ft-hourly-chart-status-shell'));
+  assert.equal(pendingChart.dataset.ftChartState, 'loading');
+  assert.equal(pendingChart.getAttribute('aria-busy'), 'true');
+  assert.match(
+    byRole(root, 'proposal-chart-mount-status').textContent,
+    /Loading public market history/,
+  );
+  assert.equal(root.querySelector('.ft-hourly-loading'), null);
+  assert.equal(root.querySelector('.ft-hourly-fallback'), null);
+  assert.equal(root.querySelector('svg[viewBox="0 0 1000 1000"]'), null);
+  assert.equal(chartMounts.length, 0);
+
+  resolveHistory({
+    ok: true,
+    data: PROPOSAL_HISTORIES[PASSED_PROPOSAL_ID],
+  });
+  await settleUntil(window, () => chartMounts.length === 1);
+
+  const readyChart = byRole(root, 'proposal-history-chart');
+  assert.equal(readyChart.dataset.ftChartState, 'ready');
+  assert.equal(readyChart.getAttribute('aria-busy'), 'false');
+  assert.ok(readyChart.classList.contains('ft-hourly-chart-enhanced'));
+  assert.ok(
+    readyChart.querySelector('[data-ft-role="proposal-history-tradingview"]'),
+  );
+
+  cleanupMount(mounted);
+});
+
+test('proposal chart mount failures replace the pending surface with an explicit error', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=meta&view=markets&proposal=${PASSED_PROPOSAL_ID}`,
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'meta',
+    createProposalHistoryChart() {
+      return null;
+    },
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settleUntil(window, () => (
+    byRole(root, 'proposal-history-chart')?.dataset.ftChartState === 'error'
+  ));
+
+  const chart = byRole(root, 'proposal-history-chart');
+  assert.equal(chart.dataset.ftChartState, 'error');
+  assert.equal(chart.getAttribute('aria-busy'), 'false');
+  assert.ok(chart.classList.contains('ft-hourly-chart-failed'));
+  assert.match(
+    byRole(root, 'proposal-chart-mount-status').textContent,
+    /Proposal chart unavailable/,
+  );
+  assert.equal(chart.querySelector('.ft-hourly-fallback'), null);
 
   cleanupMount(mounted);
 });
@@ -1708,6 +1930,7 @@ test('proposal history uses retained verified observations when live and hourly 
   await controller.ready;
   await settleUntil(terminal.window, () => (
     retainedRequests.length > 0
+    && typeof resolveHourlyHistory === 'function'
     && byRole(terminal.root, 'proposal-history-chart')
   ));
 
