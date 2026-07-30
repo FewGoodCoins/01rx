@@ -786,11 +786,32 @@ function renderTradingViewToolbarPreview() {
         <span>W</span>
       </button>
     </div>
+    <div class="ft-hourly-growth-control" aria-label="Growth chart control">
+      <button
+        class="ft-hourly-style-cell ft-hourly-growth-button"
+        type="button"
+        disabled
+        aria-label="Growth data coming soon"
+        title="Growth data coming soon"
+      >
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2.5 14.5h13"/>
+          <path d="m3.5 11 3-3 2.5 2 5-6"/>
+          <path d="M11.5 4h2.5v2.5"/>
+        </svg>
+      </button>
+    </div>
     <div
       class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
       aria-label="TradingView premium view toolbar preview"
     >
-      <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView fullscreen placeholder" title="TradingView fullscreen">
+      <button
+        class="chart-tv-placeholder-button"
+        type="button"
+        data-ft-action="toggle-chart-expansion"
+        aria-label="Expand chart"
+        title="Expand chart"
+      >
         <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" aria-hidden="true">
           <path d="M10 4.5H4.5V10M18 4.5h5.5V10M10 23.5H4.5V18M18 23.5h5.5V18"/>
         </svg>
@@ -2796,7 +2817,7 @@ export function mountFutardTerminal({
     );
     if (!entry || (entry.loading && !entry.data?.series?.length)) {
       return `
-        <section class="ft-hourly-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
+        <section class="ft-hourly-panel ft-terminal-chart-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
           ${chartHeader()}
           ${renderProposalChartStatusShell()}
         </section>
@@ -2805,7 +2826,7 @@ export function mountFutardTerminal({
 
     if (entry.error) {
       return `
-        <section class="ft-hourly-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
+        <section class="ft-hourly-panel ft-terminal-chart-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
           ${chartHeader()}
           <div class="ft-hourly-empty ft-hourly-error" role="status">
             <span aria-hidden="true">↻</span>
@@ -2822,7 +2843,7 @@ export function mountFutardTerminal({
     const history = entry.data;
     if (!history?.series?.length) {
       return `
-        <section class="ft-hourly-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
+        <section class="ft-hourly-panel ft-terminal-chart-panel" data-ft-role="proposal-history" aria-label="Proposal market chart" aria-live="polite">
           ${chartHeader()}
           <div class="ft-hourly-empty">
             <span aria-hidden="true">∅</span>
@@ -2846,7 +2867,7 @@ export function mountFutardTerminal({
     const cadenceLabel = historyCadenceLabel(interval);
 
     return `
-      <section class="ft-hourly-panel" data-ft-role="proposal-history" aria-label="Proposal market chart">
+      <section class="ft-hourly-panel ft-terminal-chart-panel" data-ft-role="proposal-history" aria-label="Proposal market chart">
         ${chartHeader(history)}
         ${renderHourlyPriceChart(history, market.ticker, {
           range: state.historyRange,
@@ -3563,8 +3584,24 @@ export function mountFutardTerminal({
   function clearOwnershipChartExpansion() {
     runtime.document.body.classList.remove('chart-frame-expanded');
     regions.marketChart
-      ?.querySelector('[data-ft-role="ownership-token-chart"].is-expanded')
+      ?.querySelector('.ft-terminal-chart-panel.is-expanded')
       ?.classList.remove('is-expanded');
+  }
+
+  function toggleChartExpansion(button = null) {
+    const panel = regions.marketChart?.querySelector('.ft-terminal-chart-panel');
+    if (!panel) return;
+    const expanded = panel.classList.toggle('is-expanded');
+    runtime.document.body.classList.toggle('chart-frame-expanded', expanded);
+    if (button) {
+      button.classList.toggle('active', expanded);
+      button.setAttribute('aria-label', expanded ? 'Restore chart size' : 'Expand chart');
+      button.title = expanded ? 'Restore chart size' : 'Expand chart';
+    }
+    runtime.setTimeout(() => {
+      state.historyChart?.resize?.();
+      state.historyChart?.resetView?.();
+    }, 100);
   }
 
   function renderMarketStage() {
@@ -3581,7 +3618,7 @@ export function mountFutardTerminal({
         clearOwnershipChartExpansion();
         regions.marketChart.innerHTML = `
           <section
-            class="ft-ownership-chart-panel"
+            class="ft-ownership-chart-panel ft-terminal-chart-panel"
             data-ft-role="ownership-token-chart"
             data-ft-token="${escapeHtml(asset.token)}"
           >
@@ -5188,6 +5225,47 @@ export function mountFutardTerminal({
     `;
   }
 
+  function renderTokenAccountActivity({
+    label,
+    body,
+  }) {
+    const activityTab = ['balances', 'orders', 'trades'].includes(
+      state.ownershipActivityTab,
+    )
+      ? state.ownershipActivityTab
+      : 'balances';
+    state.ownershipActivityTab = activityTab;
+    regions.ownershipAccount.innerHTML = `
+      <section
+        class="ft-ownership-account"
+        data-ft-role="ownership-account-activity"
+        aria-label="${escapeHtml(label)} account activity"
+      >
+        <div class="ft-ownership-account-tabs" role="tablist" aria-label="Trading account views">
+          ${[
+            ['balances', 'Balances'],
+            ['orders', 'Open Orders'],
+            ['trades', 'Trade History'],
+          ].map(([key, tabLabel]) => `
+            <button
+              type="button"
+              role="tab"
+              data-ft-action="select-ownership-activity"
+              data-ft-ownership-activity="${key}"
+              aria-selected="${activityTab === key}"
+              class="${activityTab === key ? 'ft-is-active' : ''}"
+            >${tabLabel}</button>
+          `).join('')}
+        </div>
+        <div
+          class="ft-ownership-account-panel"
+          role="tabpanel"
+          data-ft-ownership-activity-panel="${escapeHtml(activityTab)}"
+        >${body}</div>
+      </section>
+    `;
+  }
+
   function renderOwnershipAccountActivity(asset, transactions) {
     const activityTab = ['balances', 'orders', 'trades'].includes(
       state.ownershipActivityTab,
@@ -5237,35 +5315,86 @@ export function mountFutardTerminal({
       accountBody = 'No indexed spot balances for this wallet';
     }
 
-    regions.ownershipAccount.innerHTML = `
-      <section
-        class="ft-ownership-account"
-        data-ft-role="ownership-account-activity"
-        aria-label="${escapeHtml(asset.ticker)} account activity"
-      >
-        <div class="ft-ownership-account-tabs" role="tablist" aria-label="Trading account views">
-          ${[
-            ['balances', 'Balances'],
-            ['orders', 'Open Orders'],
-            ['trades', 'Trade History'],
-          ].map(([key, label]) => `
-            <button
-              type="button"
-              role="tab"
-              data-ft-action="select-ownership-activity"
-              data-ft-ownership-activity="${key}"
-              aria-selected="${activityTab === key}"
-              class="${activityTab === key ? 'ft-is-active' : ''}"
-            >${label}</button>
-          `).join('')}
-        </div>
-        <div
-          class="ft-ownership-account-panel"
-          role="tabpanel"
-          data-ft-ownership-activity-panel="${escapeHtml(activityTab)}"
-        >${accountBody}</div>
-      </section>
-    `;
+    renderTokenAccountActivity({
+      label: asset.ticker,
+      body: accountBody,
+    });
+  }
+
+  function renderDecisionAccountActivity(market, transactions) {
+    const activityTab = ['balances', 'orders', 'trades'].includes(
+      state.ownershipActivityTab,
+    )
+      ? state.ownershipActivityTab
+      : 'balances';
+    const entry = state.marketDataByProposal.get(market.id);
+    const openOrders = entry?.data?.openOrders || [];
+    let accountBody = '';
+    if (!state.wallet.address) {
+      accountBody = `Connect wallet to view ${activityTab === 'orders'
+        ? 'open orders'
+        : activityTab === 'trades'
+          ? 'trade history'
+          : 'balances'}`;
+    } else if (activityTab === 'orders') {
+      accountBody = openOrders.length
+        ? `
+          <div class="ft-ownership-account-trades">
+            ${openOrders.map(order => `
+              <span class="ft-ownership-account-trade">
+                <strong data-side="${order.side === 'ask' ? 'sell' : 'buy'}">${escapeHtml(order.branch.toUpperCase())}</strong>
+                <span>${order.side === 'ask' ? 'SELL' : 'BUY'}</span>
+                <span>${formatChartPrice(order.price)}</span>
+                <span>${formatTokenAmount(order.amount, 4)}</span>
+              </span>
+            `).join('')}
+          </div>
+        `
+        : 'No open decision-market orders for this wallet';
+    } else if (activityTab === 'trades') {
+      accountBody = transactions.length
+        ? `
+          <div class="ft-ownership-account-trades">
+            ${transactions.map(transaction => `
+              <span class="ft-ownership-account-trade">
+                <strong data-side="${escapeHtml(transaction.side)}">${escapeHtml(transaction.branch.toUpperCase())}</strong>
+                <span>${formatChartPrice(transaction.price)}</span>
+                <span>${Number.isFinite(transaction.baseAmount)
+                  ? formatTokenAmount(transaction.baseAmount, 4)
+                  : Number.isFinite(transaction.volumeUsd)
+                    ? formatCompactMoney(transaction.volumeUsd)
+                    : '—'}</span>
+                <span>${transaction.blockTime
+                  ? escapeHtml(formatRelativeTime(transaction.blockTime))
+                  : '—'}</span>
+              </span>
+            `).join('')}
+          </div>
+        `
+        : 'No indexed decision-market trades for this wallet';
+    } else {
+      accountBody = state.wallet.positions.length
+        ? `
+          <div class="ft-ownership-account-trades">
+            ${state.wallet.positions.map(position => `
+              <span class="ft-ownership-account-trade">
+                <strong>${escapeHtml(position.label)}</strong>
+                <span>${position.available ? 'Available' : 'Unavailable'}</span>
+                <span>${position.available
+                  ? escapeHtml(position.amountString || formatTokenAmount(position.amount, 6))
+                  : '—'}</span>
+                <span>${escapeHtml(market.ticker)}</span>
+              </span>
+            `).join('')}
+          </div>
+        `
+        : 'No indexed decision-market balances for this wallet';
+    }
+
+    renderTokenAccountActivity({
+      label: `${market.ticker} proposal`,
+      body: accountBody,
+    });
   }
 
   function renderPositions() {
@@ -5335,6 +5464,7 @@ export function mountFutardTerminal({
     if (state.hostMode === 'token' && market) {
       const entry = state.marketDataByProposal.get(market.id);
       const transactions = entry?.data?.recentTrades || [];
+      renderDecisionAccountActivity(market, transactions);
       regions.positions.innerHTML = `
         <section
           class="ft-ownership-transactions ft-decision-transactions"
@@ -7508,6 +7638,9 @@ export function mountFutardTerminal({
           ? renderProposalChartHeader(market, history)
           : '';
       }
+    } else if (action === 'toggle-chart-expansion') {
+      event.preventDefault();
+      toggleChartExpansion(target);
     } else if (action === 'select-proposal') {
       if (state.hostMode === 'discovery') event.preventDefault();
       selectProposal(target.dataset.ftProposalId, { focus: true });

@@ -1,0 +1,231 @@
+/*
+ * Authoritative token-terminal shell.
+ *
+ * Spot and decision markets share every structural surface below. Market data
+ * may change the header metrics and chart series; only the far-right execution
+ * ticket may change its component layout.
+ */
+
+@media (min-width: 981px) {
+  html:has(body.is-token-markets [data-ft-mode="token"].ft-proposal-focus),
+  html:has(body.is-token-markets [data-ft-mode="token"].ft-proposal-focus) body {
+    width: 100%;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .app-shell {
+    height: calc(100dvh - var(--site-header-height) - var(--site-footer-height)) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .app-right,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .app-content,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .dashboard.active,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .token-markets-root {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-shell,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-main {
+    padding: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid {
+    --ft-terminal-account-height: clamp(180px, 24dvh, 224px);
+    --ft-terminal-chart-height: min(
+      480px,
+      calc(
+        100dvh
+        - var(--site-header-height)
+        - var(--site-footer-height)
+        - 45px
+        - var(--ft-terminal-account-height)
+      )
+    );
+    height: auto;
+    grid-template-columns:
+      minmax(0, 1.55fr)
+      minmax(210px, 0.55fr)
+      minmax(275px, 0.72fr);
+    grid-template-rows:
+      auto
+      var(--ft-terminal-chart-height)
+      var(--ft-terminal-account-height);
+    align-items: stretch;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart-header-region {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+    overflow: hidden;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-terminal-chart-panel,
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart .ft-hourly-chart {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart .ft-hourly-plot-shell {
+    width: 100%;
+    height: calc(100% - 42px);
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart .ft-hourly-live {
+    width: calc(100% - 42px);
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-terminal-chart-panel,
+  [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions {
+    border: 0;
+    border-right: 1px solid #343636;
+    border-bottom: 1px solid #343636;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-activity-row {
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    contain: size;
+    overflow: hidden;
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column {
+    position: static;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    grid-column: 3;
+    grid-row: 2;
+    align-content: stretch;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"] {
+    height: 100%;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-account-row {
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account {
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-panel {
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-stage {
+    display: none;
+  }
+}
+
+/* The chart toolbar has one geometry in both terminal modes. */
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar {
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  gap: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-series-control,
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-growth-control,
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+  order: -1;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-growth-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  color: #787b86;
+  opacity: 0.42;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-growth-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary {
+  margin-left: auto;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
+  cursor: pointer;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button:hover,
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button.active {
+  background: #202020;
+  color: #fff;
+}
+
+/* Both renderer hosts use the same in-page chart expansion contract. */
+body.chart-frame-expanded .ft-terminal-chart-panel.is-expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  border: 0 !important;
+  background: #101010;
+}

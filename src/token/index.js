@@ -1,5 +1,6 @@
 import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
+import '../../styles/terminal-shared.css';
 import { installBrowserTradingViewAttribution } from '../chart/tradingview-attribution.js';
 import { installBrowserAdvancedCharts } from '../charting/advanced-charts.js';
 import { landingUrl } from '../core/landing-asset.js';

@@ -1146,10 +1146,13 @@ test('proposal-first terminal renders validated market state and a safe trade in
       .querySelectorAll('.chart-tv-placeholder-button'),
   );
   assert.equal(proposalChartPlaceholders.length, 2);
-  assert.equal(proposalChartPlaceholders.every(button => button.disabled), true);
+  assert.equal(proposalChartPlaceholders.filter(button => button.disabled).length, 1);
   assert.equal(
-    proposalChartPlaceholders.some(button => button.dataset.ftAction),
-    false,
+    proposalChartPlaceholders.find(button => !button.disabled)?.dataset.ftAction,
+    'toggle-chart-expansion',
+  );
+  assert.ok(
+    byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-growth-control'),
   );
   assert.ok(requests.some(url => (
     /view=proposal-history/.test(url)
@@ -1428,6 +1431,12 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   assert.equal(
     byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-fallback'),
     null,
+  );
+  assert.deepEqual(
+    [...byRole(root, 'ownership-account-activity')
+      .querySelectorAll('[data-ft-action="select-ownership-activity"]')]
+      .map(control => control.textContent.trim()),
+    ['Balances', 'Open Orders', 'Trade History'],
   );
   const proposalRequestsBefore = requests.filter(url => /view=proposals(?:&|$)/.test(url)).length;
   assert.ok(proposalRequestsBefore > 0);
@@ -2575,6 +2584,16 @@ test('interactive history chart controls update and clean up an injected chart a
     root.querySelector('.ft-chart-crosshair-tool').getAttribute('aria-pressed'),
     'true',
   );
+
+  const expansionButton = byAction(root, 'toggle-chart-expansion');
+  const chartPanel = byRole(root, 'proposal-history');
+  expansionButton.click();
+  assert.equal(chartPanel.classList.contains('is-expanded'), true);
+  assert.equal(window.document.body.classList.contains('chart-frame-expanded'), true);
+  assert.equal(expansionButton.getAttribute('aria-label'), 'Restore chart size');
+  expansionButton.click();
+  assert.equal(chartPanel.classList.contains('is-expanded'), false);
+  assert.equal(window.document.body.classList.contains('chart-frame-expanded'), false);
 
   byAction(root, 'toggle-theme').click();
   assert.equal(activeChart.themes.at(-1), 'dark');

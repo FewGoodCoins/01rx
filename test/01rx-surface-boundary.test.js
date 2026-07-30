@@ -5,6 +5,10 @@ import test from 'node:test';
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
+const sharedTerminalCss = fs.readFileSync(
+  new URL('../styles/terminal-shared.css', import.meta.url),
+  'utf8',
+);
 const refinementCss = fs.readFileSync(
   new URL('../styles/refinements.css', import.meta.url),
   'utf8',
@@ -157,5 +161,24 @@ test('desktop decision trading keeps its action outside the scrolling ticket bod
   assert.match(
     frameCss,
     /\.ft-proposal-focus \.ft-decision-action\s*\{[\s\S]*?z-index: 4;[\s\S]*?background: #111111;/,
+  );
+});
+
+test('spot and decision routes share one authoritative desktop terminal geometry', () => {
+  assert.match(
+    sharedTerminalCss,
+    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-terminal-grid\s*\{[\s\S]*?grid-template-columns:[\s\S]*?minmax\(0, 1\.55fr\)[\s\S]*?minmax\(210px, 0\.55fr\)[\s\S]*?minmax\(275px, 0\.72fr\);/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /grid-template-rows:\s*auto\s*var\(--ft-terminal-chart-height\)\s*var\(--ft-terminal-account-height\);/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-account-row\s*\{[\s\S]*?display: block;[\s\S]*?grid-row: 3;/,
+  );
+  assert.doesNotMatch(
+    sharedTerminalCss,
+    /\.ft-(?:ownership|live|archive)-market \.ft-terminal-grid/,
   );
 });
