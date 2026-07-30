@@ -2503,6 +2503,7 @@ export function mountFutardTerminal({
         range: state.historyRange,
         launchedAt: market.proposal.createdAt,
         windowEndedAt: market.proposal.endsAt,
+        isLive: market.proposal.statusGroup === 'live',
       }) || null;
       if (!state.historyChart) {
         showHourlyChartMountError(chartRoot);

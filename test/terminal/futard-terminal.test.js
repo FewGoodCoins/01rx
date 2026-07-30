@@ -921,6 +921,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     PROPOSAL_HISTORY_SERIES,
     interpolateChartTimeCoordinate,
     proposalChartData,
+    proposalChartEndpoint,
     proposalLaunchSeriesMarker,
     splitProposalChartSeries,
   } = await loadProposalChartModule();
@@ -973,6 +974,14 @@ test('TradingView chart adapter splits null values and missing hours into honest
   );
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
   assert.deepEqual(
+    proposalChartEndpoint(points, 'passPrice'),
+    {
+      time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+      value: 4.8,
+    },
+  );
+  assert.equal(proposalChartEndpoint(points, 'failPrice'), null);
+  assert.deepEqual(
     proposalLaunchSeriesMarker({
       chartTimestamp: '2026-06-16T09:30:00.000Z',
       underlyingPrice: 4.4,
@@ -984,7 +993,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
       price: 4.4,
       shape: 'circle',
       color: '#ffffff',
-      size: 1.3,
+      size: 0.5,
     },
   );
 });
@@ -1744,6 +1753,7 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
   assert.ok(
     readyChart.querySelector('[data-ft-role="proposal-history-tradingview"]'),
   );
+  assert.equal(chartMounts[0].isLive, false);
 
   cleanupMount(mounted);
 });
@@ -2484,6 +2494,7 @@ test('interactive history chart controls update and clean up an injected chart a
   const activeChart = charts[charts.length - 1];
   assert.equal(activeChart.options.ticker, 'LOYAL');
   assert.equal(activeChart.options.history.series.length, 16);
+  assert.equal(activeChart.options.isLive, true);
   assert.equal(
     byRole(root, 'proposal-history-chart')
       .classList.contains('ft-hourly-chart-pending'),
