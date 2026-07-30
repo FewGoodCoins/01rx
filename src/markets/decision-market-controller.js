@@ -13,11 +13,6 @@ const HISTORY_INTERVAL_MS = Object.freeze({
   '15m': 15 * 60 * 1_000,
   '1h': 60 * 60 * 1_000,
 });
-const HISTORY_RANGE_OPTIONS = Object.freeze([
-  { value: '24h', label: '1D', menuLabel: '1 day' },
-  { value: '48h', label: '2D', menuLabel: '2 days' },
-  { value: 'all', label: 'ALL', menuLabel: 'All time' },
-]);
 const RETAINED_PROPOSAL_HISTORY_IDS = new Set([
   '98zXsz1RtvYw4zHrxaZDdGBU3BgqfsX9XJbXBLSJUBST',
 ]);
@@ -802,21 +797,6 @@ function renderTradingViewToolbarPreview() {
           <path d="m6 9 6 6 6-6"/>
         </svg>
       </button>
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-annotations chart-tv-placeholder-divider" type="button" disabled aria-label="Hide annotations placeholder" title="Hide annotations">
-        <span>Hide annotations</span>
-      </button>
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-history" type="button" disabled aria-label="TradingView undo placeholder" title="TradingView undo">
-        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m10.5 8-5 5 5 5"/>
-          <path d="M6 13h9.5c4 0 6.5 2.7 6.5 7"/>
-        </svg>
-      </button>
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-history chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView redo placeholder" title="TradingView redo">
-        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m17.5 8 5 5-5 5"/>
-          <path d="M22 13h-9.5C8.5 13 6 15.7 6 20"/>
-        </svg>
-      </button>
     </div>
     <div
       class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
@@ -840,12 +820,6 @@ function renderTradingViewToolbarPreview() {
           <path d="M10 4.5H4.5V10M18 4.5h5.5V10M10 23.5H4.5V18M18 23.5h5.5V18"/>
         </svg>
       </button>
-      <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView snapshot placeholder" title="TradingView snapshot">
-        <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true">
-          <path d="m9.25 7.5 1.5-2h8.5l1.5 2h4.75a2 2 0 0 1 2 2v13.5H2.5V9.5a2 2 0 0 1 2-2z"/>
-          <circle cx="15" cy="15.25" r="5"/>
-        </svg>
-      </button>
     </div>
   `;
 }
@@ -864,9 +838,6 @@ function renderProposalChartStatusShell({
       aria-busy="${failed ? 'false' : 'true'}"
     >
       <div class="ft-hourly-toolbar" aria-hidden="true">
-        <div class="ft-hourly-range">
-          <button class="ft-hourly-range-trigger" type="button" disabled>ALL</button>
-        </div>
         <div class="ft-hourly-series-control">
           <button class="ft-hourly-style-cell" type="button" disabled tabindex="-1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -928,12 +899,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   );
   const coverage = history.summary?.coverage || {};
   const visibility = isObject(options.visibility) ? options.visibility : {};
-  const selectedRange = ['24h', '48h', 'all'].includes(options.range)
-    ? options.range
-    : 'all';
-  const selectedRangeOption = HISTORY_RANGE_OPTIONS.find(option => (
-    option.value === selectedRange
-  )) || HISTORY_RANGE_OPTIONS[HISTORY_RANGE_OPTIONS.length - 1];
   const latestPass = latestValue('passPrice');
   const latestFail = latestValue('failPrice');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
@@ -945,35 +910,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
       aria-busy="true"
     >
       <div class="ft-hourly-toolbar">
-        <div class="ft-hourly-range" data-ft-role="hourly-range-select">
-          <button
-            class="ft-hourly-range-trigger"
-            type="button"
-            data-ft-action="toggle-hourly-range-menu"
-            data-ft-role="hourly-range-trigger"
-            aria-label="Chart timeframe: ${escapeHtml(selectedRangeOption.label)}"
-            aria-haspopup="menu"
-            aria-expanded="false"
-          >${escapeHtml(selectedRangeOption.label)}</button>
-          <div
-            class="ft-hourly-range-menu"
-            data-ft-role="hourly-range-menu"
-            role="menu"
-            aria-label="Chart timeframe"
-            hidden
-          >
-          ${HISTORY_RANGE_OPTIONS.map(option => `
-            <button
-              class="ft-hourly-range-option${selectedRange === option.value ? ' ft-is-active' : ''}"
-              type="button"
-              role="menuitemradio"
-              data-ft-action="hourly-range"
-              data-ft-range="${escapeHtml(option.value)}"
-              aria-checked="${selectedRange === option.value}"
-            >${escapeHtml(option.menuLabel)}</button>
-          `).join('')}
-          </div>
-        </div>
         <div class="ft-hourly-series-control" data-ft-role="hourly-series-control">
           <button
             class="ft-hourly-style-cell"
@@ -6971,29 +6907,11 @@ export function mountFutardTerminal({
     }
   }
 
-  function setHourlyRangeMenuOpen(open, options = {}) {
-    const menu = root.querySelector('[data-ft-role="hourly-range-menu"]');
-    const trigger = root.querySelector('[data-ft-role="hourly-range-trigger"]');
-    if (!menu || !trigger) return;
-    const shouldOpen = Boolean(open);
-    if (shouldOpen) setHourlySeriesMenuOpen(false);
-    menu.hidden = !shouldOpen;
-    trigger.setAttribute('aria-expanded', String(shouldOpen));
-    if (shouldOpen && options.focusSelection) {
-      const selected = menu.querySelector('[role="menuitemradio"][aria-checked="true"]')
-        || menu.querySelector('[role="menuitemradio"]');
-      selected?.focus();
-    } else if (!shouldOpen && options.restoreFocus) {
-      trigger.focus();
-    }
-  }
-
   function setHourlySeriesMenuOpen(open, options = {}) {
     const menu = root.querySelector('[data-ft-role="hourly-series-menu"]');
     const trigger = root.querySelector('[data-ft-role="hourly-series-trigger"]');
     if (!menu || !trigger) return;
     const shouldOpen = Boolean(open);
-    if (shouldOpen) setHourlyRangeMenuOpen(false);
     menu.hidden = !shouldOpen;
     trigger.setAttribute('aria-expanded', String(shouldOpen));
     if (shouldOpen && options.focusSelection) {
@@ -7004,21 +6922,6 @@ export function mountFutardTerminal({
     } else if (!shouldOpen && options.restoreFocus) {
       trigger.focus();
     }
-  }
-
-  function syncHourlyRangeSelector(range) {
-    const selected = HISTORY_RANGE_OPTIONS.find(option => option.value === range)
-      || HISTORY_RANGE_OPTIONS[HISTORY_RANGE_OPTIONS.length - 1];
-    const trigger = root.querySelector('[data-ft-role="hourly-range-trigger"]');
-    if (trigger) {
-      trigger.textContent = selected.label;
-      trigger.setAttribute('aria-label', `Chart timeframe: ${selected.label}`);
-    }
-    root.querySelectorAll('[data-ft-action="hourly-range"]').forEach((button) => {
-      const active = button.dataset.ftRange === selected.value;
-      button.classList.toggle('ft-is-active', active);
-      button.setAttribute('aria-checked', String(active));
-    });
   }
 
   async function selectSidebarProposal(anchor) {
@@ -7068,11 +6971,6 @@ export function mountFutardTerminal({
       event.preventDefault();
       void selectSidebarProposal(sidebarProposal);
       return;
-    }
-    const rangeSelector = root.querySelector('[data-ft-role="hourly-range-select"]');
-    const rangeMenu = root.querySelector('[data-ft-role="hourly-range-menu"]');
-    if (rangeSelector && rangeMenu && !rangeMenu.hidden && !rangeSelector.contains(event.target)) {
-      setHourlyRangeMenuOpen(false);
     }
     const seriesSelector = root.querySelector('[data-ft-role="hourly-series-control"]');
     const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
@@ -7162,21 +7060,10 @@ export function mountFutardTerminal({
       root.querySelectorAll(`[data-ft-series="${field}"]`).forEach((series) => {
         series.classList.toggle('ft-is-hidden', !nextVisible);
       });
-    } else if (action === 'toggle-hourly-range-menu') {
-      event.preventDefault();
-      const menu = root.querySelector('[data-ft-role="hourly-range-menu"]');
-      setHourlyRangeMenuOpen(menu?.hidden !== false, { focusSelection: true });
     } else if (action === 'toggle-hourly-series-menu') {
       event.preventDefault();
       const menu = root.querySelector('[data-ft-role="hourly-series-menu"]');
       setHourlySeriesMenuOpen(menu?.hidden !== false, { focusSelection: true });
-    } else if (action === 'hourly-range') {
-      const range = target.dataset.ftRange;
-      if (!['24h', '48h', 'all'].includes(range)) return;
-      state.historyRange = range;
-      state.historyChart?.setRange?.(range);
-      syncHourlyRangeSelector(range);
-      setHourlyRangeMenuOpen(false, { restoreFocus: true });
     } else if (action === 'hourly-chart-tool') {
       const tool = target.dataset.ftChartTool;
       if (tool === 'zoom-in') {
@@ -7185,19 +7072,10 @@ export function mountFutardTerminal({
         state.historyChart?.zoomOut?.();
       } else if (tool === 'reset') {
         state.historyChart?.resetView?.();
-        root.querySelectorAll('[data-ft-action="hourly-range"]').forEach((button) => {
-          const active = button.dataset.ftRange === state.historyRange;
-          button.classList.toggle('ft-is-active', active);
-          button.setAttribute('aria-checked', String(active));
-        });
         return;
       } else {
         return;
       }
-      root.querySelectorAll('[data-ft-action="hourly-range"]').forEach((button) => {
-        button.classList.remove('ft-is-active');
-        button.setAttribute('aria-checked', 'false');
-      });
     } else if (action === 'load-more-proposals') {
       loadMoreProposals();
     } else if (action === 'clear-search') {
@@ -7456,25 +7334,18 @@ export function mountFutardTerminal({
   }
 
   function handleKeydown(event) {
-    const rangeMenu = root.querySelector('[data-ft-role="hourly-range-menu"]');
     const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
-    const activeMenu = rangeMenu && !rangeMenu.hidden
-      ? rangeMenu
-      : (seriesMenu && !seriesMenu.hidden ? seriesMenu : null);
+    const activeMenu = seriesMenu && !seriesMenu.hidden ? seriesMenu : null;
     if (activeMenu) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        if (activeMenu === seriesMenu) {
-          setHourlySeriesMenuOpen(false, { restoreFocus: true });
-        } else {
-          setHourlyRangeMenuOpen(false, { restoreFocus: true });
-        }
+        setHourlySeriesMenuOpen(false, { restoreFocus: true });
         return;
       }
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
         const options = Array.from(
           activeMenu.querySelectorAll(
-            '[role="menuitemradio"]:not([disabled]), [role="menuitemcheckbox"]:not([disabled])',
+            '[role="menuitemcheckbox"]:not([disabled])',
           ),
         );
         if (options.length) {
