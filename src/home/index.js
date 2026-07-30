@@ -1,6 +1,7 @@
 import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
 import { landingUrl } from '../core/landing-asset.js';
+import { revealMarketWorkspace } from '../core/market-boot.js';
 import { isFutarchyTerminalPath } from '../core/page-entry.js';
 import { mountFutardTerminal } from '../markets/decision-market-controller.js';
 import { createProposalHistoryChart } from '../markets/proposal-history-chart.js';
@@ -130,6 +131,7 @@ export async function loadLegacyPage({ loadClassicScript }) {
     createProposalHistoryChart,
     mode: 'discovery',
   });
+  revealMarketWorkspace(document);
   // The classic landing bootstrap sets its own homepage title while loading.
   // Re-apply Markets metadata after that bootstrap has completed.
   installMarketsMetadata(window);

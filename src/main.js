@@ -3,6 +3,10 @@ import { installBrowserApi } from './core/api-client.js';
 import { installBrowserAuth } from './core/auth.js';
 import { installDefault01rxRoute } from './core/default-route.js';
 import { installBrowserEmbed } from './core/embed.js';
+import {
+  failMarketWorkspaceBoot,
+  markMarketWorkspacePending,
+} from './core/market-boot.js';
 import { bootPageApplication, createPageEntryLoader } from './core/page-entry.js';
 import { installBrowserTelemetry } from './core/telemetry.js';
 import projectMetadata from './generated/project-metadata.js';
@@ -10,6 +14,7 @@ import { installBrowserShell } from './shell/index.js';
 import appCoreUrl from './legacy/app-core.js?url';
 
 installDefault01rxRoute(window);
+markMarketWorkspacePending(document);
 document.documentElement.classList.remove('app-css-pending');
 
 function loadClassicScript(src) {
@@ -42,6 +47,7 @@ installBrowserEmbed(window);
 const loadPageEntry = createPageEntryLoader();
 window.NAVGATOR.ready = bootLegacyApplication();
 window.NAVGATOR.ready.catch((error) => {
+  failMarketWorkspaceBoot(document);
   console.error('[01RX] Frontend boot failed', error);
   window.dispatchEvent(new CustomEvent('01rx:boot-error', { detail: error }));
 });

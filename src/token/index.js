@@ -2,6 +2,7 @@ import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
 import { installBrowserAdvancedCharts } from '../charting/advanced-charts.js';
 import { landingUrl } from '../core/landing-asset.js';
+import { revealMarketWorkspace } from '../core/market-boot.js';
 import tokenPageUrl from '../legacy/token-page.js?url';
 import { installBrowserTokenPage } from './runtime.js';
 
@@ -117,6 +118,7 @@ export async function loadLegacyPage({ loadClassicScript }) {
     mode: 'token',
     token,
   });
+  revealMarketWorkspace(document);
   installTokenWorkspaceMetadata(window, token, marketTab);
   await window.NAVGATOR.marketWorkspace.ready;
   installTokenWorkspaceMetadata(window, token, marketTab);
