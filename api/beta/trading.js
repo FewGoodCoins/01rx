@@ -51,6 +51,23 @@ function failure(message, code) {
   };
 }
 
+function safeErrorText(value) {
+  return String(value || '')
+    .replace(/([?&]api-key=)[^&\s"'<>]+/gi, '$1[redacted]')
+    .replace(/https:\/\/[^?\s"'<>]+\?[^ \n\r"'<>]+/gi, '[redacted-url]')
+    .slice(0, 500);
+}
+
+function logServerError(logger, error, statusCode) {
+  if (statusCode < 500 || typeof logger?.error !== 'function') return;
+  logger.error('[01rx-trading-error]', {
+    code: safeErrorText(error?.code || 'INTERNAL_ERROR'),
+    message: safeErrorText(error?.message || 'Unknown server error'),
+    name: safeErrorText(error?.name || 'Error'),
+    statusCode,
+  });
+}
+
 function requestUrl(request) {
   return new URL(String(request.url || '/api/beta/trading'), 'https://01rx.invalid');
 }
@@ -156,6 +173,7 @@ function setRateLimitHeaders(response, result) {
 export function createTradingHandler(options = {}) {
   const service = options.service || defaultService;
   const now = options.now || (() => Date.now());
+  const logger = options.logger || console;
 
   return async function tradingHandler(request, response) {
     response.setHeader('Cache-Control', 'private, no-store');
@@ -218,6 +236,7 @@ export function createTradingHandler(options = {}) {
       sendJson(response, 200, envelope(data));
     } catch (error) {
       const statusCode = Number(error?.statusCode) || 500;
+      logServerError(logger, error, statusCode);
       if (statusCode >= 500) {
         response.setHeader('X-NAVgator-Degraded', 'true');
         response.setHeader('X-NAVgator-Degraded-Services', 'dflow-trading');
@@ -241,3 +260,7 @@ export function createTradingHandler(options = {}) {
 export const tradingHandler = createTradingHandler();
 
 export default tradingHandler;
+
+export {
+  safeErrorText,
+};

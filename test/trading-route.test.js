@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRelayHandler } from '../api/relay.js';
-import { createTradingHandler } from '../api/beta/trading.js';
+import {
+  createTradingHandler,
+  safeErrorText,
+} from '../api/beta/trading.js';
 import { tradingError } from '../api/_lib/dflow-spot-order.js';
 
 function responseRecorder() {
@@ -96,7 +99,14 @@ test('trading route rejects unknown query fields and non-JSON content', async ()
 });
 
 test('trading route preserves guarded service errors and hides unexpected failures', async () => {
+  const logs = [];
+  const logger = {
+    error(...args) {
+      logs.push(args);
+    },
+  };
   const guarded = createTradingHandler({
+    logger,
     service: {
       async spotOrder() {
         throw tradingError(
@@ -115,9 +125,12 @@ test('trading route preserves guarded service errors and hides unexpected failur
   assert.equal(guardedResponse.headers['x-navgator-degraded'], 'true');
 
   const unexpected = createTradingHandler({
+    logger,
     service: {
       async spotOrder() {
-        throw new Error('secret internal failure');
+        throw new Error(
+          'RPC failed https://mainnet.helius-rpc.com/?api-key=must-not-log',
+        );
       },
     },
   });
@@ -125,7 +138,18 @@ test('trading route preserves guarded service errors and hides unexpected failur
   await unexpected(request('spot-order'), unexpectedResponse);
   assert.equal(unexpectedResponse.statusCode, 500);
   assert.equal(unexpectedResponse.body.error, 'Ownership trading is temporarily unavailable');
-  assert.doesNotMatch(JSON.stringify(unexpectedResponse.body), /secret internal failure/);
+  assert.doesNotMatch(JSON.stringify(unexpectedResponse.body), /must-not-log/);
+  assert.match(JSON.stringify(logs), /\[redacted-url\]/);
+  assert.doesNotMatch(JSON.stringify(logs), /must-not-log/);
+});
+
+test('server diagnostics redact API keys before logging', () => {
+  assert.equal(
+    safeErrorText(
+      'failed https://mainnet.helius-rpc.com/?api-key=helius-secret&mode=test',
+    ),
+    'failed [redacted-url]',
+  );
 });
 
 test('Vercel wildcard relay dispatches trading locally and keeps data on NAVgator', async () => {
