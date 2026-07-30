@@ -99,3 +99,22 @@ test('desktop spot trading stays within the viewport without document scrolling'
     /\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?grid-template-rows:\s*auto\s*minmax\(0, 1fr\)\s*clamp\(180px, 24dvh, 224px\);/,
   );
 });
+
+test('desktop decision trading keeps its action outside the scrolling ticket body', () => {
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus\.ft-live-market \.ft-ticket-column,[\s\S]*?grid-template-rows: minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-decision-ticket-scroll\s*\{[\s\S]*?flex-direction: column;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus \.ft-decision-ticket-scroll\s*\{[\s\S]*?overflow-y: scroll;[\s\S]*?scrollbar-gutter: stable;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus \.ft-decision-action\s*\{[\s\S]*?z-index: 4;[\s\S]*?background: #111111;/,
+  );
+});
