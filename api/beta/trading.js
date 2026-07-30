@@ -7,18 +7,26 @@ import {
   createDflowSpotOrderService,
   tradingError,
 } from '../_lib/dflow-spot-order.js';
+import {
+  createDecisionAttributionService,
+} from '../_lib/decision-attribution.js';
 
 const MAX_REQUEST_BYTES = 128 * 1024;
 const RATE_LIMITS = Object.freeze({
+  'decision-attest': Object.freeze({ limit: 30, windowMs: 60_000 }),
   'spot-order': Object.freeze({ limit: 60, windowMs: 60_000 }),
   'spot-submit': Object.freeze({ limit: 10, windowMs: 60_000 }),
 });
 const ENDPOINTS = Object.freeze({
+  'decision-attest': getEndpoint('trading.decisionAttest'),
   'spot-order': getEndpoint('trading.spotOrder'),
   'spot-submit': getEndpoint('trading.spotSubmit'),
 });
 const buckets = new Map();
-const defaultService = createDflowSpotOrderService();
+const defaultService = Object.freeze({
+  ...createDflowSpotOrderService(),
+  ...createDecisionAttributionService(),
+});
 
 function responseStatus(response, statusCode) {
   if (typeof response.status === 'function') return response.status(statusCode);
@@ -231,16 +239,25 @@ export function createTradingHandler(options = {}) {
 
     try {
       const body = await parseRequestBody(request);
-      const data = view === 'spot-order'
-        ? await service.spotOrder(body)
-        : await service.spotSubmit(body);
+      const operation = view === 'decision-attest'
+        ? service.decisionAttest
+        : view === 'spot-order'
+          ? service.spotOrder
+          : service.spotSubmit;
+      if (typeof operation !== 'function') {
+        throw tradingError('Trading operation is unavailable', 'TRADING_NOT_CONFIGURED', 503);
+      }
+      const data = await operation.call(service, body);
       sendJson(response, 200, envelope(data));
     } catch (error) {
       const statusCode = Number(error?.statusCode) || 500;
       logServerError(logger, error, statusCode);
       if (statusCode >= 500) {
         response.setHeader('X-NAVgator-Degraded', 'true');
-        response.setHeader('X-NAVgator-Degraded-Services', 'dflow-trading');
+        response.setHeader(
+          'X-NAVgator-Degraded-Services',
+          view === 'decision-attest' ? 'decision-attribution' : 'dflow-trading',
+        );
       }
       sendJson(
         response,
@@ -250,7 +267,9 @@ export function createTradingHandler(options = {}) {
             ? error.message
             : error.statusCode
               ? error.message
-              : 'Ownership trading is temporarily unavailable',
+              : view === 'decision-attest'
+                ? 'Decision-market attribution is temporarily unavailable'
+                : 'Ownership trading is temporarily unavailable',
           error.code || 'INTERNAL_ERROR',
         ),
       );

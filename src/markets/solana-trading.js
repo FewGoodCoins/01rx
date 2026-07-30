@@ -1,4 +1,5 @@
 import { AnchorProvider } from '@coral-xyz/anchor';
+import { DECISION_ATTRIBUTION } from '@01resolved/contracts';
 
 // Loaded lazily by the shared decision-market controller after explicit intent.
 import {
@@ -20,6 +21,7 @@ import {
 import {
   ComputeBudgetProgram,
   Connection,
+  PACKET_DATA_SIZE,
   PublicKey,
   SystemInstruction,
   SystemProgram,
@@ -60,6 +62,7 @@ const MANIFEST_WRAPPER_PROGRAM_ID = new PublicKey(
 const FUTARCHY_V0_6_PROGRAM_ID = new PublicKey(
   'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq',
 );
+const MEMO_PROGRAM_ID = new PublicKey(DECISION_ATTRIBUTION.memoProgramId);
 const RECURRING_SCHEDULE_SEED = Buffer.from('schedule');
 const RECURRING_SCHEDULE_SPACE = 356;
 const RECURRING_INITIALIZE_DISCRIMINATOR = Buffer.from([
@@ -114,6 +117,22 @@ function publicKeyAddress(value) {
   if (!value) return '';
   const address = typeof value.toBase58 === 'function' ? value.toBase58() : String(value);
   return safeAddress(address);
+}
+
+function transactionInstructionEquals(left, right) {
+  return (
+    left?.programId?.equals?.(right?.programId)
+    && Buffer.from(left?.data || []).equals(Buffer.from(right?.data || []))
+    && left.keys?.length === right.keys?.length
+    && left.keys.every((meta, index) => {
+      const candidate = right.keys[index];
+      return (
+        meta.pubkey.equals(candidate?.pubkey)
+        && meta.isSigner === candidate.isSigner
+        && meta.isWritable === candidate.isWritable
+      );
+    })
+  );
 }
 
 function walletSupportsMainnet(wallet) {
@@ -983,16 +1002,6 @@ export function quoteManifestOrderbook({
   };
 }
 
-export function selectDecisionSwapRoute(ammQuote, manifestQuote) {
-  if (
-    manifestQuote?.fullFill === true
-    && BigInt(manifestQuote.outputRaw || 0) > BigInt(ammQuote?.outputRaw || 0)
-  ) {
-    return 'manifest';
-  }
-  return 'amm';
-}
-
 function requireAddress(value, label) {
   const address = safeAddress(value);
   if (!address) throw new Error(`${label} is not a valid Solana address`);
@@ -1651,9 +1660,6 @@ export async function buildConditionalSwapPlan({
   side,
   amount,
   slippageBps,
-  marketAddress = '',
-  expectedBaseMint = '',
-  expectedQuoteMint = '',
 }) {
   if (!(connection instanceof Connection)) throw new Error('Solana connection is required');
   if (outcome !== 'pass' && outcome !== 'fail') throw new Error('Select PASS or FAIL');
@@ -1789,62 +1795,60 @@ export async function buildConditionalSwapPlan({
     ? await connection.getMinimumBalanceForRentExemption(ACCOUNT_SIZE, 'confirmed')
     : 0;
   const accountRentLamports = accountRentPerAccount * missingAccountCount;
-
-  let manifestClient = null;
-  let manifestQuote = null;
-  const verifiedManifestAddress = safeAddress(marketAddress);
-  if (verifiedManifestAddress) {
-    const manifestMarket = new PublicKey(verifiedManifestAddress);
-    const expectedBookBaseMint = requireAddress(
-      expectedBaseMint,
-      'Order-book base mint',
+  if (missingAccountCount > 0) {
+    const setupTransaction = new Transaction().add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+      ...setupAccounts
+        .filter((spec, index) => !setupAccountInfos[index])
+        .map(spec => createAssociatedTokenAccountIdempotentInstruction(
+          trader,
+          spec.account,
+          trader,
+          spec.mint,
+        )),
     );
-    const expectedBookQuoteMint = requireAddress(
-      expectedQuoteMint,
-      'Order-book quote mint',
-    );
-    const selectedBaseMint = outcome === 'pass'
-      ? derived.passBaseMint
-      : derived.failBaseMint;
-    const selectedQuoteMint = outcome === 'pass'
-      ? derived.passQuoteMint
-      : derived.failQuoteMint;
-    assertDerivedMint(selectedBaseMint, expectedBookBaseMint, 'Order-book base mint');
-    assertDerivedMint(selectedQuoteMint, expectedBookQuoteMint, 'Order-book quote mint');
-    const manifestAccountInfo = await connection.getAccountInfo(
-      manifestMarket,
-      'confirmed',
-    );
-    assertProgramAccount(
-      manifestAccountInfo,
-      MANIFEST_PROGRAM_ID,
-      'Manifest market',
-    );
-    manifestClient = await ManifestClient.getClientReadOnly(
+    const setupFinalized = await finalizeTransaction(
+      setupTransaction,
       connection,
-      manifestMarket,
       trader,
     );
-    if (
-      !manifestClient.market.baseMint().equals(expectedBookBaseMint)
-      || !manifestClient.market.quoteMint().equals(expectedBookQuoteMint)
-      || manifestClient.market.baseDecimals() !== baseDecimals
-      || manifestClient.market.quoteDecimals() !== quoteDecimals
-    ) {
-      throw new Error('Manifest market does not match the selected proposal');
-    }
-    manifestQuote = quoteManifestOrderbook({
-      amountRaw: ammQuote.inputRaw,
-      inputDecimals,
-      outputDecimals,
-      side,
-      bids: manifestClient.market.bids(),
-      asks: manifestClient.market.asks(),
-      slippageBps,
-    });
+    return {
+      kind: 'conditional-setup',
+      ...setupFinalized,
+      additionalSigners: [],
+      resume: Object.freeze({
+        amount,
+        market,
+        outcome,
+        side,
+        slippageBps,
+        walletAddress,
+      }),
+      summary: {
+        cluster: MAINNET_CHAIN,
+        venue: 'MetaDAO conditional vault',
+        action: 'SET UP PASS/FAIL TOKEN ACCOUNTS',
+        amountIn: 'No trade in this transaction',
+        inputMint: underlyingInputMint.toBase58(),
+        inputAccount: underlyingInputAccount.toBase58(),
+        minimumAmountOut: null,
+        estimatedAmountOut: `${missingAccountCount} token account${missingAccountCount === 1 ? '' : 's'} created`,
+        outputMint: setupAccounts
+          .filter((spec, index) => !setupAccountInfos[index])
+          .map(spec => spec.mint.toBase58())
+          .join(','),
+        recipient: trader.toBase58(),
+        feePayer: trader.toBase58(),
+        programIds: [ASSOCIATED_TOKEN_PROGRAM_ID.toBase58()],
+        setupRequired: true,
+        networkFeeSol: setupFinalized.networkFeeSol,
+        accountRentSol: accountRentLamports / 1_000_000_000,
+        note: 'Creates only the missing conditional token accounts. After confirmation, 01RX prepares the zero-fee attributed MetaDAO swap for a separate review.',
+      },
+    };
   }
-  const route = selectDecisionSwapRoute(ammQuote, manifestQuote);
-  const quote = route === 'manifest' ? manifestQuote : ammQuote;
+
+  const quote = ammQuote;
   const splitInstruction = await client.vaultClient.splitTokensIx(
     derived.question,
     underlyingVault,
@@ -1854,33 +1858,20 @@ export async function buildConditionalSwapPlan({
     trader,
     trader,
   ).instruction();
-  const swapInstruction = route === 'manifest'
-    ? manifestClient.swapIx(trader, {
-      inAtoms: ammQuote.inputRaw,
-      outAtoms: quote.minimumOutputRaw,
-      isBaseIn: side === 'sell',
-      isExactIn: true,
-    })
-    : await client.conditionalSwapIx({
-      dao,
-      trader,
-      payer: trader,
-      baseMint,
-      quoteMint,
-      proposal,
-      market: outcome,
-      swapType: side,
-      inputAmount: new BN(ammQuote.inputRaw.toString()),
-      minOutputAmount: new BN(quote.minimumOutputRaw.toString()),
-    }).instruction();
+  const swapInstruction = await client.conditionalSwapIx({
+    dao,
+    trader,
+    payer: trader,
+    baseMint,
+    quoteMint,
+    proposal,
+    market: outcome,
+    swapType: side,
+    inputAmount: new BN(ammQuote.inputRaw.toString()),
+    minOutputAmount: new BN(quote.minimumOutputRaw.toString()),
+  }).instruction();
   const transaction = new Transaction().add(
     ComputeBudgetProgram.setComputeUnitLimit({ units: 650_000 }),
-    ...setupAccounts.map(spec => createAssociatedTokenAccountIdempotentInstruction(
-      trader,
-      spec.account,
-      trader,
-      spec.mint,
-    )),
     splitInstruction,
     swapInstruction,
   );
@@ -1895,12 +1886,19 @@ export async function buildConditionalSwapPlan({
     kind: 'swap',
     ...finalized,
     additionalSigners: [],
+    attributionIntent: Object.freeze({
+      inputAmountRaw: ammQuote.inputRaw.toString(),
+      minimumOutputAmountRaw: quote.minimumOutputRaw.toString(),
+      outcome,
+      proposal: proposal.toBase58(),
+      side,
+      trader: trader.toBase58(),
+      venue: 'futarchy_amm',
+    }),
     quote,
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: route === 'manifest'
-        ? 'Manifest order book'
-        : 'MetaDAO v0.6 AMM',
+      venue: 'MetaDAO v0.6 AMM',
       action: `${side.toUpperCase()} ${outcome.toUpperCase()}`,
       amountIn: `${String(amount)} ${inputSymbol}`,
       inputMint: underlyingInputMint.toBase58(),
@@ -1912,15 +1910,13 @@ export async function buildConditionalSwapPlan({
       feePayer: trader.toBase58(),
       programIds: [
         vaultProgramId.toBase58(),
-        route === 'manifest'
-          ? MANIFEST_PROGRAM_ID.toBase58()
-          : FUTARCHY_V0_6_PROGRAM_ID.toBase58(),
+        FUTARCHY_V0_6_PROGRAM_ID.toBase58(),
       ],
       slippageBps: Number(slippageBps),
       setupRequired: missingAccountCount > 0,
       networkFeeSol: finalized.networkFeeSol,
       accountRentSol: accountRentLamports / 1_000_000_000,
-      note: `Splits ${inputSymbol} into PASS/FAIL claims, executes the better fully fillable verified ${route === 'manifest' ? 'Manifest book' : 'MetaDAO AMM'} route, and leaves the complementary claim in your wallet.`,
+      note: `Splits ${inputSymbol} into PASS/FAIL claims, executes through the MetaDAO Futarchy AMM, and leaves the complementary claim in your wallet.`,
     },
   };
 }
@@ -3190,6 +3186,129 @@ export function describeSolanaError(error) {
   };
 }
 
+export function decisionAttributionRequest(plan) {
+  if (
+    plan?.kind !== 'swap'
+    || !(plan.transaction instanceof Transaction)
+    || plan.attributionIntent?.venue !== 'futarchy_amm'
+  ) {
+    throw new Error('A MetaDAO decision swap is required for 01RX attribution');
+  }
+  const transaction = plan.transaction;
+  if (
+    transaction.signatures.length > 1
+    || transaction.signatures.some(entry => (
+      entry.signature
+      && !Buffer.from(entry.signature).every(byte => byte === 0)
+    ))
+  ) {
+    throw new Error('Decision attribution requires one unsigned wallet fee payer');
+  }
+  const wireBytes = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+  if (wireBytes.length > PACKET_DATA_SIZE) {
+    throw new Error('Decision transaction exceeds Solana transaction size limits');
+  }
+  return {
+    transaction: Buffer.from(wireBytes).toString('base64'),
+  };
+}
+
+export async function applyDecisionAttribution(connection, plan, payload) {
+  if (!(connection instanceof Connection)) throw new Error('Solana connection is required');
+  const request = decisionAttributionRequest(plan);
+  const authorityAddress = safeAddress(payload?.authority);
+  const intent = plan.attributionIntent || {};
+  if (
+    !authorityAddress
+    || payload?.cluster !== MAINNET_CHAIN
+    || payload?.marker !== DECISION_ATTRIBUTION.marker
+    || payload?.version !== DECISION_ATTRIBUTION.version
+    || payload?.feeBps !== DECISION_ATTRIBUTION.feeBps
+    || payload?.proposal !== intent.proposal
+    || payload?.trader !== intent.trader
+    || payload?.outcome !== intent.outcome
+    || payload?.side !== intent.side
+    || payload?.inputAmountRaw !== intent.inputAmountRaw
+    || payload?.minimumOutputAmountRaw !== intent.minimumOutputAmountRaw
+  ) {
+    throw new Error('01RX attribution does not match the reviewed decision swap');
+  }
+  const encoded = String(payload?.transaction || '').trim();
+  let attributed;
+  try {
+    const wireBytes = Buffer.from(encoded, 'base64');
+    if (
+      !wireBytes.length
+      || wireBytes.length > PACKET_DATA_SIZE
+      || wireBytes.toString('base64') !== encoded
+    ) {
+      throw new Error('invalid wire bytes');
+    }
+    attributed = Transaction.from(wireBytes);
+  } catch (_) {
+    throw new Error('01RX returned an invalid attributed transaction');
+  }
+  const original = Transaction.from(Buffer.from(request.transaction, 'base64'));
+  const authority = new PublicKey(authorityAddress);
+  const memo = attributed.instructions.at(-1);
+  if (
+    attributed.feePayer?.toBase58() !== original.feePayer?.toBase58()
+    || attributed.recentBlockhash !== original.recentBlockhash
+    || attributed.instructions.length !== original.instructions.length + 1
+    || !original.instructions.every((instruction, index) => (
+      transactionInstructionEquals(instruction, attributed.instructions[index])
+    ))
+    || !memo?.programId.equals(MEMO_PROGRAM_ID)
+    || memo.keys.length !== 1
+    || !memo.keys[0].pubkey.equals(authority)
+    || memo.keys[0].isSigner !== true
+    || memo.keys[0].isWritable !== false
+    || Buffer.from(memo.data).toString('utf8') !== DECISION_ATTRIBUTION.marker
+    || attributed.signatures.length !== 2
+    || attributed.signatures[0].publicKey.toBase58() !== intent.trader
+    || attributed.signatures[0].signature != null
+    || !attributed.signatures[1].publicKey.equals(authority)
+    || !attributed.signatures[1].signature
+    || !attributed.verifySignatures(false)
+  ) {
+    throw new Error('01RX attribution signature or transaction binding is invalid');
+  }
+  const feeResponse = await connection.getFeeForMessage(
+    attributed.compileMessage(),
+    'confirmed',
+  );
+  const networkFeeLamports = Number.isFinite(feeResponse?.value)
+    ? feeResponse.value
+    : null;
+  plan.transaction = attributed;
+  plan.networkFeeLamports = networkFeeLamports;
+  plan.networkFeeSol = networkFeeLamports == null
+    ? null
+    : networkFeeLamports / 1_000_000_000;
+  plan.attribution = Object.freeze({
+    authority: authorityAddress,
+    feeBps: DECISION_ATTRIBUTION.feeBps,
+    marker: DECISION_ATTRIBUTION.marker,
+    version: DECISION_ATTRIBUTION.version,
+  });
+  plan.summary = {
+    ...plan.summary,
+    attributionAuthority: authorityAddress,
+    attributionMarker: DECISION_ATTRIBUTION.marker,
+    platformFeeBps: DECISION_ATTRIBUTION.feeBps,
+    networkFeeSol: plan.networkFeeSol,
+    programIds: [
+      ...(plan.summary?.programIds || []),
+      MEMO_PROGRAM_ID.toBase58(),
+    ],
+    note: `${plan.summary?.note || ''} 01RX co-signs a zero-fee on-chain attribution marker so this volume can be independently indexed.`,
+  };
+  return plan;
+}
+
 export async function simulatePlan(connection, plan) {
   if (!(connection instanceof Connection) || !plan?.transaction) {
     throw new Error('A built transaction plan is required');
@@ -3257,7 +3376,26 @@ export function reviewedSignedWireBytes(signedTransaction, reviewedTransaction) 
     error.code = 'SIGNED_TRANSACTION_CHANGED';
     throw error;
   }
+  if (
+    reviewedTransaction instanceof Transaction
+    && decoded instanceof Transaction
+    && reviewedTransaction.signatures.some((entry, index) => (
+      entry.signature
+      && !Buffer.from(entry.signature).equals(
+        Buffer.from(decoded.signatures[index]?.signature || []),
+      )
+    ))
+  ) {
+    const error = new Error('Wallet removed a required transaction co-signature');
+    error.code = 'SIGNED_TRANSACTION_CHANGED';
+    throw error;
+  }
   return new Uint8Array(wireBytes);
+}
+
+function hasReviewedCosignature(transaction) {
+  return transaction instanceof Transaction
+    && transaction.signatures.some(entry => entry.signature);
 }
 
 export function buildDflowSpotPlan(payload, walletAddress) {
@@ -3533,6 +3671,13 @@ export async function sendPlan(connection, adapter, plan) {
         maxRetries: 3,
       });
     } else if (typeof signAndSend === 'function') {
+      if (hasReviewedCosignature(plan.transaction)) {
+        const error = new Error(
+          'This attributed transaction requires a wallet that returns the signed transaction',
+        );
+        error.code = 'WALLET_CANNOT_PRESERVE_COSIGNATURE';
+        throw error;
+      }
       const [output] = await signAndSend({
         account: adapter.account,
         chain: MAINNET_CHAIN,
@@ -3559,6 +3704,13 @@ export async function sendPlan(connection, adapter, plan) {
         maxRetries: 3,
       });
     } else if (typeof provider?.signAndSendTransaction === 'function') {
+      if (hasReviewedCosignature(plan.transaction)) {
+        const error = new Error(
+          'This attributed transaction requires a wallet that returns the signed transaction',
+        );
+        error.code = 'WALLET_CANNOT_PRESERVE_COSIGNATURE';
+        throw error;
+      }
       const result = await provider.signAndSendTransaction(plan.transaction, {
         preflightCommitment: 'confirmed',
         skipPreflight: false,

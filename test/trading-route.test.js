@@ -72,6 +72,34 @@ test('trading route returns the existing contract envelope and headers', async (
   assert.equal(response.headers['x-ratelimit-limit'], '60');
 });
 
+test('trading route exposes zero-fee decision attribution through the typed contract', async () => {
+  const calls = [];
+  const handler = createTradingHandler({
+    service: {
+      async decisionAttest(body) {
+        calls.push(body);
+        return {
+          authority: 'authority',
+          cluster: 'solana:mainnet',
+          feeBps: 0,
+          transaction: 'attributed',
+        };
+      },
+    },
+  });
+  const response = responseRecorder();
+  const body = { transaction: 'unsigned' };
+
+  await handler(request('decision-attest', body), response);
+
+  assert.deepEqual(calls, [body]);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.feeBps, 0);
+  assert.equal(response.headers['x-01r-contract'], 'trading.decision-attest.beta1');
+  assert.equal(response.headers['x-01r-surface'], 'beta');
+  assert.equal(response.headers['x-ratelimit-limit'], '30');
+});
+
 test('trading route rejects unknown query fields and non-JSON content', async () => {
   const handler = createTradingHandler({
     service: {

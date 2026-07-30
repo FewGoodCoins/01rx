@@ -5584,23 +5584,25 @@ export function mountFutardTerminal({
     const simulationClass = simulation?.ok ? 'success' : simulation ? 'error' : 'pending';
     const transactionLabel = isSpotPlan
       ? 'Spot market order'
-      : plan.kind === 'manifest-setup'
-      ? 'Manifest account setup'
-      : plan.kind === 'limit'
-        ? 'Limit order'
-      : plan.kind === 'recurring-create'
-        ? 'Automatic recurring schedule'
-      : plan.kind === 'recurring-cancel'
-        ? 'Cancel recurring schedule'
-      : plan.kind === 'recurring-claim'
-        ? 'Claim recurring proceeds'
-      : plan.kind === 'cancel'
-        ? 'Cancel limit order'
-        : plan.kind === 'withdraw'
-          ? 'Withdraw Manifest balance'
-        : plan.kind === 'redeem'
-          ? 'Redeem resolved positions'
-            : 'Conditional swap';
+      : plan.kind === 'conditional-setup'
+        ? 'Conditional token account setup'
+        : plan.kind === 'manifest-setup'
+          ? 'Manifest account setup'
+          : plan.kind === 'limit'
+            ? 'Limit order'
+            : plan.kind === 'recurring-create'
+              ? 'Automatic recurring schedule'
+              : plan.kind === 'recurring-cancel'
+                ? 'Cancel recurring schedule'
+                : plan.kind === 'recurring-claim'
+                  ? 'Claim recurring proceeds'
+                  : plan.kind === 'cancel'
+                    ? 'Cancel limit order'
+                    : plan.kind === 'withdraw'
+                      ? 'Withdraw Manifest balance'
+                      : plan.kind === 'redeem'
+                        ? 'Redeem resolved positions'
+                        : 'Conditional swap';
     regions.modal.innerHTML = `
       <div class="ft-modal-backdrop" data-ft-action="close-modal">
         <section class="ft-modal ft-review-modal" role="dialog" aria-modal="true" aria-labelledby="${uid}-review-title">
@@ -5640,12 +5642,22 @@ export function mountFutardTerminal({
             ${Number.isFinite(summary.keeperBudgetRefundSol)
               ? `<div><dt>Unused keeper budget returned</dt><dd>${summary.keeperBudgetRefundSol} SOL</dd></div>`
               : ''}
+            ${plan.kind === 'swap'
+              ? `<div><dt>01RX fee</dt><dd>${Number.isFinite(summary.platformFeeBps)
+                ? `${(summary.platformFeeBps / 100).toFixed(2)}%`
+                : 'Unavailable'}</dd></div>`
+              : ''}
+            ${plan.kind === 'swap'
+              ? `<div><dt>On-chain attribution</dt><dd>${summary.attributionAuthority
+                ? `01RX co-signed · ${escapeHtml(shortenAddress(summary.attributionAuthority, 5))}`
+                : 'Unavailable'}</dd></div>`
+              : ''}
             <div><dt>${isSpotPlan ? 'Route authenticity' : 'Program revisions'}</dt><dd>${isSpotPlan
               ? 'DFlow signature verified'
               : state.programIntegrity.canTransact
                 ? 'Verified'
                 : 'Review required'}</dd></div>
-            <div><dt>Wallet prompts</dt><dd>${plan.kind === 'manifest-setup' ? '2 total (setup, then order)' : '1'}</dd></div>
+            <div><dt>Wallet prompts</dt><dd>${plan.kind === 'manifest-setup' || plan.kind === 'conditional-setup' ? '2 total (setup, then trade)' : '1'}</dd></div>
           </dl>
 
           ${Array.isArray(summary.redemptions) ? `
@@ -5668,6 +5680,8 @@ export function mountFutardTerminal({
               `).join('')}
               ${summary.inputAccount ? `<p><span>Input account</span><code>${escapeHtml(summary.inputAccount)}</code></p>` : ''}
               ${summary.outputMint ? `<p><span>Output mint</span><code>${escapeHtml(summary.outputMint)}</code></p>` : ''}
+              ${summary.attributionAuthority ? `<p><span>01RX attribution authority</span><code>${escapeHtml(summary.attributionAuthority)}</code></p>` : ''}
+              ${summary.attributionMarker ? `<p><span>Attribution marker</span><code>${escapeHtml(summary.attributionMarker)}</code></p>` : ''}
               ${simulation?.transactionFingerprint ? `<p><span>Review fingerprint</span><code title="${escapeHtml(simulation.transactionFingerprint)}">${escapeHtml(`${simulation.transactionFingerprint.slice(0, 16)}…${simulation.transactionFingerprint.slice(-8)}`)}</code></p>` : ''}
             </div>
           </details>
@@ -6508,7 +6522,18 @@ export function mountFutardTerminal({
     try {
       trading = await loadSolanaTrading(runtime);
       const connection = await executionConnection(trading);
-      const plan = await buildPlan(trading, connection);
+      let plan = await buildPlan(trading, connection);
+      if (plan?.kind === 'swap') {
+        const attribution = await client.trading.decisionAttest(
+          trading.decisionAttributionRequest(plan),
+          { timeoutMs: 12_000 },
+        );
+        plan = await trading.applyDecisionAttribution(
+          connection,
+          plan,
+          attribution,
+        );
+      }
       if (state.destroyed) return null;
       plan.requestWalletApproval = requestWalletApproval;
       state.execution.plan = plan;
@@ -6632,7 +6657,6 @@ export function mountFutardTerminal({
       );
       return;
     }
-    const book = selectedOrderBook(market);
     await buildAndSimulatePlan(
       (trading, connection) => trading.buildConditionalSwapPlan({
         connection,
@@ -6642,11 +6666,6 @@ export function mountFutardTerminal({
         side,
         amount,
         slippageBps: state.order.slippageBps,
-        ...(book?.canonical && book.address ? {
-          marketAddress: book.address,
-          expectedBaseMint: book.baseMint,
-          expectedQuoteMint: book.quoteMint,
-        } : {}),
       }),
       { requestWalletApproval: true },
     );
@@ -7078,8 +7097,10 @@ export function mountFutardTerminal({
         confirmation_status: confirmation.status,
       });
       setNotice(
-        plan.kind === 'manifest-setup'
-          ? 'Manifest account setup confirmed. Approve the limit order in your wallet next.'
+        plan.kind === 'conditional-setup'
+          ? 'Conditional token accounts confirmed. Approve the attributed swap in your wallet next.'
+          : plan.kind === 'manifest-setup'
+            ? 'Manifest account setup confirmed. Approve the limit order in your wallet next.'
           : plan.kind === 'recurring-create'
             ? 'Automatic schedule funded and confirmed on Solana mainnet.'
             : plan.kind === 'recurring-cancel'
@@ -7097,6 +7118,16 @@ export function mountFutardTerminal({
         await buildAndSimulatePlan(
           (module, nextConnection) => (
             module.buildManifestLimitPlan({
+              connection: nextConnection,
+              ...plan.resume,
+            })
+          ),
+          { requestWalletApproval: plan.requestWalletApproval === true },
+        );
+      } else if (plan.kind === 'conditional-setup' && plan.resume) {
+        await buildAndSimulatePlan(
+          (module, nextConnection) => (
+            module.buildConditionalSwapPlan({
               connection: nextConnection,
               ...plan.resume,
             })

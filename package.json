@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "generate:attribution-key": "node scripts/generate-attribution-key.mjs",
     "test": "node --test",
     "check": "npm test && npm run build"
   },

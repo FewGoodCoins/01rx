@@ -207,10 +207,91 @@ test('v0.6.1 conditional quotes apply the current protocol-only fee', async () =
   assert.equal(quote.outputRaw, expectedOutput);
 });
 
+test('zero-fee decision attribution is co-signed before simulation and bound to the plan', async () => {
+  const {
+    applyDecisionAttribution,
+    decisionAttributionRequest,
+  } = await loadTradingModule();
+  const { DECISION_ATTRIBUTION } = await import('@01resolved/contracts');
+  const authority = Keypair.generate();
+  const transaction = reviewableTransaction();
+  const plan = {
+    kind: 'swap',
+    transaction,
+    builtAt: Date.now(),
+    attributionIntent: {
+      inputAmountRaw: '1000000',
+      minimumOutputAmountRaw: '9000000',
+      outcome: 'pass',
+      proposal: DEFAULT_PUBLIC_KEY.toBase58(),
+      side: 'buy',
+      trader: WALLET_ADDRESS,
+      venue: 'futarchy_amm',
+    },
+    summary: {
+      feePayer: WALLET_ADDRESS,
+      networkFeeSol: 0.000005,
+      note: 'MetaDAO decision swap.',
+      programIds: [FUTARCHY_PROGRAM.toBase58()],
+    },
+  };
+  const attributed = Transaction.from(Buffer.from(
+    decisionAttributionRequest(plan).transaction,
+    'base64',
+  ));
+  attributed.add(new TransactionInstruction({
+    programId: new PublicKey(DECISION_ATTRIBUTION.memoProgramId),
+    keys: [{
+      pubkey: authority.publicKey,
+      isSigner: true,
+      isWritable: false,
+    }],
+    data: Buffer.from(DECISION_ATTRIBUTION.marker),
+  }));
+  attributed.partialSign(authority);
+  const payload = {
+    ...plan.attributionIntent,
+    authority: authority.publicKey.toBase58(),
+    cluster: 'solana:mainnet',
+    feeBps: 0,
+    marker: DECISION_ATTRIBUTION.marker,
+    transaction: attributed.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    }).toString('base64'),
+    version: 1,
+  };
+  const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+  connection.getFeeForMessage = async message => {
+    assert.equal(message.header.numRequiredSignatures, 2);
+    return { value: 10_000 };
+  };
+
+  await applyDecisionAttribution(connection, plan, payload);
+
+  assert.equal(plan.attribution.authority, authority.publicKey.toBase58());
+  assert.equal(plan.attribution.feeBps, 0);
+  assert.equal(plan.summary.platformFeeBps, 0);
+  assert.equal(plan.summary.networkFeeSol, 0.00001);
+  assert.equal(plan.transaction.signatures.length, 2);
+  assert.equal(plan.transaction.verifySignatures(false), true);
+  assert.match(plan.summary.note, /zero-fee on-chain attribution marker/);
+
+  await assert.rejects(
+    applyDecisionAttribution(connection, {
+      ...plan,
+      transaction,
+    }, {
+      ...payload,
+      inputAmountRaw: '1000001',
+    }),
+    /does not match the reviewed decision swap/,
+  );
+});
+
 test('Manifest exact-in quotes consume the best levels and require a full fill', async () => {
   const {
     quoteManifestOrderbook,
-    selectDecisionSwapRoute,
   } = await loadTradingModule();
   const buy = quoteManifestOrderbook({
     amount: '5',
@@ -242,18 +323,6 @@ test('Manifest exact-in quotes consume the best levels and require a full fill',
   });
   assert.equal(sell.fullFill, true);
   assert.equal(sell.outputRaw, 3_500_000n);
-
-  assert.equal(
-    selectDecisionSwapRoute({ outputRaw: 1_900_000n }, buy),
-    'manifest',
-  );
-  assert.equal(
-    selectDecisionSwapRoute(
-      { outputRaw: 1n },
-      { ...buy, outputRaw: 10n, fullFill: false },
-    ),
-    'amm',
-  );
 });
 
 test('DFlow v0 plans require detached signing and preserve the reviewed message', async () => {
@@ -533,6 +602,76 @@ test('wallet-returned signed bytes must preserve the reviewed transaction messag
   assert.equal(sentWire, null);
 });
 
+test('wallet-returned bytes must preserve the 01RX attribution co-signature', async () => {
+  const { sendPlan, simulatePlan } = await loadTradingModule();
+  const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+  connection.simulateTransaction = async () => ({
+    value: { err: null, logs: [], unitsConsumed: 12_345 },
+  });
+  const authority = Keypair.generate();
+  const transaction = reviewableTransaction();
+  transaction.add(new TransactionInstruction({
+    programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+    keys: [{
+      pubkey: authority.publicKey,
+      isSigner: true,
+      isWritable: false,
+    }],
+    data: Buffer.from('01RX:D1:0'),
+  }));
+  transaction.partialSign(authority);
+  const plan = {
+    transaction,
+    builtAt: Date.now(),
+    summary: { feePayer: WALLET_ADDRESS },
+  };
+  plan.reviewFingerprint = (
+    await simulatePlan(connection, plan)
+  ).transactionFingerprint;
+
+  const stripped = Transaction.from(transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  }));
+  stripped.signatures[0].signature = Buffer.alloc(64, 7);
+  stripped.signatures[1].signature = null;
+  const strippedWire = stripped.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+  let sentWire = null;
+  connection.sendRawTransaction = async (wire) => {
+    sentWire = Buffer.from(wire);
+    return SIGNATURE;
+  };
+  const adapter = {
+    kind: 'legacy',
+    address: WALLET_ADDRESS,
+    canTransact: true,
+    provider: {
+      async signTransaction() {
+        return { serialize: () => strippedWire };
+      },
+    },
+  };
+
+  await assert.rejects(
+    sendPlan(connection, adapter, plan),
+    error => error?.code === 'SIGNED_TRANSACTION_CHANGED',
+  );
+  assert.equal(sentWire, null);
+
+  adapter.provider = {
+    async signAndSendTransaction() {
+      throw new Error('must not be reached');
+    },
+  };
+  await assert.rejects(
+    sendPlan(connection, adapter, plan),
+    error => error?.code === 'WALLET_CANNOT_PRESERVE_COSIGNATURE',
+  );
+});
+
 test('wallet-standard execution prefers guarded relay submission when signing is available', async () => {
   const { sendPlan, simulatePlan } = await loadTradingModule();
   const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
@@ -592,14 +731,27 @@ test('wallet-standard execution prefers guarded relay submission when signing is
 });
 
 test('spot prediction plan atomically splits underlying USDC before the AMM swap', async () => {
-  const { buildConditionalSwapPlan } = await loadTradingModule();
+  const {
+    applyDecisionAttribution,
+    buildConditionalSwapPlan,
+    decisionAttributionRequest,
+  } = await loadTradingModule();
+  const {
+    createDecisionAttributionService,
+  } = await import('../../api/_lib/decision-attribution.js');
   const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
   const wallet = new PublicKey(WALLET_ADDRESS);
   const quoteMint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+  const market = loyalOpenMarket();
+  const conditionalSetupMints = [
+    market.proposal.failQuoteMint,
+    market.proposal.passQuoteMint,
+    market.proposal.passBaseMint,
+  ].map(address => new PublicKey(address));
   let accountRead = 0;
   connection.getMultipleAccountsInfo = async addresses => {
     accountRead += 1;
-    if (accountRead === 1) {
+    if (accountRead === 1 || accountRead === 3) {
       assert.equal(addresses.length, 7);
       return [
         programAccountInfo(OPEN_PROPOSAL_DATA, FUTARCHY_PROGRAM),
@@ -611,13 +763,22 @@ test('spot prediction plan atomically splits underlying USDC before the AMM swap
         mintAccountInfo(6),
       ];
     }
+    const setupAccountsExist = accountRead === 4;
     return [
       tokenAccountInfo({
         mint: quoteMint,
         owner: wallet,
         amount: 1_350_000n,
       }),
-      ...addresses.slice(1).map(() => null),
+      ...addresses.slice(1).map((_, index) => (
+        setupAccountsExist
+          ? tokenAccountInfo({
+            mint: conditionalSetupMints[index],
+            owner: wallet,
+            amount: 0n,
+          })
+          : null
+      )),
     ];
   };
   connection.getMinimumBalanceForRentExemption = async () => 2_039_280;
@@ -627,46 +788,40 @@ test('spot prediction plan atomically splits underlying USDC before the AMM swap
   });
   connection.getFeeForMessage = async () => ({ value: 5_000 });
 
-  const plan = await buildConditionalSwapPlan({
+  const input = {
     connection,
     walletAddress: WALLET_ADDRESS,
-    market: {
-      ticker: 'LOYAL',
-      daoAddress: 'GxpJkPEsPmuRCCTNnfZaDKg4X3gf4ZPgmqgFqtibaPtK',
-      baseMint: 'LYLikzBQtpa9ZgVrJsqYGQpR3cC1WMJrBHaXGrQmeta',
-      quoteMint: quoteMint.toBase58(),
-      baseDecimals: 6,
-      quoteDecimals: 6,
-      proposal: {
-        id: '98zXsz1RtvYw4zHrxaZDdGBU3BgqfsX9XJbXBLSJUBST',
-        passBaseMint: '9tedQ632KVkkHXzrqzdSuGxstGKTWwVErseisz4JfY8p',
-        passQuoteMint: '8RmJnKKd7HFNwi5xrVsnqUDWf8Pd5JeBkTxdSaf2ERrF',
-        failBaseMint: 'HBSnjPDzPwso2rBMZ329BsSyG62fsy3bU9DXmcwopJXM',
-        failQuoteMint: '6Lu2ZNJEwLMA9JTnsWBKzuVtEvP2F6NNSaykopnzToZc',
-      },
-      pass: {
-        baseReserves: 1_367_376.244677,
-        quoteReserves: 182_832.054249,
-      },
-      fail: {
-        baseReserves: 1_398_355.648171,
-        quoteReserves: 178_781.562525,
-      },
-    },
+    market,
     outcome: 'pass',
     side: 'buy',
     amount: '0.001',
     slippageBps: 100,
-  });
+  };
+  const setupPlan = await buildConditionalSwapPlan(input);
+
+  assert.equal(setupPlan.kind, 'conditional-setup');
+  assert.equal(setupPlan.summary.accountRentSol, 0.00611784);
+  assert.equal(setupPlan.summary.setupRequired, true);
+  assert.equal(setupPlan.transaction.instructions.length, 4);
+  assert.equal(
+    setupPlan.transaction.instructions.some(ix => (
+      ix.programId.equals(FUTARCHY_PROGRAM)
+      || ix.programId.equals(CONDITIONAL_VAULT_PROGRAM)
+    )),
+    false,
+  );
+  assert.match(setupPlan.summary.note, /separate review/);
+
+  const plan = await buildConditionalSwapPlan(input);
 
   assert.equal(plan.kind, 'swap');
   assert.equal(plan.summary.amountIn, '0.001 USDC');
   assert.equal(plan.summary.inputMint, quoteMint.toBase58());
   assert.match(plan.summary.estimatedAmountOut, /PASS LOYAL$/);
-  assert.equal(plan.summary.accountRentSol, 0.00611784);
-  assert.equal(plan.summary.setupRequired, true);
+  assert.equal(plan.summary.accountRentSol, 0);
+  assert.equal(plan.summary.setupRequired, false);
   assert.match(plan.summary.note, /Splits USDC into PASS\/FAIL claims/);
-  assert.equal(plan.transaction.instructions.length, 6);
+  assert.equal(plan.transaction.instructions.length, 3);
   assert.deepEqual(
     plan.transaction.instructions.slice(-2).map(ix => ix.programId.toBase58()),
     [
@@ -674,16 +829,32 @@ test('spot prediction plan atomically splits underlying USDC before the AMM swap
       'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq',
     ],
   );
+
+  const authority = Keypair.generate();
+  const attestation = await createDecisionAttributionService({
+    signingKey: authority,
+  }).decisionAttest(decisionAttributionRequest(plan));
+  await applyDecisionAttribution(connection, plan, attestation);
+  const attributedWire = plan.transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+
+  assert.ok(attributedWire.length <= 1_232);
+  assert.equal(plan.transaction.instructions.length, 4);
+  assert.equal(
+    plan.transaction.instructions.at(-1).programId.toBase58(),
+    'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+  );
+  assert.equal(plan.summary.platformFeeBps, 0);
+  assert.equal(plan.summary.attributionAuthority, authority.publicKey.toBase58());
 });
 
-test('spot prediction plans choose a better fully fillable Manifest book', async () => {
+test('spot prediction plans stay on MetaDAO Futarchy AMM when a Manifest book exists', async () => {
   const { buildConditionalSwapPlan } = await loadTradingModule();
   const { ManifestClient } = await import('@cks-systems/manifest-sdk');
   const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
   const wallet = new PublicKey(WALLET_ADDRESS);
-  const manifestProgram = new PublicKey(
-    'MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms',
-  );
   const manifestMarket = new PublicKey(
     '9v4GNDfcH8mgkRqtxppvX2J18cgeV9jfsx9MZMAgf1KE',
   );
@@ -693,7 +864,13 @@ test('spot prediction plans choose a better fully fillable Manifest book', async
   const passQuoteMint = new PublicKey(
     '8RmJnKKd7HFNwi5xrVsnqUDWf8Pd5JeBkTxdSaf2ERrF',
   );
-  const quoteMint = new PublicKey(loyalOpenMarket().quoteMint);
+  const market = loyalOpenMarket();
+  const quoteMint = new PublicKey(market.quoteMint);
+  const setupMints = [
+    market.proposal.failQuoteMint,
+    market.proposal.passQuoteMint,
+    market.proposal.passBaseMint,
+  ].map(address => new PublicKey(address));
   let accountRead = 0;
   connection.getMultipleAccountsInfo = async addresses => {
     accountRead += 1;
@@ -714,12 +891,15 @@ test('spot prediction plans choose a better fully fillable Manifest book', async
         owner: wallet,
         amount: 1_000_000n,
       }),
-      ...addresses.slice(1).map(() => null),
+      ...addresses.slice(1).map((_, index) => tokenAccountInfo({
+        mint: setupMints[index],
+        owner: wallet,
+        amount: 0n,
+      })),
     ];
   };
-  connection.getAccountInfo = async address => {
-    assert.equal(address.toBase58(), manifestMarket.toBase58());
-    return programAccountInfo(Buffer.alloc(80), manifestProgram);
+  connection.getAccountInfo = async () => {
+    throw new Error('Manifest must not be read for a market decision swap');
   };
   connection.getMinimumBalanceForRentExemption = async () => 2_039_280;
   connection.getLatestBlockhash = async () => ({
@@ -729,26 +909,14 @@ test('spot prediction plans choose a better fully fillable Manifest book', async
   connection.getFeeForMessage = async () => ({ value: 5_000 });
 
   const originalReadClient = ManifestClient.getClientReadOnly;
-  ManifestClient.getClientReadOnly = async () => ({
-    market: {
-      baseMint: () => passBaseMint,
-      quoteMint: () => passQuoteMint,
-      baseDecimals: () => 6,
-      quoteDecimals: () => 6,
-      bids: () => [],
-      asks: () => [{ tokenPrice: 0.1, numBaseTokens: 100 }],
-    },
-    swapIx: () => new TransactionInstruction({
-      programId: manifestProgram,
-      keys: [],
-      data: Buffer.from([4]),
-    }),
-  });
+  ManifestClient.getClientReadOnly = async () => {
+    throw new Error('Manifest must not be read for a market decision swap');
+  };
   try {
     const plan = await buildConditionalSwapPlan({
       connection,
       walletAddress: WALLET_ADDRESS,
-      market: loyalOpenMarket(),
+      market,
       marketAddress: manifestMarket.toBase58(),
       expectedBaseMint: passBaseMint.toBase58(),
       expectedQuoteMint: passQuoteMint.toBase58(),
@@ -758,13 +926,12 @@ test('spot prediction plans choose a better fully fillable Manifest book', async
       slippageBps: 100,
     });
 
-    assert.equal(plan.summary.venue, 'Manifest order book');
-    assert.equal(plan.quote.fullFill, true);
-    assert.equal(plan.quote.outputRaw, 10_000n);
-    assert.match(plan.summary.note, /better fully fillable verified Manifest book/);
+    assert.equal(plan.summary.venue, 'MetaDAO v0.6 AMM');
+    assert.equal(plan.attributionIntent.venue, 'futarchy_amm');
+    assert.match(plan.summary.note, /MetaDAO Futarchy AMM/);
     assert.equal(
       plan.transaction.instructions.at(-1).programId.toBase58(),
-      manifestProgram.toBase58(),
+      FUTARCHY_PROGRAM.toBase58(),
     );
   } finally {
     ManifestClient.getClientReadOnly = originalReadClient;
