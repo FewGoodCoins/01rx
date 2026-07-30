@@ -2067,6 +2067,14 @@ export function mountFutardTerminal({
     walletStatus: root.querySelector('[data-ft-role="wallet-status"]'),
     search: root.querySelector('[data-ft-role="search"]'),
   };
+  const walletHeaderSlot = hostMode === 'token'
+    ? runtime.document.querySelector?.('[data-01rx-market-wallet-slot]')
+    : null;
+  const walletStatusPortaled = Boolean(walletHeaderSlot && regions.walletStatus);
+  if (walletStatusPortaled) {
+    walletHeaderSlot.dataset.theme = state.theme;
+    walletHeaderSlot.replaceChildren(regions.walletStatus);
+  }
 
   function globalMarketsUrl(options = {}) {
     if (typeof routes.marketDiscoveryUrl === 'function') {
@@ -2792,6 +2800,7 @@ export function mountFutardTerminal({
 
   function renderHeader() {
     root.dataset.theme = state.theme;
+    if (walletHeaderSlot) walletHeaderSlot.dataset.theme = state.theme;
     state.historyChart?.applyTheme?.(state.theme);
     const ownershipWorkspace = isOwnershipWorkspace();
     const market = ownershipWorkspace ? null : selectedMarket();
@@ -7329,7 +7338,13 @@ export function mountFutardTerminal({
 
   function handleClick(event) {
     const target = event.target.closest('[data-ft-action]');
-    if (!target || !root.contains(target)) return;
+    if (
+      !target
+      || (
+        !root.contains(target)
+        && !regions.walletStatus?.contains(target)
+      )
+    ) return;
     const action = target.dataset.ftAction;
 
     if (action === 'refresh') {
@@ -7868,6 +7883,10 @@ export function mountFutardTerminal({
     if (state.clockTimer) runtime.clearInterval(state.clockTimer);
     if (state.transactionTimer) runtime.clearInterval(state.transactionTimer);
     if (state.noticeTimer) runtime.clearTimeout(state.noticeTimer);
+    if (walletStatusPortaled) {
+      regions.walletStatus.removeEventListener('click', handleClick);
+      regions.walletStatus.remove();
+    }
     root.removeEventListener('click', handleClick);
     root.removeEventListener('input', handleInput);
     root.removeEventListener('change', handleChange);
@@ -7881,6 +7900,9 @@ export function mountFutardTerminal({
   }
 
   root.addEventListener('click', handleClick);
+  if (walletStatusPortaled) {
+    regions.walletStatus.addEventListener('click', handleClick);
+  }
   root.addEventListener('input', handleInput);
   root.addEventListener('change', handleChange);
   runtime.document.addEventListener('click', handleDocumentClick);

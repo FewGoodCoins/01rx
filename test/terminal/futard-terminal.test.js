@@ -515,6 +515,18 @@ async function loadProposalChartModule() {
 }
 
 function makeWindow(options = {}) {
+  const marketWalletSlot = options.marketWalletSlot
+    ? `
+      <header class="site-header">
+        <span data-test-brand>01RX</span>
+        <div
+          data-01rx-market-wallet-slot
+          data-01r-theme-scope
+          data-theme="dark"
+        ></div>
+      </header>
+    `
+    : '';
   const sidebar = options.sidebar
     ? `
       <section id="tlp-decisions-panel" hidden>
@@ -523,7 +535,7 @@ function makeWindow(options = {}) {
       </section>
     `
     : '';
-  const dom = new JSDOM(`<!doctype html>${sidebar}<div id="root"></div>`, {
+  const dom = new JSDOM(`<!doctype html>${marketWalletSlot}${sidebar}<div id="root"></div>`, {
     url: options.url || 'https://navgator.xyz/',
   });
   const { window } = dom;
@@ -1419,6 +1431,47 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   assert.equal(byAction(root, 'review-trade'), null);
 
   cleanupMount(mounted);
+});
+
+test('token Markets places the live wallet control alongside the global 01RX brand', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const provider = {
+    publicKey: WALLET_ADDRESS,
+    async connect() {
+      return { publicKey: WALLET_ADDRESS };
+    },
+    async disconnect() {},
+  };
+  const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+    marketWalletSlot: true,
+    provider,
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const headerSlot = window.document.querySelector('[data-01rx-market-wallet-slot]');
+  const walletStatus = headerSlot.querySelector('[data-ft-role="wallet-status"]');
+  assert.ok(walletStatus);
+  assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
+  assert.match(headerSlot.parentElement.textContent, /01RX[\s\S]+Connect wallet/);
+
+  walletStatus.querySelector('[data-ft-action="connect-wallet"]').click();
+  await settleUntil(window, () => controller.getState().walletAddress === WALLET_ADDRESS);
+
+  assert.equal(controller.getState().walletAddress, WALLET_ADDRESS);
+  assert.match(walletStatus.textContent, /9xQe[\s\S]+6vq/i);
+
+  mountedTerminals.delete(mounted);
+  controller.destroy();
+  assert.equal(headerSlot.childElementCount, 0);
+  window.close();
 });
 
 test('market sidebar keeps live decisions above tokens and renders past proposals for the selected token', async () => {
