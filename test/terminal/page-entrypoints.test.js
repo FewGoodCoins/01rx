@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const test = require('node:test');
 
 const pageEntryModulePromise = import('../../src/core/page-entry.js');
+const marketBootModulePromise = import('../../src/core/market-boot.js');
 const shellRoutesModulePromise = import('../../src/shell/routes.js');
 const tokenRuntimeModulePromise = import('../../src/token/runtime.js');
 
@@ -17,6 +18,36 @@ function createRuntime(search, normalizeTokenKey) {
     },
   };
 }
+
+test('market boot guard stays scoped to market routes and clears only after render', async () => {
+  const {
+    failMarketWorkspaceBoot,
+    markMarketWorkspacePending,
+    revealMarketWorkspace,
+  } = await marketBootModulePromise;
+  const attributes = new Map();
+  const root = {
+    dataset: { workspace: 'markets' },
+    setAttribute(name, value) {
+      attributes.set(name, value);
+    },
+    removeAttribute(name) {
+      attributes.delete(name);
+    },
+  };
+  const document = { documentElement: root };
+
+  markMarketWorkspacePending(document);
+  assert.equal(attributes.get('data-market-boot'), 'pending');
+  failMarketWorkspaceBoot(document);
+  assert.equal(attributes.get('data-market-boot'), 'error');
+  revealMarketWorkspace(document);
+  assert.equal(attributes.has('data-market-boot'), false);
+
+  root.dataset.workspace = 'research';
+  markMarketWorkspacePending(document);
+  assert.equal(attributes.has('data-market-boot'), false);
+});
 
 test('page entry loader imports only the module selected by normalized route state', async () => {
   const { createPageEntryLoader, resolvePageKind } = await pageEntryModulePromise;
@@ -205,6 +236,8 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.doesNotMatch(document, /unpkg\.com\/lightweight-charts/);
   assert.match(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.match(tokenEntry, /\.\.\/markets\/decision-market-controller\.js/);
+  assert.match(homeEntry, /revealMarketWorkspace\(document\)/);
+  assert.match(tokenEntry, /revealMarketWorkspace\(document\)/);
   assert.doesNotMatch(marketController, /(?:\.\.\/home\/|\.\.\/token\/)/);
   assert.match(
     marketStyles,

@@ -704,6 +704,15 @@ test('document establishes a dark canvas before module CSS loads', () => {
   assert.match(html, /html \{[\s\S]*background: #101010;[\s\S]*color-scheme: dark;/);
   assert.match(html, /body \{[\s\S]*background: #101010;[\s\S]*color: #bbbbbb;/);
   assert.match(html, /html\.app-css-pending body > \* \{[\s\S]*visibility: hidden;/);
+  assert.match(
+    html,
+    /html\[data-market-boot="pending"\] body > \*,[\s\S]*visibility: hidden !important;/,
+  );
+  assert.match(html, /content: "01RX  ·  LOADING MARKET";/);
+  assert.match(
+    html,
+    /setAttribute\('data-market-boot', 'pending'\)/,
+  );
   assert.match(html, /data-embed-theme="light"[\s\S]*background: #ffffff;/);
   assert.match(html, /data-embed-transparent="true"[\s\S]*background: transparent;/);
 });
