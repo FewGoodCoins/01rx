@@ -4996,6 +4996,7 @@ body.is-token-markets .token-markets-root {
 }
 
 [data-ft-mode="token"] .ft-header {
+  display: none;
   position: static;
   border-bottom: 1px solid var(--ft-border);
   background: #0c0c0c;
