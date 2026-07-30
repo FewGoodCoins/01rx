@@ -8405,6 +8405,102 @@ body.is-token-markets .token-markets-root {
   min-width: 0;
 }
 
+.ft-account-row {
+  display: none;
+  min-width: 0;
+}
+
+.ft-ownership-account {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 224px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #343636;
+  border-top: 0;
+  background: #0b0b0b;
+}
+
+.ft-ownership-account-tabs {
+  display: flex;
+  min-height: 74px;
+  padding: 0 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ft-ownership-account-tabs button {
+  display: inline-flex;
+  height: 44px;
+  padding: 0 18px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #85847d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.ft-ownership-account-tabs button:hover {
+  color: #cac9c4;
+}
+
+.ft-ownership-account-tabs button.ft-is-active {
+  background: #262625;
+  color: #f2f1ee;
+}
+
+.ft-ownership-account-tabs button:focus-visible {
+  outline: 1px solid #77776f;
+  outline-offset: -1px;
+}
+
+.ft-ownership-account-panel {
+  display: flex;
+  min-height: 150px;
+  padding: 24px;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  color: #85847d;
+  font-size: 12px;
+  text-align: center;
+}
+
+.ft-ownership-account-trades {
+  display: grid;
+  width: min(100%, 760px);
+  align-self: stretch;
+  align-content: start;
+}
+
+.ft-ownership-account-trade {
+  display: grid;
+  min-height: 36px;
+  padding: 0 10px;
+  grid-template-columns: 80px repeat(3, minmax(0, 1fr));
+  align-items: center;
+  border-bottom: 1px solid #20201e;
+  color: #cac9c4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  text-align: right;
+}
+
+.ft-ownership-account-trade strong {
+  color: #58dcb0;
+  text-align: left;
+}
+
+.ft-ownership-account-trade strong[data-side="sell"] {
+  color: #ff737e;
+}
+
 [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-stage {
   display: none;
 }
@@ -8423,6 +8519,10 @@ body.is-token-markets .token-markets-root {
    leave a gutter between parallel rules. */
 [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
   gap: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-account-row {
+  display: block;
 }
 
 [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel,
@@ -8453,7 +8553,13 @@ body.is-token-markets .token-markets-root {
       minmax(0, 1.55fr)
       minmax(210px, 0.55fr)
       minmax(275px, 0.72fr);
+    grid-template-rows:
+      auto
+      minmax(0, 1fr)
+      clamp(180px, 24dvh, 224px);
+    height: 100%;
     align-items: stretch;
+    overflow: hidden;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-chart-header-region {
@@ -8468,19 +8574,38 @@ body.is-token-markets .token-markets-root {
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel,
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
     border-right: 1px solid #343636;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-activity-row {
     display: block;
     min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
     grid-column: 2;
     grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-account-row {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    grid-column: 1 / -1;
+    grid-row: 3;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ticket-column {
     position: static;
     min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
     grid-column: 3;
     grid-row: 2;
     align-content: stretch;
@@ -8488,6 +8613,15 @@ body.is-token-markets .token-markets-root {
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ticket-column > [data-ft-region="trade-ticket"] {
     height: 100%;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-account {
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-account-panel {
+    min-height: 0;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid,
@@ -8550,6 +8684,37 @@ body.is-token-markets .token-markets-root {
   }
 }
 
+@media (min-width: 981px) {
+  html:has(body.is-token-markets .ft-ownership-market),
+  html:has(body.is-token-markets .ft-ownership-market) body {
+    width: 100%;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has(.ft-ownership-market) .app-shell {
+    height: calc(100dvh - var(--site-header-height) - var(--site-footer-height)) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has(.ft-ownership-market) .app-right,
+  body.is-token-markets:has(.ft-ownership-market) .app-content,
+  body.is-token-markets:has(.ft-ownership-market) .dashboard.active,
+  body.is-token-markets:has(.ft-ownership-market) .token-markets-root,
+  body.is-token-markets:has(.ft-ownership-market) [data-ft-mode="token"].ft-shell,
+  body.is-token-markets:has(.ft-ownership-market) [data-ft-mode="token"] .ft-main {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has(.ft-ownership-market) [data-ft-mode="token"] .ft-main {
+    padding: 0;
+  }
+}
+
 @media (max-width: 980px) {
   .ft-ownership-chart-panel {
     height: auto;
@@ -8563,6 +8728,11 @@ body.is-token-markets .token-markets-root {
 }
 
 @media (min-width: 761px) and (max-width: 980px) {
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-account-row {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-transactions-column,
   [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-transactions-column {
     grid-column: 1;
@@ -8582,6 +8752,24 @@ body.is-token-markets .token-markets-root {
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-activity-row,
   [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-activity-row {
     grid-row: 6;
+  }
+}
+
+@media (max-width: 720px) {
+  .ft-account-row {
+    width: 100%;
+  }
+
+  .ft-ownership-account-tabs {
+    padding: 0 10px;
+    gap: 2px;
+  }
+
+  .ft-ownership-account-tabs button {
+    min-width: 0;
+    padding: 0 10px;
+    flex: 1 1 0;
+    font-size: 9px;
   }
 }
 

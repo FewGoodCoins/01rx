@@ -80,3 +80,14 @@ test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the pl
     /\.chart-tv-placeholder-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,
   );
 });
+
+test('desktop spot trading stays within the viewport without document scrolling', () => {
+  assert.match(
+    frameCss,
+    /body\.is-token-markets:has\(\.ft-ownership-market\) \.app-shell\s*\{\s*height: calc\(100dvh - var\(--site-header-height\) - var\(--site-footer-height\)\) !important;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?grid-template-rows:\s*auto\s*minmax\(0, 1fr\)\s*clamp\(180px, 24dvh, 224px\);/,
+  );
+});
