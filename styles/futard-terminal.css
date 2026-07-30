@@ -4967,8 +4967,15 @@ body.is-token-markets .token-markets-root {
   display: block;
 }
 
-.site-header-market-wallet {
+.site-header-market-wallet[data-01r-theme-scope] {
   --ft-radius-sm: 5px;
+  --ft-accent: #35d093;
+  --ft-accent-strong: #55dfaa;
+  --ft-accent-ink: #07110d;
+  --ft-positive: #35d093;
+  --ft-positive-soft: rgba(53, 208, 147, 0.1);
+  --ft-positive-border: rgba(53, 208, 147, 0.52);
+  --ft-focus: #35d093;
   display: none;
   height: 100%;
   margin-left: auto;
@@ -4993,6 +5000,29 @@ body.is-token-markets .token-markets-root {
 
 .site-header-market-wallet .ft-wallet-button {
   min-height: 32px;
+  background: rgba(53, 208, 147, 0.06);
+}
+
+.site-header-market-wallet .ft-wallet-button:focus-visible {
+  outline: 2px solid rgba(53, 208, 147, 0.72);
+  outline-offset: 2px;
+}
+
+.site-header-market-wallet .ft-wallet-button-connected {
+  border-color: var(--ft-positive-border);
+  background: var(--ft-positive-soft);
+  color: #eeeeea;
+}
+
+.site-header-market-wallet .ft-wallet-button-connected:hover {
+  border-color: var(--ft-negative-border);
+  background: var(--ft-negative-soft);
+  color: var(--ft-negative);
+}
+
+.site-header-market-wallet .ft-wallet-dot {
+  background: #35d093;
+  box-shadow: 0 0 0 3px rgba(53, 208, 147, 0.12);
 }
 
 [data-ft-mode="token"] .ft-header {
