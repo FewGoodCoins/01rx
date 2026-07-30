@@ -60,12 +60,13 @@ function safeErrorText(value) {
 
 function logServerError(logger, error, statusCode) {
   if (statusCode < 500 || typeof logger?.error !== 'function') return;
-  logger.error('[01rx-trading-error]', {
+  const diagnostic = {
     code: safeErrorText(error?.code || 'INTERNAL_ERROR'),
     message: safeErrorText(error?.message || 'Unknown server error'),
     name: safeErrorText(error?.name || 'Error'),
     statusCode,
-  });
+  };
+  logger.error(`[01rx-trading-error] ${JSON.stringify(diagnostic)}`);
 }
 
 function requestUrl(request) {
