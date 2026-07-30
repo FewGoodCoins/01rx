@@ -23,6 +23,12 @@ const RANGE_SECONDS = {
   '24h': 24 * 60 * 60,
   '48h': 48 * 60 * 60,
 };
+const CHART_INTERACTION_EVENTS = Object.freeze([
+  'wheel',
+  'pointermove',
+  'touchmove',
+  'dblclick',
+]);
 
 export const PROPOSAL_HISTORY_GUIDE_LINE_STYLE = LineStyle.SparseDotted;
 
@@ -323,6 +329,7 @@ export function createProposalHistoryChart({
   let pendingCrosshair = null;
   let chart = null;
   let resizeObserver = null;
+  let interactionHandler = null;
   let watermark = null;
   let launchAnchorMarkers = null;
   let currentRange = range;
@@ -776,9 +783,9 @@ export function createProposalHistoryChart({
   };
   chart.subscribeCrosshairMove(crosshairHandler);
   const visibleRangeHandler = () => scheduleEventPosition();
-  const interactionHandler = () => scheduleEventPosition();
+  interactionHandler = () => scheduleEventPosition();
   chart.timeScale().subscribeVisibleTimeRangeChange(visibleRangeHandler);
-  ['wheel', 'pointermove', 'touchmove', 'dblclick'].forEach((eventName) => {
+  CHART_INTERACTION_EVENTS.forEach((eventName) => {
     container.addEventListener(eventName, interactionHandler, { passive: true });
   });
   resizeObserver = typeof runtime.ResizeObserver === 'function'
@@ -820,9 +827,11 @@ export function createProposalHistoryChart({
       } catch (_) {
         // The chart may already be detached by navigation.
       }
-      ['wheel', 'pointermove', 'touchmove', 'dblclick'].forEach((eventName) => {
-        container.removeEventListener(eventName, interactionHandler);
-      });
+      if (interactionHandler) {
+        CHART_INTERACTION_EVENTS.forEach((eventName) => {
+          container.removeEventListener(eventName, interactionHandler);
+        });
+      }
       eventElements.forEach(event => event.element.remove());
       liveEndpointDots.forEach(({ element }) => element.remove());
       launchAnchorMarkers?.detach();
@@ -843,9 +852,15 @@ export function createProposalHistoryChart({
       runtime.cancelAnimationFrame(readoutFrame);
     }
     resizeObserver?.disconnect();
+    if (interactionHandler) {
+      CHART_INTERACTION_EVENTS.forEach((eventName) => {
+        container.removeEventListener(eventName, interactionHandler);
+      });
+    }
     container.querySelectorAll('[data-ft-chart-event]').forEach(element => element.remove());
     container.querySelectorAll('[data-ft-chart-band]').forEach(element => element.remove());
     container.querySelectorAll('[data-ft-chart-anchor]').forEach(element => element.remove());
+    liveEndpointDots.forEach(({ element }) => element.remove());
     launchAnchorMarkers?.detach();
     delete container.dataset.ftLaunchAnchorRenderer;
     container.closest('.ft-hourly-chart')?.classList.remove(
