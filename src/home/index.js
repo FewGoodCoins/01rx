@@ -1,5 +1,6 @@
 import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
+import '../../styles/terminal-shared.css';
 import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';
 import { isFutarchyTerminalPath } from '../core/page-entry.js';
