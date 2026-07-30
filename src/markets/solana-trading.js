@@ -45,6 +45,10 @@ export const MAINNET_CHAIN = 'solana:mainnet';
 export const MAINNET_RPC_URL = 'https://api.mainnet-beta.solana.com';
 export const MAX_U64 = (1n << 64n) - 1n;
 export const TRANSACTION_REVIEW_MAX_AGE_MS = 90_000;
+export const METADAO_FUTARCHY_AMM_FEES = Object.freeze({
+  protocolFeeBps: 50,
+  lpFeeBps: 0,
+});
 
 const base58 = base58Module.default || base58Module;
 const MANIFEST_PROGRAM_ID = new PublicKey(
@@ -797,12 +801,13 @@ export function quoteConditionalAmm({
     throw new Error('Slippage must be between 0.01% and 50%');
   }
 
-  // MetaDAO v0.6 applies a 25 bps protocol fee, then a 25 bps LP fee to the
-  // post-protocol amount. Keep the two fee legs explicit: calling the full
-  // 50 bps a "protocol fee" overstates protocol revenue and slightly changes
-  // the integer quote.
-  const inputAfterProtocolFee = inputRaw * 9_975n / 10_000n;
-  const effectiveInputRaw = inputAfterProtocolFee * 9_975n / 10_000n;
+  // The current MetaDAO v0.6.1 program takes 50 bps as protocol revenue and
+  // applies no LP fee. Keep the fee model explicit so quote presentation stays
+  // aligned with the deployed program's integer arithmetic.
+  const protocolFeeBps = BigInt(METADAO_FUTARCHY_AMM_FEES.protocolFeeBps);
+  const lpFeeBps = BigInt(METADAO_FUTARCHY_AMM_FEES.lpFeeBps);
+  const inputAfterProtocolFee = inputRaw * (10_000n - protocolFeeBps) / 10_000n;
+  const effectiveInputRaw = inputAfterProtocolFee * (10_000n - lpFeeBps) / 10_000n;
   const outputRaw = effectiveInputRaw * outputReserveRaw
     / (inputReserveRaw + effectiveInputRaw);
   const minimumOutputRaw = outputRaw * BigInt(10_000 - boundedSlippage) / 10_000n;
@@ -815,9 +820,10 @@ export function quoteConditionalAmm({
     minimumOutputRaw,
     outputAmount: formatRawAmount(outputRaw, outputDecimals),
     minimumOutputAmount: formatRawAmount(minimumOutputRaw, outputDecimals),
-    protocolFeeBps: 25,
-    lpFeeBps: 25,
-    nominalTotalFeeBps: 50,
+    protocolFeeBps: METADAO_FUTARCHY_AMM_FEES.protocolFeeBps,
+    lpFeeBps: METADAO_FUTARCHY_AMM_FEES.lpFeeBps,
+    nominalTotalFeeBps: METADAO_FUTARCHY_AMM_FEES.protocolFeeBps
+      + METADAO_FUTARCHY_AMM_FEES.lpFeeBps,
     effectiveFeeRaw: inputRaw - effectiveInputRaw,
     conservative: true,
   };

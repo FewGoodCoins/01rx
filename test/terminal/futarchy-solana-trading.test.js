@@ -185,7 +185,7 @@ test('Solana error descriptions are fixed, actionable, and privacy-safe', async 
   );
 });
 
-test('v0.6 conditional quotes distinguish the protocol and LP fee legs', async () => {
+test('v0.6.1 conditional quotes apply the current protocol-only fee', async () => {
   const { quoteConditionalAmm } = await loadTradingModule();
   const quote = quoteConditionalAmm({
     amount: '1',
@@ -196,15 +196,14 @@ test('v0.6 conditional quotes distinguish the protocol and LP fee legs', async (
     slippageBps: 100,
   });
   const inputRaw = 1_000_000n;
-  const afterProtocolFee = inputRaw * 9_975n / 10_000n;
-  const effectiveInput = afterProtocolFee * 9_975n / 10_000n;
+  const effectiveInput = inputRaw * 9_950n / 10_000n;
   const expectedOutput = effectiveInput * 2_000_000_000n
     / (1_000_000_000n + effectiveInput);
 
-  assert.equal(quote.protocolFeeBps, 25);
-  assert.equal(quote.lpFeeBps, 25);
+  assert.equal(quote.protocolFeeBps, 50);
+  assert.equal(quote.lpFeeBps, 0);
   assert.equal(quote.nominalTotalFeeBps, 50);
-  assert.equal(quote.effectiveFeeRaw, inputRaw - effectiveInput);
+  assert.equal(quote.effectiveFeeRaw, 5_000n);
   assert.equal(quote.outputRaw, expectedOutput);
 });
 
