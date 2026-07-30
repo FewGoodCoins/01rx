@@ -1795,6 +1795,7 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
     url: 'https://navgator.xyz/?token=loyal&tab=tokens',
+    marketWalletSlot: true,
     homeBootstrap: {
       ...HOME_BOOTSTRAP,
       currentNav: {
@@ -1820,6 +1821,13 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   });
   const mounted = trackMount(controller, window);
   await controller.ready;
+
+  const headerWallet = window.document.querySelector(
+    '[data-01rx-market-wallet-slot] [data-ft-role="wallet-status"]',
+  );
+  assert.ok(headerWallet);
+  assert.match(headerWallet.textContent, /Connect wallet/i);
+  assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
 
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
   const rows = recentTransactions.querySelectorAll('.ft-ownership-transaction-row');

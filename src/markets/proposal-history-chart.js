@@ -7,6 +7,7 @@ import {
   createSeriesMarkers,
   createTextWatermark,
 } from 'lightweight-charts';
+import { mountTradingViewAttribution } from '../chart/tradingview-attribution.js';
 import {
   proposalChartPointTime,
   proposalChartPoints,
@@ -331,7 +332,7 @@ export function createProposalHistoryChart({
     autoSize: true,
     height: Math.max(260, container.clientHeight || 340),
     layout: {
-      attributionLogo: true,
+      attributionLogo: false,
       background: { type: ColorType.Solid, color: currentTheme.background },
       textColor: currentTheme.text,
       fontFamily: currentTheme.font,
@@ -424,6 +425,7 @@ export function createProposalHistoryChart({
       touch: true,
     },
   });
+  mountTradingViewAttribution(container, { runtime });
 
   PROPOSAL_HISTORY_SERIES.forEach((definition) => {
     const data = proposalChartData(points, definition.field, history.interval);

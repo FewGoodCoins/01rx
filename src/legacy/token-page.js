@@ -11161,14 +11161,23 @@ function initLWChart() {
   });
   _applyPriceScaleOptions();
 
-  // Custom TV logo circle (DexScreener style)
-  var existingLogo = container.querySelector('.tv-logo-circle');
-  if (!existingLogo) {
+  // Shared 01RX TradingView attribution. The fallback keeps this classic
+  // bundle usable in isolation while the app entrypoint owns the canonical UI.
+  var attributionMount = window.NAVGATOR
+    && window.NAVGATOR.chartUi
+    && window.NAVGATOR.chartUi.mountTradingViewAttribution;
+  var tvLogo = typeof attributionMount === 'function'
+    ? attributionMount(container, { runtime: window })
+    : null;
+  if (!tvLogo && !container.querySelector('.tv-logo-circle')) {
     var tvLogo = document.createElement('a');
     tvLogo.className = 'tv-logo-circle';
     tvLogo.href = 'https://www.tradingview.com/?utm_medium=lwc-link&utm_campaign=lwc-chart';
     tvLogo.target = '_blank';
+    tvLogo.rel = 'noreferrer';
     tvLogo.title = 'Charting by TradingView';
+    tvLogo.setAttribute('aria-label', 'Charting by TradingView');
+    tvLogo.setAttribute('data-01rx-tradingview-attribution', '');
     tvLogo.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 19" fill="none"><g fill-rule="evenodd" clip-rule="evenodd"><path fill="#D1D4DC" d="M14 2H2v6h6v9h6V2Zm12 15h-7l6-15h7l-6 15Zm-7-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></g></svg>';
     container.appendChild(tvLogo);
   }
