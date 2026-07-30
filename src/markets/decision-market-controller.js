@@ -4026,6 +4026,7 @@ export function mountFutardTerminal({
 
     regions.tradeTicket.innerHTML = `
       <section class="ft-ticket ft-execution-ticket ft-decision-ticket ft-order-outcome-${escapeHtml(state.order.outcome)}">
+        <div class="ft-decision-ticket-scroll" data-ft-role="decision-ticket-scroll">
         <div class="ft-segmented ft-outcome-tabs" role="group" aria-label="Select outcome">
           <button
             type="button"
@@ -4147,7 +4148,6 @@ export function mountFutardTerminal({
         </div>
 
         ${state.execution.error ? `<p class="ft-ticket-error">${escapeHtml(state.execution.error)}</p>` : ''}
-        ${cta}
         ${renderTicketTransactionStatus(market)}
 
         <details class="ft-decision-advanced"${isLimit || isRecurring ? ' open' : ''}>
@@ -4230,6 +4230,10 @@ export function mountFutardTerminal({
               ? 'Limit orders require a unique verified Manifest market and split only the conditional funding shortfall.'
               : '01RX compares verified routes, enforces minimum output, and simulates the exact transaction before wallet approval.'}</p>
         </details>
+        </div>
+        <div class="ft-decision-action" data-ft-role="trade-action">
+          ${cta}
+        </div>
       </section>
     `;
   }

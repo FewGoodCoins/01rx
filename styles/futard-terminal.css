@@ -10826,6 +10826,112 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
   display: none !important;
 }
 
+/* Keep decision execution reachable inside the fixed-height desktop terminal.
+   The controls scroll independently while the reviewed action stays fully
+   inside the ticket boundary. */
+.ft-decision-ticket-scroll {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.ft-decision-action {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.ft-decision-action .ft-primary-button {
+  width: 100%;
+}
+
+@media (min-width: 981px) {
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column > [data-ft-region="trade-ticket"],
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-ticket-column > [data-ft-region="trade-ticket"] {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket {
+    overflow: hidden;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket-scroll {
+    min-height: 0;
+    padding-bottom: 12px;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    overscroll-behavior-y: contain;
+    scrollbar-color: #5a5a55 #171717;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-action {
+    position: relative;
+    z-index: 4;
+    padding-bottom: 0;
+    background: #111111;
+    box-shadow: 0 -12px 18px rgb(0 0 0 / 35%);
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-action .ft-primary-button {
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1300px) {
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-payoff > div {
+    padding: 5px 10px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-payoff strong {
+    width: 100%;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 981px) and (max-height: 800px) {
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket .ft-outcome-tabs,
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket .ft-outcome-tabs button {
+    min-height: 52px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-intent {
+    margin: 16px 0 12px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket .ft-decision-amount-field {
+    margin-top: 14px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-presets {
+    margin-top: 8px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-presets button {
+    min-height: 36px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-average {
+    margin-top: 13px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-position,
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-payoff {
+    margin-top: 12px;
+  }
+}
+
 .advanced-charts-surface,
 .advanced-charts-surface > div,
 .advanced-charts-surface iframe {

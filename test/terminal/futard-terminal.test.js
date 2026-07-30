@@ -2993,10 +2993,13 @@ test('submitted transaction state survives refresh and reconciles to confirmed',
   assert.equal(statusReads, 1);
   assert.match(byRole(root, 'transaction-state').textContent, /Confirmed/);
   assert.ok(byRole(root, 'trade-submit'));
-  assert.ok(
-    byRole(root, 'trade-submit').compareDocumentPosition(
-      byRole(root, 'transaction-state'),
-    ) & window.Node.DOCUMENT_POSITION_FOLLOWING,
+  assert.equal(
+    byRole(root, 'trade-submit').closest('[data-ft-role="trade-action"]'),
+    byRole(root, 'trade-action'),
+  );
+  assert.equal(
+    byRole(root, 'transaction-state').closest('[data-ft-role="decision-ticket-scroll"]'),
+    byRole(root, 'decision-ticket-scroll'),
   );
   assert.match(byRole(root, 'transaction-activity').textContent, /BUY PASS LIMIT/);
   const persisted = JSON.parse(
