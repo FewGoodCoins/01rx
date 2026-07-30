@@ -11,3 +11,4 @@ test-results/
 # Install approved artifacts during private deployment; never commit them.
 charting_library/
 public/charting_library/
+.vercel
