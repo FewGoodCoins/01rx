@@ -665,6 +665,17 @@ function makeWindow(options = {}) {
             data: responses.proposalMarketData,
           };
         }
+        if (/\/api\/beta\/trading\?view=decision-attest$/.test(url)) {
+          if (typeof options.decisionAttestResponder === 'function') {
+            return {
+              ok: true,
+              data: await options.decisionAttestResponder(
+                JSON.parse(requestOptions.body || '{}'),
+                requestOptions,
+              ),
+            };
+          }
+        }
         if (/\/api\/beta\/trading\?view=spot-order$/.test(url)) {
           if (typeof options.spotOrderResponder === 'function') {
             return {
@@ -3007,6 +3018,11 @@ test('decision trades simulate and open the wallet from one explicit execute cli
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
     provider,
+    decisionAttestResponder(body) {
+      calls.push('attest');
+      assert.equal(body.transaction, 'unsigned-decision-transaction');
+      return { transaction: 'attributed-decision-transaction' };
+    },
     solanaTradingOverrides: {
       createMainnetConnection() {
         return {};
@@ -3031,6 +3047,25 @@ test('decision trades simulate and open the wallet from one explicit execute cli
             outputMint: ACTIVE_MARKETS.markets[0].proposal.passBaseMint,
             recipient: WALLET_ADDRESS,
             programIds: [PROPOSAL_ID],
+          },
+        };
+      },
+      decisionAttributionRequest(plan) {
+        calls.push('attributionRequest');
+        assert.equal(plan.kind, 'swap');
+        return { transaction: 'unsigned-decision-transaction' };
+      },
+      async applyDecisionAttribution(_connection, plan, payload) {
+        calls.push('applyAttribution');
+        assert.equal(payload.transaction, 'attributed-decision-transaction');
+        return {
+          ...plan,
+          transaction: { attributed: true },
+          summary: {
+            ...plan.summary,
+            attributionAuthority: WALLET_ADDRESS,
+            attributionMarker: '01RX:D1:0',
+            platformFeeBps: 0,
           },
         };
       },
@@ -3085,6 +3120,9 @@ test('decision trades simulate and open the wallet from one explicit execute cli
   assert.deepEqual(calls, [
     'connect',
     'build',
+    'attributionRequest',
+    'attest',
+    'applyAttribution',
     'simulate',
     'sendPlan',
     'signTransaction',

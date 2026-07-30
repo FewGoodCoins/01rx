@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTRACT_RELEASE = '2026-07-25';
+const CONTRACT_RELEASE = '2026-07-30';
 const CONTRACT_HEADERS = Object.freeze({
   contract: 'X-01R-Contract',
   release: 'X-01R-Contract-Release',
@@ -10,6 +10,13 @@ const CONTRACT_HEADERS = Object.freeze({
 const API_SURFACES = Object.freeze({
   STABLE: 'stable',
   BETA: 'beta',
+});
+
+const DECISION_ATTRIBUTION = Object.freeze({
+  feeBps: 0,
+  marker: '01RX:D1:0',
+  memoProgramId: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+  version: 1,
 });
 
 function endpoint(definition) {
@@ -110,6 +117,14 @@ const API_ENDPOINTS = Object.freeze({
     surface: API_SURFACES.BETA,
     view: 'spot-submit',
   }),
+  'trading.decisionAttest': endpoint({
+    id: 'trading.decisionAttest',
+    contract: 'trading.decision-attest.beta1',
+    method: 'POST',
+    path: '/api/beta/trading',
+    surface: API_SURFACES.BETA,
+    view: 'decision-attest',
+  }),
 });
 
 const FUTARCHY_STABLE_V1_VIEWS = Object.freeze([
@@ -127,6 +142,7 @@ const FUTARCHY_BETA_VIEWS = Object.freeze([
 ]);
 
 const TRADING_BETA_VIEWS = Object.freeze([
+  'decision-attest',
   'spot-order',
   'spot-submit',
 ]);
@@ -178,6 +194,7 @@ module.exports = {
   API_SURFACES,
   CONTRACT_HEADERS,
   CONTRACT_RELEASE,
+  DECISION_ATTRIBUTION,
   FUTARCHY_BETA_VIEWS,
   FUTARCHY_STABLE_V1_VIEWS,
   TRADING_BETA_VIEWS,

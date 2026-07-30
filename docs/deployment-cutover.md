@@ -29,8 +29,12 @@ Vercel domain assignments, not GitHub visibility.
 3. Create the 01RX Vercel project from `FewGoodCoins/01rx`.
 4. Set `NAVGATOR_API_ORIGIN=https://api.navgator.xyz` for Preview and
    Production.
-5. Set `DFLOW_API_KEY` and `SOLANA_RPC_URL` for Preview and Production. They
-   must remain server-only and must never use a `VITE_*` prefix.
+5. Run `npm run generate:attribution-key` once. Store
+   `O1RX_ATTRIBUTION_SIGNING_KEY`, its pinned
+   `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `SOLANA_RPC_URL` for
+   Preview and Production. They must remain server-only and must never use a
+   `VITE_*` prefix. Keep the attribution key stable so all 01RX decision volume
+   remains queryable through one public authority.
 6. Deploy a preview and verify token data, active decisions, public history,
    wallet discovery, and an ownerless DFlow display quote through
    `/api/beta/trading?view=spot-order`.
@@ -38,6 +42,12 @@ Vercel domain assignments, not GitHub visibility.
    01RX project.
 8. Verify the same checks through `https://navgator.xyz/api/...`, then confirm
    the homepage and direct token/decision links.
+
+Do not verify attribution by signing a production trade during deployment.
+Exercise `decision-attest` with a fixture transaction in automated checks, and
+verify the first user-approved mainnet trade afterward by finding both the
+published 01RX authority signature and `01RX:D1:0` Memo in the same successful
+transaction as the MetaDAO conditional swap.
 
 ## Rollback
 
