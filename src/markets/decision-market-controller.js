@@ -784,37 +784,11 @@ function renderTradingViewToolbarPreview() {
       <button class="chart-tv-placeholder-button chart-tv-placeholder-timeframe chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView weekly timeframe placeholder" title="TradingView weekly timeframe">
         <span>W</span>
       </button>
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-chart-type chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView chart type placeholder" title="TradingView chart type">
-        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="square" aria-hidden="true">
-          <path d="M7 3.5v21M3.5 10.25H10.5M21 2.5v23M17.5 18H24.5"/>
-        </svg>
-      </button>
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-indicators chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView indicators placeholder" title="TradingView indicators">
-        <span aria-hidden="true">ƒ<sub>x</sub></span>
-      </button>
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-chevron chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView toolbar menu placeholder" title="TradingView toolbar menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
-      </button>
     </div>
     <div
       class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
       aria-label="TradingView premium view toolbar preview"
     >
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-quick-search" type="button" disabled aria-label="TradingView quick search placeholder" title="TradingView quick search">
-        <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="13.25" cy="13.25" r="9.25"/>
-          <path d="m20 20 6 6"/>
-          <path d="m14.25 4.5-4 8h4l-2 7 6-9h-4z" fill="#101010"/>
-        </svg>
-      </button>
-      <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView settings placeholder" title="TradingView settings">
-        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true">
-          <path d="M8 4.5h12l6 9.5-6 9.5H8L2 14z"/>
-          <circle cx="14" cy="14" r="3.2"/>
-        </svg>
-      </button>
       <button class="chart-tv-placeholder-button" type="button" disabled aria-label="TradingView fullscreen placeholder" title="TradingView fullscreen">
         <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" aria-hidden="true">
           <path d="M10 4.5H4.5V10M18 4.5h5.5V10M10 23.5H4.5V18M18 23.5h5.5V18"/>

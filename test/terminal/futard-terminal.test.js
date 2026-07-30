@@ -840,6 +840,11 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(chart.querySelector('[aria-label="TradingView undo placeholder"]'), null);
   assert.equal(chart.querySelector('[aria-label="TradingView redo placeholder"]'), null);
   assert.equal(chart.querySelector('[aria-label="TradingView snapshot placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView chart type placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView indicators placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView toolbar menu placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView quick search placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView settings placeholder"]'), null);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-chart-tool"]').length, 0);
   assert.equal(chart.querySelectorAll('.ft-chart-crosshair-rail button').length, 1);
   assert.equal(
@@ -1082,7 +1087,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
     byRole(root, 'proposal-history-chart')
       .querySelectorAll('.chart-tv-placeholder-button'),
   );
-  assert.equal(proposalChartPlaceholders.length, 7);
+  assert.equal(proposalChartPlaceholders.length, 2);
   assert.equal(proposalChartPlaceholders.every(button => button.disabled), true);
   assert.equal(
     proposalChartPlaceholders.some(button => button.dataset.ftAction),

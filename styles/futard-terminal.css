@@ -8656,7 +8656,7 @@ body.is-token-markets .token-markets-root {
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary {
-  flex: 0 0 168px;
+  flex: 0 0 56px;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-button {
@@ -8700,35 +8700,6 @@ body.is-token-markets .token-markets-root {
   font-size: 15px;
 }
 
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-chart-type,
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-indicators {
-  width: 54px;
-  min-width: 54px;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-indicators {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 24px;
-  line-height: 1;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-indicators sub {
-  position: relative;
-  top: 0.15em;
-  margin-left: -0.08em;
-  font-size: 13px;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-chevron {
-  width: 48px;
-  min-width: 48px;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-chevron svg {
-  width: 22px;
-  height: 22px;
-}
-
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
   width: 56px;
   min-width: 56px;
@@ -8737,11 +8708,6 @@ body.is-token-markets .token-markets-root {
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary svg {
   width: 26px;
   height: 26px;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-quick-search svg {
-  width: 28px;
-  height: 28px;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-chart-crosshair-tool {
@@ -8755,6 +8721,14 @@ body.is-token-markets .token-markets-root {
   border: 0;
   border-right: 1px solid #343636;
   border-bottom: 1px solid #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-transactions .ft-ownership-transactions-header,
+[data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-decision-transactions .ft-ownership-transactions-header {
+  height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  border-bottom-color: #292929;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-decision-transaction-branch[data-branch="pass"] {
@@ -9623,7 +9597,7 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary {
-  flex: 0 0 168px;
+  flex: 0 0 56px;
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button {
@@ -9668,36 +9642,6 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-timeframe
   font-size: 15px;
 }
 
-html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-chart-type {
-  width: 54px;
-  min-width: 54px;
-}
-
-html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-indicators {
-  width: 54px;
-  min-width: 54px;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 24px;
-  line-height: 1;
-}
-
-html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-indicators sub {
-  position: relative;
-  top: 0.15em;
-  margin-left: -0.08em;
-  font-size: 13px;
-}
-
-html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-chevron {
-  width: 48px;
-  min-width: 48px;
-}
-
-html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-chevron svg {
-  width: 22px;
-  height: 22px;
-}
-
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
   width: 56px;
   min-width: 56px;
@@ -9706,11 +9650,6 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary svg {
   width: 26px;
   height: 26px;
-}
-
-html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-quick-search svg {
-  width: 28px;
-  height: 28px;
 }
 
 html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] .chart-tv-placeholder-controls {
