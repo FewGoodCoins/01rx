@@ -1828,6 +1828,7 @@ export function mountFutardTerminal({
     routeNotice: '',
     markets: [],
     sidebarMarkets: [],
+    sidebarHistoryOpen: false,
     activeMarkets: [],
     indexedProposals: [],
     selectedId: initialProposalId,
@@ -2940,111 +2941,109 @@ export function mountFutardTerminal({
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
-    if (count) count.textContent = String(liveMarkets.length);
-    if (section) section.hidden = false;
-    if (!liveMarkets.length) {
-      list.innerHTML = '<div class="tp-decisions-empty">0 live decision markets</div>';
-    } else {
-      list.innerHTML = liveMarkets.map((market) => {
-        const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
-        const proposalNumber = market.proposal.number == null
-          ? ''
+    const priorMarkets = state.sidebarMarkets
+      .filter(market => (
+        market.proposal.statusGroup === 'passed'
+        || market.proposal.statusGroup === 'failed'
+      ))
+      .sort((left, right) => {
+        const leftTime = Date.parse(
+          left.proposal.resolvedAt || left.proposal.endsAt || left.proposal.createdAt || '',
+        ) || 0;
+        const rightTime = Date.parse(
+          right.proposal.resolvedAt || right.proposal.endsAt || right.proposal.createdAt || '',
+        ) || 0;
+        return rightTime - leftTime;
+      });
+    const visiblePriorMarkets = state.tokenFilter
+      ? priorMarkets.filter(market => market.token === state.tokenFilter)
+      : priorMarkets;
+
+    function renderSidebarMarket(market, isPrior = false) {
+      const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
+      const proposalNumber = market.proposal.number == null
+        ? (isPrior ? 'Proposal' : '')
+        : isPrior
+          ? `Proposal #${Math.round(market.proposal.number)}`
           : ` #${Math.round(market.proposal.number)}`;
-        const destination = tokenMarketsUrl(market.token, market.id);
-        const result = marketStatusLabel(market);
-        const resultState = result.toLowerCase().replace(/\s+/g, '-');
-        return `
-          <a
-            class="tp-decision-item"
-            href="${escapeHtml(destination)}"
-            title="${escapeHtml(market.proposal.title)}"
-            data-ft-proposal-id="${escapeHtml(market.id)}"
-            data-ft-token="${escapeHtml(market.token || '')}"
-            data-market-search-primary="${escapeHtml(ticker)}"
-            data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
-            ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
-          >
-            <span class="tp-decision-project">
-              ${renderLogo(market, 'small')}
-              <span class="tp-decision-copy">
-                <strong>${escapeHtml(ticker)}${escapeHtml(proposalNumber)}</strong>
-              </span>
+      const destination = tokenMarketsUrl(market.token, market.id);
+      const statusGroup = market.proposal.statusGroup;
+      const result = isPrior
+        ? (statusGroup === 'passed' ? 'Passed' : 'Failed')
+        : marketStatusLabel(market);
+      const resultState = result.toLowerCase().replace(/\s+/g, '-');
+      return `
+        <a
+          class="tp-decision-item${isPrior ? ' tp-decision-prior tp-past-proposal-item' : ''}"
+          href="${escapeHtml(destination)}"
+          title="${escapeHtml(market.proposal.title)}"
+          data-ft-proposal-id="${escapeHtml(market.id)}"
+          data-ft-token="${escapeHtml(market.token || '')}"
+          data-market-search-primary="${escapeHtml(ticker)}"
+          data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
+          ${isPrior ? 'data-decision-history-item="true"' : ''}
+          ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
+        >
+          <span class="tp-decision-project">
+            ${renderLogo(market, 'small')}
+            <span class="tp-decision-copy">
+              <strong>${escapeHtml(isPrior ? proposalNumber : `${ticker}${proposalNumber}`)}</strong>
+              ${isPrior ? `<small>${escapeHtml(market.proposal.title)}</small>` : ''}
             </span>
-            <span class="tp-decision-state" data-state="live">Live</span>
-            <span class="tp-decision-result" data-result="${escapeHtml(resultState)}">${escapeHtml(result)}</span>
-          </a>
-        `;
-      }).join('');
+          </span>
+          <span class="tp-decision-state" data-state="${isPrior ? 'closed' : 'live'}">${isPrior ? 'Closed' : 'Live'}</span>
+          <span class="tp-decision-result" data-result="${escapeHtml(resultState)}">${escapeHtml(result)}</span>
+        </a>
+      `;
     }
 
-    if (pastSection) pastSection.hidden = false;
+    if (count) count.textContent = `${liveMarkets.length} active`;
+    if (section) section.hidden = false;
+    runtime.document.documentElement.dataset.decisionHistory = state.sidebarHistoryOpen
+      ? 'open'
+      : 'closed';
+
+    const activeHtml = liveMarkets.length
+      ? liveMarkets.map(market => renderSidebarMarket(market)).join('')
+      : `
+        <div class="tp-decisions-empty">
+          <strong>No active decision markets</strong>
+          <span>There are no proposals currently trading.</span>
+        </div>
+      `;
+    const historyToggle = visiblePriorMarkets.length
+      ? `
+        <button
+          class="tp-decision-history-toggle"
+          type="button"
+          data-decision-sidebar-action="toggle-history"
+          aria-expanded="${state.sidebarHistoryOpen}"
+        >
+          <span>${state.sidebarHistoryOpen ? 'Hide' : 'View'} prior decision markets</span>
+          <span class="tp-decision-history-meta">
+            <span>${visiblePriorMarkets.length}</span>
+            <svg viewBox="0 0 10 6" fill="none" aria-hidden="true"><path d="m1 1 4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+      `
+      : '';
+    const priorHtml = visiblePriorMarkets
+      .map(market => renderSidebarMarket(market, true))
+      .join('');
+
+    list.innerHTML = activeHtml + historyToggle;
+    if (pastSection) pastSection.hidden = !state.sidebarHistoryOpen || !visiblePriorMarkets.length;
     if (pastList) {
-      const tokenKey = state.tokenFilter;
+      pastList.innerHTML = priorHtml || '<div class="tp-decisions-empty">0 past proposals</div>';
+    }
+    if (pastCount) pastCount.textContent = String(visiblePriorMarkets.length);
+    if (pastTitle) {
       const ticker = firstText(
-        state.navMap.get(tokenKey)?.ticker,
-        state.sidebarMarkets.find(market => market.token === tokenKey)?.ticker,
-        tokenKey,
+        state.navMap.get(state.tokenFilter)?.ticker,
+        state.sidebarMarkets.find(market => market.token === state.tokenFilter)?.ticker,
+        state.tokenFilter,
       ).toUpperCase();
-      const pastMarkets = state.sidebarMarkets
-        .filter(market => (
-          tokenKey
-          && market.token === tokenKey
-          && market.proposal.statusGroup !== 'live'
-        ))
-        .sort((left, right) => {
-          const numberDelta = firstNumber(right.proposal.number, -1)
-            - firstNumber(left.proposal.number, -1);
-          if (numberDelta) return numberDelta;
-          return String(right.proposal.resolvedAt || right.proposal.endsAt || right.proposal.createdAt || '')
-            .localeCompare(String(left.proposal.resolvedAt || left.proposal.endsAt || left.proposal.createdAt || ''));
-        });
-      if (pastTitle) {
-        pastTitle.textContent = ticker ? `Past Proposals · ${ticker}` : 'Past Proposals';
-      }
-      if (pastCount) pastCount.textContent = String(pastMarkets.length);
-      if (!pastMarkets.length) {
-        pastList.innerHTML = `<div class="tp-decisions-empty">0 past proposals${ticker
-          ? ` for ${escapeHtml(ticker)}`
-          : ''}</div>`;
-      } else {
-        pastList.innerHTML = pastMarkets.map((market) => {
-          const proposalNumber = market.proposal.number == null
-            ? 'Proposal'
-            : `Proposal #${Math.round(market.proposal.number)}`;
-          const result = market.proposal.statusGroup === 'passed'
-            ? 'Passed'
-            : market.proposal.statusGroup === 'failed'
-              ? 'Failed'
-              : proposalDisplayStatus(market.proposal).label;
-          const resultState = market.proposal.statusGroup === 'passed'
-            || market.proposal.statusGroup === 'failed'
-            ? market.proposal.statusGroup
-            : 'indexed';
-          const destination = tokenMarketsUrl(market.token, market.id);
-          return `
-            <a
-              class="tp-decision-item tp-past-proposal-item"
-              href="${escapeHtml(destination)}"
-              title="${escapeHtml(market.proposal.title)}"
-              data-ft-proposal-id="${escapeHtml(market.id)}"
-              data-ft-token="${escapeHtml(market.token || '')}"
-              data-market-search-primary="${escapeHtml(`${ticker} ${proposalNumber}`)}"
-              data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${proposalNumber} ${market.proposal.title || ''} ${result}`)}"
-              ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
-            >
-              <span class="tp-decision-project">
-                ${renderLogo(market, 'small')}
-                <span class="tp-decision-copy">
-                  <strong>${escapeHtml(proposalNumber)}</strong>
-                  <small>${escapeHtml(market.proposal.title)}</small>
-                </span>
-              </span>
-              <span class="tp-decision-state">Closed</span>
-              <span class="tp-decision-result" data-result="${escapeHtml(resultState)}">${escapeHtml(result)}</span>
-            </a>
-          `;
-        }).join('');
-      }
+      pastTitle.textContent = ticker ? `Past Proposals · ${ticker}` : 'Past Proposals';
     }
     runtime.applyMarketSidebarSearch?.();
   }
@@ -3437,6 +3436,13 @@ export function mountFutardTerminal({
     `;
   }
 
+  function clearOwnershipChartExpansion() {
+    runtime.document.body.classList.remove('chart-frame-expanded');
+    regions.marketChart
+      ?.querySelector('[data-ft-role="ownership-token-chart"].is-expanded')
+      ?.classList.remove('is-expanded');
+  }
+
   function renderMarketStage() {
     if (isOwnershipWorkspace()) {
       destroyHourlyChart();
@@ -3448,6 +3454,7 @@ export function mountFutardTerminal({
         '[data-ft-role="ownership-token-chart"]',
       );
       if (!currentFrame || currentFrame.dataset.ftToken !== asset.token) {
+        clearOwnershipChartExpansion();
         regions.marketChart.innerHTML = `
           <section
             class="ft-ownership-chart-panel"
@@ -3459,7 +3466,6 @@ export function mountFutardTerminal({
               src="${escapeHtml(ownershipChartFrameUrl(asset.token))}"
               title="${escapeHtml(`${asset.name} Price and NAV chart`)}"
               loading="eager"
-              allow="fullscreen"
             ></iframe>
           </section>
         `;
@@ -3468,6 +3474,7 @@ export function mountFutardTerminal({
       return;
     }
 
+    clearOwnershipChartExpansion();
     destroyHourlyChart();
     const market = selectedMarket();
     regions.marketChartHeader.innerHTML = '';
@@ -7022,6 +7029,18 @@ export function mountFutardTerminal({
   }
 
   function handleDocumentClick(event) {
+    const decisionSidebarAction = event.target?.closest?.('[data-decision-sidebar-action]');
+    if (decisionSidebarAction) {
+      const decisionSection = runtime.document.getElementById('tlp-decisions-panel');
+      if (decisionSection?.contains(decisionSidebarAction)) {
+        event.preventDefault();
+        if (decisionSidebarAction.dataset.decisionSidebarAction === 'toggle-history') {
+          state.sidebarHistoryOpen = !state.sidebarHistoryOpen;
+          renderDecisionSidebar();
+        }
+        return;
+      }
+    }
     const sidebarProposal = event.target?.closest?.(
       '.tp-decision-item[data-ft-proposal-id]',
     );
@@ -7035,6 +7054,11 @@ export function mountFutardTerminal({
       event.preventDefault();
       void selectSidebarProposal(sidebarProposal);
       return;
+    }
+    const rangeSelector = root.querySelector('[data-ft-role="hourly-range-select"]');
+    const rangeMenu = root.querySelector('[data-ft-role="hourly-range-menu"]');
+    if (rangeSelector && rangeMenu && !rangeMenu.hidden && !rangeSelector.contains(event.target)) {
+      setHourlyRangeMenuOpen(false);
     }
     const seriesSelector = root.querySelector('[data-ft-role="hourly-series-control"]');
     const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
@@ -7551,6 +7575,7 @@ export function mountFutardTerminal({
   function destroy() {
     if (state.destroyed) return;
     state.destroyed = true;
+    clearOwnershipChartExpansion();
     destroyHourlyChart();
     state.abortController?.abort();
     state.paginationAbortController?.abort();

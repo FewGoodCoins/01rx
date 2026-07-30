@@ -28,7 +28,11 @@ test('01RX exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('01RX adds only functional NAV and Growth controls plus disabled TradingView placeholders', () => {
+test('01RX adds functional NAV, Growth, and chart expansion controls plus a disabled TradingView placeholder', () => {
+  assert.equal(
+    (indexSource.match(/window\.toggleChartNavMenu = function/g) || []).length,
+    1,
+  );
   assert.match(indexSource, /id="chart-nav-trigger"/);
   assert.match(indexSource, /id="btn-growth-chart-toolbar"/);
   const placeholderButtons = [
@@ -36,10 +40,14 @@ test('01RX adds only functional NAV and Growth controls plus disabled TradingVie
       /<button class="chart-tv-placeholder-button[^"]*"[^>]*\sdisabled(?:\s|>)/g,
     ),
   ];
-  assert.equal(placeholderButtons.length, 2);
+  assert.equal(placeholderButtons.length, 1);
   assert.doesNotMatch(
     placeholderButtons.map(match => match[0]).join('\n'),
     /onclick=|data-ft-action=/,
+  );
+  assert.match(
+    indexSource,
+    /id="btn-fullscreen-toolbar"[\s\S]*?onclick="toggleChartFullscreen\(\)"/,
   );
   assert.doesNotMatch(
     indexSource,

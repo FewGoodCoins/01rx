@@ -78,11 +78,11 @@ test('API relay restores a wildcard path rewritten through the fixed Vercel func
   );
 });
 
-test('API relay forwards reviewed transaction payloads without browser credentials', async () => {
+test('API relay forwards NAVgator POST payloads without browser credentials', async () => {
   const calls = [];
   const request = {
     method: 'POST',
-    url: '/api/beta/trading?view=spot-submit',
+    url: '/api/beta/futarchy?view=solana-rpc',
     headers: {
       accept: 'application/json',
       authorization: 'Bearer must-not-forward',
@@ -90,8 +90,10 @@ test('API relay forwards reviewed transaction payloads without browser credentia
       'content-type': 'application/json',
     },
     body: {
-      reviewToken: 'verified-proof',
-      signedTransaction: 'signed-wire-bytes',
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getBalance',
+      params: ['11111111111111111111111111111111'],
     },
   };
   const response = responseRecorder();
@@ -105,19 +107,19 @@ test('API relay forwards reviewed transaction payloads without browser credentia
         headers: {
           'cache-control': 'private, no-store',
           'content-type': 'application/json',
-          'x-01r-contract': 'trading.spot-submit.beta1',
+          'x-01r-contract': 'futarchy.solana-rpc.beta1',
         },
       });
     },
   });
 
-  assert.equal(calls[0].url, 'https://api.navgator.xyz/api/beta/trading?view=spot-submit');
+  assert.equal(calls[0].url, 'https://api.navgator.xyz/api/beta/futarchy?view=solana-rpc');
   assert.equal(calls[0].options.headers.get('authorization'), null);
   assert.equal(calls[0].options.headers.get('cookie'), null);
   assert.deepEqual(JSON.parse(calls[0].options.body), request.body);
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['cache-control'], 'private, no-store');
-  assert.equal(response.headers['x-01r-contract'], 'trading.spot-submit.beta1');
+  assert.equal(response.headers['x-01r-contract'], 'futarchy.solana-rpc.beta1');
   assert.deepEqual(JSON.parse(response.body.toString()), { ok: true });
 });
 

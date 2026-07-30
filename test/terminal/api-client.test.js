@@ -90,9 +90,32 @@ test('API base resolution removes a stale same-origin local override', async () 
     navgatorApiBase: 'http://localhost:4173',
   });
 
-  assert.equal(resolveApiBase(createRuntime('http://localhost:4173/', storage)), 'https://navgator.xyz');
+  assert.equal(resolveApiBase(createRuntime('http://localhost:4173/', storage)), 'http://localhost:4173');
   assert.equal(storage.getItem('navgator_api_base'), null);
   assert.equal(storage.getItem('navgatorApiBase'), null);
+});
+
+test('Vite preview keeps public reads on its same-origin API relay', async () => {
+  const { resolveApiBase, resolveFutarchyApiBases } = await importCore('api-client.js');
+  const runtime = createRuntime('http://127.0.0.1:4173/?view=markets');
+  const baseUrl = resolveApiBase(runtime);
+
+  assert.equal(baseUrl, 'http://127.0.0.1:4173');
+  assert.deepEqual(resolveFutarchyApiBases(runtime, baseUrl), {
+    readBaseUrl: 'http://127.0.0.1:4173',
+    executionBaseUrl: 'http://127.0.0.1:3001',
+  });
+
+  const productionOverrideStorage = createStorage({
+    navgator_api_base: 'https://navgator.xyz',
+    navgatorApiBase: 'https://navgator.xyz',
+  });
+  assert.equal(
+    resolveApiBase(createRuntime('http://127.0.0.1:4173/', productionOverrideStorage)),
+    'http://127.0.0.1:4173',
+  );
+  assert.equal(productionOverrideStorage.getItem('navgator_api_base'), null);
+  assert.equal(productionOverrideStorage.getItem('navgatorApiBase'), null);
 });
 
 test('futarchy API origins default safely and accept trusted split-host configuration', async () => {

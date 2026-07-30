@@ -889,6 +889,10 @@ window._cachedPriceMap = _cachedPriceMap;
       var lt = landingTokens.find(function(x) { return x.key === key; });
       var spot = (lt && lt.spot) || 0;
       var chg24 = lt && lt.change24h;
+      var watched = _navgatorWatchlist.has(key);
+      var verifiedBadge = lt && lt.navVerified !== false
+        ? '<span class="tp-verified-badge" title="Verified asset" aria-label="Verified asset"><svg viewBox="0 0 18 20" aria-hidden="true"><path d="M9 1.5 15.2 4v5.4c0 4.1-2.6 7.3-6.2 9.1-3.6-1.8-6.2-5-6.2-9.1V4L9 1.5Z"/><path d="m6 9.6 1.8 1.8 4-4.2"/></svg></span>'
+        : '';
       var squareCls = tok.graveyard ? ' graveyard-square-icon' : '';
       var iconH = tok.logo
         ? '<div class="tp-icon' + squareCls + '"><img src="' + _esc(tok.logo) + '" alt="' + _esc(tok.ticker) + '" loading="lazy"></div>'
@@ -912,6 +916,7 @@ window._cachedPriceMap = _cachedPriceMap;
         chg24Html = renderMarketSecondaryMetric(lt);
       }
       return '<a class="tp-item" data-key="' + _esc(key) + '"' +
+        ' data-watched="' + (watched ? 'true' : 'false') + '"' +
         ' data-market-search-primary="' + _esc(tok.ticker) + '"' +
         ' data-market-search="' + _esc([tok.ticker, tok.name || '', key].join(' ')) + '"' +
         ' data-sort-price="' + _esc(String(spot || '')) + '"' +
@@ -919,9 +924,11 @@ window._cachedPriceMap = _cachedPriceMap;
         ' data-sort-market-cap="' + _esc(String(lt && lt.mcap > 0 ? lt.mcap : '')) + '"' +
         ' data-sort-volume="' + _esc(String(lt && lt.volume24h > 0 ? lt.volume24h : '')) + '"' +
         ' href="' + _tokenPageUrl(key) + '">' +
-        (isWatchlist ? dragHandle : '') +
+        (isWatchlist
+          ? dragHandle
+          : '<span class="wl-star' + (watched ? ' active' : '') + '" onclick="event.preventDefault();event.stopPropagation();toggleWatchStar(this,this.closest(\'.tp-item\').dataset.key)">' + starSvg(watched) + '</span>') +
         iconH +
-        '<div class="tp-content"><div class="tp-row"><span class="tp-name">' + _esc(tok.ticker) + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div></div>' +
+        '<div class="tp-content"><div class="tp-row"><span class="tp-name">' + _esc(tok.ticker) + verifiedBadge + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div></div>' +
         '</a>';
     }
 

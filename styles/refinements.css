@@ -703,40 +703,64 @@ html[data-workspace="markets"] .tp-market-toolbar {
   z-index: 4;
   display: block;
   flex: 0 0 auto;
-  padding: 10px 8px;
+  padding: 12px;
   border-bottom: 1px solid #2b2b2b;
-  background: #101010;
+  background: #0d0d0d;
 }
 
 .tp-market-tool-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .tp-market-tool-button {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid #343434;
+  border: 1px solid #292929;
   border-radius: 0;
-  background: #2a2a2a;
+  background: #242424;
   color: #ececec;
   cursor: pointer;
 }
 
 .tp-market-tool-button:hover,
 .tp-market-tool-button[aria-expanded="true"] {
-  border-color: #555;
-  background: #363636;
+  border-color: #454545;
+  background: #303030;
 }
 
 .tp-market-tool-button svg {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
+}
+
+.tp-market-close-button {
+  display: inline-flex;
+  height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 0 0 0 10px;
+  border: 0;
+  background: transparent;
+  color: #aaa9a6;
+  cursor: pointer;
+  font-family: var(--numeric-font);
+  font-size: 12px;
+}
+
+.tp-market-close-button:hover {
+  color: #f0f0ed;
+}
+
+.tp-market-close-button svg {
+  width: 17px;
+  height: 17px;
 }
 
 .tp-market-search-field {
@@ -778,11 +802,15 @@ html[data-workspace="markets"] .tp-market-toolbar {
   color: #858580;
 }
 
+.tp-market-search-field[hidden] {
+  display: none;
+}
+
 .tp-market-column-menu {
   position: absolute;
   z-index: 8;
-  top: 51px;
-  left: 8px;
+  top: 62px;
+  left: 12px;
   width: 196px;
   overflow: hidden;
   border: 1px solid #44443f;
@@ -794,8 +822,8 @@ html[data-workspace="markets"] .tp-market-toolbar {
 .tp-market-sort-menu {
   position: absolute;
   z-index: 8;
-  top: 51px;
-  right: 8px;
+  top: 62px;
+  right: 12px;
   width: 244px;
   overflow: hidden;
   border: 1px solid #44443f;
@@ -897,7 +925,45 @@ html[data-workspace="markets"] .tp-market-toolbar {
 }
 
 .tp-market-tabs {
-  display: none !important;
+  display: none;
+}
+
+html[data-workspace="markets"] .tp-market-tabs {
+  display: flex;
+  height: 48px;
+  min-height: 48px;
+  flex: 0 0 48px;
+  align-items: stretch;
+  gap: 28px;
+  padding: 0 12px;
+  border-bottom: 1px solid #3a3a37;
+  background: #101010;
+}
+
+.tp-market-tab {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #999995;
+  cursor: pointer;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+}
+
+.tp-market-tab:hover,
+.tp-market-tab.active {
+  color: #f2f2ef;
+}
+
+.tp-market-tab.active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #f2f2ef;
+  content: '';
 }
 
 .tp-decisions-section {
@@ -910,7 +976,7 @@ html[data-workspace="markets"] .tp-market-toolbar {
 
 html[data-workspace="markets"] .tp-decisions-section:not([hidden]) {
   display: flex;
-  max-height: min(240px, 34vh);
+  max-height: min(360px, 46vh);
   flex: 0 0 auto;
   flex-direction: column;
   overflow-x: hidden;
@@ -928,6 +994,14 @@ html[data-workspace="markets"] .tp-all-section {
   flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
+}
+
+html[data-workspace="markets"] .tp-all-section > .tp-unified-section-heading {
+  display: none;
+}
+
+html[data-market-sidebar-tab="watchlist"] .tp-decisions-section {
+  display: none !important;
 }
 
 html[data-workspace="markets"] .tp-unified-section-heading {
@@ -1076,14 +1150,13 @@ html[data-workspace="markets"] .tp-token-columns {
   padding: 0 8px;
   border-bottom: 1px solid #171717;
   background: #101010;
-  color: #77777b;
+  color: #9b9b97;
   font-family: var(--numeric-font);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.02em;
   scrollbar-color: transparent transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  text-transform: uppercase;
 }
 
 html[data-workspace="markets"] .tp-decision-columns::-webkit-scrollbar,
@@ -1092,13 +1165,28 @@ html[data-workspace="markets"] .tp-token-columns::-webkit-scrollbar {
 }
 
 html[data-workspace="markets"] .tp-decision-columns span,
-html[data-workspace="markets"] .tp-token-columns span {
+html[data-workspace="markets"] .tp-token-columns span,
+html[data-workspace="markets"] .tp-token-columns button {
   text-align: right;
 }
 
 html[data-workspace="markets"] .tp-decision-columns span:first-child,
-html[data-workspace="markets"] .tp-token-columns span:first-child {
+html[data-workspace="markets"] .tp-token-columns button:first-child {
   text-align: left;
+}
+
+.tp-token-columns button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tp-token-columns button:hover,
+.tp-token-columns button.active {
+  color: #e8e8e5;
 }
 
 html[data-workspace="markets"] .tp-decision-columns {
@@ -1119,6 +1207,10 @@ html[data-workspace="markets"] #tlp-all-list .tp-item {
   padding: 5px 8px !important;
   border-bottom: 1px solid #171717 !important;
   border-radius: 0 !important;
+}
+
+html[data-workspace="markets"] #tlp-all-list .tp-item[hidden] {
+  display: none !important;
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-item:not(:has(> .wl-star)) {
@@ -1157,10 +1249,34 @@ html[data-workspace="markets"] #tlp-all-list .tp-icon {
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-name {
+  display: inline-flex !important;
   grid-column: 5;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
   color: #c9c9ca !important;
   font-size: 12px !important;
   font-weight: 560 !important;
+}
+
+html[data-workspace="markets"] .tp-verified-badge {
+  display: inline-flex;
+  width: 13px;
+  height: 14px;
+  flex: 0 0 13px;
+  align-items: center;
+  justify-content: center;
+  color: #777872;
+}
+
+html[data-workspace="markets"] .tp-verified-badge svg {
+  width: 12px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-price,
@@ -1286,9 +1402,78 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
 }
 
 .tp-decisions-empty {
-  padding: 9px 12px;
+  display: flex;
+  min-height: 66px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px;
   color: #707077;
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.tp-decisions-empty strong {
+  color: #c3c3c0;
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.tp-decisions-empty span {
+  color: #777773;
+}
+
+.tp-decision-history-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 12px;
+  border: 0;
+  border-top: 1px solid #242424;
+  border-bottom: 1px solid #202020;
+  background: #151515;
+  color: #aaa9a5;
+  cursor: pointer;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  text-align: left;
+}
+
+.tp-decision-history-toggle:hover {
+  background: #1b1b1b;
+  color: #eeeeeb;
+}
+
+.tp-decision-history-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #858580;
+  font-family: var(--numeric-font);
+}
+
+.tp-decision-history-meta svg {
+  width: 10px;
+  height: 6px;
+  transition: transform 160ms ease;
+}
+
+html[data-decision-history="open"] .tp-decision-history-meta svg {
+  transform: rotate(180deg);
+}
+
+html[data-decision-history="closed"] .tp-decision-prior {
+  display: none !important;
+}
+
+.tp-decision-prior {
+  background: #0e0e0e;
+}
+
+.tp-decision-prior .tp-decision-state {
+  color: #8d8d89;
 }
 
 html[data-workspace="markets"] #tlp-decisions-list,
@@ -1304,6 +1489,38 @@ html[data-workspace="markets"] .tp-past-proposal-item {
 html[data-workspace="markets"] .tp-past-proposal-item .tp-decision-copy small {
   margin-top: 2px;
   font-size: 8px;
+}
+
+.tp-market-empty {
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  color: #777773;
+  display: flex;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  text-align: center;
+}
+
+.tp-market-empty[hidden] {
+  display: none;
+}
+
+html[data-workspace="markets"] body.left-panel-collapsed.is-token-markets .app-left,
+html[data-workspace="markets"] body.left-panel-collapsed .app-left {
+  width: 0 !important;
+  flex-basis: 0 !important;
+}
+
+html[data-workspace="markets"] #tlp-all-list[hidden] {
+  display: none !important;
+}
+
+html[data-workspace="markets"] body.left-panel-collapsed .shell-panel-toggle-left {
+  display: inline-flex !important;
+  top: calc(var(--site-header-height) + 72px);
+  left: 0;
 }
 
 /* Token intelligence board — default token-page layout */

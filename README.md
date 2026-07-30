@@ -5,10 +5,10 @@ markets. This repository owns the product shell, market navigation, chart
 experience, wallet connection, transaction review, and trading UI.
 
 NAVgator remains the canonical backend for token configuration, treasury/NAV
-data, proposal indexing, guarded DFlow routing, Solana account validation,
-transaction simulation, and submission. Browser traffic reaches that backend
-through the same-origin relay in `api/[...path].js`; API credentials and private
-keys never enter this repository or the browser.
+data, and proposal indexing. 01RX now owns guarded DFlow ownership-token
+routing, Solana account validation, transaction simulation, and submission in
+its server-only API. Browser code uses `@01resolved/api-client`; API credentials
+never enter the browser.
 
 The migrated application includes:
 
@@ -38,19 +38,28 @@ routes remain available, for example:
 /?view=markets&archive=1
 ```
 
-Local `/api` requests proxy to `VITE_NAVGATOR_API_BASE`, which defaults to the
-currently deployed NAVgator backend.
+Local NAV/data `/api` requests proxy to `VITE_NAVGATOR_API_BASE`, which defaults
+to the currently deployed NAVgator backend. The Vite server handles
+`/api/beta/trading` locally using the same guarded handler as Vercel. Local
+development uses DFlow's development quote endpoint by default. To exercise the
+production endpoint locally, add `DFLOW_API_KEY`, `SOLANA_RPC_URL`, and
+`DFLOW_TRADE_API_URL=https://quote-api.dflow.net` to `.env.local`.
 
 ## Production boundary
 
-Production `/api` requests run through the serverless relay and use
-`NAVGATOR_API_ORIGIN`. Before moving `navgator.xyz` to this project, assign a
-separate public hostname such as `api.navgator.xyz` to the NAVgator backend and
-set:
+Production NAV/data `/api` requests run through the serverless relay and use
+`NAVGATOR_API_ORIGIN`. Ownership trading is intercepted locally by the 01RX
+serverless API and uses the server-only DFlow and Solana configuration. In the
+01RX Vercel project set:
 
 ```text
 NAVGATOR_API_ORIGIN=https://api.navgator.xyz
+DFLOW_API_KEY=...
+SOLANA_RPC_URL=https://...
 ```
+
+Apply the two secrets to Production and Preview. Do not create `VITE_DFLOW_*`
+or `VITE_SOLANA_RPC_*` variables.
 
 See [docs/deployment-cutover.md](docs/deployment-cutover.md) for the verified
 order of operations and rollback path.
@@ -60,7 +69,7 @@ order of operations and rollback path.
 01RX never signs automatically. Wallet actions remain bound to reviewed mainnet
 program IDs, exact transaction bytes, a recent blockhash, simulation output,
 the connected fee payer, and explicit user approval. DFlow responses and signed
-transactions are revalidated by NAVgator's guarded backend before submission.
+transactions are revalidated by 01RX's server-only guard before submission.
 
 The current Solana dependency tree has one inherited, unfixed
 `bigint-buffer` advisory. See [docs/security-notes.md](docs/security-notes.md)

@@ -6924,3 +6924,39 @@ test('chart loading state never paints the retired SVG chart preview', () => {
   assert.doesNotMatch(tokenPageSource, /_chartLoadingTraceVariant/);
   assert.match(loadingState, /createElement\('span'\)/);
 });
+
+test('missing initial price history retries with bounded backoff and clears the warning', () => {
+  const sandbox = loadHelpers(`
+    ${extractFunction('_chartDataRecoveryDelay')}
+    result = [0, 1, 2, 3, 9].map(_chartDataRecoveryDelay);
+  `);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(sandbox.result)), [
+    1000,
+    3000,
+    10000,
+    30000,
+    30000,
+  ]);
+  assert.match(
+    source,
+    /fetchCandlesForTF\(tfKey, \{ timeoutMs: API_FETCH_TIMEOUT_MS \}\)/,
+  );
+  assert.match(source, /_scheduleChartDataRecovery\(loadKey, isCurrentLoad\)/);
+  assert.match(
+    source,
+    /_scheduleChartDataRecovery\(_mainTokenKey, _mainTokenStillCurrent\)/,
+  );
+  assert.match(
+    source,
+    /_clearChartDataUnavailableNotice\(\);\s+_chartDataRecoveryAttempt = 0;/,
+  );
+});
+
+test('ownership chart expansion stays inside the page instead of using browser fullscreen', () => {
+  const fullscreenToggle = extractFunction('toggleChartFullscreen');
+
+  assert.doesNotMatch(fullscreenToggle, /requestFullscreen|exitFullscreen/);
+  assert.match(fullscreenToggle, /chart-frame-expanded/);
+  assert.match(fullscreenToggle, /ownership-token-chart/);
+});

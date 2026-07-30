@@ -19,8 +19,8 @@ Until compatible upstream releases are available:
 
 - keep wallet signing behind simulation, exact-message review, expiry, and
   explicit user approval;
-- reject untrusted transaction bytes and account layouts at the NAVgator
-  execution boundary;
+- reject untrusted transaction bytes and account layouts at the 01RX
+  server-only execution boundary;
 - rerun the transaction-planning and wallet-guard tests after every Solana,
   Manifest, or MetaDAO dependency update;
 - rerun `npm audit` during each release and replace the affected dependency

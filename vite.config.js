@@ -1,15 +1,38 @@
 import path from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
+import tradingHandler from './api/beta/trading.js';
 
 const root = import.meta.dirname;
 
+function localTradingApi() {
+  return {
+    name: '01rx-local-trading-api',
+    configureServer(server) {
+      server.middlewares.use('/api/beta/trading', async (request, response) => {
+        const mountedUrl = String(request.url || '');
+        request.url = `/api/beta/trading${mountedUrl === '/' ? '' : mountedUrl}`;
+        await tradingHandler(request, response);
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, '');
+  [
+    'DFLOW_API_KEY',
+    'DFLOW_TRADE_API_URL',
+    'NAVGATOR_API_ORIGIN',
+    'SOLANA_RPC_URL',
+  ].forEach((name) => {
+    if (env[name]) process.env[name] = env[name];
+  });
   const apiTarget = String(
     env.VITE_NAVGATOR_API_BASE || 'https://navgator.xyz',
   ).replace(/\/+$/, '');
 
   return {
+    plugins: [localTradingApi()],
     publicDir: path.join(root, 'public'),
     resolve: {
       alias: [

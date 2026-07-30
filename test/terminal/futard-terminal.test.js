@@ -515,7 +515,15 @@ async function loadProposalChartModule() {
 }
 
 function makeWindow(options = {}) {
-  const dom = new JSDOM('<!doctype html><div id="root"></div>', {
+  const sidebar = options.sidebar
+    ? `
+      <section id="tlp-decisions-panel" hidden>
+        <span id="tp-live-decision-count">0 active</span>
+        <div id="tlp-decisions-list"></div>
+      </section>
+    `
+    : '';
+  const dom = new JSDOM(`<!doctype html>${sidebar}<div id="root"></div>`, {
     url: options.url || 'https://navgator.xyz/',
   });
   const { window } = dom;
@@ -1193,6 +1201,75 @@ test('homepage discovery uses only public stable proposal reads and canonical to
   cleanupMount(mounted);
 });
 
+test('decision sidebar shows an honest empty state and reveals prior markets on request', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const priorProposalIndex = {
+    ...PROPOSAL_INDEX,
+    summary: {
+      ...PROPOSAL_INDEX.summary,
+      total: 2,
+      pending: 0,
+      tradable: 0,
+      filtered: 2,
+    },
+    pagination: {
+      ...PROPOSAL_INDEX.pagination,
+      returned: 2,
+      total: 2,
+    },
+    proposals: PROPOSAL_INDEX.proposals.filter(proposal => (
+      proposal.status === 'passed' || proposal.status === 'failed'
+    )),
+  };
+  const { root, window } = makeWindow({
+    activeMarkets: {
+      ...ACTIVE_MARKETS,
+      pendingProposalCount: 0,
+      markets: [],
+    },
+    proposalIndex: priorProposalIndex,
+    sidebar: true,
+  });
+  window.applyMarketSidebarSearch = () => {};
+  const pastSidebar = window.document.createElement('section');
+  pastSidebar.id = 'tlp-past-decisions-panel';
+  pastSidebar.innerHTML = `
+    <span id="tp-past-decisions-title"></span>
+    <span id="tp-past-decision-count"></span>
+    <div id="tlp-past-decisions-list"></div>
+  `;
+  window.document.body.append(pastSidebar);
+  const controller = mountFutardTerminal({ window, root });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settle(window);
+
+  const section = window.document.getElementById('tlp-decisions-panel');
+  assert.equal(section.hidden, false);
+  assert.equal(
+    window.document.getElementById('tp-live-decision-count').textContent,
+    '0 active',
+  );
+  assert.match(section.textContent, /No active decision markets/);
+  assert.equal(
+    window.document.querySelectorAll('#tlp-past-decisions-list .tp-decision-prior').length,
+    2,
+  );
+  assert.equal(window.document.documentElement.dataset.decisionHistory, 'closed');
+  assert.equal(window.document.getElementById('tlp-past-decisions-panel').hidden, true);
+
+  section.querySelector('[data-decision-sidebar-action="toggle-history"]').click();
+
+  assert.equal(window.document.documentElement.dataset.decisionHistory, 'open');
+  assert.equal(window.document.getElementById('tlp-past-decisions-panel').hidden, false);
+  assert.match(
+    section.querySelector('[data-decision-sidebar-action="toggle-history"]').textContent,
+    /Hide prior decision markets/,
+  );
+
+  cleanupMount(mounted);
+});
+
 test('token Markets keeps its workspace scoped while refreshing the global proposal index', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { requests, root, window } = makeWindow({
@@ -1274,13 +1351,20 @@ test('market sidebar keeps live decisions above tokens and renders past proposal
   const mounted = trackMount(controller, window);
   await controller.ready;
 
-  assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1');
+  assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1 active');
   assert.match(
     window.document.getElementById('tlp-decisions-list').textContent,
     /LOYAL[\s\S]+Live/,
   );
   assert.equal(window.document.getElementById('tp-past-decisions-title').textContent, 'Past Proposals · META');
   assert.equal(window.document.getElementById('tp-past-decision-count').textContent, '1');
+  window.document
+    .querySelector('[data-decision-sidebar-action="toggle-history"]')
+    .dispatchEvent(new window.MouseEvent('click', {
+      bubbles: true,
+      button: 0,
+      cancelable: true,
+    }));
   const metaArchive = window.document.querySelector('#tlp-past-decisions-list .tp-past-proposal-item');
   assert.ok(metaArchive);
   assert.match(metaArchive.textContent, /Proposal #41[\s\S]+Passed/);
@@ -1449,6 +1533,13 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
   const mounted = trackMount(controller, window);
   await controller.ready;
 
+  window.document
+    .querySelector('[data-decision-sidebar-action="toggle-history"]')
+    .dispatchEvent(new window.MouseEvent('click', {
+      bubbles: true,
+      button: 0,
+      cancelable: true,
+    }));
   const proposalLink = window.document.querySelector(
     '#tlp-past-decisions-list .tp-past-proposal-item',
   );
@@ -1704,6 +1795,12 @@ test('ownership market orders quote through DFlow and submit only after explicit
   const recentTransactions = byRole(terminal.root, 'ownership-recent-transactions');
   assert.ok(recentTransactions);
   assert.match(recentTransactions.textContent, /No recent indexed transactions/i);
+  const ownershipChartFrame = terminal.root.querySelector(
+    '[data-ft-role="ownership-token-chart"] iframe',
+  );
+  assert.ok(ownershipChartFrame);
+  assert.equal(ownershipChartFrame.hasAttribute('allow'), false);
+  assert.equal(ownershipChartFrame.hasAttribute('allowfullscreen'), false);
 
   byAction(terminal.root, 'connect-wallet').click();
   await settleUntil(terminal.window, () => controller.getState().walletAddress === WALLET_ADDRESS);

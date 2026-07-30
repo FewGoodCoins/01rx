@@ -460,7 +460,11 @@ async function renderTokenLeftPanel(priceMap) {
     }
 
     var sw = _navgatorWatchlist.has(key);
+    var verifiedBadge = entry && entry.navVerified !== false
+      ? '<span class="tp-verified-badge" title="Verified asset" aria-label="Verified asset"><svg viewBox="0 0 18 20" aria-hidden="true"><path d="M9 1.5 15.2 4v5.4c0 4.1-2.6 7.3-6.2 9.1-3.6-1.8-6.2-5-6.2-9.1V4L9 1.5Z"/><path d="m6 9.6 1.8 1.8 4-4.2"/></svg></span>'
+      : '';
     return '<a class="tp-item' + (isActive ? ' active' : '') + '" data-key="' + _esc(key) + '"' +
+      ' data-watched="' + (sw ? 'true' : 'false') + '"' +
       ' data-market-search-primary="' + _esc(tok.ticker) + '"' +
       ' data-market-search="' + _esc([tok.ticker, tok.name || '', key].join(' ')) + '"' +
       ' data-sort-price="' + _esc(String(spot || '')) + '"' +
@@ -472,7 +476,7 @@ async function renderTokenLeftPanel(priceMap) {
       (isWl ? _dragHandleSvg : '') +
       iconH +
       '<div class="tp-content">' +
-        '<div class="tp-row"><span class="tp-name" style="font-size:13px">' + _esc(tok.ticker) + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div>' +
+        '<div class="tp-row"><span class="tp-name" style="font-size:13px">' + _esc(tok.ticker) + verifiedBadge + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div>' +
       '</div>' +
     '</a>';
   }
@@ -6680,6 +6684,99 @@ function _refreshActiveChartFromCaches() {
   setChartData(candles, _navPerToken);
   renderNAVStats(candles, _navPerToken);
   _requestOverlayUpdate();
+}
+
+var _chartDataRecoveryTimer = null;
+var _chartDataRecoveryAttempt = 0;
+var _chartDataRecoveryToken = '';
+var _chartDataRecoveryInFlight = false;
+var _chartDataRecoveryGeneration = 0;
+
+function _chartDataRecoveryDelay(attempt) {
+  var delays = [1000, 3000, 10000, 30000];
+  var index = Math.max(0, Math.min(delays.length - 1, Number(attempt) || 0));
+  return delays[index];
+}
+
+function _clearChartDataUnavailableNotice() {
+  document.querySelectorAll('[data-chart-data-unavailable="true"]').forEach(function(notice) {
+    notice.remove();
+  });
+  document.querySelectorAll('#lw-chart-container + div').forEach(function(notice) {
+    if (notice.textContent.indexOf('Chart data unavailable') !== -1) notice.remove();
+  });
+}
+
+function _showChartDataUnavailableNotice() {
+  var existing = document.querySelector('[data-chart-data-unavailable="true"]');
+  if (existing) return existing;
+  var container = document.getElementById('lw-chart-container');
+  if (!container || !container.parentNode) return null;
+  var notice = document.createElement('div');
+  notice.setAttribute('data-chart-data-unavailable', 'true');
+  notice.style.cssText = 'text-align:center;font-size:12px;color:var(--orange);font-family:Inter,sans-serif;padding:6px 0';
+  notice.textContent = '⚠ Chart data unavailable — retrying price data automatically.';
+  container.parentNode.insertBefore(notice, container.nextSibling);
+  return notice;
+}
+
+function _cancelChartDataRecovery() {
+  if (_chartDataRecoveryTimer) clearTimeout(_chartDataRecoveryTimer);
+  _chartDataRecoveryGeneration += 1;
+  _chartDataRecoveryTimer = null;
+  _chartDataRecoveryAttempt = 0;
+  _chartDataRecoveryToken = '';
+  _chartDataRecoveryInFlight = false;
+}
+
+function _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad) {
+  if (!expectedTokenKey || typeof isCurrentLoad !== 'function') return;
+  if (_chartDataRecoveryToken && _chartDataRecoveryToken !== expectedTokenKey) {
+    _cancelChartDataRecovery();
+  }
+  _chartDataRecoveryToken = expectedTokenKey;
+  if (_chartDataRecoveryTimer || _chartDataRecoveryInFlight) return;
+  _showChartDataUnavailableNotice();
+  var delay = _chartDataRecoveryDelay(_chartDataRecoveryAttempt);
+  var recoveryGeneration = _chartDataRecoveryGeneration;
+  _chartDataRecoveryTimer = setTimeout(function() {
+    if (recoveryGeneration !== _chartDataRecoveryGeneration) return;
+    _chartDataRecoveryTimer = null;
+    if (!isCurrentLoad() || tokenKey !== expectedTokenKey) {
+      _cancelChartDataRecovery();
+      return;
+    }
+    _chartDataRecoveryInFlight = true;
+    var tfKey = _fallbackTF(_chartTF || '1D');
+    fetchCandlesForTF(tfKey, { timeoutMs: API_FETCH_TIMEOUT_MS }).then(function(candles) {
+      if (recoveryGeneration !== _chartDataRecoveryGeneration) return;
+      _chartDataRecoveryInFlight = false;
+      if (!isCurrentLoad() || tokenKey !== expectedTokenKey) {
+        _cancelChartDataRecovery();
+        return;
+      }
+      if (!candles || candles.length === 0) {
+        _chartDataRecoveryAttempt += 1;
+        _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad);
+        return;
+      }
+      _clearChartDataUnavailableNotice();
+      _chartDataRecoveryAttempt = 0;
+      _chartDataRecoveryToken = '';
+      setChartOverlayControlsReady(true);
+      _refreshActiveChartFromCaches();
+      _applyLayers();
+    }).catch(function() {
+      if (recoveryGeneration !== _chartDataRecoveryGeneration) return;
+      _chartDataRecoveryInFlight = false;
+      if (!isCurrentLoad() || tokenKey !== expectedTokenKey) {
+        _cancelChartDataRecovery();
+        return;
+      }
+      _chartDataRecoveryAttempt += 1;
+      _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad);
+    });
+  }, delay);
 }
 
 function _refreshActiveChartAfterNavHistoryLoad(chartTf) {
@@ -21623,6 +21720,8 @@ async function _loadTokenImplementation(key, loadContext) {
   }
   var loadRequestOptions = loadContext.requestOptions;
   loadContext.onCleanup(stopTxPolling);
+  _cancelChartDataRecovery();
+  loadContext.onCleanup(_cancelChartDataRecovery);
 
   // Hide dashboard immediately so old token data doesn't linger
   var dashView = document.getElementById('dashboard-view');
@@ -21768,9 +21867,7 @@ async function _loadTokenImplementation(key, loadContext) {
   _revealTokenShell();
 
   // Remove any leftover chart error notices
-  document.querySelectorAll('#lw-chart-container + div').forEach(function(n) {
-    if (n.textContent.indexOf('Chart data unavailable') !== -1) n.remove();
-  });
+  _clearChartDataUnavailableNotice();
 
   // Update sidebar active state
   document.querySelectorAll('.tp-item').forEach(function(el) {
@@ -21824,11 +21921,9 @@ async function _loadTokenImplementation(key, loadContext) {
     renderNAVStats(chartData, fastNavPerToken);
     _revealTokenShell();
     if (!ohlcv) {
-      var notice = document.createElement('div');
-      notice.style.cssText = 'text-align:center;font-size:12px;color:var(--orange);font-family:Inter,sans-serif;padding:6px 0';
-      notice.textContent = '⚠ Chart data unavailable — price data could not be loaded.';
-      var cc = document.getElementById('lw-chart-container');
-      cc.parentNode.insertBefore(notice, cc.nextSibling);
+      _scheduleChartDataRecovery(loadKey, isCurrentLoad);
+    } else {
+      _clearChartDataUnavailableNotice();
     }
 
     _currentReadyP.then(function(apiOk) {
@@ -21903,6 +21998,8 @@ async function _loadInitialTokenImplementation(initialTokenKey, loadContext) {
   _tokenLoadSeq = _mainTokenLoadSeq;
   var loadRequestOptions = loadContext.requestOptions;
   loadContext.onCleanup(stopTxPolling);
+  _cancelChartDataRecovery();
+  loadContext.onCleanup(_cancelChartDataRecovery);
   function _mainTokenStillCurrent() {
     return loadContext.isCurrent() && _mainTokenLoadSeq === _tokenLoadSeq && tokenKey === _mainTokenKey;
   }
@@ -22106,11 +22203,9 @@ async function _loadInitialTokenImplementation(initialTokenKey, loadContext) {
     _updateNavHistToggle();
     renderNAVStats(chartData, fastNavPerToken);
     if (!ohlcv) {
-      var notice = document.createElement('div');
-      notice.style.cssText = 'text-align:center;font-size:12px;color:var(--orange);font-family:Inter,sans-serif;padding:6px 0';
-      notice.textContent = '⚠ Chart data unavailable — price data could not be loaded.';
-      var cc = document.getElementById('lw-chart-container');
-      cc.parentNode.insertBefore(notice, cc.nextSibling);
+      _scheduleChartDataRecovery(_mainTokenKey, _mainTokenStillCurrent);
+    } else {
+      _clearChartDataUnavailableNotice();
     }
 
     _currentReadyP2.then(function(apiOk) {
@@ -23346,6 +23441,39 @@ function downloadChartSnapshot() {
 }
 
 function toggleChartFullscreen() {
+  if (document.documentElement.getAttribute('data-01rx-chart-frame') === 'true') {
+    try {
+      var frameElement = window.frameElement;
+      var parentDocument = window.parent && window.parent.document;
+      var panel = frameElement && frameElement.closest(
+        '[data-ft-role="ownership-token-chart"]'
+      );
+      if (parentDocument && panel) {
+        var frameExpanded = panel.classList.toggle('is-expanded');
+        parentDocument.body.classList.toggle('chart-frame-expanded', frameExpanded);
+        var frameToolbarButton = document.getElementById('btn-fullscreen-toolbar');
+        if (frameToolbarButton) {
+          frameToolbarButton.classList.toggle('active', frameExpanded);
+          frameToolbarButton.setAttribute(
+            'aria-label',
+            frameExpanded ? 'Restore chart size' : 'Expand chart'
+          );
+          frameToolbarButton.title = frameExpanded ? 'Restore chart size' : 'Expand chart';
+        }
+        setTimeout(function() {
+          if (!_lwChart) return;
+          var frameContainer = document.getElementById('lw-chart-container');
+          if (frameContainer) {
+            _lwChart.resize(frameContainer.clientWidth, frameContainer.clientHeight);
+          }
+          _requestOverlayUpdate();
+        }, 100);
+        return;
+      }
+    } catch (_) {
+      // A cross-origin embedding parent cannot be resized by the chart frame.
+    }
+  }
   var el = document.querySelector('.token-chart-col');
   if (!el) return;
   var chartSection = document.querySelector('.chart-section');
@@ -23384,6 +23512,17 @@ document.addEventListener('keydown', function(e) {
     // Command bar handles its own Escape — skip fullscreen toggle when it's open
     var cmdOpen = document.getElementById('cmd-overlay');
     if (cmdOpen && cmdOpen.classList.contains('open')) return;
+    if (document.documentElement.getAttribute('data-01rx-chart-frame') === 'true') {
+      try {
+        var parentPanel = window.frameElement && window.frameElement.closest(
+          '[data-ft-role="ownership-token-chart"].is-expanded'
+        );
+        if (parentPanel) {
+          toggleChartFullscreen();
+          return;
+        }
+      } catch (_) {}
+    }
     var el = document.querySelector('.token-chart-col.chart-expanded');
     if (el) toggleChartFullscreen();
   }

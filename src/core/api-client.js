@@ -28,7 +28,17 @@ export function resolveApiBase(browserWindow) {
       const parsed = new runtime.URL(override, runtime.location.href);
       if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
         const base = parsed.origin.replace(/\/+$/, '');
-        if (!explicit && isLocalHost && base === runtime.location.origin.replace(/\/+$/, '')) {
+        const localOrigin = runtime.location.origin.replace(/\/+$/, '');
+        const vitePreview = isLocalHost
+          && runtime.location.port !== '3000'
+          && !params.has('localApi');
+        const redundantStoredOverride = !explicit
+          && isLocalHost
+          && (
+            base === localOrigin
+            || (vitePreview && base === PRODUCTION_API_BASE)
+          );
+        if (redundantStoredOverride) {
           runtime.localStorage.removeItem('navgator_api_base');
           runtime.localStorage.removeItem('navgatorApiBase');
         } else {
@@ -41,8 +51,14 @@ export function resolveApiBase(browserWindow) {
       }
     }
 
-    if (isLocalHost && (runtime.location.port === '3000' || params.has('localApi'))) {
-      return LOCAL_API_BASE;
+    if (isLocalHost) {
+      if (runtime.location.port === '3000' || params.has('localApi')) {
+        return LOCAL_API_BASE;
+      }
+      // Vite previews expose a reviewed same-origin /api relay. Keeping reads
+      // on the preview origin avoids browser CORS/network failures while the
+      // relay continues to target VITE_NAVGATOR_API_BASE server-side.
+      return runtime.location.origin.replace(/\/+$/, '');
     }
     return prod;
   } catch (err) {
@@ -83,6 +99,9 @@ export function resolveFutarchyApiBases(browserWindow, baseUrl) {
   const fallback = baseUrl || resolveApiBase(runtime);
   const embedded = runtime.NAVGATOR?.config || {};
   const configured = runtime.NAVGATOR_CONFIG || {};
+  const localPreviewOrigin = /^(localhost|127\.0\.0\.1)$/.test(runtime.location.hostname || '')
+    && fallback === runtime.location.origin.replace(/\/+$/, '')
+    && runtime.location.port !== '3000';
   // The Vite shell can run without the private/local API process. Keep public
   // proposal research useful in that mode by reading the stable contract from
   // production, while beta execution continues to target the local API and
@@ -90,6 +109,7 @@ export function resolveFutarchyApiBases(browserWindow, baseUrl) {
   const readFallback = fallback === LOCAL_API_BASE
     ? PRODUCTION_API_BASE
     : fallback;
+  const executionFallback = localPreviewOrigin ? LOCAL_API_BASE : fallback;
   return {
     readBaseUrl: configuredApiOrigin(
       configured.futarchyReadApiBase || embedded.futarchyReadApiBase,
@@ -99,7 +119,7 @@ export function resolveFutarchyApiBases(browserWindow, baseUrl) {
     executionBaseUrl: configuredApiOrigin(
       configured.futarchyExecutionApiBase || embedded.futarchyExecutionApiBase,
       runtime,
-      fallback,
+      executionFallback,
     ),
   };
 }

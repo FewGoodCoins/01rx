@@ -300,10 +300,18 @@ test('Advanced Charts keeps its surface and SVG overlays hidden until base data 
   );
 });
 
-test('Advanced Charts only uses the official playground locally and approved paths in production', async () => {
+test('Advanced Charts matches production locally unless the playground is explicitly requested', async () => {
   const { resolveAdvancedChartsConfiguration } = await advancedChartsModulePromise;
 
   assert.deepEqual(resolveAdvancedChartsConfiguration(createRuntime()), {
+    enabled: false,
+    libraryPath: '',
+    productionReady: false,
+    source: 'local-opt-in-required',
+  });
+  assert.deepEqual(resolveAdvancedChartsConfiguration(createRuntime({
+    search: '?token=solo&frame=01rx&chartEngine=advanced',
+  })), {
     enabled: true,
     libraryPath: '/__tradingview/charting_library/',
     productionReady: false,
@@ -337,7 +345,9 @@ test('Advanced Charts only uses the official playground locally and approved pat
 
 test('Advanced Charts claims the renderer before mounting and releases disabled startup state', async () => {
   const { installBrowserAdvancedCharts } = await advancedChartsModulePromise;
-  const advancedRuntime = createRuntime();
+  const advancedRuntime = createRuntime({
+    search: '?token=solo&frame=01rx&chartEngine=advanced',
+  });
 
   assert.equal(
     installBrowserAdvancedCharts(advancedRuntime).enabled,

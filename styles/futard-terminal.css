@@ -7830,6 +7830,32 @@ body.is-token-markets .token-markets-root {
   background: #101010;
 }
 
+body.chart-frame-expanded {
+  overflow: hidden !important;
+}
+
+body.chart-frame-expanded .ft-shell {
+  z-index: 10000 !important;
+}
+
+body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  border: 0 !important;
+  background: #101010;
+}
+
+body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-chart-frame {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .ft-ownership-ticket {
   display: flex;
   min-height: 0;
@@ -8548,6 +8574,35 @@ body.is-token-markets .token-markets-root {
 }
 
 @media (min-width: 981px) {
+  html:has(body.is-token-markets .ft-ownership-market),
+  html:has(body.is-token-markets .ft-ownership-market) body {
+    width: 100%;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has(.ft-ownership-market) .app-shell {
+    height: calc(100dvh - var(--site-header-height) - var(--site-footer-height)) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has(.ft-ownership-market) .app-right,
+  body.is-token-markets:has(.ft-ownership-market) .app-content,
+  body.is-token-markets:has(.ft-ownership-market) .dashboard.active,
+  body.is-token-markets:has(.ft-ownership-market) .token-markets-root,
+  body.is-token-markets:has(.ft-ownership-market) [data-ft-mode="token"].ft-shell,
+  body.is-token-markets:has(.ft-ownership-market) [data-ft-mode="token"] .ft-main {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.is-token-markets:has(.ft-ownership-market) [data-ft-mode="token"] .ft-main {
+    padding: 0;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
     grid-template-columns:
       minmax(0, 1.55fr)
@@ -9182,6 +9237,487 @@ html[data-01rx-chart-frame="true"] body#navgator-app.is-token {
   min-height: 100vh !important;
 }
 
+/* Keep the ownership workspace aligned with the deployed three-column
+   terminal while the market rail remains independently customizable. */
+.ft-ownership-chart-panel {
+  height: auto;
+  min-height: 480px;
+  max-height: 610px;
+  aspect-ratio: 5 / 4;
+  background: #101010;
+}
+
+.ft-ownership-chart-frame {
+  background: #101010;
+}
+
+.ft-ownership-ticket {
+  min-height: 0;
+  height: 100%;
+  padding: 10px 12px 12px;
+}
+
+.ft-ownership-side-tabs {
+  min-height: 42px;
+}
+
+.ft-ownership-side-tabs button {
+  font-size: 13px;
+}
+
+.ft-ownership-order-tabs {
+  min-height: 44px;
+}
+
+.ft-ownership-order-tabs button {
+  font-size: 11px;
+}
+
+.ft-ownership-order-body {
+  padding-top: 14px;
+}
+
+.ft-ownership-swap-field {
+  height: 54px;
+  grid-template-columns: minmax(0, 1fr) minmax(108px, 0.42fr);
+}
+
+.ft-ownership-swap-field > span {
+  left: 11px;
+  font-size: 12px;
+}
+
+.ft-ownership-swap-field input,
+.ft-ownership-swap-field output {
+  padding: 0 10px 0 73px;
+  font-size: 15px;
+}
+
+.ft-ownership-asset {
+  padding: 0 9px;
+  gap: 6px;
+}
+
+.ft-ownership-asset strong {
+  font-size: 14px;
+}
+
+.ft-ownership-asset .ft-token-logo,
+.ft-ownership-usdc-logo {
+  width: 22px;
+  height: 22px;
+}
+
+.ft-ownership-balance {
+  min-height: 28px;
+  font-size: 10px;
+}
+
+.ft-ownership-presets {
+  margin: 1px 0 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 36px;
+  gap: 5px;
+}
+
+.ft-ownership-presets button {
+  height: 32px;
+  padding: 0 3px;
+  font-size: 11px;
+}
+
+.ft-shell .ft-ownership-connect {
+  min-height: 46px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.ft-ownership-order-details {
+  padding: 14px 1px 0;
+  gap: 6px;
+}
+
+.ft-ownership-order-details dt,
+.ft-ownership-order-details dd {
+  font-size: 10px;
+}
+
+.ft-ownership-transactions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 480px;
+  max-height: 610px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #272724;
+  background: #0b0b0b;
+}
+
+.ft-ownership-transactions-header {
+  display: flex;
+  min-height: 48px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #272724;
+}
+
+.ft-ownership-transactions-header strong {
+  color: #e9e8e4;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.ft-ownership-transactions-header span {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid #333330;
+  color: #8d8c86;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+}
+
+.ft-ownership-transactions-columns,
+.ft-ownership-transaction-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns:
+    minmax(52px, 0.9fr)
+    minmax(58px, 1fr)
+    minmax(44px, 0.75fr)
+    30px;
+  align-items: center;
+  gap: 4px;
+}
+
+.ft-ownership-transactions-columns {
+  min-height: 34px;
+  padding: 0 8px;
+  border-bottom: 1px solid #20201e;
+  color: #77766f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.ft-ownership-transactions-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: #3a3a37 transparent;
+  scrollbar-width: thin;
+}
+
+.ft-ownership-transaction-row {
+  min-height: 38px;
+  padding: 0 8px;
+  border-bottom: 1px solid #1d1d1b;
+  color: #d3d2ce;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  text-decoration: none;
+}
+
+.ft-ownership-transaction-row:hover {
+  background: #151514;
+}
+
+.ft-ownership-transaction-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ft-ownership-transaction-row > span:not(:first-child) {
+  text-align: right;
+}
+
+.ft-ownership-transaction-price[data-side="buy"] {
+  color: #58dcb0;
+}
+
+.ft-ownership-transaction-price[data-side="sell"] {
+  color: #ff737e;
+}
+
+.ft-ownership-transactions-empty {
+  display: grid;
+  min-height: 150px;
+  padding: 18px;
+  place-items: center;
+  color: #77766f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ft-ownership-transactions-source {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid #272724;
+  color: #64635e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+}
+
+.ft-account-row {
+  display: none;
+  min-width: 0;
+}
+
+.ft-ownership-account {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 224px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #343636;
+  border-top: 0;
+  background: #0b0b0b;
+}
+
+.ft-ownership-account-tabs {
+  display: flex;
+  min-height: 74px;
+  padding: 0 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ft-ownership-account-tabs button {
+  display: inline-flex;
+  height: 44px;
+  padding: 0 18px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #85847d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.ft-ownership-account-tabs button:hover {
+  color: #cac9c4;
+}
+
+.ft-ownership-account-tabs button.ft-is-active {
+  background: #262625;
+  color: #f2f1ee;
+}
+
+.ft-ownership-account-tabs button:focus-visible {
+  outline: 1px solid #77776f;
+  outline-offset: -1px;
+}
+
+.ft-ownership-account-panel {
+  display: flex;
+  min-height: 150px;
+  padding: 24px;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  color: #85847d;
+  font-size: 12px;
+  text-align: center;
+}
+
+.ft-ownership-account-trades {
+  display: grid;
+  width: min(100%, 760px);
+  align-self: stretch;
+  align-content: start;
+}
+
+.ft-ownership-account-trade {
+  display: grid;
+  min-height: 36px;
+  padding: 0 10px;
+  grid-template-columns: 80px repeat(3, minmax(0, 1fr));
+  align-items: center;
+  border-bottom: 1px solid #20201e;
+  color: #cac9c4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  text-align: right;
+}
+
+.ft-ownership-account-trade strong {
+  color: #58dcb0;
+  text-align: left;
+}
+
+.ft-ownership-account-trade strong[data-side="sell"] {
+  color: #ff737e;
+}
+
+.ft-chart-market-watchlist {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ft-muted);
+  cursor: pointer;
+}
+
+.ft-chart-market-watchlist:hover,
+.ft-chart-market-watchlist:focus-visible,
+.ft-chart-market-watchlist[aria-pressed="true"] {
+  color: var(--ft-ink-strong);
+}
+
+.ft-chart-market-watchlist svg {
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.ft-chart-market-watchlist[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-stage {
+  display: none;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-header {
+  border: 0;
+  border-bottom: 1px solid #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-header > * {
+  border-right-color: #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
+  gap: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-account-row {
+  display: block;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel,
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-ticket,
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions {
+  border: 0;
+  border-bottom: 1px solid #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions-header {
+  height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  border-bottom-color: #292929;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions-source {
+  border-top-color: #343636;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-order-tabs {
+  border-bottom-color: #343636;
+}
+
+@media (min-width: 981px) {
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
+    grid-template-columns:
+      minmax(0, 1.55fr)
+      minmax(210px, 0.55fr)
+      minmax(275px, 0.72fr);
+    grid-template-rows:
+      auto
+      minmax(0, 1fr)
+      clamp(180px, 24dvh, 224px);
+    height: 100%;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-chart-header-region {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-chart {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel,
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-transactions {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+    border-right: 1px solid #343636;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-activity-row {
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-account-row {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ticket-column {
+    position: static;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    grid-column: 3;
+    grid-row: 2;
+    align-content: stretch;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ticket-column > [data-ft-region="trade-ticket"] {
+    height: 100%;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-account {
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-account-panel {
+    min-height: 0;
+  }
+}
+
 html[data-01rx-chart-frame="true"] .bb-tape,
 html[data-01rx-chart-frame="true"] .bloomberg-status,
 html[data-01rx-chart-frame="true"] .site-header,
@@ -9758,6 +10294,129 @@ html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] .advanced-char
   position: fixed;
   top: 46px;
   left: 49px;
+}
+
+.chart-tv-placeholder-controls {
+  display: none;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-control {
+  position: relative;
+  display: block;
+  width: 42px;
+  min-width: 42px;
+  height: 100%;
+  flex: 0 0 42px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-nav-trigger {
+  color: #787b86;
+  font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger {
+  color: #787b86;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-growth-trigger.disabled {
+  color: #787b86;
+  cursor: default;
+  opacity: 0.42;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-primary {
+  min-width: 42px;
+  flex: 0 0 42px;
+  order: -1;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary {
+  flex: 0 0 56px;
+  margin-left: auto;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button {
+  display: inline-flex;
+  width: 52px;
+  min-width: 52px;
+  height: 100%;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #85857f;
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 1;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token #btn-fullscreen-toolbar {
+  cursor: pointer;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token #btn-fullscreen-toolbar:hover {
+  background: #202020;
+  color: #fff;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button:disabled {
+  color: #85857f;
+  cursor: default;
+  opacity: 1;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-button svg {
+  width: 25px;
+  height: 25px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-divider {
+  border-right: 1px solid #292929;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-timeframe {
+  width: 42px;
+  min-width: 42px;
+  font-size: 15px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
+  width: 56px;
+  min-width: 56px;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-secondary svg {
+  width: 26px;
+  height: 26px;
+}
+
+html[data-01rx-chart-frame="true"][data-chart-engine^="advanced"] .chart-tv-placeholder-controls {
+  display: none !important;
+}
+
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-controls,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-series-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > .chart-feature-control,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > #btn-chart-embed,
+html[data-01rx-chart-frame="true"] body.is-token .chart-toolbar-row > #layer-controls,
+html[data-01rx-chart-frame="true"] body.is-token .chart-drawing-rail-01rx,
+html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
+  display: none !important;
 }
 
 .advanced-charts-surface,

@@ -198,16 +198,17 @@ var _marketTokenSecondaryMetric = (function() {
     return 'change24h';
   }
 })();
-var _marketTokenSortKeys = ['price', 'change', 'market-cap', 'volume'];
+var _marketTokenSortKeys = ['asset', 'price', 'change', 'market-cap', 'volume'];
 var _marketTokenSortKey = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-token-sort');
-    return _marketTokenSortKeys.indexOf(saved) >= 0 ? saved : 'price';
+    return _marketTokenSortKeys.indexOf(saved) >= 0 ? saved : 'asset';
   } catch (e) {
-    return 'price';
+    return 'asset';
   }
 })();
 var _marketSidebarSortAscending = false;
+var _marketSidebarTab = 'all';
 
 function getMarketTokenSecondaryMetric() {
   return _marketTokenSecondaryMetric;
@@ -233,6 +234,37 @@ function toggleMarketColumnMenu(event) {
   closeMarketSortMenu();
   menu.hidden = !willOpen;
   button.setAttribute('aria-expanded', String(willOpen));
+}
+
+function toggleMarketSidebarSearch(event) {
+  if (event) event.stopPropagation();
+  var field = document.getElementById('tp-market-search-field');
+  var button = document.getElementById('tp-market-search-button');
+  var input = document.getElementById('tlp-search');
+  if (!field || !button || !input) return;
+  var willOpen = field.hidden;
+  closeMarketColumnMenu();
+  closeMarketSortMenu();
+  field.hidden = !willOpen;
+  button.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) {
+    requestAnimationFrame(function() { input.focus(); });
+  } else if (input.value) {
+    input.value = '';
+    applyMarketSidebarSearch();
+  }
+}
+
+function setMarketSidebarTab(nextTab) {
+  if (nextTab !== 'all' && nextTab !== 'watchlist') return;
+  _marketSidebarTab = nextTab;
+  document.documentElement.dataset.marketSidebarTab = nextTab;
+  document.querySelectorAll('[data-market-sidebar-tab]').forEach(function(tab) {
+    var isActive = tab.dataset.marketSidebarTab === nextTab;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+  applyMarketSidebarSearch();
 }
 
 function _refreshMarketTokenList() {
@@ -268,6 +300,13 @@ function _syncMarketSortMenu() {
   if (directionLabel) directionLabel.textContent = _marketSidebarSortAscending ? 'Low to high' : 'High to low';
   var directionIcon = document.getElementById('tp-market-sort-direction-icon');
   if (directionIcon) directionIcon.textContent = _marketSidebarSortAscending ? '↑' : '↓';
+  var assetLabel = document.getElementById('tp-token-primary-label');
+  if (assetLabel) {
+    assetLabel.textContent = 'Asset' + (_marketTokenSortKey === 'asset'
+      ? (_marketSidebarSortAscending ? ' ↑' : ' ↓')
+      : '');
+    assetLabel.classList.toggle('active', _marketTokenSortKey === 'asset');
+  }
 }
 
 function closeMarketSortMenu() {
@@ -311,6 +350,16 @@ function toggleMarketSidebarSort() {
   toggleMarketSidebarSortDirection();
 }
 
+function toggleMarketAssetSort() {
+  if (_marketTokenSortKey === 'asset') {
+    _marketSidebarSortAscending = !_marketSidebarSortAscending;
+    _syncMarketSortMenu();
+    applyMarketSidebarSearch();
+    return;
+  }
+  setMarketSidebarSort('asset');
+}
+
 function _marketSearchScore(item, query) {
   if (!query) return 0;
   var primary = (item.getAttribute('data-market-search-primary') || '').toLowerCase();
@@ -323,7 +372,9 @@ function _marketSearchScore(item, query) {
 }
 
 function _marketSortValue(item, key) {
-  var raw = item.getAttribute('data-sort-' + key);
+  var raw = key === 'asset'
+    ? item.getAttribute('data-market-search-primary')
+    : item.getAttribute('data-sort-' + key);
   if (raw == null || raw === '') return { missing: true, number: null, text: '' };
   var number = Number(raw);
   return {
@@ -351,7 +402,6 @@ function _orderMarketSidebarList(list, tab, query) {
     return item.matches('.tp-item, .tp-decision-item');
   });
   rows.forEach(function(item, index) {
-    item.style.removeProperty('display');
     if (!item.hasAttribute('data-market-search-order')) {
       item.setAttribute('data-market-search-order', String(index));
     }
@@ -370,15 +420,33 @@ function _orderMarketSidebarList(list, tab, query) {
     return Number(a.getAttribute('data-market-search-order'))
       - Number(b.getAttribute('data-market-search-order'));
   });
-  rows.forEach(function(item) { list.appendChild(item); });
+  var visibleCount = 0;
+  rows.forEach(function(item) {
+    list.appendChild(item);
+    var matchesQuery = !query || _marketSearchScore(item, query) < 4;
+    var isWatched = item.dataset.watched === 'true';
+    var isVisible = matchesQuery && (tab !== 'tokens' || _marketSidebarTab !== 'watchlist' || isWatched);
+    item.hidden = !isVisible;
+    if (isVisible) visibleCount += 1;
+  });
+  return visibleCount;
 }
 
 function applyMarketSidebarSearch() {
   var search = document.getElementById('tlp-search');
   var query = search ? search.value.toLowerCase().trim() : '';
-  _orderMarketSidebarList(document.getElementById('tlp-all-list'), 'tokens', query);
+  var tokenList = document.getElementById('tlp-all-list');
+  var visibleTokens = _orderMarketSidebarList(tokenList, 'tokens', query) || 0;
+  if (tokenList) tokenList.hidden = visibleTokens === 0;
   _orderMarketSidebarList(document.getElementById('tlp-decisions-list'), 'decisions', query);
   _orderMarketSidebarList(document.getElementById('tlp-past-decisions-list'), 'decisions', query);
+  var empty = document.getElementById('tp-market-empty');
+  if (empty) {
+    empty.hidden = visibleTokens > 0;
+    empty.textContent = query
+      ? 'No matching assets'
+      : (_marketSidebarTab === 'watchlist' ? 'Your watchlist is empty' : 'No assets found');
+  }
 }
 
 function _bindMarketSidebarSearch() {
@@ -386,7 +454,11 @@ function _bindMarketSidebarSearch() {
   if (!input || input.dataset.marketSearchBound === 'true') return;
   input.dataset.marketSearchBound = 'true';
   input.addEventListener('input', applyMarketSidebarSearch);
+  input.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') toggleMarketSidebarSearch(event);
+  });
   _syncMarketSortMenu();
+  setMarketSidebarTab(_marketSidebarTab);
   applyMarketSidebarSearch();
 }
 

@@ -228,7 +228,7 @@ export function resolveAdvancedChartsConfiguration(runtime) {
     };
   }
 
-  if (isLocalHost && is01rxFrame) {
+  if (isLocalHost && is01rxFrame && requestedEngine === 'advanced') {
     return {
       enabled: true,
       libraryPath: OFFICIAL_PLAYGROUND_LIBRARY_PATH,
@@ -241,7 +241,9 @@ export function resolveAdvancedChartsConfiguration(runtime) {
     enabled: false,
     libraryPath: '',
     productionReady: false,
-    source: 'library-unavailable',
+    source: isLocalHost && is01rxFrame
+      ? 'local-opt-in-required'
+      : 'library-unavailable',
   };
 }
 

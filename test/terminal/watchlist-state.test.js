@@ -234,3 +234,18 @@ test('public legacy watchlist facades delegate all storage ownership to the shel
   assert.equal(legacySource.includes('navgator_watchlist'), false);
   assert.doesNotMatch(legacySource, /localStorage\.(?:getItem|setItem)\([^)]*watchlist/i);
 });
+
+test('market sidebar offers only All and Watchlist asset tabs backed by rendered watch state', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const appCore = fs.readFileSync('src/legacy/app-core.js', 'utf8');
+  const tokenPage = fs.readFileSync('src/legacy/token-page.js', 'utf8');
+  const tabs = Array.from(
+    html.matchAll(/data-market-sidebar-tab="([^"]+)"/g),
+    (match) => match[1],
+  );
+
+  assert.deepEqual(tabs, ['all', 'watchlist']);
+  assert.match(appCore, /function setMarketSidebarTab\(nextTab\)/);
+  assert.match(appCore, /item\.dataset\.watched === 'true'/);
+  assert.match(tokenPage, /data-watched=/);
+});
