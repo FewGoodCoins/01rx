@@ -85,6 +85,17 @@ test('token markets do not reserve a second empty header row', () => {
   );
 });
 
+test('global wallet control uses the 01RX green palette', () => {
+  assert.match(
+    frameCss,
+    /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #35d093;[\s\S]*?--ft-focus: #35d093;/,
+  );
+  assert.match(
+    frameCss,
+    /\.site-header-market-wallet \.ft-wallet-dot\s*\{[\s\S]*?background: #35d093;/,
+  );
+});
+
 test('market sidebar pins history below tokens and shows threshold for live decisions', () => {
   assert.match(
     indexSource,
