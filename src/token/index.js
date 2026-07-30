@@ -120,8 +120,8 @@ export async function loadLegacyPage({ loadClassicScript }) {
     mode: 'token',
     token,
   });
-  revealMarketWorkspace(document);
   installTokenWorkspaceMetadata(window, token, marketTab);
   await window.NAVGATOR.marketWorkspace.ready;
   installTokenWorkspaceMetadata(window, token, marketTab);
+  revealMarketWorkspace(document);
 }

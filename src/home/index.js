@@ -131,8 +131,10 @@ export async function loadLegacyPage({ loadClassicScript }) {
     createProposalHistoryChart,
     mode: 'discovery',
   });
-  revealMarketWorkspace(document);
+  await window.NAVGATOR.marketWorkspace.ready;
+  if (window.NAVGATOR.marketWorkspace.getState().navigationPending) return;
   // The classic landing bootstrap sets its own homepage title while loading.
   // Re-apply Markets metadata after that bootstrap has completed.
   installMarketsMetadata(window);
+  revealMarketWorkspace(document);
 }

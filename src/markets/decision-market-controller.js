@@ -1829,6 +1829,7 @@ export function mountFutardTerminal({
     error: '',
     liveError: '',
     archiveError: '',
+    navigationPending: false,
     notice: '',
     routeNotice: '',
     markets: [],
@@ -1930,10 +1931,76 @@ export function mountFutardTerminal({
     },
   };
 
+  let workspaceTransitionId = 0;
+  let activeWorkspaceTransitionPromise = null;
+
+  function beginWorkspaceTransition() {
+    const transitionId = ++workspaceTransitionId;
+    root.dataset.ftTransition = 'pending';
+    root.setAttribute('aria-busy', 'true');
+    return transitionId;
+  }
+
+  function endWorkspaceTransition(transitionId) {
+    if (state.destroyed || transitionId !== workspaceTransitionId) return;
+    root.removeAttribute('data-ft-transition');
+    root.removeAttribute('aria-busy');
+    renderDecisionSidebar();
+  }
+
+  function runWorkspaceTransitionRefresh(transitionId, options = {}) {
+    const task = refresh({
+      ...options,
+      workspaceTransitionId: transitionId,
+    });
+    activeWorkspaceTransitionPromise = task;
+    return task.finally(() => {
+      if (activeWorkspaceTransitionPromise === task) {
+        activeWorkspaceTransitionPromise = null;
+      }
+      endWorkspaceTransition(transitionId);
+    });
+  }
+
+  function handoffMarketNavigation(destination, options = {}) {
+    const method = options.replace === true ? 'replace' : 'assign';
+    if (!destination || typeof runtime.location?.[method] !== 'function') return false;
+    const transitionId = beginWorkspaceTransition();
+    state.navigationPending = true;
+    const navigate = () => {
+      if (
+        state.destroyed
+        || transitionId !== workspaceTransitionId
+        || !state.navigationPending
+      ) return;
+      try {
+        runtime.location[method](destination);
+      } catch (error) {
+        if (transitionId === workspaceTransitionId) {
+          state.navigationPending = false;
+          endWorkspaceTransition(transitionId);
+        }
+        throw error;
+      }
+    };
+    if (
+      options.afterPaint === true
+      && typeof runtime.requestAnimationFrame === 'function'
+    ) {
+      runtime.requestAnimationFrame(() => {
+        runtime.setTimeout(navigate, 0);
+      });
+    } else {
+      navigate();
+    }
+    return true;
+  }
+
   root.dataset.theme = state.theme;
   root.dataset.ftMode = hostMode;
   root.setAttribute('data-01r-theme-scope', '');
   root.setAttribute('data-navgator-app', 'decision-markets');
+  const initialTransitionId = beginWorkspaceTransition();
   root.innerHTML = `
     <div class="ft-shell" data-ft-role="terminal">
       <header class="ft-header">
@@ -3083,7 +3150,7 @@ export function mountFutardTerminal({
   }
 
   function renderMarketList() {
-    renderDecisionSidebar();
+    if (!root.hasAttribute('data-ft-transition')) renderDecisionSidebar();
     const counts = statusCounts();
     const filterDefinitions = [
       ['all', 'All'],
@@ -3547,7 +3614,7 @@ export function mountFutardTerminal({
     );
     root.classList.toggle(
       'ft-proposal-focus',
-      Boolean(market && (state.hostMode === 'token' || state.proposalFocus)),
+      state.hostMode === 'token' || Boolean(market && state.proposalFocus),
     );
     if (!market) {
       renderEmptyStage();
@@ -5942,7 +6009,10 @@ export function mountFutardTerminal({
         renderSystemStatus();
         return;
       }
-      runtime.location.assign?.(tokenMarketsUrl(next.token, next.id));
+      handoffMarketNavigation(
+        tokenMarketsUrl(next.token, next.id),
+        { afterPaint: true },
+      );
       return;
     }
     state.workspaceTab = 'decisions';
@@ -7009,6 +7079,12 @@ export function mountFutardTerminal({
 
   async function refresh(options = {}) {
     if (state.destroyed) return [];
+    if (
+      root.hasAttribute('data-ft-transition')
+      && options.workspaceTransitionId !== workspaceTransitionId
+    ) {
+      return activeWorkspaceTransitionPromise || state.markets;
+    }
     state.priceAbortController?.abort();
     state.priceRequestId += 1;
     state.priceRefreshing = false;
@@ -7068,7 +7144,7 @@ export function mountFutardTerminal({
           );
           if (requestedMarket?.token) {
             const destination = tokenMarketsUrl(requestedMarket.token, requestedMarket.id);
-            runtime.location.replace?.(destination);
+            handoffMarketNavigation(destination, { replace: true });
             return state.markets;
           }
           state.routeNotice = 'That proposal link is not in the current index. Showing all decision markets instead.';
@@ -7849,6 +7925,17 @@ export function mountFutardTerminal({
     }
   }
 
+  function handlePageShow(event) {
+    if (
+      !event?.persisted
+      || !state.navigationPending
+      || state.destroyed
+    ) return;
+    state.navigationPending = false;
+    endWorkspaceTransition(workspaceTransitionId);
+    render();
+  }
+
   async function setToken(nextToken, options = {}) {
     const normalized = routes.normalizeTokenKey?.(nextToken) || normalizeKey(nextToken);
     const requestedProposalId = safeBase58(options.proposalId);
@@ -7859,6 +7946,7 @@ export function mountFutardTerminal({
       || normalized === state.tokenFilter
     ) return state.markets;
 
+    const transitionId = beginWorkspaceTransition();
     state.abortController?.abort();
     state.paginationAbortController?.abort();
     state.positionAbortController?.abort();
@@ -7902,7 +7990,7 @@ export function mountFutardTerminal({
     state.execution.simulation = null;
     state.execution.reviewOpen = false;
     destroyHourlyChart();
-    return refresh();
+    return runWorkspaceTransitionRefresh(transitionId);
   }
 
   function handlePopState() {
@@ -7970,6 +8058,11 @@ export function mountFutardTerminal({
     runtime.document.removeEventListener('keydown', handleKeydown);
     runtime.document.removeEventListener('visibilitychange', handleVisibilityChange);
     runtime.removeEventListener?.('popstate', handlePopState);
+    runtime.removeEventListener?.('pageshow', handlePageShow);
+    workspaceTransitionId += 1;
+    activeWorkspaceTransitionPromise = null;
+    root.removeAttribute('data-ft-transition');
+    root.removeAttribute('aria-busy');
     root.innerHTML = '';
     root.classList.remove('ft-proposal-focus');
     activeMounts.delete(root);
@@ -7985,6 +8078,7 @@ export function mountFutardTerminal({
   runtime.document.addEventListener('keydown', handleKeydown);
   runtime.document.addEventListener('visibilitychange', handleVisibilityChange);
   runtime.addEventListener?.('popstate', handlePopState);
+  runtime.addEventListener?.('pageshow', handlePageShow);
 
   if (requestedFilter === 'observed' && runtime.history?.replaceState) {
     try {
@@ -7996,8 +8090,7 @@ export function mountFutardTerminal({
     }
   }
 
-  render();
-  const ready = refresh();
+  const ready = runWorkspaceTransitionRefresh(initialTransitionId);
   state.pollTimer = runtime.setInterval(() => {
     if (runtime.document.visibilityState !== 'hidden') refresh();
   }, POLL_INTERVAL_MS);
@@ -8028,6 +8121,7 @@ export function mountFutardTerminal({
         marketCount: state.markets.length,
         selectedId: state.selectedId,
         walletAddress: state.wallet.address,
+        navigationPending: state.navigationPending,
         degraded: state.degraded?.active === true,
         programIntegrity: state.programIntegrity.status,
         canTransact: state.programIntegrity.canTransact,

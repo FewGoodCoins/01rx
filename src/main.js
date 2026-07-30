@@ -3,6 +3,7 @@ import { installBrowserApi } from './core/api-client.js';
 import { installBrowserAuth } from './core/auth.js';
 import { installDefault01rxRoute } from './core/default-route.js';
 import { installBrowserEmbed } from './core/embed.js';
+import { installBrowserMarketNavigation } from './core/market-navigation.js';
 import {
   failMarketWorkspaceBoot,
   markMarketWorkspacePending,
@@ -15,6 +16,7 @@ import appCoreUrl from './legacy/app-core.js?url';
 
 installDefault01rxRoute(window);
 markMarketWorkspacePending(document);
+const marketNavigation = installBrowserMarketNavigation(window);
 document.documentElement.classList.remove('app-css-pending');
 
 function loadClassicScript(src) {
@@ -39,6 +41,7 @@ async function bootLegacyApplication() {
 
 window.NAVGATOR = window.NAVGATOR || {};
 window.NAVGATOR.projectMetadata = projectMetadata;
+window.NAVGATOR.marketNavigation = marketNavigation;
 installBrowserApi(window);
 installBrowserAuth(window);
 installBrowserTelemetry(window);
