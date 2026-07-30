@@ -648,6 +648,13 @@ html[data-workspace="markets"] {
   background: #101010 !important;
 }
 
+/* The route marker is installed in the document head, before the token page
+   scripts load. Hide the static spot workspace at that point so a proposal
+   deep link can never paint the retired chart while the market module boots. */
+html[data-workspace="markets"] .dash-body {
+  display: none !important;
+}
+
 html[data-workspace="markets"] body,
 html[data-workspace="markets"] .app-shell,
 html[data-workspace="markets"] .app-right,

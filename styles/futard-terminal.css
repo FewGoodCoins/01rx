@@ -4006,6 +4006,67 @@ body.is-futard-terminal #token-switch-loader {
   box-shadow: none;
 }
 
+.ft-hourly-chart-pending .ft-hourly-plot-shell,
+.ft-hourly-chart-failed .ft-hourly-plot-shell {
+  height: clamp(340px, 32vw, 430px);
+  min-height: 340px;
+}
+
+.ft-hourly-chart-mount-status {
+  position: absolute;
+  z-index: 7;
+  inset: 0 0 0 42px;
+  display: flex;
+  padding: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  background: #101010;
+  color: var(--ft-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-align: left;
+}
+
+.ft-hourly-chart-mount-status strong {
+  display: block;
+  color: var(--ft-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ft-hourly-chart-mount-status p {
+  max-width: 540px;
+  margin: 4px 0 0;
+  color: var(--ft-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.ft-hourly-chart-mount-error > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 1px solid var(--ft-negative);
+  border-radius: 50%;
+  color: var(--ft-negative);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ft-hourly-chart-enhanced .ft-hourly-chart-mount-status {
+  display: none;
+}
+
+.ft-hourly-chart-status-shell .ft-hourly-range-trigger:disabled,
+.ft-hourly-chart-status-shell .ft-hourly-style-cell:disabled,
+.ft-hourly-chart-status-shell .ft-chart-crosshair-tool:disabled {
+  color: var(--ft-muted);
+  cursor: default;
+  opacity: 0.72;
+}
+
 .ft-chart-crosshair-rail {
   position: absolute;
   z-index: 8;
