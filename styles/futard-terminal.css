@@ -4172,6 +4172,49 @@ body.is-futard-terminal #token-switch-loader {
   color: var(--ft-accent-strong);
 }
 
+.ft-proposal-live-dot {
+  position: absolute;
+  z-index: 5;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  will-change: left, top, box-shadow;
+  animation: ft-proposal-live-pulse 1.8s ease-in-out infinite !important;
+}
+
+.ft-proposal-live-dot[hidden] {
+  display: none;
+}
+
+.ft-proposal-live-dot-pass {
+  color: var(--ft-positive);
+}
+
+.ft-proposal-live-dot-fail {
+  color: var(--ft-negative);
+  animation-delay: -0.9s !important;
+}
+
+@keyframes ft-proposal-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 0 currentColor,
+      0 0 7px 0 currentColor;
+  }
+
+  50% {
+    opacity: 0.88;
+    box-shadow:
+      0 0 0 7px transparent,
+      0 0 13px 1px currentColor;
+  }
+}
+
 .ft-hourly-live {
   position: absolute;
   top: 0;
@@ -5830,6 +5873,7 @@ body.is-token-markets .token-markets-root {
 @media (forced-colors: active) {
   .ft-live-dot,
   .ft-wallet-dot,
+  .ft-proposal-live-dot,
   .ft-market-row.ft-market-row-active::before,
   .ft-decision-state::before {
     forced-color-adjust: none;

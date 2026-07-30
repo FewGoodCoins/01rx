@@ -23,6 +23,12 @@ const RANGE_SECONDS = {
   '24h': 24 * 60 * 60,
   '48h': 48 * 60 * 60,
 };
+const CHART_INTERACTION_EVENTS = Object.freeze([
+  'wheel',
+  'pointermove',
+  'touchmove',
+  'dblclick',
+]);
 
 export const PROPOSAL_HISTORY_GUIDE_LINE_STYLE = LineStyle.SparseDotted;
 
@@ -211,6 +217,14 @@ export function proposalChartData(points, field, interval = '1h') {
   return data;
 }
 
+export function proposalChartEndpoint(points, field, interval = '1h') {
+  const data = proposalChartData(points, field, interval);
+  for (let index = data.length - 1; index >= 0; index -= 1) {
+    if (Number.isFinite(data[index]?.value)) return data[index];
+  }
+  return null;
+}
+
 export function interpolateChartTimeCoordinate(time, plottedTimes, coordinateForTime) {
   if (!Number.isFinite(time) || typeof coordinateForTime !== 'function') return null;
   const direct = coordinateForTime(time);
@@ -241,7 +255,7 @@ export function proposalLaunchSeriesMarker(anchor) {
     price,
     shape: 'circle',
     color: '#ffffff',
-    size: 1.3,
+    size: 0.5,
   };
 }
 
@@ -285,6 +299,7 @@ export function createProposalHistoryChart({
   range = 'all',
   launchedAt = null,
   windowEndedAt = null,
+  isLive = false,
 } = {}) {
   if (!runtime || !container || !Array.isArray(history?.series) || !history.series.length) {
     return null;
@@ -297,6 +312,8 @@ export function createProposalHistoryChart({
   const precision = pricePrecision(points);
   const minMove = 10 ** -precision;
   const seriesByField = new Map();
+  const seriesVisibility = new Map();
+  const liveEndpointDots = new Map();
   let currentTheme = chartTheme(runtime, themeRoot, theme);
   const latest = latestValues(observations);
   const firstTimestamp = Math.floor(proposalChartPointTime(points[0]) / 1_000);
@@ -312,6 +329,7 @@ export function createProposalHistoryChart({
   let pendingCrosshair = null;
   let chart = null;
   let resizeObserver = null;
+  let interactionHandler = null;
   let watermark = null;
   let launchAnchorMarkers = null;
   let currentRange = range;
@@ -425,12 +443,13 @@ export function createProposalHistoryChart({
       definition.colorVariable,
       definition.fallbackColor,
     );
+    const seriesVisible = visibility[definition.field] !== false;
     const line = chart.addSeries(LineSeries, {
       title: definition.label,
       color,
       lineStyle: definition.lineStyle,
       lineWidth: definition.lineWidth,
-      visible: visibility[definition.field] !== false,
+      visible: seriesVisible,
       priceFormat: {
         type: 'price',
         precision,
@@ -453,6 +472,7 @@ export function createProposalHistoryChart({
     });
     line.setData(data);
     seriesByField.set(definition.field, [line]);
+    seriesVisibility.set(definition.field, seriesVisible);
   });
 
   watermark = createTextWatermark(chart.panes()[0], {
@@ -480,6 +500,30 @@ export function createProposalHistoryChart({
       );
       container.dataset.ftLaunchAnchorRenderer = 'series-marker';
     }
+  }
+  if (isLive) {
+    PROPOSAL_HISTORY_SERIES
+      .filter(definition => (
+        definition.field === 'passPrice' || definition.field === 'failPrice'
+      ))
+      .forEach((definition) => {
+        const endpoint = proposalChartEndpoint(
+          points,
+          definition.field,
+          history.interval,
+        );
+        if (!endpoint) return;
+        const outcome = definition.field === 'passPrice' ? 'pass' : 'fail';
+        const dot = runtime.document.createElement('span');
+        dot.className = `ft-proposal-live-dot ft-proposal-live-dot-${outcome}`;
+        dot.dataset.ftLiveEndpoint = outcome;
+        dot.setAttribute('aria-hidden', 'true');
+        container.appendChild(dot);
+        liveEndpointDots.set(definition.field, {
+          element: dot,
+          endpoint,
+        });
+      });
   }
   const twapEndTimestamp = unixTime(windowEndedAt);
   const eventDefinitions = [
@@ -566,6 +610,28 @@ export function createProposalHistoryChart({
       event.element.classList.toggle('ft-is-near-left', coordinate < 92);
       event.element.classList.toggle('ft-is-near-right', coordinate > width - 92);
     });
+    liveEndpointDots.forEach(({ element, endpoint }, field) => {
+      const series = seriesByField.get(field)?.[0];
+      if (!series || seriesVisibility.get(field) === false) {
+        element.hidden = true;
+        return;
+      }
+      const x = chart.timeScale().timeToCoordinate(endpoint.time);
+      const y = series.priceToCoordinate(endpoint.value);
+      const height = container.clientHeight;
+      const positioned = (
+        Number.isFinite(x)
+        && Number.isFinite(y)
+        && x >= 0
+        && x <= width
+        && y >= 0
+        && (!height || y <= height)
+      );
+      element.hidden = !positioned;
+      if (!positioned) return;
+      element.style.left = `${x}px`;
+      element.style.top = `${y}px`;
+    });
   }
 
   function scheduleEventPosition() {
@@ -638,9 +704,11 @@ export function createProposalHistoryChart({
   }
 
   function setSeriesVisible(field, visible) {
+    seriesVisibility.set(field, visible !== false);
     for (const series of seriesByField.get(field) || []) {
       series.applyOptions({ visible: visible !== false });
     }
+    scheduleEventPosition();
   }
 
   function applyTheme(nextTheme) {
@@ -705,6 +773,7 @@ export function createProposalHistoryChart({
   };
   const crosshairHandler = (parameter) => {
     pendingCrosshair = parameter;
+    scheduleEventPosition();
     if (readoutFrame != null) return;
     if (typeof runtime.requestAnimationFrame === 'function') {
       readoutFrame = runtime.requestAnimationFrame(flushCrosshairReadout);
@@ -714,7 +783,11 @@ export function createProposalHistoryChart({
   };
   chart.subscribeCrosshairMove(crosshairHandler);
   const visibleRangeHandler = () => scheduleEventPosition();
+  interactionHandler = () => scheduleEventPosition();
   chart.timeScale().subscribeVisibleTimeRangeChange(visibleRangeHandler);
+  CHART_INTERACTION_EVENTS.forEach((eventName) => {
+    container.addEventListener(eventName, interactionHandler, { passive: true });
+  });
   resizeObserver = typeof runtime.ResizeObserver === 'function'
     ? new runtime.ResizeObserver(scheduleEventPosition)
     : null;
@@ -754,7 +827,13 @@ export function createProposalHistoryChart({
       } catch (_) {
         // The chart may already be detached by navigation.
       }
+      if (interactionHandler) {
+        CHART_INTERACTION_EVENTS.forEach((eventName) => {
+          container.removeEventListener(eventName, interactionHandler);
+        });
+      }
       eventElements.forEach(event => event.element.remove());
+      liveEndpointDots.forEach(({ element }) => element.remove());
       launchAnchorMarkers?.detach();
       delete container.dataset.ftLaunchAnchorRenderer;
       preTwapBand?.remove();
@@ -773,9 +852,15 @@ export function createProposalHistoryChart({
       runtime.cancelAnimationFrame(readoutFrame);
     }
     resizeObserver?.disconnect();
+    if (interactionHandler) {
+      CHART_INTERACTION_EVENTS.forEach((eventName) => {
+        container.removeEventListener(eventName, interactionHandler);
+      });
+    }
     container.querySelectorAll('[data-ft-chart-event]').forEach(element => element.remove());
     container.querySelectorAll('[data-ft-chart-band]').forEach(element => element.remove());
     container.querySelectorAll('[data-ft-chart-anchor]').forEach(element => element.remove());
+    liveEndpointDots.forEach(({ element }) => element.remove());
     launchAnchorMarkers?.detach();
     delete container.dataset.ftLaunchAnchorRenderer;
     container.closest('.ft-hourly-chart')?.classList.remove(
