@@ -4967,6 +4967,34 @@ body.is-token-markets .token-markets-root {
   display: block;
 }
 
+.site-header-market-wallet {
+  --ft-radius-sm: 5px;
+  display: none;
+  height: 100%;
+  margin-left: auto;
+  padding: 0 14px;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.site-header-market-wallet:not(:empty) {
+  display: flex;
+}
+
+.site-header-market-wallet *,
+.site-header-market-wallet *::before,
+.site-header-market-wallet *::after {
+  box-sizing: border-box;
+}
+
+.site-header-market-wallet .ft-wallet-control {
+  align-items: center;
+}
+
+.site-header-market-wallet .ft-wallet-button {
+  min-height: 32px;
+}
+
 [data-ft-mode="token"] .ft-header {
   position: static;
   border-bottom: 1px solid var(--ft-border);
