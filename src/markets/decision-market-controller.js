@@ -1854,7 +1854,7 @@ export function mountFutardTerminal({
     order: {
       outcome: 'pass',
       side: 'buy',
-      type: 'limit',
+      type: 'swap',
       amount: '',
       price: '',
       slippageBps: 100,
@@ -3800,32 +3800,131 @@ export function mountFutardTerminal({
     return firstNumber(book?.bestBid, book?.bestAsk, market?.[state.order.outcome]?.price);
   }
 
+  function decisionTicketPreview(market) {
+    const outcome = state.order.outcome === 'fail' ? 'fail' : 'pass';
+    const side = state.order.side === 'sell' ? 'sell' : 'buy';
+    const branch = market?.[outcome] || {};
+    const book = selectedOrderBook(market);
+    const amount = firstNumber(state.order.amount);
+    const amountValid = Number.isFinite(amount) && amount > 0;
+    const selectedMint = outcome === 'pass'
+      ? market?.proposal?.passBaseMint
+      : market?.proposal?.failBaseMint;
+    const passPosition = positionForMint(market?.proposal?.passBaseMint);
+    const failPosition = positionForMint(market?.proposal?.failBaseMint);
+    const selectedPosition = outcome === 'pass' ? passPosition : failPosition;
+    const currentPosition = selectedPosition?.available
+      ? firstNumber(selectedPosition.amountString, selectedPosition.amount)
+      : null;
+    const passAmount = passPosition?.available
+      ? firstNumber(passPosition.amountString, passPosition.amount)
+      : null;
+    const failAmount = failPosition?.available
+      ? firstNumber(failPosition.amountString, failPosition.amount)
+      : null;
+    const estimate = executionEstimate(
+      market,
+      outcome,
+      side,
+      amount,
+      state.order.slippageBps,
+    );
+    const limitPrice = firstNumber(
+      state.order.price,
+      suggestedLimitPrice(market),
+      branch.price,
+    );
+    const tokenDelta = !amountValid
+      ? 0
+      : side === 'buy'
+        ? state.order.type === 'limit'
+          ? amount
+          : firstNumber(estimate?.output, 0)
+        : -amount;
+    const positionAfter = Number.isFinite(currentPosition)
+      ? currentPosition + tokenDelta
+      : tokenDelta;
+    const quoteOutput = !amountValid
+      ? 0
+      : side === 'sell'
+        ? state.order.type === 'limit'
+          ? amount * firstNumber(limitPrice, 0)
+          : firstNumber(estimate?.output, 0)
+        : 0;
+    const passAfter = outcome === 'pass'
+      ? positionAfter
+      : firstNumber(passAmount, 0);
+    const failAfter = outcome === 'fail'
+      ? positionAfter
+      : firstNumber(failAmount, 0);
+    const formatPosition = (value) => {
+      if (!Number.isFinite(value)) return '—';
+      const absolute = Math.abs(value);
+      const sign = value < 0 ? '−' : '';
+      if (absolute >= 1_000_000) {
+        return `${sign}${(absolute / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+      }
+      if (absolute >= 1_000) {
+        return `${sign}${(absolute / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+      }
+      return `${sign}${absolute.toLocaleString('en-US', {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2,
+      })}`;
+    };
+    const selectedBranchValue = side === 'sell'
+      ? formatPrice(quoteOutput)
+      : `${formatPosition(positionAfter)} ${market?.ticker || 'TOKEN'}`;
+    const passValue = outcome === 'pass'
+      ? selectedBranchValue
+      : `${formatPosition(passAfter)} ${market?.ticker || 'TOKEN'}`;
+    const failValue = outcome === 'fail'
+      ? selectedBranchValue
+      : `${formatPosition(failAfter)} ${market?.ticker || 'TOKEN'}`;
+    const inputMint = state.order.type === 'limit'
+      ? side === 'buy'
+        ? outcome === 'pass'
+          ? market?.proposal?.passQuoteMint
+          : market?.proposal?.failQuoteMint
+        : selectedMint
+      : side === 'buy'
+        ? market?.quoteMint
+        : market?.baseMint;
+    const inputPosition = positionForMint(inputMint);
+    const held = inputPosition?.available
+      ? firstNumber(inputPosition.amountString, inputPosition.amount)
+      : null;
+
+    return {
+      amountValid,
+      averagePrice: formatPrice(limitPrice),
+      buyPrice: formatPrice(firstNumber(book?.bestAsk, branch.price)),
+      failValue,
+      held: Number.isFinite(held) ? formatTokenAmount(held, 4) : '0.0000',
+      heldSymbol: side === 'buy' ? 'USDC' : market?.ticker || 'TOKEN',
+      instruction: `If ${outcome}, I would like to…`,
+      passValue,
+      positionAfter: formatPosition(positionAfter),
+      positionBefore: Number.isFinite(currentPosition)
+        ? formatPosition(currentPosition)
+        : '0.00',
+      sellPrice: formatPrice(firstNumber(book?.bestBid, branch.price)),
+      ticker: market?.ticker || 'TOKEN',
+    };
+  }
+
   function renderExecutionTicket(market) {
     const automaticReady = state.recurring.enabled
       && state.recurring.keeperReady
       && Boolean(state.recurring.programId);
     if (state.order.type === 'recurring' && !automaticReady) {
-      state.order.type = 'limit';
+      state.order.type = 'swap';
     }
     const outcome = state.order.outcome.toUpperCase();
     const side = state.order.side === 'buy' ? 'Buy' : 'Sell';
     const isLimit = state.order.type === 'limit';
     const isRecurring = state.order.type === 'recurring';
     const book = selectedOrderBook(market);
-    const outcomeBaseMint = state.order.outcome === 'pass'
-      ? market.proposal.passBaseMint
-      : market.proposal.failBaseMint;
-    const outcomeQuoteMint = state.order.outcome === 'pass'
-      ? market.proposal.passQuoteMint
-      : market.proposal.failQuoteMint;
-    const conditionalInputMint = state.order.side === 'buy'
-      ? outcomeQuoteMint
-      : outcomeBaseMint;
-    const inputMint = isLimit
-      ? conditionalInputMint
-      : state.order.side === 'buy'
-        ? market.quoteMint
-        : market.baseMint;
     const inputSymbol = isLimit
       ? state.order.side === 'buy'
         ? `${outcome} USDC`
@@ -3836,10 +3935,6 @@ export function mountFutardTerminal({
     const amountSymbol = isLimit
       ? `${outcome} ${market.ticker}`
       : inputSymbol;
-    const balance = positionForMint(inputMint);
-    const balanceText = balance?.available
-      ? firstText(balance.amountString, formatTokenAmount(balance.amount, 6))
-      : '—';
     const referencePrice = firstNumber(
       state.order.price,
       suggestedLimitPrice(market),
@@ -3847,15 +3942,6 @@ export function mountFutardTerminal({
     );
     const limitPriceStep = bookPriceIncrement(book, referencePrice);
     const amount = firstNumber(state.order.amount);
-    const approximateOutput = !isLimit
-      ? executionEstimate(
-        market,
-        state.order.outcome,
-        state.order.side,
-        amount,
-        state.order.slippageBps,
-      )
-      : null;
     const marketDataEntry = state.marketDataByProposal.get(market.id);
     const limitReady = !!book?.address && book.canonical;
     const recurringTotal = Number.isFinite(amount)
@@ -3869,6 +3955,7 @@ export function mountFutardTerminal({
     );
     const recurringFits = Number.isFinite(proposalEndsAtSeconds)
       && recurringFinalRun < proposalEndsAtSeconds - 30;
+    const preview = decisionTicketPreview(market);
     let cta = '';
     if (isRecurring && (!state.recurring.enabled || !state.recurring.programId)) {
       cta = '<button class="ft-primary-button" type="button" disabled>Automatic vault deployment pending</button>';
@@ -3894,14 +3981,18 @@ export function mountFutardTerminal({
           class="ft-primary-button"
           type="button"
           data-ft-action="review-trade"
-          ${state.execution.building || state.execution.submitting ? 'disabled aria-busy="true"' : ''}
+          data-ft-role="trade-submit"
+          data-ft-amount-gated="true"
+          ${state.execution.building || state.execution.submitting || !preview.amountValid
+            ? `disabled${state.execution.building || state.execution.submitting ? ' aria-busy="true"' : ''}`
+            : ''}
         >${state.execution.building
           ? 'Building & simulating…'
+          : !preview.amountValid
+            ? 'Confirm trade'
           : isRecurring
             ? `Review automatic ${escapeHtml(side)}`
-            : isLimit
-              ? `Place ${escapeHtml(outcome)} order`
-              : `Review ${escapeHtml(side)} ${escapeHtml(outcome)} swap`}</button>
+            : 'Review trade'}</button>
       `;
     }
 
@@ -3914,62 +4005,38 @@ export function mountFutardTerminal({
             data-ft-outcome="pass"
             aria-pressed="${state.order.outcome === 'pass'}"
             class="${state.order.outcome === 'pass' ? 'ft-segment-active ft-segment-pass' : ''}"
-          >PASS</button>
+          >If "Pass"</button>
           <button
             type="button"
             data-ft-action="select-outcome"
             data-ft-outcome="fail"
             aria-pressed="${state.order.outcome === 'fail'}"
             class="${state.order.outcome === 'fail' ? 'ft-segment-active ft-segment-fail' : ''}"
-          >FAIL</button>
+          >If "Fail"</button>
         </div>
 
-        <div class="ft-segmented ft-order-type-tabs" role="group" aria-label="Select order type">
-          <button
-            type="button"
-            data-ft-action="select-order-type"
-            data-ft-order-type="limit"
-            aria-pressed="${isLimit}"
-            class="${isLimit ? 'ft-segment-active' : ''}"
-          >LIMIT</button>
-          <button
-            type="button"
-            data-ft-action="select-order-type"
-            data-ft-order-type="swap"
-            aria-pressed="${!isLimit && !isRecurring}"
-            class="${!isLimit && !isRecurring ? 'ft-segment-active' : ''}"
-          >SWAP</button>
-          ${automaticReady ? `
-            <button
-              type="button"
-              data-ft-action="select-order-type"
-              data-ft-order-type="recurring"
-              aria-pressed="${isRecurring}"
-              class="${isRecurring ? 'ft-segment-active' : ''}"
-            >AUTOMATIC</button>
-          ` : ''}
-        </div>
+        <p class="ft-decision-intent" data-ft-role="decision-intent">${escapeHtml(preview.instruction)}</p>
 
-        <div class="ft-segmented ft-side-tabs" role="group" aria-label="Select trade direction">
+        <div class="ft-decision-side-quotes" role="group" aria-label="Select trade direction">
           <button
             type="button"
             data-ft-action="select-side"
             data-ft-side="buy"
             aria-pressed="${state.order.side === 'buy'}"
-            class="${state.order.side === 'buy' ? 'ft-segment-active' : ''}"
-          >BUY</button>
+            class="ft-decision-side-quote ft-decision-buy${state.order.side === 'buy' ? ' ft-is-selected' : ''}"
+          ><strong>Buy</strong><span data-ft-role="buy-price">${escapeHtml(preview.buyPrice)}</span></button>
           <button
             type="button"
             data-ft-action="select-side"
             data-ft-side="sell"
             aria-pressed="${state.order.side === 'sell'}"
-            class="${state.order.side === 'sell' ? 'ft-segment-active' : ''}"
-          >SELL</button>
+            class="ft-decision-side-quote ft-decision-sell${state.order.side === 'sell' ? ' ft-is-selected' : ''}"
+          ><strong>Sell</strong><span data-ft-role="sell-price">${escapeHtml(preview.sellPrice)}</span></button>
         </div>
 
         ${isLimit ? `
-          <label class="ft-amount-field">
-            <span class="ft-ticket-label">Price</span>
+          <label class="ft-amount-field ft-decision-limit-price">
+            <span class="ft-ticket-label">Limit price</span>
             <span class="ft-amount-input-wrap">
               <input
                 type="number"
@@ -3985,8 +4052,7 @@ export function mountFutardTerminal({
           </label>
         ` : ''}
 
-        <label class="ft-amount-field">
-          <span class="ft-ticket-label">${isRecurring ? 'Amount per run' : 'Amount'}</span>
+        <label class="ft-amount-field ft-decision-amount-field">
           <span class="ft-amount-input-wrap">
             <input
               type="number"
@@ -3998,98 +4064,182 @@ export function mountFutardTerminal({
               data-ft-role="amount"
               aria-label="Trade amount in ${escapeHtml(amountSymbol)}"
             >
-            <strong title="${escapeHtml(inputSymbol)}">Bal: ${escapeHtml(balanceText)}</strong>
+            <span class="ft-decision-held">
+              <small><span data-ft-role="held-symbol">${escapeHtml(preview.heldSymbol)}</span> held</small>
+              <strong data-ft-role="held-balance">${escapeHtml(preview.held)}</strong>
+            </span>
           </span>
         </label>
 
-        ${isRecurring ? `
-          <div class="ft-recurring-controls">
-            <label>
-              <span class="ft-ticket-label">Cadence</span>
-              <select data-ft-role="recurring-interval" aria-label="Recurring execution cadence">
-                <option value="3600"${state.order.intervalSeconds === 3_600 ? ' selected' : ''}>Hourly</option>
-                <option value="21600"${state.order.intervalSeconds === 21_600 ? ' selected' : ''}>Every 6 hours</option>
-                <option value="86400"${state.order.intervalSeconds === 86_400 ? ' selected' : ''}>Daily</option>
-                <option value="604800"${state.order.intervalSeconds === 604_800 ? ' selected' : ''}>Weekly</option>
-              </select>
-            </label>
-            <label>
-              <span class="ft-ticket-label">Runs</span>
-              <input
-                type="number"
-                min="1"
-                max="${Math.round(state.recurring.maximumCycles || 365)}"
-                step="1"
-                value="${Math.round(state.order.totalCycles)}"
-                data-ft-role="recurring-cycles"
-                aria-label="Number of automatic executions"
-              >
-            </label>
-          </div>
-        ` : ''}
+        <div class="ft-decision-presets" aria-label="Quick trade amounts">
+          ${[
+            ['500', '500'],
+            ['1000', '1K'],
+            ['2500', '2.5K'],
+          ].map(([value, label]) => `
+            <button
+              type="button"
+              data-ft-action="decision-amount-preset"
+              data-ft-amount="${value}"
+            >${label}</button>
+          `).join('')}
+          <button
+            class="ft-decision-max"
+            type="button"
+            data-ft-action="decision-amount-preset"
+            data-ft-amount="max"
+          >Max</button>
+        </div>
 
-        ${isLimit ? `
-          <div class="ft-estimate ft-limit-estimate">
-            <div><span>Venue</span><strong>Manifest order book</strong></div>
-            <div><span>Funding</span><strong>Conditional balance + automatic split</strong></div>
-            <p>If your ${escapeHtml(inputSymbol)} balance is short, the review splits only the missing underlying ${escapeHtml(state.order.side === 'buy' ? 'USDC' : market.ticker)} into PASS/FAIL claims before funding the order.</p>
+        <div class="ft-decision-average">
+          <span>Average price</span>
+          <strong data-ft-role="average-price">${escapeHtml(preview.averagePrice)}</strong>
+        </div>
+
+        <div class="ft-decision-position">
+          <span>Your "${escapeHtml(state.order.outcome)}" position</span>
+          <strong>
+            <span data-ft-role="position-before">${escapeHtml(preview.positionBefore)}</span>
+            ${escapeHtml(preview.ticker)}
+            <i aria-hidden="true">→</i>
+            <span data-ft-role="position-after">${escapeHtml(preview.positionAfter)}</span>
+            ${escapeHtml(preview.ticker)}
+          </strong>
+        </div>
+
+        <div class="ft-decision-payoff" aria-label="Estimated post-trade conditional positions">
+          <div class="ft-decision-payoff-fail">
+            <span>FAIL</span>
+            <strong data-ft-role="fail-payoff">${escapeHtml(preview.failValue)}</strong>
           </div>
-        ` : isRecurring ? `
-          <label class="ft-slippage-field">
-            <span>
-              <span class="ft-ticket-label">Worst-price guard</span>
-              <small>Minimum output enforced every run</small>
-            </span>
-            <select data-ft-role="slippage" aria-label="Recurring worst-price guard">
-              <option value="50"${state.order.slippageBps === 50 ? ' selected' : ''}>0.5%</option>
-              <option value="100"${state.order.slippageBps === 100 ? ' selected' : ''}>1.0%</option>
-              <option value="200"${state.order.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
-            </select>
-          </label>
-          <div class="ft-estimate ft-recurring-estimate" data-ft-role="estimate">
-            <div><span>Execution</span><strong>Manifest · automatic</strong></div>
-            <div><span>Book reference</span><strong>${formatPrice(suggestedLimitPrice(market))}</strong></div>
-            <div><span>Total funding</span><strong data-ft-role="recurring-total">${Number.isFinite(recurringTotal)
-              ? `${formatTokenAmount(recurringTotal, 6)} ${escapeHtml(inputSymbol)}`
-              : 'Enter an amount'}</strong></div>
-            <div><span>Final run</span><strong>${escapeHtml(formatDateTime(new Date(recurringFinalRun * 1_000).toISOString()))}</strong></div>
-            <p>One wallet approval splits and locks the capped total. A keeper can run one slice only when due and only inside this price guard. Missed intervals do not bunch together.</p>
+          <div class="ft-decision-payoff-pass">
+            <span>PASS</span>
+            <strong data-ft-role="pass-payoff">${escapeHtml(preview.passValue)}</strong>
           </div>
-        ` : `
-          <label class="ft-slippage-field">
-            <span>
-              <span class="ft-ticket-label">Max slippage</span>
-              <small>Minimum output enforced onchain</small>
-            </span>
-            <select data-ft-role="slippage" aria-label="Maximum slippage">
-              <option value="50"${state.order.slippageBps === 50 ? ' selected' : ''}>0.5%</option>
-              <option value="100"${state.order.slippageBps === 100 ? ' selected' : ''}>1.0%</option>
-              <option value="200"${state.order.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
-            </select>
-          </label>
-          <div class="ft-estimate" data-ft-role="estimate">
-            <div><span>Route</span><strong>Best verified venue</strong></div>
-            <div><span>Liquidity</span><strong>MetaDAO AMM · Manifest</strong></div>
-            <div><span>Reference spot</span><strong>${formatPrice(market[state.order.outcome]?.price)}</strong></div>
-            <div><span>Indicative output</span><strong>${approximateOutput
-              ? `${formatTokenAmount(approximateOutput.output, 6)} ${escapeHtml(approximateOutput.outputSymbol)}`
-              : 'Enter an amount'}</strong></div>
-            <p>The review atomically splits your ${escapeHtml(inputSymbol)}, compares the fully fillable AMM and order-book routes, enforces minimum output, and simulates the exact transaction.</p>
-          </div>
-        `}
+        </div>
 
         ${state.execution.error ? `<p class="ft-ticket-error">${escapeHtml(state.execution.error)}</p>` : ''}
         ${renderTicketTransactionStatus(market)}
         ${cta}
 
-        ${isRecurring ? `
-          <div class="ft-execution-boundary">
-            <span aria-hidden="true">✓</span>
-            <p><strong>One setup signature.</strong> Later runs are automatic and cannot exceed the funded vault, cadence, expiry, or per-run price guard. You can cancel and withdraw at any time.</p>
+        <details class="ft-decision-advanced"${isLimit || isRecurring ? ' open' : ''}>
+          <summary>${isRecurring
+            ? 'Automatic order settings'
+            : isLimit
+              ? 'Limit order settings'
+              : `Market order · ${(state.order.slippageBps / 100).toFixed(1)}% max slippage`}</summary>
+          <div class="ft-segmented ft-order-type-tabs" role="group" aria-label="Select order type">
+            <button
+              type="button"
+              data-ft-action="select-order-type"
+              data-ft-order-type="swap"
+              aria-pressed="${!isLimit && !isRecurring}"
+              class="${!isLimit && !isRecurring ? 'ft-segment-active' : ''}"
+            >MARKET</button>
+            <button
+              type="button"
+              data-ft-action="select-order-type"
+              data-ft-order-type="limit"
+              aria-pressed="${isLimit}"
+              class="${isLimit ? 'ft-segment-active' : ''}"
+            >LIMIT</button>
+            ${automaticReady ? `
+              <button
+                type="button"
+                data-ft-action="select-order-type"
+                data-ft-order-type="recurring"
+                aria-pressed="${isRecurring}"
+                class="${isRecurring ? 'ft-segment-active' : ''}"
+              >AUTOMATIC</button>
+            ` : ''}
           </div>
-        ` : ''}
+
+          ${isRecurring ? `
+            <div class="ft-recurring-controls">
+              <label>
+                <span class="ft-ticket-label">Cadence</span>
+                <select data-ft-role="recurring-interval" aria-label="Recurring execution cadence">
+                  <option value="3600"${state.order.intervalSeconds === 3_600 ? ' selected' : ''}>Hourly</option>
+                  <option value="21600"${state.order.intervalSeconds === 21_600 ? ' selected' : ''}>Every 6 hours</option>
+                  <option value="86400"${state.order.intervalSeconds === 86_400 ? ' selected' : ''}>Daily</option>
+                  <option value="604800"${state.order.intervalSeconds === 604_800 ? ' selected' : ''}>Weekly</option>
+                </select>
+              </label>
+              <label>
+                <span class="ft-ticket-label">Runs</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="${Math.round(state.recurring.maximumCycles || 365)}"
+                  step="1"
+                  value="${Math.round(state.order.totalCycles)}"
+                  data-ft-role="recurring-cycles"
+                  aria-label="Number of automatic executions"
+                >
+              </label>
+            </div>
+          ` : ''}
+
+          ${!isLimit ? `
+            <label class="ft-slippage-field">
+              <span>
+                <span class="ft-ticket-label">${isRecurring ? 'Worst-price guard' : 'Max slippage'}</span>
+                <small>Minimum output enforced onchain</small>
+              </span>
+              <select data-ft-role="slippage" aria-label="${isRecurring ? 'Recurring worst-price guard' : 'Maximum slippage'}">
+                <option value="50"${state.order.slippageBps === 50 ? ' selected' : ''}>0.5%</option>
+                <option value="100"${state.order.slippageBps === 100 ? ' selected' : ''}>1.0%</option>
+                <option value="200"${state.order.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
+              </select>
+            </label>
+          ` : ''}
+
+          <p>${isRecurring
+            ? `One wallet approval locks <strong data-ft-role="recurring-total">${Number.isFinite(recurringTotal)
+              ? `${formatTokenAmount(recurringTotal, 6)} ${escapeHtml(inputSymbol)}`
+              : 'the capped total'}</strong> for scheduled execution.`
+            : isLimit
+              ? 'Limit orders require a unique verified Manifest market and split only the conditional funding shortfall.'
+              : '01RX compares verified routes, enforces minimum output, and simulates the exact transaction before wallet approval.'}</p>
+        </details>
       </section>
     `;
+  }
+
+  function updateDecisionTicketPreview(market) {
+    if (!market) return;
+    const preview = decisionTicketPreview(market);
+    const textByRole = {
+      'average-price': preview.averagePrice,
+      'buy-price': preview.buyPrice,
+      'decision-intent': preview.instruction,
+      'fail-payoff': preview.failValue,
+      'held-balance': preview.held,
+      'held-symbol': preview.heldSymbol,
+      'pass-payoff': preview.passValue,
+      'position-after': preview.positionAfter,
+      'position-before': preview.positionBefore,
+      'sell-price': preview.sellPrice,
+    };
+    Object.entries(textByRole).forEach(([role, value]) => {
+      const element = root.querySelector(`[data-ft-role="${role}"]`);
+      if (element) element.textContent = value;
+    });
+    const submit = root.querySelector(
+      '[data-ft-role="trade-submit"][data-ft-amount-gated="true"]',
+    );
+    if (
+      submit
+      && !state.execution.building
+      && !state.execution.submitting
+    ) {
+      submit.disabled = !preview.amountValid;
+      submit.textContent = preview.amountValid
+        ? state.order.type === 'recurring'
+          ? `Review automatic ${state.order.side === 'buy' ? 'Buy' : 'Sell'}`
+          : 'Review trade'
+        : 'Confirm trade';
+    }
   }
 
   function renderHistoricalTradePreview(market) {
@@ -7240,6 +7390,32 @@ export function mountFutardTerminal({
       state.ownershipOrder.amount = preset === 'max' ? '0' : String(firstNumber(preset) || '');
       scheduleOwnershipQuote(0);
       renderTradeTicket();
+    } else if (action === 'decision-amount-preset') {
+      const preset = target.dataset.ftAmount;
+      const market = selectedMarket();
+      const outcomeMint = state.order.outcome === 'pass'
+        ? market?.proposal?.passBaseMint
+        : market?.proposal?.failBaseMint;
+      const inputMint = state.order.type === 'limit'
+        ? state.order.side === 'buy'
+          ? state.order.outcome === 'pass'
+            ? market?.proposal?.passQuoteMint
+            : market?.proposal?.failQuoteMint
+          : outcomeMint
+        : state.order.side === 'buy'
+          ? market?.quoteMint
+          : market?.baseMint;
+      const balance = positionForMint(inputMint);
+      const maximum = balance?.available
+        ? firstNumber(balance.amountString, balance.amount)
+        : null;
+      state.order.amount = preset === 'max'
+        ? Number.isFinite(maximum) && maximum > 0
+          ? String(maximum)
+          : ''
+        : String(firstNumber(preset) || '');
+      state.execution.error = '';
+      renderTradeTicket();
     } else if (action === 'select-order-type') {
       const type = target.dataset.ftOrderType;
       const automaticReady = state.recurring.enabled
@@ -7352,8 +7528,9 @@ export function mountFutardTerminal({
       }
     } else if (event.target.matches('[data-ft-role="amount"]')) {
       state.order.amount = event.target.value || '';
+      const market = selectedMarket();
+      updateDecisionTicketPreview(market);
       if (state.order.type === 'recurring') {
-        const market = selectedMarket();
         const totalRegion = root.querySelector('[data-ft-role="recurring-total"]');
         const amount = firstNumber(state.order.amount);
         const recurringTotal = Number.isFinite(amount)
@@ -7370,25 +7547,9 @@ export function mountFutardTerminal({
         return;
       }
       if (state.order.type === 'limit') return;
-      const market = selectedMarket();
-      const estimateRegion = root.querySelector('[data-ft-role="estimate"]');
-      if (!market || !estimateRegion) return;
-      const estimate = executionEstimate(
-        market,
-        state.order.outcome,
-        state.order.side,
-        firstNumber(state.order.amount),
-        state.order.slippageBps,
-      );
-      const outcome = state.order.outcome === 'pass' ? market.pass : market.fail;
-      estimateRegion.innerHTML = `
-        <div><span>Venue</span><strong>MetaDAO AMM</strong></div>
-        <div><span>Reference spot</span><strong>${formatPrice(estimate?.price || outcome.price)}</strong></div>
-        <div><span>Indicative output</span><strong>${estimate ? `${formatTokenAmount(estimate.output, 6)} ${escapeHtml(estimate.outputSymbol)}` : 'Enter an amount'}</strong></div>
-        <p>The review step computes a conservative pool quote, enforces minimum output, and simulates the exact transaction.</p>
-      `;
     } else if (event.target.matches('[data-ft-role="limit-price"]')) {
       state.order.price = event.target.value || '';
+      updateDecisionTicketPreview(selectedMarket());
     } else if (event.target.matches('[data-ft-role="recurring-cycles"]')) {
       const cycles = Number(event.target.value);
       if (

@@ -1030,17 +1030,39 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.ok(byAction(root, 'connect-wallet'));
   assert.equal(byAction(root, 'refresh'), null);
   assert.equal(root.querySelector('.ft-execution-ticket .ft-ticket-heading'), null);
-  assert.match(byRole(root, 'trade-ticket').textContent, /PASS/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /FAIL/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /If "Pass"/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /If "Fail"/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /If pass, I would like to/);
   assert.match(byRole(root, 'trade-ticket').textContent, /LIMIT/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /SWAP/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /BUY/);
-  assert.match(byRole(root, 'trade-ticket').textContent, /SELL/);
-  assert.match(
-    byRole(root, 'limit-price').closest('.ft-amount-field').textContent,
-    /Price/,
+  assert.match(byRole(root, 'trade-ticket').textContent, /MARKET/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Buy\$0\.1400/);
+  assert.match(byRole(root, 'trade-ticket').textContent, /Sell\$0\.1300/);
+  assert.equal(byRole(root, 'limit-price'), null);
+  assert.equal(
+    root.querySelector(
+      '[data-ft-action="select-order-type"][data-ft-order-type="swap"]',
+    ).getAttribute('aria-pressed'),
+    'true',
   );
-  assert.match(byRole(root, 'amount').closest('.ft-amount-field').textContent, /Bal:\s*—/);
+  assert.match(
+    byRole(root, 'amount').closest('.ft-amount-field').textContent,
+    /USDC held\s*0\.0000/,
+  );
+  assert.equal(byRole(root, 'average-price').textContent, '$0.1400');
+  assert.equal(byRole(root, 'position-before').textContent, '0.00');
+  assert.equal(byRole(root, 'position-after').textContent, '0.00');
+  assert.match(byRole(root, 'fail-payoff').textContent, /0\.00 LOYAL/);
+  assert.match(byRole(root, 'pass-payoff').textContent, /0\.00 LOYAL/);
+  assert.deepEqual(
+    Array.from(root.querySelectorAll('[data-ft-action="decision-amount-preset"]'))
+      .map(element => element.textContent.trim()),
+    ['500', '1K', '2.5K', 'Max'],
+  );
+  root.querySelector(
+    '[data-ft-action="decision-amount-preset"][data-ft-amount="500"]',
+  ).click();
+  assert.equal(byRole(root, 'amount').value, '500');
+  assert.notEqual(byRole(root, 'position-after').textContent, '0.00');
   assert.deepEqual(
     Array.from(byRole(root, 'pass-card').querySelectorAll('.ft-book-columns span'))
       .map(element => element.textContent.trim()),
@@ -2727,7 +2749,13 @@ test('wallet connection never invokes a signing method before explicit review', 
   ).click();
   const spotAmount = byRole(root, 'amount');
   assert.equal(spotAmount.getAttribute('aria-label'), 'Trade amount in USDC');
-  assert.match(spotAmount.closest('.ft-amount-field').textContent, /Bal:\s*50/);
+  assert.match(spotAmount.closest('.ft-amount-field').textContent, /USDC held\s*50/);
+  const reviewTrade = byAction(root, 'review-trade');
+  assert.equal(reviewTrade.disabled, true);
+  spotAmount.value = '1';
+  spotAmount.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(byAction(root, 'review-trade').disabled, false);
+  assert.deepEqual(calls, ['connect']);
   root.querySelector(
     '[data-ft-action="select-side"][data-ft-side="sell"]',
   ).click();
@@ -2737,7 +2765,7 @@ test('wallet connection never invokes a signing method before explicit review', 
   );
   assert.match(
     byRole(root, 'amount').closest('.ft-amount-field').textContent,
-    /Bal:\s*8/,
+    /LOYAL held\s*8/,
   );
 
   const disconnect = byAction(root, 'disconnect-wallet');
