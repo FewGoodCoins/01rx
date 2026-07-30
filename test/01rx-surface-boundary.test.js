@@ -66,10 +66,14 @@ test('proposal recent transactions header aligns with the chart toolbar', () => 
   );
 });
 
-test('spot chart puts timeframe before NAV and keeps fullscreen on the far edge', () => {
+test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the plot rail', () => {
   assert.match(
     frameCss,
-    /\.chart-tv-placeholder-controls-primary\s*\{\s*min-width: 50px;\s*flex: 0 0 50px;\s*order: -1;\s*\}/,
+    /\.chart-tv-placeholder-controls-primary\s*\{\s*min-width: 42px;\s*flex: 0 0 42px;\s*order: -1;\s*\}/,
+  );
+  assert.match(
+    frameCss,
+    /\.chart-tv-placeholder-timeframe\s*\{\s*width: 42px;\s*min-width: 42px;/,
   );
   assert.match(
     frameCss,
