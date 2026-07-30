@@ -2810,7 +2810,7 @@ export function mountFutardTerminal({
       state.hostMode === 'token' && Boolean(isArchive || ownershipWorkspace),
     );
 
-    if (state.hostMode === 'discovery' || isArchive || ownershipWorkspace) {
+    if (state.hostMode === 'discovery') {
       regions.walletStatus.innerHTML = '';
     } else if (state.wallet.connecting) {
       regions.walletStatus.innerHTML = `

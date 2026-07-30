@@ -1,5 +1,6 @@
 import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
+import { installBrowserTradingViewAttribution } from '../chart/tradingview-attribution.js';
 import { installBrowserAdvancedCharts } from '../charting/advanced-charts.js';
 import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';
@@ -78,6 +79,7 @@ function activateDecisionWorkspace(browserWindow) {
 
 export function installBrowserPage(browserWindow) {
   const bridge = installBrowserTokenPage(browserWindow);
+  installBrowserTradingViewAttribution(browserWindow);
   installBrowserAdvancedCharts(browserWindow);
   const { markets } = routeState(browserWindow);
   if (!markets) beginLocalChartLibraryLoad(browserWindow);
