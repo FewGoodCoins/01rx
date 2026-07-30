@@ -1436,7 +1436,7 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     requests.some(url => new URL(url, 'https://navgator.xyz').searchParams.has('token')),
     false,
   );
-  assert.equal(byAction(root, 'review-trade'), null);
+  assert.equal(byAction(root, 'execute-trade'), null);
 
   cleanupMount(mounted);
 });
@@ -2112,7 +2112,7 @@ test('proposal switches abort stale history reads before rendering the next mark
   assert.equal(liveHistoryAborted, true);
   assert.equal(liveHistorySignal.aborted, true);
   assert.equal(byRole(root, 'proposal-title').textContent.trim(), 'Renew the META liquidity mandate');
-  assert.equal(byAction(root, 'review-trade'), null);
+  assert.equal(byAction(root, 'execute-trade'), null);
 
   cleanupMount(mounted);
 });
@@ -2269,7 +2269,7 @@ test('automatic order creation stays hidden until deployment and keeper readines
   assert.doesNotMatch(disabledWindow.root.textContent, /Amount per run/);
   assert.doesNotMatch(disabledWindow.root.textContent, /Automatic vault deployment pending/);
   assert.match(disabledWindow.root.textContent, /LIMIT/);
-  assert.equal(byAction(disabledWindow.root, 'review-trade'), null);
+  assert.equal(byAction(disabledWindow.root, 'execute-trade'), null);
   cleanupMount(disabledMount);
 
   const enabledWindow = makeWindow({
@@ -2598,7 +2598,7 @@ test('proposal browser presents compact live and resolved markets without exposi
   assert.ok(closedCta);
   assert.equal(closedCta.disabled, true);
   assert.match(closedCta.textContent, /trading closed/i);
-  assert.equal(byAction(root, 'review-trade'), null);
+  assert.equal(byAction(root, 'execute-trade'), null);
   assert.equal(byAction(root, 'open-execution'), null);
   assert.equal(byRole(root, 'amount'), null);
   const marketChart = byRegion(root, 'market-chart');
@@ -2833,7 +2833,7 @@ test('program revision mismatch pauses execution without hiding public proposals
     byRole(terminal.root, 'trade-ticket').textContent,
     /Trading paused · program review required/i,
   );
-  assert.equal(byAction(terminal.root, 'review-trade'), null);
+  assert.equal(byAction(terminal.root, 'execute-trade'), null);
   assert.equal(controller.getState().canTransact, false);
 
   cleanupMount(mounted);
@@ -2897,11 +2897,11 @@ test('wallet connection never invokes a signing method before explicit review', 
   const spotAmount = byRole(root, 'amount');
   assert.equal(spotAmount.getAttribute('aria-label'), 'Trade amount in USDC');
   assert.match(spotAmount.closest('.ft-amount-field').textContent, /USDC held\s*50/);
-  const reviewTrade = byAction(root, 'review-trade');
-  assert.equal(reviewTrade.disabled, true);
+  const executeTrade = byAction(root, 'execute-trade');
+  assert.equal(executeTrade.disabled, true);
   spotAmount.value = '1';
   spotAmount.dispatchEvent(new window.Event('input', { bubbles: true }));
-  assert.equal(byAction(root, 'review-trade').disabled, false);
+  assert.equal(byAction(root, 'execute-trade').disabled, false);
   assert.deepEqual(calls, ['connect']);
   root.querySelector(
     '[data-ft-action="select-side"][data-ft-side="sell"]',
@@ -2920,6 +2920,115 @@ test('wallet connection never invokes a signing method before explicit review', 
   disconnect.click();
   await settle(window);
   assert.deepEqual(calls, ['connect', 'disconnect']);
+
+  cleanupMount(mounted);
+});
+
+test('decision trades simulate and open the wallet from one explicit execute click', async () => {
+  const calls = [];
+  const fingerprint = 'c'.repeat(64);
+  const provider = {
+    isPhantom: true,
+    publicKey: null,
+    async connect() {
+      calls.push('connect');
+      this.publicKey = { toString: () => WALLET_ADDRESS };
+      return { publicKey: this.publicKey };
+    },
+    async signTransaction(transaction) {
+      calls.push('signTransaction');
+      return transaction;
+    },
+  };
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    provider,
+    solanaTradingOverrides: {
+      createMainnetConnection() {
+        return {};
+      },
+      async buildConditionalSwapPlan(input) {
+        calls.push('build');
+        assert.equal(input.outcome, 'pass');
+        assert.equal(input.side, 'buy');
+        assert.equal(input.amount, '1');
+        return {
+          kind: 'swap',
+          transaction: {},
+          builtAt: Date.now(),
+          summary: {
+            action: 'BUY PASS',
+            venue: 'MetaDAO v0.6 AMM',
+            feePayer: WALLET_ADDRESS,
+            amountIn: '1 USDC',
+            inputMint: ACTIVE_MARKETS.markets[0].quoteMint,
+            estimatedAmountOut: '7.4 PASS LOYAL',
+            minimumAmountOut: '7.326 PASS LOYAL',
+            outputMint: ACTIVE_MARKETS.markets[0].proposal.passBaseMint,
+            recipient: WALLET_ADDRESS,
+            programIds: [PROPOSAL_ID],
+          },
+        };
+      },
+      async simulatePlan() {
+        calls.push('simulate');
+        return {
+          ok: true,
+          unitsConsumed: 42_000,
+          error: null,
+          transactionFingerprint: fingerprint,
+        };
+      },
+      async sendPlan(_connection, adapter, plan) {
+        calls.push('sendPlan');
+        assert.equal(plan.reviewFingerprint, fingerprint);
+        await adapter.provider.signTransaction(plan.transaction);
+        return { signature: TRANSACTION_SIGNATURE };
+      },
+      async confirmSignature() {
+        calls.push('confirm');
+        return {
+          signature: TRANSACTION_SIGNATURE,
+          status: 'confirmed',
+          slot: 355000123,
+        };
+      },
+    },
+  });
+  const controller = mountFutardTerminal({ window, root });
+  const mounted = trackMount(controller, window);
+  await controller.refresh();
+
+  byAction(root, 'connect-wallet').click();
+  await settleUntil(window, () => calls.includes('connect'));
+  root.querySelector(
+    '[data-ft-action="select-order-type"][data-ft-order-type="swap"]',
+  ).click();
+  const amount = byRole(root, 'amount');
+  amount.value = '1';
+  amount.dispatchEvent(new window.Event('input', { bubbles: true }));
+
+  const execute = byAction(root, 'execute-trade');
+  assert.match(execute.textContent, /Execute Buy PASS/i);
+  assert.equal(execute.disabled, false);
+  assert.deepEqual(calls, ['connect']);
+  assert.equal(byAction(root, 'approve-transaction'), null);
+
+  execute.click();
+  await settleUntil(window, () => calls.includes('signTransaction'));
+  await settleUntil(window, () => calls.includes('confirm'));
+
+  assert.deepEqual(calls, [
+    'connect',
+    'build',
+    'simulate',
+    'sendPlan',
+    'signTransaction',
+    'confirm',
+  ]);
+  assert.equal(byAction(root, 'approve-transaction'), null);
+  assert.equal(root.querySelector('.ft-review-modal'), null);
+  assert.equal(root.classList.contains('ft-execution-locked'), false);
 
   cleanupMount(mounted);
 });

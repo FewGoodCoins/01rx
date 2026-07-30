@@ -7643,6 +7643,10 @@ body.is-token-markets .token-markets-root {
   display: none;
 }
 
+.ft-execution-locked .ft-shell {
+  pointer-events: none;
+}
+
 .ft-modal-backdrop {
   position: fixed;
   z-index: 10000;

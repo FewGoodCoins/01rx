@@ -4036,7 +4036,7 @@ export function mountFutardTerminal({
         <button
           class="ft-primary-button"
           type="button"
-          data-ft-action="review-trade"
+          data-ft-action="execute-trade"
           data-ft-role="trade-submit"
           data-ft-amount-gated="true"
           ${state.execution.building || state.execution.submitting || !preview.amountValid
@@ -4044,11 +4044,13 @@ export function mountFutardTerminal({
             : ''}
         >${state.execution.building
           ? 'Building & simulating…'
+          : state.execution.submitting
+            ? 'Approve in wallet…'
           : !preview.amountValid
-            ? 'Confirm trade'
+            ? 'Enter amount'
           : isRecurring
             ? `Review automatic ${escapeHtml(side)}`
-            : 'Review trade'}</button>
+            : `Execute ${escapeHtml(side)} ${escapeHtml(outcome)}`}</button>
       `;
     }
 
@@ -4297,8 +4299,8 @@ export function mountFutardTerminal({
       submit.textContent = preview.amountValid
         ? state.order.type === 'recurring'
           ? `Review automatic ${state.order.side === 'buy' ? 'Buy' : 'Sell'}`
-          : 'Review trade'
-        : 'Confirm trade';
+          : `Execute ${state.order.side === 'buy' ? 'Buy' : 'Sell'} ${state.order.outcome.toUpperCase()}`
+        : 'Enter amount';
     }
   }
 
@@ -4390,7 +4392,15 @@ export function mountFutardTerminal({
     `;
   }
 
+  function syncExecutionLock() {
+    root.classList.toggle(
+      'ft-execution-locked',
+      state.execution.building || state.execution.submitting,
+    );
+  }
+
   function renderTradeTicket() {
+    syncExecutionLock();
     if (isOwnershipWorkspace()) {
       const asset = ownershipTokenSnapshot();
       const isBuy = state.ownershipOrder.side !== 'sell';
@@ -5561,6 +5571,7 @@ export function mountFutardTerminal({
   }
 
   function render() {
+    syncExecutionLock();
     renderHeader();
     renderSystemStatus();
     renderMarketList();
@@ -6342,7 +6353,11 @@ export function mountFutardTerminal({
     return state.programIntegrity;
   }
 
-  async function buildAndSimulatePlan(buildPlan) {
+  async function buildAndSimulatePlan(buildPlan, options = {}) {
+    // Routine decision trades use the populated ticket as their explicit review
+    // surface. The same click may request wallet approval only after the exact
+    // transaction has been built, simulated, and fingerprint-bound.
+    const requestWalletApproval = options.requestWalletApproval === true;
     let trading = null;
     const integrity = await refreshProgramIntegrity();
     if (!integrity.canTransact) {
@@ -6364,8 +6379,9 @@ export function mountFutardTerminal({
       const connection = await executionConnection(trading);
       const plan = await buildPlan(trading, connection);
       if (state.destroyed) return null;
+      plan.requestWalletApproval = requestWalletApproval;
       state.execution.plan = plan;
-      state.execution.reviewOpen = true;
+      state.execution.reviewOpen = !requestWalletApproval;
       state.execution.simulation = null;
       renderModal();
       const simulation = await trading.simulatePlan(connection, plan);
@@ -6382,7 +6398,18 @@ export function mountFutardTerminal({
         units_consumed: simulation.unitsConsumed,
         error_category: simulation.ok ? null : 'program_error',
       });
+      if (requestWalletApproval && !simulation.ok) {
+        state.execution.error = simulation.error
+          || 'The transaction simulation failed before wallet approval.';
+        state.execution.plan = null;
+      }
       renderModal();
+      if (requestWalletApproval && simulation.ok) {
+        state.execution.building = false;
+        renderTradeTicket();
+        renderModal();
+        await approveTransaction();
+      }
       return plan;
     } catch (error) {
       const described = trading?.describeSolanaError?.(error);
@@ -6396,7 +6423,7 @@ export function mountFutardTerminal({
         proposal_id: selectedMarket()?.id || '',
         error_category: described?.category || 'validation_failed',
       });
-      setNotice('Transaction review could not be prepared.');
+      setNotice('Transaction could not be prepared.');
       return null;
     } finally {
       state.execution.building = false;
@@ -6405,7 +6432,7 @@ export function mountFutardTerminal({
     }
   }
 
-  async function reviewTrade() {
+  async function executeTrade() {
     const market = selectedMarket();
     if (!market || !state.wallet.address || !state.wallet.canTransact) {
       connectWallet();
@@ -6457,35 +6484,41 @@ export function mountFutardTerminal({
         renderTradeTicket();
         return;
       }
-      await buildAndSimulatePlan((trading, connection) => trading.buildManifestLimitPlan({
-        connection,
-        walletAddress: state.wallet.address,
-        market,
-        marketAddress: book.address,
-        expectedBaseMint: book.baseMint,
-        expectedQuoteMint: book.quoteMint,
-        outcome,
-        side,
-        amount,
-        price,
-      }));
+      await buildAndSimulatePlan(
+        (trading, connection) => trading.buildManifestLimitPlan({
+          connection,
+          walletAddress: state.wallet.address,
+          market,
+          marketAddress: book.address,
+          expectedBaseMint: book.baseMint,
+          expectedQuoteMint: book.quoteMint,
+          outcome,
+          side,
+          amount,
+          price,
+        }),
+        { requestWalletApproval: true },
+      );
       return;
     }
     const book = selectedOrderBook(market);
-    await buildAndSimulatePlan((trading, connection) => trading.buildConditionalSwapPlan({
-      connection,
-      walletAddress: state.wallet.address,
-      market,
-      outcome,
-      side,
-      amount,
-      slippageBps: state.order.slippageBps,
-      ...(book?.canonical && book.address ? {
-        marketAddress: book.address,
-        expectedBaseMint: book.baseMint,
-        expectedQuoteMint: book.quoteMint,
-      } : {}),
-    }));
+    await buildAndSimulatePlan(
+      (trading, connection) => trading.buildConditionalSwapPlan({
+        connection,
+        walletAddress: state.wallet.address,
+        market,
+        outcome,
+        side,
+        amount,
+        slippageBps: state.order.slippageBps,
+        ...(book?.canonical && book.address ? {
+          marketAddress: book.address,
+          expectedBaseMint: book.baseMint,
+          expectedQuoteMint: book.quoteMint,
+        } : {}),
+      }),
+      { requestWalletApproval: true },
+    );
   }
 
   async function reviewOwnershipTrade() {
@@ -6785,11 +6818,11 @@ export function mountFutardTerminal({
       || !state.execution.simulation?.ok
       || !state.wallet.adapter
     ) return;
+    state.execution.submitting = true;
+    state.execution.error = '';
+    renderTradeTicket();
+    renderModal();
     if (plan.kind === 'spot') {
-      state.execution.submitting = true;
-      state.execution.error = '';
-      renderTradeTicket();
-      renderModal();
       try {
         const trading = await loadSolanaTrading(runtime);
         const signed = await trading.signReviewedPlan(state.wallet.adapter, plan);
@@ -6835,6 +6868,7 @@ export function mountFutardTerminal({
     }
     const integrity = await refreshProgramIntegrity();
     if (!integrity.canTransact) {
+      state.execution.submitting = false;
       state.execution.error = programIntegrityPauseMessage(integrity);
       state.execution.plan = null;
       state.execution.simulation = null;
@@ -6844,10 +6878,6 @@ export function mountFutardTerminal({
       renderModal();
       return;
     }
-    state.execution.submitting = true;
-    state.execution.error = '';
-    renderTradeTicket();
-    renderModal();
     let signature = '';
     const market = selectedMarket();
     try {
@@ -6918,7 +6948,7 @@ export function mountFutardTerminal({
       });
       setNotice(
         plan.kind === 'manifest-setup'
-          ? 'Manifest account setup confirmed. Review the limit order next.'
+          ? 'Manifest account setup confirmed. Approve the limit order in your wallet next.'
           : plan.kind === 'recurring-create'
             ? 'Automatic schedule funded and confirmed on Solana mainnet.'
             : plan.kind === 'recurring-cancel'
@@ -6933,12 +6963,15 @@ export function mountFutardTerminal({
         loadProposalMarketData(selectedMarket(), { force: true }),
       ]);
       if (plan.kind === 'manifest-setup' && plan.resume) {
-        await buildAndSimulatePlan((module, nextConnection) => (
-          module.buildManifestLimitPlan({
-            connection: nextConnection,
-            ...plan.resume,
-          })
-        ));
+        await buildAndSimulatePlan(
+          (module, nextConnection) => (
+            module.buildManifestLimitPlan({
+              connection: nextConnection,
+              ...plan.resume,
+            })
+          ),
+          { requestWalletApproval: plan.requestWalletApproval === true },
+        );
       }
     } catch (error) {
       const trading = await loadSolanaTrading(runtime).catch(() => null);
@@ -7317,6 +7350,7 @@ export function mountFutardTerminal({
   }
 
   function handleDocumentClick(event) {
+    if (state.execution.building || state.execution.submitting) return;
     const decisionSidebarAction = event.target?.closest?.('[data-decision-sidebar-action]');
     if (decisionSidebarAction) {
       const decisionSection = runtime.document.getElementById('tlp-decisions-panel');
@@ -7371,6 +7405,10 @@ export function mountFutardTerminal({
       )
     ) return;
     const action = target.dataset.ftAction;
+    if (
+      (state.execution.building || state.execution.submitting)
+      && action !== 'copy-signature'
+    ) return;
 
     if (action === 'refresh') {
       event.preventDefault();
@@ -7596,8 +7634,8 @@ export function mountFutardTerminal({
       }
     } else if (action === 'retry-market-data') {
       loadProposalMarketData(selectedMarket(), { force: true });
-    } else if (action === 'review-trade') {
-      reviewTrade();
+    } else if (action === 'execute-trade') {
+      executeTrade();
     } else if (action === 'review-ownership-trade') {
       reviewOwnershipTrade();
     } else if (action === 'review-redeem') {
@@ -7665,6 +7703,12 @@ export function mountFutardTerminal({
   }
 
   function handleInput(event) {
+    if (
+      (state.execution.building || state.execution.submitting)
+      && event.target.matches(
+        '[data-ft-role="amount"], [data-ft-role="limit-price"], [data-ft-role="recurring-cycles"]',
+      )
+    ) return;
     if (event.target.matches('[data-ft-role="search"]')) {
       state.query = event.target.value || '';
       renderMarketList();
@@ -7713,6 +7757,12 @@ export function mountFutardTerminal({
   }
 
   function handleChange(event) {
+    if (
+      (state.execution.building || state.execution.submitting)
+      && event.target.matches(
+        '[data-ft-role="slippage"], [data-ft-role="recurring-interval"], [data-ft-role="recurring-cycles"]',
+      )
+    ) return;
     if (event.target.matches('[data-ft-role="slippage"]')) {
       const next = firstNumber(event.target.value);
       if ([50, 100, 200].includes(next)) {
