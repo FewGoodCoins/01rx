@@ -9592,8 +9592,8 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls 
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-controls-primary {
-  min-width: 50px;
-  flex: 0 0 50px;
+  min-width: 42px;
+  flex: 0 0 42px;
   order: -1;
 }
 
@@ -9639,8 +9639,8 @@ html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-divider {
 }
 
 html[data-01rx-chart-frame="true"] body.is-token .chart-tv-placeholder-timeframe {
-  width: 50px;
-  min-width: 50px;
+  width: 42px;
+  min-width: 42px;
   font-size: 15px;
 }
 
