@@ -556,6 +556,9 @@ function makeWindow(options = {}) {
         requests.push(url);
         if (/\/api\/v1\/futarchy\?view=active-markets$/.test(url)) {
           if (options.activeMarketsError) throw options.activeMarketsError;
+          if (typeof options.activeMarketsResponder === 'function') {
+            return options.activeMarketsResponder(url, requestOptions, responses);
+          }
           return { ok: true, data: responses.activeMarkets };
         }
         if (/\/api\/v1\/futarchy\?view=proposals(?:&|$)/.test(url)) {
@@ -641,6 +644,9 @@ function makeWindow(options = {}) {
           };
         }
         if (/\/api\/beta\/futarchy\?view=market-data/.test(url)) {
+          if (typeof options.proposalMarketDataResponder === 'function') {
+            return options.proposalMarketDataResponder(url, requestOptions, responses);
+          }
           return {
             ok: true,
             data: responses.proposalMarketData,
@@ -1187,6 +1193,80 @@ test('proposal-first terminal renders validated market state and a safe trade in
 
   controller.destroy();
   assert.equal(root.childElementCount, 0);
+  cleanupMount(mounted);
+});
+
+test('live PASS and FAIL prices refresh without remounting the chart or refetching history', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  let activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
+  let marketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
+  const { requests, root, window } = makeWindow({
+    activeMarketsResponder() {
+      return { ok: true, data: activeMarkets };
+    },
+    proposalMarketDataResponder() {
+      return { ok: true, data: marketData };
+    },
+  });
+  const controller = mountFutardTerminal({ window, root });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settleUntil(window, () => (
+    byRole(root, 'trade-ticket')?.textContent.includes('$0.1400')
+  ));
+
+  const chart = byRole(root, 'proposal-history-chart');
+  const historyRequestsBefore = requests.filter(url => (
+    /view=proposal-history/.test(url)
+  )).length;
+  const marketDataRequestsBefore = requests.filter(url => (
+    /view=market-data/.test(url)
+  )).length;
+
+  activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
+  activeMarkets.asOf = '2026-07-24T12:00:07.000Z';
+  activeMarkets.slot = 355000007;
+  activeMarkets.markets[0].spot.price = 0.1305;
+  activeMarkets.markets[0].pass.price = 0.1555;
+  activeMarkets.markets[0].fail.price = 0.1111;
+  marketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
+  marketData.asOf = '2026-07-24T12:00:07.000Z';
+  marketData.slot = 355000007;
+  marketData.books.pass.bestBid = 0.15;
+  marketData.books.pass.bestAsk = 0.16;
+  marketData.books.pass.bids[0].price = 0.15;
+  marketData.books.pass.asks[0].price = 0.16;
+
+  await controller.refreshLivePrices();
+  await settle(window);
+
+  assert.equal(byRole(root, 'proposal-history-chart'), chart);
+  assert.equal(
+    requests.filter(url => /view=proposal-history/.test(url)).length,
+    historyRequestsBefore,
+  );
+  assert.ok(
+    requests.filter(url => /view=market-data/.test(url)).length
+      > marketDataRequestsBefore,
+  );
+  assert.equal(byRole(root, 'buy-price').textContent, '$0.1600');
+  assert.equal(byRole(root, 'sell-price').textContent, '$0.1500');
+  assert.match(
+    byRole(root, 'pass-card').querySelector('.ft-book-reference').textContent,
+    /0\.1555/,
+  );
+  assert.equal(
+    byRole(root, 'proposal-chart-header')
+      .querySelector('[data-ft-chart-header-metric="pass"] strong')
+      .textContent,
+    '$0.1555',
+  );
+  assert.equal(
+    byRole(root, 'proposal-chart-header')
+      .querySelector('[data-ft-chart-header-metric="fail"] strong')
+      .textContent,
+    '$0.1111',
+  );
   cleanupMount(mounted);
 });
 
@@ -2912,6 +2992,12 @@ test('submitted transaction state survives refresh and reconciles to confirmed',
 
   assert.equal(statusReads, 1);
   assert.match(byRole(root, 'transaction-state').textContent, /Confirmed/);
+  assert.ok(byRole(root, 'trade-submit'));
+  assert.ok(
+    byRole(root, 'trade-submit').compareDocumentPosition(
+      byRole(root, 'transaction-state'),
+    ) & window.Node.DOCUMENT_POSITION_FOLLOWING,
+  );
   assert.match(byRole(root, 'transaction-activity').textContent, /BUY PASS LIMIT/);
   const persisted = JSON.parse(
     window.localStorage.getItem('navgator-futarchy-transactions-v1'),
