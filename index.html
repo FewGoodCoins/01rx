@@ -34,6 +34,15 @@
   html[data-market-boot="error"] body * {
     visibility: hidden !important;
   }
+  html[data-market-boot="pending"]::before,
+  html[data-market-navigation="pending"]::before,
+  html[data-market-boot="error"]::before {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    background: #101010;
+    content: "";
+  }
   html[data-market-boot="pending"] body::before,
   html[data-market-navigation="pending"] body::before,
   html[data-market-boot="error"] body::before {
