@@ -36,10 +36,14 @@ test('01RX adds only functional NAV and Growth controls plus disabled TradingVie
       /<button class="chart-tv-placeholder-button[^"]*"[^>]*\sdisabled(?:\s|>)/g,
     ),
   ];
-  assert.equal(placeholderButtons.length, 11);
+  assert.equal(placeholderButtons.length, 7);
   assert.doesNotMatch(
     placeholderButtons.map(match => match[0]).join('\n'),
     /onclick=|data-ft-action=/,
+  );
+  assert.doesNotMatch(
+    indexSource,
+    /Hide annotations placeholder|TradingView (?:undo|redo|snapshot) placeholder/,
   );
   [
     '.chart-toolbar-row > .chart-controls',

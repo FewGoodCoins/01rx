@@ -827,16 +827,19 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
   assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 6);
-  assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 3);
-  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-range-trigger"]').length, 1);
-  assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]').textContent, 'ALL');
-  assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]').hidden, true);
+  assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 0);
+  assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
+  assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]'), null);
   assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-trigger"]').length, 1);
   assert.equal(chart.querySelector('[data-ft-role="hourly-series-menu"]').hidden, true);
   assert.equal(
     chart.querySelectorAll('[data-ft-role="hourly-series-menu"] [role="menuitemcheckbox"]').length,
     3,
   );
+  assert.equal(chart.querySelector('[aria-label="Hide annotations placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView undo placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView redo placeholder"]'), null);
+  assert.equal(chart.querySelector('[aria-label="TradingView snapshot placeholder"]'), null);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-chart-tool"]').length, 0);
   assert.equal(chart.querySelectorAll('.ft-chart-crosshair-rail button').length, 1);
   assert.equal(
@@ -1079,7 +1082,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
     byRole(root, 'proposal-history-chart')
       .querySelectorAll('.chart-tv-placeholder-button'),
   );
-  assert.equal(proposalChartPlaceholders.length, 11);
+  assert.equal(proposalChartPlaceholders.length, 7);
   assert.equal(proposalChartPlaceholders.every(button => button.disabled), true);
   assert.equal(
     proposalChartPlaceholders.some(button => button.dataset.ftAction),
@@ -2224,20 +2227,8 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.equal(seriesTrigger.getAttribute('aria-expanded'), 'false');
   assert.equal(seriesMenu.hidden, true);
 
-  const range = root.querySelector(
-    '[data-ft-action="hourly-range"][data-ft-range="24h"]',
-  );
-  const rangeTrigger = root.querySelector('[data-ft-role="hourly-range-trigger"]');
-  const rangeMenu = root.querySelector('[data-ft-role="hourly-range-menu"]');
-  rangeTrigger.click();
-  assert.equal(rangeTrigger.getAttribute('aria-expanded'), 'true');
-  assert.equal(rangeMenu.hidden, false);
-  range.click();
-  assert.equal(range.getAttribute('aria-checked'), 'true');
-  assert.equal(rangeTrigger.textContent, '1D');
-  assert.equal(rangeTrigger.getAttribute('aria-expanded'), 'false');
-  assert.equal(rangeMenu.hidden, true);
-  assert.equal(activeChart.ranges.at(-1), '24h');
+  assert.equal(root.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
+  assert.equal(root.querySelector('[data-ft-role="hourly-range-menu"]'), null);
 
   assert.equal(root.querySelectorAll('[data-ft-chart-tool]').length, 0);
   assert.equal(root.querySelectorAll('.ft-chart-crosshair-rail button').length, 1);
