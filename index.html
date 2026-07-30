@@ -493,7 +493,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       <div class="tp-decision-columns" aria-hidden="true">
         <span>Market</span>
         <span>Status</span>
-        <span>Result</span>
+        <span>Threshold</span>
       </div>
       <div id="tlp-decisions-list">
         <div class="tp-decisions-empty">0 live decision markets</div>
@@ -547,6 +547,10 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         <div class="tp-decisions-empty">Select a token to view past proposals</div>
       </div>
     </section>
+    <div
+      class="tp-decision-history-slot"
+      id="tlp-decision-history-toggle-slot"
+    ></div>
     <div id="tlp-wl-section" class="tp-wl-section">
       <button class="tp-section-label collapsed" onclick="toggleWlCollapse()" type="button" aria-expanded="false">
         <span style="display:flex;align-items:center;gap:6px">

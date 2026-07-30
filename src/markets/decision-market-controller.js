@@ -2952,6 +2952,9 @@ export function mountFutardTerminal({
     const pastList = runtime.document.getElementById('tlp-past-decisions-list');
     const pastCount = runtime.document.getElementById('tp-past-decision-count');
     const pastTitle = runtime.document.getElementById('tp-past-decisions-title');
+    const historyToggleSlot = runtime.document.getElementById(
+      'tlp-decision-history-toggle-slot',
+    );
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
@@ -2982,10 +2985,18 @@ export function mountFutardTerminal({
           : ` #${Math.round(market.proposal.number)}`;
       const destination = tokenMarketsUrl(market.token, market.id);
       const statusGroup = market.proposal.statusGroup;
-      const result = isPrior
+      const trailingValue = isPrior
         ? (statusGroup === 'passed' ? 'Passed' : 'Failed')
-        : marketStatusLabel(market);
-      const resultState = result.toLowerCase().replace(/\s+/g, '-');
+        : formatPercent(market.thresholdPct, { sign: false });
+      const trailingState = isPrior
+        ? trailingValue.toLowerCase().replace(/\s+/g, '-')
+        : 'threshold';
+      const status = isPrior
+        ? 'Closed'
+        : `
+          <span class="tp-decision-live-dot" aria-hidden="true"></span>
+          <span>Live</span>
+        `;
       return `
         <a
           class="tp-decision-item${isPrior ? ' tp-decision-prior tp-past-proposal-item' : ''}"
@@ -3005,8 +3016,11 @@ export function mountFutardTerminal({
               ${isPrior ? `<small>${escapeHtml(market.proposal.title)}</small>` : ''}
             </span>
           </span>
-          <span class="tp-decision-state" data-state="${isPrior ? 'closed' : 'live'}">${isPrior ? 'Closed' : 'Live'}</span>
-          <span class="tp-decision-result" data-result="${escapeHtml(resultState)}">${escapeHtml(result)}</span>
+          <span class="tp-decision-state" data-state="${isPrior ? 'closed' : 'live'}">${status}</span>
+          <span
+            class="tp-decision-result${isPrior ? '' : ' tp-decision-threshold'}"
+            data-result="${escapeHtml(trailingState)}"
+          >${escapeHtml(trailingValue)}</span>
         </a>
       `;
     }
@@ -3045,7 +3059,12 @@ export function mountFutardTerminal({
       .map(market => renderSidebarMarket(market, true))
       .join('');
 
-    list.innerHTML = activeHtml + historyToggle;
+    if (historyToggleSlot) {
+      list.innerHTML = activeHtml;
+      historyToggleSlot.innerHTML = historyToggle;
+    } else {
+      list.innerHTML = activeHtml + historyToggle;
+    }
     if (pastSection) pastSection.hidden = !state.sidebarHistoryOpen || !visiblePriorMarkets.length;
     if (pastList) {
       pastList.innerHTML = priorHtml || '<div class="tp-decisions-empty">0 past proposals</div>';
@@ -7301,7 +7320,13 @@ export function mountFutardTerminal({
     const decisionSidebarAction = event.target?.closest?.('[data-decision-sidebar-action]');
     if (decisionSidebarAction) {
       const decisionSection = runtime.document.getElementById('tlp-decisions-panel');
-      if (decisionSection?.contains(decisionSidebarAction)) {
+      const historyToggleSlot = runtime.document.getElementById(
+        'tlp-decision-history-toggle-slot',
+      );
+      if (
+        decisionSection?.contains(decisionSidebarAction)
+        || historyToggleSlot?.contains(decisionSidebarAction)
+      ) {
         event.preventDefault();
         if (decisionSidebarAction.dataset.decisionSidebarAction === 'toggle-history') {
           state.sidebarHistoryOpen = !state.sidebarHistoryOpen;
