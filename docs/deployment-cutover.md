@@ -32,9 +32,11 @@ Vercel domain assignments, not GitHub visibility.
 5. Run `npm run generate:attribution-key` once. Store
    `O1RX_ATTRIBUTION_SIGNING_KEY`, its pinned
    `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `SOLANA_RPC_URL` for
-   Preview and Production. They must remain server-only and must never use a
-   `VITE_*` prefix. Keep the attribution key stable so all 01RX decision volume
-   remains queryable through one public authority.
+   Preview and Production. Add `ZERO_ONE_RESOLVED_API_KEY` for server-side
+   decision-history reads; the existing `ONE_RESOLVED_API_KEY` spelling is also
+   accepted as a compatibility alias. They must remain server-only and must
+   never use a `VITE_*` prefix. Keep the attribution key stable so all 01RX
+   decision volume remains queryable through one public authority.
 6. Deploy a preview and verify token data, active decisions, public history,
    wallet discovery, and an ownerless DFlow display quote through
    `/api/beta/trading?view=spot-order`.
