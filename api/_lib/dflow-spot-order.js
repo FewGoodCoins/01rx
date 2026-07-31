@@ -21,6 +21,7 @@ import {
   DFLOW_MAX_PRIORITY_FEE_LAMPORTS,
   DFLOW_POLICY_PROGRAM_ID,
   decodeAndValidateDflowSwap,
+  loadAndValidateDflowExecutionSafety,
   loadAndValidateDflowProgramIntegrity,
   loadAndValidateTradeAccountState,
   simulationAccountRequest,
@@ -858,6 +859,7 @@ export async function validateDflowTransaction({
   quote,
   owner,
   loadLookupTables = loadAndValidateDflowLookupTables,
+  loadExecutionSafety = loadAndValidateDflowExecutionSafety,
   loadProgramIntegrity = loadAndValidateDflowProgramIntegrity,
   loadTradeAccountState = loadAndValidateTradeAccountState,
   simulate = true,
@@ -940,7 +942,11 @@ export async function validateDflowTransaction({
     swapInstruction,
     swapPolicy,
   });
-  const [, tradeState] = await Promise.all([
+  const [executionSafety, , tradeState] = await Promise.all([
+    loadExecutionSafety(connection, {
+      minContextSlot: quote.contextSlot,
+      requiredProgram: swapPolicy.requiredProgram,
+    }),
     loadProgramIntegrity(connection, { minContextSlot: quote.contextSlot }),
     loadTradeAccountState(connection, {
       accountKeys,
@@ -959,7 +965,11 @@ export async function validateDflowTransaction({
   };
   let networkFeeLamports = null;
   if (simulate) {
-    const minimumSlot = Math.max(quote.contextSlot, tradeState.contextSlot);
+    const minimumSlot = Math.max(
+      quote.contextSlot,
+      executionSafety.contextSlot,
+      tradeState.contextSlot,
+    );
     const [simulationResponse, feeResponse] = await Promise.all([
       connection.simulateTransaction(transaction, {
         accounts: simulationAccountRequest(tradeState),
@@ -996,9 +1006,13 @@ export async function validateDflowTransaction({
   }
   return {
     actionNames: swapPolicy.actionNames,
+    executionSafety,
     feePayer,
     networkFeeLamports,
-    programIds: [...new Set(instructionPrograms)],
+    programIds: [...new Set([
+      ...instructionPrograms,
+      swapPolicy.requiredProgram,
+    ])],
     simulation,
     tradeState,
     transaction,
@@ -1120,6 +1134,8 @@ export function createDflowSpotOrderService(dependencies = {}) {
   const loadLookupTables = dependencies.loadLookupTables || loadAndValidateDflowLookupTables;
   const loadMintDecimals = dependencies.loadMintDecimals || defaultLoadMintDecimals;
   const loadDflowOrder = dependencies.fetchDflowOrder || fetchDflowOrder;
+  const loadExecutionSafety = dependencies.loadDflowExecutionSafety
+    || loadAndValidateDflowExecutionSafety;
   const loadProgramIntegrity = dependencies.loadDflowProgramIntegrity
     || loadAndValidateDflowProgramIntegrity;
   const loadTradeAccountState = dependencies.loadTradeAccountState
@@ -1164,6 +1180,7 @@ export function createDflowSpotOrderService(dependencies = {}) {
       review = await validateDflowTransaction({
         connection: connection(),
         loadLookupTables,
+        loadExecutionSafety,
         loadProgramIntegrity,
         loadTradeAccountState,
         owner: intent.owner,
@@ -1243,6 +1260,7 @@ export function createDflowSpotOrderService(dependencies = {}) {
     const validatedReview = await validateDflowTransaction({
       connection: connection(),
       loadLookupTables,
+      loadExecutionSafety,
       loadProgramIntegrity,
       loadTradeAccountState,
       owner,
@@ -1281,7 +1299,11 @@ export function createDflowSpotOrderService(dependencies = {}) {
         409,
       );
     }
-    const minimumSlot = Math.max(quote.contextSlot, validatedReview.tradeState.contextSlot);
+    const minimumSlot = Math.max(
+      quote.contextSlot,
+      validatedReview.executionSafety.contextSlot,
+      validatedReview.tradeState.contextSlot,
+    );
     const [simulationResponse, feeResponse] = await Promise.all([
       rpc.simulateTransaction(signed.transaction, {
         accounts: simulationAccountRequest(validatedReview.tradeState),

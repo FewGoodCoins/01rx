@@ -262,6 +262,9 @@ function createService(fixture, rpc, overrides = {}) {
     },
     loadLookupTables: async () => [],
     loadMintDecimals: async () => 6,
+    loadDflowExecutionSafety: async () => ({
+      contextSlot: fixture.payload.contextSlot,
+    }),
     loadDflowProgramIntegrity: async () => ({ deploymentSlot: 436_232_368 }),
     loadTradeAccountState: async () => ({
       contextSlot: fixture.payload.contextSlot,
@@ -1102,6 +1105,34 @@ test('spot order rejects malformed, pre-signed, or mismatched DFlow transactions
         code: 'INVALID_DFLOW_TRANSACTION',
         pattern: testCase.pattern,
       },
+    );
+    assert.equal(
+      rpc.calls.some(call => call[0] === 'simulateTransaction'),
+      false,
+    );
+    assertNeverBroadcast(rpc);
+  }
+});
+
+test('spot order fails closed on restart or route-program safety before simulation', async () => {
+  for (const code of [
+    'SOLANA_RESTART_COOLDOWN',
+    'SOLANA_PROGRAM_INTEGRITY_CHANGED',
+    'SOLANA_PROGRAM_INTEGRITY_UNAVAILABLE',
+  ]) {
+    const fixture = buildFixture();
+    const rpc = createRpc(fixture);
+    const service = createService(fixture, rpc, {
+      async loadDflowExecutionSafety() {
+        const error = new Error('execution safety fixture');
+        error.code = code;
+        error.statusCode = 503;
+        throw error;
+      },
+    });
+    await assertTradingRejection(
+      () => service.spotOrder(spotOrderRequest(fixture)),
+      { code, statusCode: 503 },
     );
     assert.equal(
       rpc.calls.some(call => call[0] === 'simulateTransaction'),

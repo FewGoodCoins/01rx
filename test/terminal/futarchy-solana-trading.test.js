@@ -27,6 +27,19 @@ const {
 const base58 = base58Module.default || base58Module;
 const WALLET_ADDRESS = 'A4THR6vJ6LWJ75681gfRrDhgRfxHbxhjdJV9Bz5v97GK';
 const SIGNATURE = base58.encode(Buffer.alloc(64, 4));
+const EXECUTION_SAFETY = Object.freeze({
+  contextSlot: 500_000_000,
+  programs: Object.freeze([]),
+  restart: Object.freeze({
+    contextSlot: 500_000_000,
+    cooldownSlots: 1_500,
+    lastRestartSlot: 1,
+    resumeSlot: 1_501,
+  }),
+});
+async function allowExecutionSafety() {
+  return EXECUTION_SAFETY;
+}
 const DEFAULT_PUBLIC_KEY = new PublicKey('11111111111111111111111111111111');
 const FUTARCHY_PROGRAM = new PublicKey(
   'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq',
@@ -384,7 +397,10 @@ test('DFlow v0 plans require detached signing and preserve the reviewed message'
       },
     },
   };
-  const signed = await signReviewedPlan(adapter, plan);
+  const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+  const signed = await signReviewedPlan(connection, adapter, plan, {
+    safetyCheck: allowExecutionSafety,
+  });
   const decoded = VersionedTransaction.deserialize(
     Buffer.from(signed.signedTransaction, 'base64'),
   );
@@ -395,7 +411,9 @@ test('DFlow v0 plans require detached signing and preserve the reviewed message'
   );
   assert.equal(Buffer.from(decoded.signatures[0]).every(byte => byte === 0), false);
   await assert.rejects(
-    signReviewedPlan({ ...adapter, canSignTransaction: false }, plan),
+    signReviewedPlan(connection, { ...adapter, canSignTransaction: false }, plan, {
+      safetyCheck: allowExecutionSafety,
+    }),
     /cannot return a signed transaction/,
   );
 });
@@ -503,7 +521,9 @@ test('wallet signing is bound to the exact transaction bytes that passed simulat
     summary: { feePayer: WALLET_ADDRESS },
   };
 
-  const simulation = await simulatePlan(connection, plan);
+  const simulation = await simulatePlan(connection, plan, {
+    safetyCheck: allowExecutionSafety,
+  });
   assert.equal(simulation.ok, true);
   assert.match(simulation.transactionFingerprint, /^[a-f0-9]{64}$/);
   plan.reviewFingerprint = simulation.transactionFingerprint;
@@ -547,6 +567,55 @@ test('an unreviewed transaction cannot reach a wallet signing method', async () 
   assert.equal(signingCalls, 0);
 });
 
+test('restart and program-integrity failures stop simulation and wallet signing', async () => {
+  const {
+    sendPlan,
+    simulatePlan,
+    transactionReviewFingerprint,
+  } = await loadTradingModule();
+  const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+  let simulationCalls = 0;
+  let signingCalls = 0;
+  connection.simulateTransaction = async () => {
+    simulationCalls += 1;
+    return { value: { err: null, logs: [], unitsConsumed: 12_345 } };
+  };
+  const adapter = {
+    kind: 'legacy',
+    address: WALLET_ADDRESS,
+    canTransact: true,
+    provider: {
+      async signTransaction() {
+        signingCalls += 1;
+      },
+    },
+  };
+  const plan = {
+    transaction: reviewableTransaction(),
+    builtAt: Date.now(),
+    summary: { feePayer: WALLET_ADDRESS },
+  };
+  const rejectSafety = async () => {
+    const error = new Error('execution paused by fixture');
+    error.code = 'SOLANA_RESTART_COOLDOWN';
+    error.statusCode = 503;
+    throw error;
+  };
+
+  await assert.rejects(
+    simulatePlan(connection, plan, { safetyCheck: rejectSafety }),
+    error => error?.code === 'SOLANA_RESTART_COOLDOWN',
+  );
+  assert.equal(simulationCalls, 0);
+
+  plan.reviewFingerprint = await transactionReviewFingerprint(plan.transaction);
+  await assert.rejects(
+    sendPlan(connection, adapter, plan, { safetyCheck: rejectSafety }),
+    error => error?.code === 'SOLANA_RESTART_COOLDOWN',
+  );
+  assert.equal(signingCalls, 0);
+});
+
 test('wallet-returned signed bytes must preserve the reviewed transaction message', async () => {
   const { sendPlan, simulatePlan } = await loadTradingModule();
   const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
@@ -559,7 +628,7 @@ test('wallet-returned signed bytes must preserve the reviewed transaction messag
     summary: { feePayer: WALLET_ADDRESS },
   };
   plan.reviewFingerprint = (
-    await simulatePlan(connection, plan)
+    await simulatePlan(connection, plan, { safetyCheck: allowExecutionSafety })
   ).transactionFingerprint;
   const reviewedWire = wireWithPlaceholderSignatures(plan.transaction);
   let sentWire = null;
@@ -578,7 +647,9 @@ test('wallet-returned signed bytes must preserve the reviewed transaction messag
     },
   };
 
-  const result = await sendPlan(connection, adapter, plan);
+  const result = await sendPlan(connection, adapter, plan, {
+    safetyCheck: allowExecutionSafety,
+  });
 
   assert.equal(result.signature, SIGNATURE);
   assert.deepEqual(sentWire, reviewedWire);
@@ -596,7 +667,7 @@ test('wallet-returned signed bytes must preserve the reviewed transaction messag
   sentWire = null;
 
   await assert.rejects(
-    sendPlan(connection, adapter, plan),
+    sendPlan(connection, adapter, plan, { safetyCheck: allowExecutionSafety }),
     error => error?.code === 'SIGNED_TRANSACTION_CHANGED',
   );
   assert.equal(sentWire, null);
@@ -626,7 +697,7 @@ test('wallet-returned bytes must preserve the 01RX attribution co-signature', as
     summary: { feePayer: WALLET_ADDRESS },
   };
   plan.reviewFingerprint = (
-    await simulatePlan(connection, plan)
+    await simulatePlan(connection, plan, { safetyCheck: allowExecutionSafety })
   ).transactionFingerprint;
 
   const stripped = Transaction.from(transaction.serialize({
@@ -656,7 +727,7 @@ test('wallet-returned bytes must preserve the 01RX attribution co-signature', as
   };
 
   await assert.rejects(
-    sendPlan(connection, adapter, plan),
+    sendPlan(connection, adapter, plan, { safetyCheck: allowExecutionSafety }),
     error => error?.code === 'SIGNED_TRANSACTION_CHANGED',
   );
   assert.equal(sentWire, null);
@@ -667,7 +738,7 @@ test('wallet-returned bytes must preserve the 01RX attribution co-signature', as
     },
   };
   await assert.rejects(
-    sendPlan(connection, adapter, plan),
+    sendPlan(connection, adapter, plan, { safetyCheck: allowExecutionSafety }),
     error => error?.code === 'WALLET_CANNOT_PRESERVE_COSIGNATURE',
   );
 });
@@ -684,7 +755,7 @@ test('wallet-standard execution prefers guarded relay submission when signing is
     summary: { feePayer: WALLET_ADDRESS },
   };
   plan.reviewFingerprint = (
-    await simulatePlan(connection, plan)
+    await simulatePlan(connection, plan, { safetyCheck: allowExecutionSafety })
   ).transactionFingerprint;
   const reviewedWire = wireWithPlaceholderSignatures(plan.transaction);
   let signCalls = 0;
@@ -722,7 +793,9 @@ test('wallet-standard execution prefers guarded relay submission when signing is
     },
   };
 
-  const result = await sendPlan(connection, adapter, plan);
+  const result = await sendPlan(connection, adapter, plan, {
+    safetyCheck: allowExecutionSafety,
+  });
 
   assert.equal(result.signature, SIGNATURE);
   assert.equal(signCalls, 1);

@@ -6755,7 +6755,11 @@ export function mountFutardTerminal({
       state.execution.reviewOpen = !requestWalletApproval;
       state.execution.simulation = null;
       renderModal();
-      const simulation = await trading.simulatePlan(connection, plan);
+      const simulation = await trading.simulatePlan(connection, plan, {
+        minContextSlot: Number.isSafeInteger(integrity.rpcSlot)
+          ? integrity.rpcSlot
+          : 0,
+      });
       if (state.destroyed || state.execution.plan !== plan) return null;
       if (!/^[a-f0-9]{64}$/.test(String(simulation.transactionFingerprint || ''))) {
         throw new Error('Simulation did not bind the reviewed transaction bytes');
@@ -7190,7 +7194,12 @@ export function mountFutardTerminal({
     if (plan.kind === 'spot') {
       try {
         const trading = await loadSolanaTrading(runtime);
-        const signed = await trading.signReviewedPlan(state.wallet.adapter, plan);
+        const connection = await executionConnection(trading);
+        const signed = await trading.signReviewedPlan(
+          connection,
+          state.wallet.adapter,
+          plan,
+        );
         const result = await client.trading.spotSubmit({
           signedTransaction: signed.signedTransaction,
           reviewToken: plan.reviewToken,
@@ -7252,6 +7261,14 @@ export function mountFutardTerminal({
         connection,
         state.wallet.adapter,
         plan,
+        {
+          minContextSlot: Math.max(
+            Number.isSafeInteger(integrity.rpcSlot) ? integrity.rpcSlot : 0,
+            Number.isSafeInteger(state.execution.simulation?.executionSafety?.contextSlot)
+              ? state.execution.simulation.executionSafety.contextSlot
+              : 0,
+          ),
+        },
       );
       if (state.destroyed) return;
       signature = safeSignature(result.signature);

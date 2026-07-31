@@ -1,5 +1,12 @@
 import { AnchorProvider } from '@coral-xyz/anchor';
 import { DECISION_ATTRIBUTION } from '@01resolved/contracts';
+import {
+  loadAndValidateSolanaRestartSafety,
+} from '../core/solana-execution-safety.js';
+import {
+  DECISION_EXECUTION_PROGRAMS,
+  loadAndValidateDecisionExecutionSafety,
+} from './solana-program-policy.js';
 
 // Loaded lazily by the shared decision-market controller after explicit intent.
 import {
@@ -51,16 +58,27 @@ export const METADAO_FUTARCHY_AMM_FEES = Object.freeze({
   protocolFeeBps: 50,
   lpFeeBps: 0,
 });
+export {
+  DECISION_EXECUTION_PROGRAMS,
+  loadAndValidateDecisionExecutionSafety,
+  loadAndValidateSolanaRestartSafety,
+};
 
 const base58 = base58Module.default || base58Module;
+const DECISION_PROGRAM_BY_KEY = new Map(
+  DECISION_EXECUTION_PROGRAMS.map(policy => [policy.key, policy]),
+);
 const MANIFEST_PROGRAM_ID = new PublicKey(
-  'MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms',
+  DECISION_PROGRAM_BY_KEY.get('manifest-core').programId,
 );
 const MANIFEST_WRAPPER_PROGRAM_ID = new PublicKey(
-  'wMNFSTkir3HgyZTsB7uqu3i7FA73grFCptPXgrZjksL',
+  DECISION_PROGRAM_BY_KEY.get('manifest-wrapper').programId,
 );
 const FUTARCHY_V0_6_PROGRAM_ID = new PublicKey(
-  'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq',
+  DECISION_PROGRAM_BY_KEY.get('metadao-futarchy').programId,
+);
+const CONDITIONAL_VAULT_PROGRAM_ID = new PublicKey(
+  DECISION_PROGRAM_BY_KEY.get('metadao-conditional-vault').programId,
 );
 const MEMO_PROGRAM_ID = new PublicKey(DECISION_ATTRIBUTION.memoProgramId);
 const RECURRING_SCHEDULE_SEED = Buffer.from('schedule');
@@ -1143,6 +1161,9 @@ async function loadOpenConditionalMarketContext({
   assertOptionalAddress(market?.proposal?.quoteVault, derived.quoteVault, 'Indexed quote vault');
 
   const vaultProgramId = client.vaultClient.vaultProgram.programId;
+  if (!vaultProgramId.equals(CONDITIONAL_VAULT_PROGRAM_ID)) {
+    throw new Error('Unexpected MetaDAO conditional vault program');
+  }
   const [
     proposalInfo,
     daoInfo,
@@ -1263,6 +1284,9 @@ async function inspectConditionalSettlement({
   );
 
   const vaultProgramId = client.vaultClient.vaultProgram.programId;
+  if (!vaultProgramId.equals(CONDITIONAL_VAULT_PROGRAM_ID)) {
+    throw new Error('Unexpected MetaDAO conditional vault program');
+  }
   const [
     questionInfo,
     baseVaultInfo,
@@ -2003,6 +2027,9 @@ export async function buildRecurringSchedulePlan({
   assertDerivedMint(branchQuoteMint, manifestQuoteMint, `${outcome.toUpperCase()} quote mint`);
 
   const vaultProgramId = futarchyClient.vaultClient.vaultProgram.programId;
+  if (!vaultProgramId.equals(CONDITIONAL_VAULT_PROGRAM_ID)) {
+    throw new Error('Unexpected MetaDAO conditional vault program');
+  }
   const underlyingInputMint = side === 'buy' ? quoteMint : baseMint;
   const underlyingVault = side === 'buy' ? derived.quoteVault : derived.baseVault;
   const conditionalInputMints = side === 'buy'
@@ -3120,6 +3147,27 @@ export function describeSolanaError(error) {
   const message = String(error?.message || error || '').trim();
   const code = String(error?.code || '').trim();
   const normalized = `${code} ${message}`.toLowerCase();
+  if (/solana_restart_cooldown/.test(normalized)) {
+    return {
+      category: 'network_recovery',
+      message: 'Trading is temporarily paused while Solana stabilizes after a restart. Market data remains available.',
+      retryable: true,
+    };
+  }
+  if (/solana_program_integrity_changed/.test(normalized)) {
+    return {
+      category: 'program_integrity',
+      message: 'Trading is paused because a reviewed Solana program changed.',
+      retryable: false,
+    };
+  }
+  if (/solana_program_integrity_unavailable|solana_restart_state_unavailable/.test(normalized)) {
+    return {
+      category: 'rpc_unavailable',
+      message: 'Trading is paused because Solana execution safety could not be confirmed. Market data remains available.',
+      retryable: true,
+    };
+  }
   if (
     /plan_not_reviewed|plan_changed_after_review|signed_transaction_changed|simulation_transaction_changed|transaction_review_unavailable/
       .test(normalized)
@@ -3309,10 +3357,14 @@ export async function applyDecisionAttribution(connection, plan, payload) {
   return plan;
 }
 
-export async function simulatePlan(connection, plan) {
+export async function simulatePlan(connection, plan, {
+  minContextSlot = 0,
+  safetyCheck = loadAndValidateDecisionExecutionSafety,
+} = {}) {
   if (!(connection instanceof Connection) || !plan?.transaction) {
     throw new Error('A built transaction plan is required');
   }
+  const executionSafety = await safetyCheck(connection, { minContextSlot });
   const transactionFingerprint = await transactionReviewFingerprint(plan.transaction);
   const response = await connection.simulateTransaction(plan.transaction);
   const fingerprintAfterSimulation = await transactionReviewFingerprint(plan.transaction);
@@ -3333,6 +3385,7 @@ export async function simulatePlan(connection, plan) {
     unitsConsumed: Number.isFinite(value.unitsConsumed) ? value.unitsConsumed : null,
     replacementBlockhash: value.replacementBlockhash || null,
     transactionFingerprint,
+    executionSafety,
   };
 }
 
@@ -3450,6 +3503,7 @@ export function buildDflowSpotPlan(payload, walletAddress) {
   const outputSymbol = payload.side === 'buy' ? String(payload.ticker || 'TOKEN') : 'USDC';
   return {
     builtAt: Date.now(),
+    safetyMinContextSlot: Number.isSafeInteger(quote.contextSlot) ? quote.contextSlot : 0,
     kind: 'spot',
     reviewToken,
     serverFingerprint: payload.review.transactionFingerprint,
@@ -3478,7 +3532,12 @@ export function buildDflowSpotPlan(payload, walletAddress) {
   };
 }
 
-export async function signReviewedPlan(adapter, plan) {
+export async function signReviewedPlan(connection, adapter, plan, {
+  safetyCheck = loadAndValidateSolanaRestartSafety,
+} = {}) {
+  if (!(connection instanceof Connection)) {
+    throw new Error('Solana connection is required');
+  }
   if (!(plan?.transaction instanceof VersionedTransaction)) {
     throw new Error('A reviewed versioned transaction is required');
   }
@@ -3507,6 +3566,11 @@ export async function signReviewedPlan(adapter, plan) {
     error.code = 'PLAN_CHANGED_AFTER_REVIEW';
     throw error;
   }
+  await safetyCheck(connection, {
+    minContextSlot: Number.isSafeInteger(plan.safetyMinContextSlot)
+      ? plan.safetyMinContextSlot
+      : 0,
+  });
 
   let signedWireBytes;
   if (adapter.kind === 'standard') {
@@ -3618,7 +3682,10 @@ export async function confirmSignature(
   throw error;
 }
 
-export async function sendPlan(connection, adapter, plan) {
+export async function sendPlan(connection, adapter, plan, {
+  minContextSlot = 0,
+  safetyCheck = loadAndValidateDecisionExecutionSafety,
+} = {}) {
   if (!(connection instanceof Connection) || !plan?.transaction) {
     throw new Error('A built transaction plan is required');
   }
@@ -3647,6 +3714,7 @@ export async function sendPlan(connection, adapter, plan) {
     error.code = 'PLAN_CHANGED_AFTER_REVIEW';
     throw error;
   }
+  await safetyCheck(connection, { minContextSlot });
 
   let signature = '';
   if (adapter.kind === 'standard') {
