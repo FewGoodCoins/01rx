@@ -69,6 +69,8 @@ function safeErrorText(value) {
 function logServerError(logger, error, statusCode) {
   if (statusCode < 500 || typeof logger?.error !== 'function') return;
   const diagnostic = {
+    causeCode: safeErrorText(error?.cause?.code || ''),
+    causeMessage: safeErrorText(error?.cause?.message || ''),
     code: safeErrorText(error?.code || 'INTERNAL_ERROR'),
     diagnostic: safeErrorText(error?.diagnostic || error?.cause?.code || ''),
     message: safeErrorText(error?.message || 'Unknown server error'),
