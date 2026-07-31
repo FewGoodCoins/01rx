@@ -11107,6 +11107,18 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
     align-self: stretch;
   }
 
+  /* Some legacy chart rules retain a 480px minimum after the shared terminal
+     grid has selected a shorter laptop-height track. Keep the chart inside its
+     assigned row so it cannot overlap the account panel or outgrow its peers. */
+  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market, .ft-ownership-market) .ft-market-chart,
+  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market) .ft-market-chart .ft-hourly-panel,
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-panel {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus .ft-activity-row > .ft-ownership-transactions,
   [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"],
   [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"] > .ft-ticket {
