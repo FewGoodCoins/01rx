@@ -17,53 +17,6 @@
 .footer a:hover { color: var(--white); }
 
 /* ═══════════════════════════════════════════════════════════════ */
-/* AUTH MODAL                                                       */
-/* ═══════════════════════════════════════════════════════════════ */
-.auth-modal-bg {
-  position: fixed; inset: 0; z-index: var(--z-modal);
-  background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-}
-.auth-modal {
-  background: var(--bg2); border: 1px solid var(--bdr2); border-radius: 12px;
-  padding: 28px 32px; width: 340px; max-width: 90vw;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-}
-.auth-modal h3 {
-  font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;
-  color: var(--white); margin-bottom: 20px; text-align: center;
-}
-.auth-btn {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--bdr2);
-  background: var(--bg3); color: var(--white); font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: background 0.15s, border-color 0.15s;
-  font-family: 'Geist', sans-serif;
-}
-.auth-btn:hover { background: var(--bg4); border-color: var(--bdr3); }
-.auth-btn svg { flex-shrink: 0; }
-.auth-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: 18px 0; font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px;
-}
-.auth-divider::before, .auth-divider::after {
-  content: ''; flex: 1; height: 1px; background: var(--bdr);
-}
-.auth-input {
-  width: 100%; padding: 9px 12px; border-radius: 8px;
-  border: 1px solid var(--bdr2); background: var(--bg); color: var(--white);
-  font-size: 13px; font-family: 'Geist', sans-serif; outline: none;
-  transition: border-color 0.15s;
-}
-.auth-input:focus { border-color: var(--green); }
-.auth-input::placeholder { color: var(--dim); }
-.auth-msg {
-  margin-top: 12px; font-size: 12px; text-align: center; min-height: 18px;
-}
-.auth-msg.success { color: var(--green); }
-.auth-msg.error { color: var(--red); }
-
-/* ═══════════════════════════════════════════════════════════════ */
 /* RESPONSIVE                                                      */
 /* ═══════════════════════════════════════════════════════════════ */
 /* Sidebar visibility controlled above in base .app-left rule      */
@@ -713,7 +666,6 @@ body.is-token .sec-header { display: none; }
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
-.auth-input:focus-visible,
 .tp-search-input:focus-visible,
 .cmd-input:focus-visible {
   outline: none;

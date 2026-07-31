@@ -9,7 +9,7 @@
 | Tree parity | Audited tree and target-baseline tree are identical |
 | Scope | All tracked 01RX code; NAVgator is an external integration |
 | Production activity | GET/HEAD and read-only public RPC only |
-| Runtime changes | Audit run: none; post-audit H-01 remediation and release verification: 2026-07-31 |
+| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, and H-04 Log-mode WAF rollout: 2026-07-31 |
 | Overall status | **NOT AUDIT-READY** |
 
 ## Executive conclusion
@@ -22,23 +22,15 @@ approval, co-signature preservation, and fail-closed program-integrity checks
 for decision-market trading.
 
 The audit recorded five High findings. Post-audit remediation on 2026-07-31
-implemented the H-01 code-owned DFlow instruction, program, account, and
-simulated-effect policy. A sanitized authentic unsponsored production `/order`
-then passed that policy without signing or broadcasting, closing H-01. Four
-other High findings remain:
-
-1. API-provided launchpad metadata reaches `innerHTML` without escaping, creating
-   a DOM-injection path on a wallet-enabled trading origin.
-2. Mutable third-party scripts execute on the trading origin without a CSP or
-   integrity boundary.
-3. Trading abuse controls are stored in one serverless instance and do not
-   provide a distributed rate limit.
-4. Six inherited High dependency paths remain open without a named,
-   time-bounded risk acceptance.
+closed H-01, H-02, H-03, and H-05. The current full gate passes 495 tests and a
+production build, and `npm audit` reports zero vulnerabilities. H-04 remains
+open: a distributed Vercel WAF fixed-window rule is active on the exact trading
+route using IP and JA4 keys, but it is intentionally in Log mode until real
+traffic is observed and the rule can be tuned before 429 enforcement.
 
 The repository therefore does not meet the stated gate of “no unaccepted
 Critical or High finding.” No Critical finding was identified. The audit
-recorded 5 High, 9 Medium, and 2 Low findings; the current ledger has 4 open
+recorded 5 High, 9 Medium, and 2 Low findings; the current ledger has 1 open
 High findings. No High is accepted.
 
 The original audit changed documentation and gitignored evidence only.
@@ -50,7 +42,7 @@ The review covered 156 tracked files and 104,520 tracked lines. It combined:
 
 - manual source review of all serverless entrypoints, execution services,
   wallet adapters, browser entrypoints, API clients, and deployment policy;
-- 426 native Node tests with instrumented coverage;
+- 426 native Node tests with instrumented coverage during the original audit;
 - npm dependency, registry-signature, installed-tree, SBOM, outdated-package,
   and license queries;
 - a checksum-verified Gitleaks 8.30.1 full-history scan;
@@ -84,6 +76,9 @@ Limitations:
 Local machine evidence is stored in `.context/audit/` and is intentionally
 gitignored. It contains reproducible commands and redacted summaries, not
 private environment data.
+
+The 2026-07-31 remediation gate runs 495 native Node tests. Coverage percentages
+remain the original audit measurements until the coverage evidence is rerun.
 
 ## Architecture and trust boundaries
 
@@ -129,12 +124,12 @@ wallet, browser-location, and chain response remains untrusted until validated.
 | Input | Classification | Consumer | Current validation | Gap |
 |---|---|---|---|---|
 | Browser amount, side, outcome, slippage | Untrusted | Controller and trading API | Decimal/u64 bounds, enum checks, unknown-field rejection | Property-based boundary coverage is incomplete |
-| Browser URL path/query/hash | Untrusted | Boot/router/auth return | URL parsing, selected allowlists, encoded outbound components | Dormant auth auto-loads on hash markers; inline handlers complicate CSP |
+| Browser URL path/query/hash | Untrusted | Boot/router | URL parsing, selected allowlists, encoded outbound components | Inline handlers elsewhere in the legacy UI still complicate CSP |
 | Wallet address/account | Untrusted | Solana trading | Base58/PublicKey parse, mainnet account selection, fee-payer equality | Legacy provider capabilities are less uniform |
 | Wallet-returned signed bytes | Untrusted | Browser and trading API | Exact message comparison when `signTransaction` is available; signature verification server-side for DFlow submission | `signAndSendTransaction` cannot return bytes for independent comparison |
-| NAVgator market/token data | Untrusted network data | Browser/relay/trading registry | JSON shapes in typed client; code-owned ownership allowlist; status filters | Legacy presentation fields are not uniformly escaped |
+| NAVgator market/token data | Untrusted network data | Browser/relay/trading registry | JSON shapes in typed client; code-owned ownership allowlist; status filters; launchpad labels rendered as DOM text | Remaining legacy presentation sinks require incremental inventory |
 | NAVgator program-integrity data | Untrusted attestation | Decision controller | Shape, count, status, and base58 checks | Browser does not compare IDs/slots/authorities with a code-owned inventory |
-| DFlow response | Untrusted vendor response | DFlow service | Status/type/size, Ed25519 proof, digest, request ID, timestamp, pinned public key | Transaction instruction semantics are only partially bound |
+| DFlow response | Untrusted vendor response | DFlow service | Status/type/size, Ed25519 proof, digest, request ID, timestamp, pinned public key, strict instruction/account/effect policy | Only reviewed direct route profiles are enabled; all other shapes fail closed |
 | DFlow API key | Server secret | DFlow service | Required in production/preview; never returned | Operational rotation and Vercel scope were not inspectable |
 | `NAVGATOR_API_ORIGIN` and RPC URL | Trusted deployment configuration | Relay/services | HTTPS origin validation for NAVgator; Connection construction for RPC | Missing NAVgator env falls back to a future product domain |
 | Solana account/RPC response | Untrusted chain observation | Browser/services | Owner, discriminator, PDA, mint, token-account, executable, slot, and simulation checks depending on flow | Program inventory is incomplete; availability can fail closed |
@@ -312,7 +307,7 @@ The 24,502-line legacy page is not reliably included in native coverage.
 
 ### Dependencies and licenses
 
-- `npm audit` reported 0 Critical and 6 High paths, all inherited from
+- The original `npm audit` reported 0 Critical and 6 High paths, all inherited from
   `bigint-buffer` advisory `GHSA-3gc7-fjrx-p6mg`.
 - Registry metadata exposed 331 verified signatures and 30 attestations.
 - `npm ls --all` and `npm sbom` failed because the workstation install contained
@@ -325,15 +320,24 @@ The 24,502-line legacy page is not reliably included in native coverage.
 - The build passed, but Vite warned about the 1.09 MB token-page and 989 kB
   Solana-trading chunks before gzip.
 
+Post-remediation `npm ci --ignore-scripts` completes and `npm audit` reports
+zero vulnerabilities after every Solana dependency resolves to the reviewed
+pure-JavaScript replacement. `npm ls --all` still reports the separate peer and
+extraneous relationships recorded as M-03, so the clean-install SBOM gate
+remains open.
+
 ### Secret history and static analysis
 
 The checksum-verified full-history Gitleaks scan reported 1,556 repeated matches.
 They collapsed to a public DFlow verification key, a public Supabase anon JWT,
 and test fixtures. No high-confidence private credential was identified.
 
-That is not a clean security outcome for the Supabase code: the anon token is
-not supposed to be secret, but the dormant remote auth client and unknown RLS
-state still expand the production attack surface.
+The browser anon token was not a private credential, but the dormant client and
+unknown RLS state expanded the production attack surface. The remediation
+removes the project URL, token, client, and remote-watchlist code from the
+current tracked tree; full-history scans will correctly continue to report the
+historic public capability until repository history is retired under a separate
+approved process.
 
 A bounded ESLint dangerous-syntax pass found no `eval`, `new Function`,
 implied-eval, or `with`. Duplication and dead-code tools require repository
@@ -363,18 +367,23 @@ The repository's cutover document expects `navgator.xyz` to serve 01RX and
 `api.navgator.xyz` to serve NAVgator. Production did not match that documented
 state.
 
+**Control-plane update (2026-07-31).** The Vercel project is reconnected to
+`FewGoodCoins/01rx`, and its inspected Git configuration sets `main` as the
+production branch. The next merged commit must still be observed deploying
+automatically before this portion of M-06 is considered closed.
+
 ## Findings register
 
-All findings are Open unless explicitly accepted. No High is accepted.
+Finding status is explicit in the register. No High is accepted.
 “Owner” names an accountable role; a person must be assigned before work begins.
 
 | ID | Severity | Finding | Component | Owner | Status | Acceptance expiry |
 |---|---|---|---|---|---|---|
 | H-01 | High | DFlow transaction semantics are not fully bound to reviewed intent | Execution backend | Execution security owner | Closed 2026-07-31 | N/A |
-| H-02 | High | Unescaped API metadata reaches a DOM HTML sink | Legacy browser UI | Frontend security owner | Open | N/A |
-| H-03 | High | Mutable third-party scripts execute on the trading origin | Browser/deployment | Frontend/platform owner | Open | N/A |
-| H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Open | N/A |
-| H-05 | High | Six inherited dependency findings have no formal expiring exception | Supply chain | Dependency owner | Open | N/A |
+| H-02 | High | Unescaped API metadata reaches a DOM HTML sink | Legacy browser UI | Frontend security owner | Closed 2026-07-31 | N/A |
+| H-03 | High | Mutable third-party scripts execute on the trading origin | Browser/deployment | Frontend/platform owner | Closed 2026-07-31 | N/A |
+| H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Open — distributed Log mode active 2026-07-31 | N/A |
+| H-05 | High | Six inherited dependency findings have no formal expiring exception | Supply chain | Dependency owner | Closed 2026-07-31 | N/A |
 | M-01 | Medium | Program-integrity policy is upstream-defined and incomplete | Decision/recurring/DFlow | Execution security owner | Open | N/A |
 | M-02 | Medium | Relay has an unbounded response and overly broad path/cache policy | API relay | API owner | Open | N/A |
 | M-03 | Medium | Installed dependency tree is invalid and blocks an SBOM | Supply chain | Dependency owner | Open | N/A |
@@ -489,7 +498,7 @@ the reviewed profiles continue to fail closed.
 
 ### H-02 — Unescaped API metadata reaches a DOM HTML sink
 
-**Evidence.** Token discovery accepts `launchpad` for tokens not covered by the
+**Original evidence.** Token discovery accepts `launchpad` for tokens not covered by the
 generated fallback. `src/legacy/token-page.js` groups on that value and
 interpolates raw `lp` and a minimally normalized `lpKey` into button text,
 attributes, element IDs, and a final `innerHTML` assignment. The file contains
@@ -511,9 +520,18 @@ for quotes, angle brackets, event attributes, Unicode, and duplicate IDs. Then
 inventory the remaining `innerHTML` sinks and migrate untrusted paths before
 enforcing CSP.
 
+**Remediation (2026-07-31).** `src/token/launchpad-sections.js` now owns this
+boundary. It normalizes bounded labels, creates buttons/labels/attributes with
+DOM APIs and `textContent`, generates collision-free restricted IDs, and binds
+events with listeners instead of inline attributes. The legacy security header
+also escapes all token metadata before its remaining reviewed HTML sink.
+Malicious-metadata tests cover quotes, angle brackets, event attributes,
+Unicode, prototype-like names, and duplicate slugs. H-02 is closed; the broader
+legacy sink inventory remains Phase 1 defense-in-depth work.
+
 ### H-03 — Mutable third-party scripts execute on the trading origin
 
-**Evidence.**
+**Original evidence.**
 
 - `index.html` dynamically loads PostHog code from a remote asset host.
 - `src/legacy/app-core.js` can load Lightweight Charts from unpkg.
@@ -536,9 +554,23 @@ bundled dependency. Self-host, bundle, proxy, or remove analytics code. If a
 remote executable resource is unavoidable, pin an immutable URL, add SRI and
 `crossorigin`, document an owner, and constrain it with CSP.
 
+**Remediation (2026-07-31).** The PostHog bootstrap, unpkg fallback, Supabase
+SDK loader, browser anon capability, dormant auth UI/package, remote watchlist
+methods, and unused telemetry package were removed. Lightweight Charts now
+loads only from the pinned bundled dependency, and watchlists remain local.
+Source-boundary tests prevent those executable URLs and capabilities from being
+reintroduced. H-03 is closed for the 01RX trading origin.
+
+**Recorded owner action SUP-01.** The FewGoodCoins Supabase account owner must
+retire the unused `cxerugkxccbxtiucyvya` project or rotate its public capability
+and verify restrictive RLS. Status: Pending external control-plane action;
+target review: 2026-08-07. The deployed 01RX bundle will no longer reference the
+project URL or capability, so this residual housekeeping action is outside the
+closed trading-origin execution path.
+
 ### H-04 — Rate limiting is not a distributed abuse boundary
 
-**Evidence.** `api/beta/trading.js` stores buckets in a module-level `Map` keyed
+**Original evidence.** `api/beta/trading.js` stores buckets in a module-level `Map` keyed
 by a forwarded IP string. Serverless instances do not share the map, and new
 instances start empty. The route includes expensive DFlow, registry, and RPC
 work.
@@ -557,9 +589,17 @@ and JA4 keys where available; set separate budgets for order, attest, and submit
 Add cost/quota alerts and bounded request concurrency. Keep an application limit
 only as defense in depth, not the primary control.
 
+**Operational update (2026-07-31).** Vercel rule
+`rule_01_rx_trading_api_observe_1iPEnI` is published and enabled for exact path
+`/api/beta/trading`. It uses a 60-request/60-second fixed window keyed by IP and
+JA4; exceedances are logged and requests are not blocked. Vercel reports one
+active rule and no pending draft. H-04 remains open until representative traffic
+is reviewed, endpoint-specific budgets are selected, 429 enforcement is
+published, and a deployment smoke check observes the enforced response.
+
 ### H-05 — Inherited High dependency findings lack an expiring exception
 
-**Evidence.** npm reports six High dependency paths from
+**Original evidence.** npm reported six High dependency paths from
 `bigint-buffer` `GHSA-3gc7-fjrx-p6mg`, CVSS 7.5 availability impact, with no
 automatic fix for the current chains. Existing notes do not name a person,
 compensating control, or expiry.
@@ -578,6 +618,15 @@ cannot be removed before launch, create one formal acceptance with a named
 person, rationale, reachability evidence, input/availability compensating
 controls, monitoring, and an expiration no longer than 90 days. The gate remains
 failed until that acceptance is approved.
+
+**Remediation (2026-07-31).** Every `bigint-buffer` dependency now resolves to
+the private `packages/bigint-buffer-safe` workspace at version `1.1.6`. The
+replacement preserves the four conversion APIs used by Solana layouts but has
+no native addon, lifecycle script, or dependency. Deterministic property tests
+cover big- and little-endian conversions, invalid widths/signed values, and a
+16-KiB attacker-controlled input. `npm ls bigint-buffer --all` shows both Solana
+chains deduped to the reviewed workspace package; `npm audit` reports zero
+vulnerabilities. H-05 is closed without a risk exception.
 
 ### M-01 — Program-integrity policy is upstream-defined and incomplete
 
@@ -756,10 +805,10 @@ data, or full query URLs.
 | Order | Work | Exit criterion | Status |
 |---:|---|---|---|
 | 1 | H-01 DFlow semantic decoder and program-integrity pin | Every encoded economic/account/compute field is bound to canonical intent; unknown versions fail closed | Closed 2026-07-31 |
-| 2 | H-02 DOM sink fix | Malicious metadata tests pass; no unescaped launchpad value reaches HTML/attribute/ID context | Open |
-| 3 | H-03 remote-script and Supabase removal | Local watchlist retained; dormant auth/CDN loaders absent; Supabase owner action recorded | Open |
-| 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks | Open |
-| 5 | H-05 dependency resolution/acceptance | No scanner High, or one approved named and expiring exception with compensating controls | Open |
+| 2 | H-02 DOM sink fix | Malicious metadata tests pass; no unescaped launchpad value reaches HTML/attribute/ID context | Closed 2026-07-31 |
+| 3 | H-03 remote-script and Supabase removal | Local watchlist retained; dormant auth/CDN loaders absent; Supabase owner action recorded | Closed 2026-07-31; SUP-01 housekeeping pending |
+| 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks | In progress — Log mode active 2026-07-31 |
+| 5 | H-05 dependency resolution/acceptance | No scanner High, or one approved named and expiring exception with compensating controls | Closed 2026-07-31; zero scanner findings |
 
 Do not enable recurring orders during Phase 0.
 

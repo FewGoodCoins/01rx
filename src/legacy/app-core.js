@@ -13,40 +13,23 @@ function _renderBackendHealth() { return _navgatorApi.renderBackendHealth(); }
 function _captureBackendHealth(res) { return _navgatorApi.captureBackendHealth(res); }
 function _apiFetch(url, options) { return _navgatorApi.fetch(url, options); }
 function _apiJson(url, options) { return _navgatorApi.json(url, options); }
-var LIGHTWEIGHT_CHARTS_SRC = 'https://unpkg.com/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js';
 var _lightweightChartsPromise = null;
-
-function _loadExternalLightweightCharts() {
-  _lightweightChartsPromise = new Promise(function(resolve, reject) {
-    var s = document.createElement('script');
-    s.src = LIGHTWEIGHT_CHARTS_SRC;
-    s.async = true;
-    s.crossOrigin = 'anonymous';
-    s.onload = function() {
-      if (window.LightweightCharts) resolve(window.LightweightCharts);
-      else reject(new Error('Lightweight Charts loaded without global export'));
-    };
-    s.onerror = function() {
-      _lightweightChartsPromise = null;
-      reject(new Error('Failed to load Lightweight Charts'));
-    };
-    document.head.appendChild(s);
-  });
-  return _lightweightChartsPromise;
-}
 
 function _loadLightweightCharts() {
   if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
   if (_lightweightChartsPromise) return _lightweightChartsPromise;
   var localPromise = window.NAVGATOR && window.NAVGATOR.lightweightChartsPromise;
   if (localPromise) {
-    _lightweightChartsPromise = Promise.resolve(localPromise).catch(function() {
+    _lightweightChartsPromise = Promise.resolve(localPromise).then(function(library) {
+      if (!library) throw new Error('Bundled Lightweight Charts unavailable');
+      return library;
+    }).catch(function(error) {
       _lightweightChartsPromise = null;
-      return _loadExternalLightweightCharts();
+      throw error;
     });
     return _lightweightChartsPromise;
   }
-  return _loadExternalLightweightCharts();
+  return Promise.reject(new Error('Bundled Lightweight Charts unavailable'));
 }
 
 async function _initChartWhenReady(rawCandles, navPerToken, canInitialize) {
@@ -572,143 +555,6 @@ function _getWatchlist() {
 }
 function _setWatchlist(list) {
   return _navgatorWatchlist.replace(list);
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// SUPABASE AUTH
-// ═══════════════════════════════════════════════════════════════════════
-var SUPABASE_URL = 'https://cxerugkxccbxtiucyvya.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4ZXJ1Z2t4Y2NieHRpdWN5dnlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMTY3NDUsImV4cCI6MjA4NjU5Mjc0NX0.ISECej3-kuK93D7F4j530QRaVuIj_WMENbq5Sow-n8k';
-var _sb = null;
-var _authUser = null;
-var _supabaseLoadPromise = null;
-
-// Lazy-load Supabase SDK — only fetched when auth is actually needed
-function _loadSupabase() {
-  if (_sb) return Promise.resolve(_sb);
-  if (_supabaseLoadPromise) return _supabaseLoadPromise;
-  _supabaseLoadPromise = new Promise(function(resolve, reject) {
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-    s.onload = function() {
-      _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      _sb.auth.onAuthStateChange(function(event, session) {
-        if (session && session.user) { _authUser = session.user; _onSignIn(); }
-        else { _authUser = null; _onSignOut(); }
-        if (window.location.hash && window.location.hash.includes('access_token')) {
-          history.replaceState(null, '', window.location.pathname + window.location.search);
-        }
-      });
-      _sb.auth.getSession().then(function(res) {
-        if (res.data.session && res.data.session.user) { _authUser = res.data.session.user; _updateFooterUI(); }
-      });
-      resolve(_sb);
-    };
-    s.onerror = function() { _supabaseLoadPromise = null; reject(new Error('Failed to load Supabase')); };
-    document.head.appendChild(s);
-  });
-  return _supabaseLoadPromise;
-}
-
-// Auto-load Supabase if returning from an auth redirect (access_token or error in hash)
-if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('error='))) {
-  _loadSupabase().then(function() {
-    if (window.location.hash && window.location.hash.includes('error=')) {
-      var _hashParams = new URLSearchParams(window.location.hash.substring(1));
-      var _authErrDesc = _hashParams.get('error_description');
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-      if (_authErrDesc) {
-        setTimeout(function() {
-          showAuthModal();
-          var msg = document.getElementById('auth-msg');
-          if (msg) { msg.textContent = _authErrDesc.replace(/\+/g, ' ') + '. Please try again.'; msg.className = 'auth-msg error'; }
-        }, 0);
-      }
-    }
-  }).catch(function(e) { console.warn('[NAVgator] Supabase load failed:', e); });
-}
-
-function _updateFooterUI() {
-  // WIP: auth UI disabled until flow is polished
-}
-
-window.showAuthModal = function() {
-  // Remove existing modal if any
-  var existing = document.querySelector('.auth-modal-bg');
-  if (existing) existing.remove();
-
-  var bg = document.createElement('div');
-  bg.className = 'auth-modal-bg';
-  bg.onclick = function(e) { if (e.target === bg) bg.remove(); };
-
-  bg.innerHTML =
-    '<div class="auth-modal">' +
-      '<h3>Sign in to 01RX</h3>' +
-      '<input class="auth-input" id="auth-email-input" type="email" placeholder="Email address" onkeydown="if(event.key===\'Enter\')signInWithEmail()">' +
-      '<button class="auth-btn" style="margin-top:10px" onclick="signInWithEmail()">Send magic link</button>' +
-      '<div class="auth-msg" id="auth-msg"></div>' +
-      '<p style="margin:10px 0 0;font-size:12px;color:var(--dim);text-align:center">New accounts are created automatically.</p>' +
-    '</div>';
-
-  document.body.appendChild(bg);
-  setTimeout(function() {
-    var inp = document.getElementById('auth-email-input');
-    if (inp) inp.focus();
-  }, 50);
-};
-
-window.signInWithEmail = function() {
-  var inp = document.getElementById('auth-email-input');
-  var msg = document.getElementById('auth-msg');
-  if (!inp || !inp.value.trim()) {
-    if (msg) { msg.textContent = 'Enter an email address'; msg.className = 'auth-msg error'; }
-    return;
-  }
-  var email = inp.value.trim();
-  if (msg) { msg.textContent = 'Sending...'; msg.className = 'auth-msg'; }
-  _loadSupabase().then(function(sb) {
-    return sb.auth.signInWithOtp({
-      email: email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname + window.location.search }
-    });
-  }).then(function(res) {
-    if (res.error) {
-      if (msg) { msg.textContent = res.error.message; msg.className = 'auth-msg error'; }
-    } else {
-      if (msg) { msg.textContent = 'Check your email for a magic link!'; msg.className = 'auth-msg success'; }
-    }
-  }).catch(function(e) {
-    if (msg) { msg.textContent = 'Failed to load auth. Try again.'; msg.className = 'auth-msg error'; }
-  });
-};
-
-window.signOutUser = function() {
-  if (_sb) _sb.auth.signOut();
-};
-
-function _onSignIn() {
-  _updateFooterUI();
-  // Merge remote watchlist with local
-  if (!_sb) return;
-  _navgatorWatchlist.mergeRemote(_sb).then(function() {
-    // Push merged to remote
-    _syncWatchlistToRemote();
-    // Re-render watchlist sidebar
-    if (typeof _rerenderWatchlist === 'function') _rerenderWatchlist();
-  }).catch(function(e) { console.warn('[NAVgator] Watchlist sync failed:', e); });
-  // Close auth modal if open
-  var modal = document.querySelector('.auth-modal-bg');
-  if (modal) modal.remove();
-}
-
-function _onSignOut() {
-  _updateFooterUI();
-}
-
-function _syncWatchlistToRemote() {
-  if (!_sb || !_authUser) return;
-  _navgatorWatchlist.syncRemote(_sb, _authUser)
-    .catch(function(e) { console.warn('[NAVgator] Watchlist remote sync failed:', e); });
 }
 
 // ═══════════════════════════════════════════════════════════════════════

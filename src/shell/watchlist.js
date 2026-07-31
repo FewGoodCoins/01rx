@@ -1,5 +1,4 @@
 export const WATCHLIST_STORAGE_KEY = 'navgator_watchlist';
-export const WATCHLIST_TABLE = 'user_watchlists';
 
 function parseStoredList(value, normalizeTokenList) {
   if (value == null) return [];
@@ -147,32 +146,6 @@ export function createWatchlistController(options = {}) {
     return items.map((key) => byKey.get(key)).filter(Boolean);
   }
 
-  function mergeRemote(client) {
-    return client
-      .from(WATCHLIST_TABLE)
-      .select('token_key, position')
-      .order('position')
-      .then((response) => merge((response.data || []).map((row) => row.token_key)));
-  }
-
-  function syncRemote(client, user) {
-    if (!client || !user) return Promise.resolve();
-    const snapshot = get();
-    return client
-      .from(WATCHLIST_TABLE)
-      .delete()
-      .eq('user_id', user.id)
-      .then(() => {
-        if (snapshot.length === 0) return undefined;
-        const rows = snapshot.map((key, position) => ({
-          user_id: user.id,
-          token_key: key,
-          position,
-        }));
-        return client.from(WATCHLIST_TABLE).insert(rows);
-      });
-  }
-
   function subscribe(listener) {
     if (typeof listener !== 'function') return () => {};
     listeners.add(listener);
@@ -205,13 +178,11 @@ export function createWatchlistController(options = {}) {
     has,
     indexOf,
     merge,
-    mergeRemote,
     remove,
     reorder,
     replace,
     selectEntries,
     subscribe,
-    syncRemote,
     toggle,
     get size() { return items.length; },
   };
