@@ -9,8 +9,8 @@
 | Tree parity | Audited tree and target-baseline tree are identical |
 | Scope | All tracked 01RX code; NAVgator is an external integration |
 | Production activity | GET/HEAD and read-only public RPC only |
-| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, and H-04 Log-mode WAF rollout: 2026-07-31 |
-| Overall status | **NOT AUDIT-READY** |
+| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, and H-04 enforced WAF rollout: 2026-07-31 |
+| Overall status | **HIGH-SEVERITY GATE CLEARED; RELEASE GATE OPEN** |
 
 ## Executive conclusion
 
@@ -22,16 +22,16 @@ approval, co-signature preservation, and fail-closed program-integrity checks
 for decision-market trading.
 
 The audit recorded five High findings. Post-audit remediation on 2026-07-31
-closed H-01, H-02, H-03, and H-05. The current full gate passes 495 tests and a
-production build, and `npm audit` reports zero vulnerabilities. H-04 remains
-open: a distributed Vercel WAF fixed-window rule is active on the exact trading
-route using IP and JA4 keys, but it is intentionally in Log mode until real
-traffic is observed and the rule can be tuned before 429 enforcement.
+closed H-01 through H-05. The current full gate passes 504 tests and a
+production build, and `npm audit` reports zero vulnerabilities. H-04 is closed:
+a distributed Vercel WAF fixed-window rule now enforces HTTP 429 on the exact
+trading route using IP and JA4 keys. A bounded method-only production smoke test
+observed 59 application 405 responses followed by 6 edge 429 responses, while
+an unrelated public API route continued to return 200.
 
-The repository therefore does not meet the stated gate of “no unaccepted
-Critical or High finding.” No Critical finding was identified. The audit
-recorded 5 High, 9 Medium, and 2 Low findings; the current ledger has 1 open
-High findings. No High is accepted.
+The High-severity gate now has zero open Critical or High findings and no High
+is accepted. The full release gate remains open because Medium findings and
+their coverage, CI, deployment, and policy exit criteria are not yet complete.
 
 The original audit changed documentation and gitignored evidence only.
 Post-audit runtime changes follow the ordered remediation plan below.
@@ -77,7 +77,7 @@ Local machine evidence is stored in `.context/audit/` and is intentionally
 gitignored. It contains reproducible commands and redacted summaries, not
 private environment data.
 
-The 2026-07-31 remediation gate runs 495 native Node tests. Coverage percentages
+The 2026-07-31 remediation gate runs 504 native Node tests. Coverage percentages
 remain the original audit measurements until the coverage evidence is rerun.
 
 ## Architecture and trust boundaries
@@ -200,7 +200,7 @@ Tracked serverless paths:
 | Error disclosure | Generic relay error | Expected 4xx messages; redacted bounded 5xx diagnostics |
 | Log redaction | No request logging in handler | API-key query and query-bearing URL redaction; 500-char limits |
 | IP source | Not used | Trusts Vercel-forwarded/real-IP headers at application layer |
-| Abuse control | Platform defaults only | Per-instance `Map`; not distributed |
+| Abuse control | Platform defaults only | Per-instance `Map` plus enforced Vercel WAF limit on the exact trading path |
 
 Positive conclusions:
 
@@ -212,7 +212,8 @@ Positive conclusions:
   contract behavior.
 - Private execution responses are marked `private, no-store`.
 
-Open concerns are recorded as H-04, M-02, and M-06.
+Open API concerns are recorded as M-02 and M-06. H-04 was closed after the
+distributed rule was enforced and verified on 2026-07-31.
 
 ## Execution-flow assessment
 
@@ -382,7 +383,7 @@ Finding status is explicit in the register. No High is accepted.
 | H-01 | High | DFlow transaction semantics are not fully bound to reviewed intent | Execution backend | Execution security owner | Closed 2026-07-31 | N/A |
 | H-02 | High | Unescaped API metadata reaches a DOM HTML sink | Legacy browser UI | Frontend security owner | Closed 2026-07-31 | N/A |
 | H-03 | High | Mutable third-party scripts execute on the trading origin | Browser/deployment | Frontend/platform owner | Closed 2026-07-31 | N/A |
-| H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Open — distributed Log mode active 2026-07-31 | N/A |
+| H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Closed 2026-07-31 | N/A |
 | H-05 | High | Six inherited dependency findings have no formal expiring exception | Supply chain | Dependency owner | Closed 2026-07-31 | N/A |
 | M-01 | Medium | Program-integrity policy is upstream-defined and incomplete | Decision/recurring/DFlow | Execution security owner | Open | N/A |
 | M-02 | Medium | Relay has an unbounded response and overly broad path/cache policy | API relay | API owner | Open | N/A |
@@ -590,12 +591,17 @@ Add cost/quota alerts and bounded request concurrency. Keep an application limit
 only as defense in depth, not the primary control.
 
 **Operational update (2026-07-31).** Vercel rule
-`rule_01_rx_trading_api_observe_1iPEnI` is published and enabled for exact path
-`/api/beta/trading`. It uses a 60-request/60-second fixed window keyed by IP and
-JA4; exceedances are logged and requests are not blocked. Vercel reports one
-active rule and no pending draft. H-04 remains open until representative traffic
-is reviewed, endpoint-specific budgets are selected, 429 enforcement is
-published, and a deployment smoke check observes the enforced response.
+`rule_01_rx_trading_api_observe_1iPEnI` (displayed as
+`01RX trading API rate limit`) is published and enabled for exact path
+`/api/beta/trading`. Active WAF configuration version 3 uses a
+60-request/60-second fixed window keyed by IP and JA4, with the follow-up action
+set to Vercel's default 429 response. There is no pending draft. A bounded batch
+of 65 harmless GET requests observed 59 application 405 responses and 6 edge
+429 responses; the 429 response was `private, no-store` and carried
+`x-vercel-mitigated: deny`. An unrelated public API request returned 200 after
+the smoke test. No order was created, signed, simulated, or submitted. H-04 is
+closed; endpoint-specific budgets and alerting remain defense-in-depth follow-up
+work.
 
 ### H-05 — Inherited High dependency findings lack an expiring exception
 
@@ -807,7 +813,7 @@ data, or full query URLs.
 | 1 | H-01 DFlow semantic decoder and program-integrity pin | Every encoded economic/account/compute field is bound to canonical intent; unknown versions fail closed | Closed 2026-07-31 |
 | 2 | H-02 DOM sink fix | Malicious metadata tests pass; no unescaped launchpad value reaches HTML/attribute/ID context | Closed 2026-07-31 |
 | 3 | H-03 remote-script and Supabase removal | Local watchlist retained; dormant auth/CDN loaders absent; Supabase owner action recorded | Closed 2026-07-31; SUP-01 housekeeping pending |
-| 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks | In progress — Log mode active 2026-07-31 |
+| 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks | Closed 2026-07-31; 429 enforcement verified |
 | 5 | H-05 dependency resolution/acceptance | No scanner High, or one approved named and expiring exception with compensating controls | Closed 2026-07-31; zero scanner findings |
 
 Do not enable recurring orders during Phase 0.

@@ -56,15 +56,24 @@ serverless API and uses the server-only DFlow and Solana configuration. In the
 NAVGATOR_API_ORIGIN=https://api.navgator.xyz
 DFLOW_API_KEY=...
 SOLANA_RPC_URL=https://...
+ZERO_ONE_RESOLVED_API_KEY=...
 O1RX_ATTRIBUTION_PUBLIC_KEY=...
 O1RX_ATTRIBUTION_SIGNING_KEY=...
 ```
 
+Proposal identity and governance indexing remain owned by NAVgator. When its
+validated proposal-history response has no indexed chart, the same-origin relay
+uses the server-only 01Resolved key to request the official 15-minute price
+chart. If that chart is empty, observed proposal-order prices may be returned as
+an explicitly partial fallback; missing underlying or outcome observations are
+never synthesized. Existing deployments using `ONE_RESOLVED_API_KEY` remain
+supported as an alias for the canonical key name above.
+
 Generate the stable attribution authority once with
 `npm run generate:attribution-key`. Store its signing key only in Vercel and
 publish its public key for indexers. Apply the server configuration to
-Production and Preview. Do not create `VITE_DFLOW_*`, `VITE_SOLANA_RPC_*`, or
-`VITE_*ATTRIBUTION*` variables.
+Production and Preview. Do not create `VITE_DFLOW_*`, `VITE_SOLANA_RPC_*`,
+`VITE_ZERO_ONE_RESOLVED_*`, or `VITE_*ATTRIBUTION*` variables.
 
 See [docs/deployment-cutover.md](docs/deployment-cutover.md) for the verified
 order of operations and rollback path.

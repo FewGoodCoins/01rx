@@ -26,11 +26,12 @@ test('production keeps NAV data relayed and trading credentials server-only in 0
   assert.match(envExample, /^NAVGATOR_API_ORIGIN=https:\/\/api\.navgator\.xyz$/m);
   assert.match(envExample, /^DFLOW_API_KEY=$/m);
   assert.match(envExample, /^SOLANA_RPC_URL=$/m);
+  assert.match(envExample, /^ZERO_ONE_RESOLVED_API_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_PUBLIC_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_SIGNING_KEY=$/m);
   assert.doesNotMatch(
     envExample,
-    /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION/,
+    /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION|VITE_ZERO_ONE_RESOLVED/,
   );
   assert.ok(Array.isArray(vercel.headers));
   assert.deepEqual(vercel.rewrites[0], {

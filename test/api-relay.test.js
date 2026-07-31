@@ -20,6 +20,10 @@ function responseRecorder() {
       this.body = value;
       return this;
     },
+    removeHeader(name) {
+      delete this.headers[String(name).toLowerCase()];
+      return this;
+    },
     setHeader(name, value) {
       this.headers[String(name).toLowerCase()] = value;
       return this;
@@ -153,6 +157,53 @@ test('API relay forwards the restored wildcard path without its internal routing
     'https://api.navgator.xyz/api/v1/futarchy?view=proposals',
   ]);
   assert.equal(response.statusCode, 200);
+});
+
+test('API relay upgrades empty proposal history server-side without retaining the upstream ETag', async () => {
+  const proposal = '8sysa3XPrvKPmUA4qoZCn9h4vp7Mb45Ynezg542nui8Q';
+  const response = responseRecorder();
+  await relayApiRequest({
+    method: 'GET',
+    url: `/api/v1/futarchy?view=proposal-history&proposal=${proposal}&interval=15m`,
+    headers: { accept: 'application/json' },
+  }, response, {
+    env: { ONE_RESOLVED_API_KEY: 'server-secret' },
+    upstreamOrigin: 'https://api.navgator.xyz',
+    async fetchImpl() {
+      return new Response(JSON.stringify({
+        ok: true,
+        data: {
+          proposalId: proposal,
+          source: { provider: 'NAVgator checked-in legacy history' },
+          degraded: { active: false, services: [], issues: [] },
+          series: [],
+        },
+      }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          etag: 'upstream-empty-history',
+        },
+      });
+    },
+    async zeroOneFetchImpl() {
+      return new Response(JSON.stringify({
+        data: {
+          prices: [{
+            timestamp: '2026-07-31T19:17:00.000Z',
+            spotPrice: '0.041',
+            approvedPrice: '0.044',
+            rejectedPrice: '0.038',
+          }],
+        },
+      }), { status: 200 });
+    },
+  });
+
+  const payload = JSON.parse(response.body.toString());
+  assert.equal(payload.data.source.provider, '01Resolved');
+  assert.equal(payload.data.series.length, 1);
+  assert.equal(response.headers.etag, undefined);
 });
 
 test('API relay rejects methods outside the public read and execution contract', async () => {

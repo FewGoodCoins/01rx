@@ -1,3 +1,5 @@
+import { enhanceProposalHistoryResponse } from './_lib/zero-one-proposal-history.js';
+
 const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'POST']);
 const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
 const REQUEST_HEADERS = new Set([
@@ -144,7 +146,18 @@ export async function relayApiRequest(request, response, options = {}) {
       response.end();
       return;
     }
-    response.end(Buffer.from(await upstream.arrayBuffer()));
+    const upstreamBody = Buffer.from(await upstream.arrayBuffer());
+    const enhancedBody = method === 'GET'
+      ? await enhanceProposalHistoryResponse({
+        body: upstreamBody,
+        env: options.env || process.env,
+        fetchImpl: options.zeroOneFetchImpl || fetchImpl,
+        logger: options.logger || console,
+        requestUrl: url,
+      })
+      : null;
+    if (enhancedBody) response.removeHeader?.('etag');
+    response.end(enhancedBody || upstreamBody);
   } catch (error) {
     const status = Number(error?.statusCode) || 502;
     response.setHeader('Cache-Control', 'private, no-store');
