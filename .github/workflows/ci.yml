@@ -37,3 +37,42 @@ jobs:
 
       - name: Run tests, production build, vulnerability audit, and registry verification
         run: npm run check:ci
+
+      # npm's platform-specific optional native packages can contain mutually
+      # exclusive peer ranges. Reinstall the portable graph before asserting
+      # that every required dependency matches the lockfile.
+      - name: Reinstall the portable dependency graph
+        run: npm ci --ignore-scripts --omit=optional --no-audit --fund=false
+
+      - name: Validate the complete required dependency graph
+        run: npm ls --all
+
+      - name: Generate the CycloneDX release SBOM
+        run: npm sbom --sbom-format cyclonedx --omit=optional > 01rx.cdx.json
+
+      - name: Retain the release SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: 01rx-cyclonedx-${{ github.sha }}
+          path: 01rx.cdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Reject newly introduced vulnerable dependencies
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development, unknown

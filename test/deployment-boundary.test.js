@@ -78,8 +78,36 @@ test('pull requests run a least-privilege Node 24 release gate', () => {
   assert.match(workflow, /package-manager-cache: false/);
   assert.match(workflow, /npm ci --ignore-scripts --no-audit --fund=false/);
   assert.match(workflow, /npm run check:ci/);
+  assert.match(workflow, /npm ci --ignore-scripts --omit=optional --no-audit --fund=false/);
+  assert.match(workflow, /npm ls --all/);
+  assert.match(workflow, /npm sbom --sbom-format cyclonedx --omit=optional/);
+  assert.match(
+    workflow,
+    /actions\/upload-artifact@[a-f0-9]{40}\s+# v7\.0\.1/,
+  );
+  assert.match(
+    workflow,
+    /actions\/dependency-review-action@[a-f0-9]{40}\s+# v5\.0\.0/,
+  );
+  assert.match(workflow, /fail-on-severity: high/);
   assert.equal(
     packageJson.scripts['check:supply-chain'],
     'npm audit --audit-level=high && npm audit signatures',
   );
+});
+
+test('repository governance assigns sensitive code and a private reporting path', () => {
+  const owners = fs.readFileSync('.github/CODEOWNERS', 'utf8');
+  const security = fs.readFileSync('SECURITY.md', 'utf8');
+  const contributing = fs.readFileSync('CONTRIBUTING.md', 'utf8');
+
+  assert.match(owners, /^\* @FewGoodCoins$/m);
+  assert.match(owners, /^\/api\/ @FewGoodCoins$/m);
+  assert.match(owners, /^\/src\/markets\/ @FewGoodCoins$/m);
+  assert.match(owners, /^\/packages\/contracts\/ @FewGoodCoins$/m);
+  assert.match(owners, /^\/\.github\/workflows\/ @FewGoodCoins$/m);
+  assert.match(security, /security\/advisories\/new/);
+  assert.match(security, /Do not open a public issue/);
+  assert.match(contributing, /Node\.js 24/);
+  assert.match(contributing, /must never broadcast/);
 });
