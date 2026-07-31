@@ -762,7 +762,10 @@ function validateLookupProof(payloadTables, transaction, lookupTables) {
 export async function loadAndValidateDflowLookupTables(
   connection,
   lookups,
-  { minContextSlot = 0 } = {},
+  {
+    minContextSlot = 0,
+    waitForRetry = delay => new Promise(resolve => setTimeout(resolve, delay)),
+  } = {},
 ) {
   return Promise.all(lookups.map(async (lookup) => {
     const unavailable = (diagnostic, cause) => {
@@ -776,14 +779,29 @@ export async function loadAndValidateDflowLookupTables(
       return error;
     };
     let response;
-    try {
-      response = await connection.getAccountInfoAndContext(lookup.accountKey, {
-        commitment: 'confirmed',
-        minContextSlot,
-      });
-    } catch (cause) {
-      throw unavailable('alt-rpc-read-failed', cause);
+    let readCause;
+    const retryDelays = [100, 200, 400, 800, 1_000];
+    for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+      try {
+        response = await connection.getAccountInfoAndContext(lookup.accountKey, {
+          commitment: 'confirmed',
+          minContextSlot,
+        });
+        readCause = null;
+        break;
+      } catch (cause) {
+        readCause = cause;
+        const minimumContextPending = (
+          Number(cause?.code) === -32603
+          && /min(?:imum)? context slot (?:has )?not (?:been )?reached/i.test(
+            String(cause?.message || ''),
+          )
+        );
+        if (!minimumContextPending || attempt === retryDelays.length) break;
+        await waitForRetry(retryDelays[attempt]);
+      }
     }
+    if (readCause) throw unavailable('alt-rpc-read-failed', readCause);
     const account = response?.value;
     if (!account) throw unavailable('alt-account-missing');
     if (
