@@ -156,9 +156,13 @@ test('trading route preserves guarded service errors and hides unexpected failur
     logger,
     service: {
       async spotOrder() {
-        throw new Error(
+        const error = new Error(
           'RPC failed https://mainnet.helius-rpc.com/?api-key=must-not-log',
         );
+        error.cause = new Error(
+          'nested https://mainnet.helius-rpc.com/?api-key=nested-secret',
+        );
+        throw error;
       },
     },
   });
@@ -169,6 +173,7 @@ test('trading route preserves guarded service errors and hides unexpected failur
   assert.doesNotMatch(JSON.stringify(unexpectedResponse.body), /must-not-log/);
   assert.match(JSON.stringify(logs), /\[redacted-url\]/);
   assert.doesNotMatch(JSON.stringify(logs), /must-not-log/);
+  assert.doesNotMatch(JSON.stringify(logs), /nested-secret/);
 });
 
 test('server diagnostics redact API keys before logging', () => {

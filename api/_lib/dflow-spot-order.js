@@ -762,40 +762,70 @@ function validateLookupProof(payloadTables, transaction, lookupTables) {
 export async function loadAndValidateDflowLookupTables(
   connection,
   lookups,
-  { minContextSlot = 0 } = {},
+  {
+    minContextSlot = 0,
+    waitForRetry = delay => new Promise(resolve => setTimeout(resolve, delay)),
+  } = {},
 ) {
   return Promise.all(lookups.map(async (lookup) => {
-    try {
-      const response = await connection.getAccountInfoAndContext(lookup.accountKey, {
-        commitment: 'confirmed',
-        minContextSlot,
-      });
-      const account = response?.value;
-      if (
-        !account
-        || !Number.isSafeInteger(response.context?.slot)
-        || response.context.slot < minContextSlot
-        || !account.owner?.equals?.(AddressLookupTableProgram.programId)
-        || account.executable === true
-        || !Buffer.isBuffer(account.data)
-      ) {
-        throw new Error('lookup table account mismatch');
-      }
-      const table = new AddressLookupTableAccount({
-        key: lookup.accountKey,
-        state: AddressLookupTableAccount.deserialize(account.data),
-      });
-      if (!table.isActive()) throw new Error('lookup table is inactive');
-      return table;
-    } catch (cause) {
+    const unavailable = (diagnostic, cause) => {
       const error = tradingError(
         'A DFlow address lookup table is unavailable',
         'DFLOW_LOOKUP_TABLE_UNAVAILABLE',
         503,
       );
+      error.diagnostic = diagnostic;
       error.cause = cause;
-      throw error;
+      return error;
+    };
+    let response;
+    let readCause;
+    const retryDelays = [100, 200, 400, 800, 1_000];
+    for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+      try {
+        response = await connection.getAccountInfoAndContext(lookup.accountKey, {
+          commitment: 'confirmed',
+          minContextSlot,
+        });
+        readCause = null;
+        break;
+      } catch (cause) {
+        readCause = cause;
+        const minimumContextPending = (
+          Number(cause?.code) === -32603
+          && /min(?:imum)? context slot (?:has )?not (?:been )?reached/i.test(
+            String(cause?.message || ''),
+          )
+        );
+        if (!minimumContextPending || attempt === retryDelays.length) break;
+        await waitForRetry(retryDelays[attempt]);
+      }
     }
+    if (readCause) throw unavailable('alt-rpc-read-failed', readCause);
+    const account = response?.value;
+    if (!account) throw unavailable('alt-account-missing');
+    if (
+      !Number.isSafeInteger(response.context?.slot)
+      || response.context.slot < minContextSlot
+    ) {
+      throw unavailable('alt-context-stale');
+    }
+    if (!account.owner?.equals?.(AddressLookupTableProgram.programId)) {
+      throw unavailable('alt-owner-mismatch');
+    }
+    if (account.executable === true) throw unavailable('alt-unexpected-executable');
+    if (!Buffer.isBuffer(account.data)) throw unavailable('alt-data-invalid');
+    let table;
+    try {
+      table = new AddressLookupTableAccount({
+        key: lookup.accountKey,
+        state: AddressLookupTableAccount.deserialize(account.data),
+      });
+    } catch (cause) {
+      throw unavailable('alt-data-invalid', cause);
+    }
+    if (!table.isActive()) throw unavailable('alt-inactive');
+    return table;
   }));
 }
 
@@ -884,15 +914,6 @@ export async function validateDflowTransaction({
     );
   }
 
-  const lookupTables = await loadLookupTables(
-    connection,
-    message.addressTableLookups,
-    { minContextSlot: quote.contextSlot },
-  );
-  validateLookupProof(payload.addressLookupTables, transaction, lookupTables);
-  const accountKeys = message.getAccountKeys({
-    addressLookupTableAccounts: lookupTables,
-  });
   const swapInstruction = message.compiledInstructions.find(instruction => (
     staticKeys[instruction.programIdIndex] === DFLOW_PROGRAM_ID
   ));
@@ -902,6 +923,15 @@ export async function validateDflowTransaction({
     quote,
   });
   const swapPolicy = decodeAndValidateDflowSwap(swapInstruction.data, quote);
+  const lookupTables = await loadLookupTables(
+    connection,
+    message.addressTableLookups,
+    { minContextSlot: quote.contextSlot },
+  );
+  validateLookupProof(payload.addressLookupTables, transaction, lookupTables);
+  const accountKeys = message.getAccountKeys({
+    addressLookupTableAccounts: lookupTables,
+  });
   const swapAccounts = validateDflowSwapAccounts({
     accountKeys,
     message,

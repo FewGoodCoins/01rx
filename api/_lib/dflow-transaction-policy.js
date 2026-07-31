@@ -39,11 +39,13 @@ const DFLOW_EVENT_AUTHORITY = PublicKey.findProgramAddressSync(
 const MAX_PRIORITY_FEE_LAMPORTS = BigInt(DFLOW_MAX_PRIORITY_FEE_LAMPORTS);
 const MAX_OUTPUT_ATA_RENT_LAMPORTS = 10_000_000;
 const MAX_ACTIONS = 16;
+const SYSVAR_INSTRUCTIONS_ID = 'Sysvar1nstructions1111111111111111111111111';
 const IDL_ACCOUNT_DISCRIMINATOR = Buffer.from('184662bf3a907b9e', 'hex');
 const SWAP_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
 const SWAP2_DISCRIMINATOR = Buffer.from([65, 75, 63, 76, 235, 91, 91, 136]);
 
 const ACTIONS = Object.freeze({
+  METEORA_DLMM_SWAP: 4,
   METEORA_DAMM_V2_SWAP: 20,
   RECORD_ID: 37,
   RECORD_ID_2: 38,
@@ -52,7 +54,16 @@ const ACTIONS = Object.freeze({
 });
 
 const TRADE_ACTIONS = new Map([
+  [ACTIONS.METEORA_DLMM_SWAP, {
+    allowedFlags: new Set([0x01]),
+    allowedNumBinArrays: new Set([1]),
+    initializesOutputAtaFlags: new Set([0x01]),
+    name: 'MeteoraDlmmSwap',
+    requiredProgram: 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
+    venues: new Set(['meteoradlmm']),
+  }],
   [ACTIONS.METEORA_DAMM_V2_SWAP, {
+    allowedFlags: new Set([0x80]),
     name: 'MeteoraDammV2Swap',
     requiredProgram: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
     venues: new Set(['meteoradammv2']),
@@ -286,9 +297,13 @@ class Cursor {
 function decodeAction(cursor) {
   const tag = cursor.u8('action tag');
   if (TRADE_ACTIONS.has(tag)) {
+    const profile = TRADE_ACTIONS.get(tag);
     return {
-      ...TRADE_ACTIONS.get(tag),
+      ...profile,
       amount: cursor.u64('swap amount'),
+      numBinArrays: profile.allowedNumBinArrays
+        ? cursor.u8('Meteora DLMM bin-array count')
+        : null,
       flags: cursor.u8('orchestrator flags'),
       tag,
       type: 'trade',
@@ -356,7 +371,11 @@ export function decodeAndValidateDflowSwap(data, quote) {
     || setupActions.length > 1
     || outputGuards.length > 1
     || tradeActions[0].amount !== BigInt(quote.inAmount)
-    || tradeActions[0].flags !== 0x80
+    || !tradeActions[0].allowedFlags.has(tradeActions[0].flags)
+    || (
+      tradeActions[0].allowedNumBinArrays
+      && !tradeActions[0].allowedNumBinArrays.has(tradeActions[0].numBinArrays)
+    )
     || !tradeActions[0].venues.has(normalizeVenue(quote.route[0]?.venue))
     || quotedOutAmount !== BigInt(quote.outAmount)
     || slippageBps !== quote.slippageBps
@@ -368,7 +387,10 @@ export function decodeAndValidateDflowSwap(data, quote) {
   }
   return Object.freeze({
     actionNames: actions.map(action => action.name),
-    initializesOutputAta: setupActions.length === 1,
+    initializesOutputAta: (
+      setupActions.length === 1
+      || tradeActions[0].initializesOutputAtaFlags?.has(tradeActions[0].flags) === true
+    ),
     requiredProgram: tradeActions[0].requiredProgram,
     tradeAction: tradeActions[0].name,
   });
@@ -466,15 +488,43 @@ export function validateDflowSwapAccounts({
   if (!fixed.every((address, index) => addresses[index] === address)) {
     throw policyError('DFlow fixed swap accounts do not match the reviewed ABI');
   }
-  if (addresses.includes(TOKEN_2022_PROGRAM_ID.toBase58())) {
-    throw policyError('DFlow swap includes the unsupported Token-2022 program');
+  const token2022Positions = addresses.flatMap((address, index) => (
+    address === TOKEN_2022_PROGRAM_ID.toBase58() ? [index] : []
+  ));
+  if (token2022Positions.length > 1) {
+    throw policyError('DFlow swap includes an ambiguous Token-2022 program');
+  }
+  for (const position of token2022Positions) {
+    assertGlobalRole(
+      message,
+      indexes[position],
+      { signer: false, writable: false },
+      'Token-2022 compatibility program',
+    );
+  }
+  const sysvarPositions = addresses.flatMap((address, index) => (
+    address === SYSVAR_INSTRUCTIONS_ID ? [index] : []
+  ));
+  if (sysvarPositions.length > 1) {
+    throw policyError('DFlow swap includes an ambiguous instructions sysvar');
+  }
+  for (const position of sysvarPositions) {
+    assertGlobalRole(
+      message,
+      indexes[position],
+      { signer: false, writable: false },
+      'instructions sysvar',
+    );
   }
   indexes.forEach((accountIndex, position) => {
     if (position === 3) {
       if (!message.isAccountSigner(accountIndex) || !message.isAccountWritable(accountIndex)) {
         throw policyError('DFlow wallet authority privileges are invalid');
       }
-    } else if (message.isAccountSigner(accountIndex)) {
+    } else if (
+      message.isAccountSigner(accountIndex)
+      && accountIndex !== indexes[3]
+    ) {
       throw policyError('DFlow swap contains an unexpected signer');
     }
   });
@@ -538,7 +588,11 @@ export function validateDflowSwapAccounts({
       SystemProgram.programId.toBase58(),
       DFLOW_POLICY_PROGRAM_ID,
       swapPolicy.requiredProgram,
+      ...(token2022Positions.length ? [TOKEN_2022_PROGRAM_ID.toBase58()] : []),
     ]),
+    allowedVirtualAccounts: Object.freeze(
+      sysvarPositions.length ? [SYSVAR_INSTRUCTIONS_ID] : [],
+    ),
     initializesOutputAta: swapPolicy.initializesOutputAta === true,
     inputTokenAccount,
     instructionAddresses: addresses,
@@ -684,8 +738,11 @@ export async function loadAndValidateTradeAccountState(connection, {
     if (
       !account
       && (
-        address !== outputAddress
-        || swapAccounts.initializesOutputAta !== true
+        (
+          address !== outputAddress
+          || swapAccounts.initializesOutputAta !== true
+        )
+        && !swapAccounts.allowedVirtualAccounts?.includes(address)
       )
     ) {
       throw policyError('DFlow swap references an unexpected uninitialized account');

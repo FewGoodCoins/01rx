@@ -9,7 +9,7 @@
 | Tree parity | Audited tree and target-baseline tree are identical |
 | Scope | All tracked 01RX code; NAVgator is an external integration |
 | Production activity | GET/HEAD and read-only public RPC only |
-| Runtime changes | Audit run: none; post-audit H-01 remediation: 2026-07-31 |
+| Runtime changes | Audit run: none; post-audit H-01 remediation and release verification: 2026-07-31 |
 | Overall status | **NOT AUDIT-READY** |
 
 ## Executive conclusion
@@ -23,9 +23,9 @@ for decision-market trading.
 
 The audit recorded five High findings. Post-audit remediation on 2026-07-31
 implemented the H-01 code-owned DFlow instruction, program, account, and
-simulated-effect policy. H-01 remains at release verification pending until a
-sanitized authentic unsponsored `/order` fixture passes that policy. Four other
-High findings remain:
+simulated-effect policy. A sanitized authentic unsponsored production `/order`
+then passed that policy without signing or broadcasting, closing H-01. Four
+other High findings remain:
 
 1. API-provided launchpad metadata reaches `innerHTML` without escaping, creating
    a DOM-injection path on a wallet-enabled trading origin.
@@ -39,7 +39,7 @@ High findings remain:
 The repository therefore does not meet the stated gate of “no unaccepted
 Critical or High finding.” No Critical finding was identified. The audit
 recorded 5 High, 9 Medium, and 2 Low findings; the current ledger has 4 open
-High findings plus H-01 verification pending. No High is accepted.
+High findings. No High is accepted.
 
 The original audit changed documentation and gitignored evidence only.
 Post-audit runtime changes follow the ordered remediation plan below.
@@ -370,7 +370,7 @@ All findings are Open unless explicitly accepted. No High is accepted.
 
 | ID | Severity | Finding | Component | Owner | Status | Acceptance expiry |
 |---|---|---|---|---|---|---|
-| H-01 | High | DFlow transaction semantics are not fully bound to reviewed intent | Execution backend | Execution security owner | Remediated; release verification pending | N/A |
+| H-01 | High | DFlow transaction semantics are not fully bound to reviewed intent | Execution backend | Execution security owner | Closed 2026-07-31 | N/A |
 | H-02 | High | Unescaped API metadata reaches a DOM HTML sink | Legacy browser UI | Frontend security owner | Open | N/A |
 | H-03 | High | Mutable third-party scripts execute on the trading origin | Browser/deployment | Frontend/platform owner | Open | N/A |
 | H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Open | N/A |
@@ -445,7 +445,8 @@ and executable venue program, requires active address-lookup tables owned by
 Solana's lookup-table program, and rejects any unreviewed executable program or
 extra writable token account controlled by the wallet as owner, delegate, or
 close authority. A missing destination ATA is allowed only when the decoded
-action vector contains its idempotent initializer. Compute unit
+action vector contains its idempotent initializer or the exact reviewed DLMM
+initializer flag. Compute unit
 limit, micro-lamport price, and total priority fee are decoded and checked
 against the signed response and code-owned caps. Both the unsigned review
 simulation and final signature-verifying simulation must prove an exact input
@@ -464,18 +465,27 @@ profiles instead of weakening validation. The guarded profile recognizes only
 the Meteora DAMM v2 action observed at slot `436244725` in public mainnet
 transaction
 `3HveUKp3NQaJTpeYbGrkg2UD1BNTXiHRph6GHwnqd3cADyzW4qLkqPtCSagsfdLkwEDJbCWGDk6w8vQuRUrv4dfx`;
-Manifest, Vault, MetaDAO, sponsored, and multihop action shapes remain disabled.
+and the exact one-bin-array Meteora DLMM action profile returned by the
+authenticated production release check. The DLMM profile permits one read-only
+Token-2022 compatibility program and one read-only instructions sysvar while
+continuing to require classic-SPL input/output mints and owner ATAs. Manifest,
+Vault, MetaDAO, sponsored, and multihop action shapes remain disabled.
 Mutation tests cover instruction economics, discriminators/actions, compute
 budgets, account roles, program and IDL drift, stale RPC contexts, executable
 decoys, ATA initialization, token authority/control state, token and SOL effects,
 and no-broadcast failure paths.
 
-The public sample was sponsored and did not originate from a captured
-authenticated `/order` response, so it intentionally fails the owner-funded
-policy. Before H-01 closes or this path is treated as production-compatible, a
-sanitized signed unsponsored order fixture must prove the minimum-output
-rounding, sole fee payer, top-level instruction shape, executable account set,
-and exact simulated fee/rent delta. Any mismatch remains fail-closed.
+**Release verification (2026-07-31).** An authorized production check against
+`01rx.vercel.app` requested an unsigned 1 USDC to FUTARDIO order and never called
+the submission path. DFlow returned an authenticated unsponsored Meteora DLMM
+order at context slot `436307025`: one owner/fee-payer signature slot, three
+top-level instructions, two active lookup tables, exact minimum-output rounding,
+and a `5,014` lamport network fee. Mainnet simulation passed at `102,142`
+compute units, and the token/SOL effect policy passed. The verifier made zero
+broadcast attempts and persisted no wallet identity, response body, transaction
+bytes, or review token. Sanitized evidence is recorded in
+`.context/audit/dflow-live-verification.json`. H-01 is closed; all shapes outside
+the reviewed profiles continue to fail closed.
 
 ### H-02 — Unescaped API metadata reaches a DOM HTML sink
 
@@ -745,7 +755,7 @@ data, or full query URLs.
 
 | Order | Work | Exit criterion | Status |
 |---:|---|---|---|
-| 1 | H-01 DFlow semantic decoder and program-integrity pin | Every encoded economic/account/compute field is bound to canonical intent; unknown versions fail closed | Implemented; signed-fixture verification pending |
+| 1 | H-01 DFlow semantic decoder and program-integrity pin | Every encoded economic/account/compute field is bound to canonical intent; unknown versions fail closed | Closed 2026-07-31 |
 | 2 | H-02 DOM sink fix | Malicious metadata tests pass; no unescaped launchpad value reaches HTML/attribute/ID context | Open |
 | 3 | H-03 remote-script and Supabase removal | Local watchlist retained; dormant auth/CDN loaders absent; Supabase owner action recorded | Open |
 | 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks | Open |

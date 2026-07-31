@@ -450,9 +450,55 @@ test('lookup-table loader validates owner, active state, and quote context', asy
           return response;
         },
       }, [{ accountKey: tableAddress }], { minContextSlot: 500_000_000 }),
-      error => error.code === 'DFLOW_LOOKUP_TABLE_UNAVAILABLE',
+      error => (
+        error.code === 'DFLOW_LOOKUP_TABLE_UNAVAILABLE'
+        && /^alt-/.test(error.diagnostic)
+      ),
     );
   }
+
+  const retryDelays = [];
+  let attempts = 0;
+  const [retried] = await loadAndValidateDflowLookupTables({
+    async getAccountInfoAndContext() {
+      attempts += 1;
+      if (attempts < 3) {
+        const error = new Error('Min context slot not reached');
+        error.code = -32603;
+        throw error;
+      }
+      return fixture;
+    },
+  }, [{ accountKey: tableAddress }], {
+    minContextSlot: 500_000_000,
+    async waitForRetry(delay) {
+      retryDelays.push(delay);
+    },
+  });
+  assert.equal(retried.key.toBase58(), tableAddress.toBase58());
+  assert.deepEqual(retryDelays, [100, 200]);
+
+  attempts = 0;
+  await assert.rejects(
+    loadAndValidateDflowLookupTables({
+      async getAccountInfoAndContext() {
+        attempts += 1;
+        const error = new Error('synthetic RPC failure');
+        error.code = -32603;
+        throw error;
+      },
+    }, [{ accountKey: tableAddress }], {
+      minContextSlot: 500_000_000,
+      async waitForRetry() {
+        throw new Error('unexpected retry');
+      },
+    }),
+    error => (
+      error.code === 'DFLOW_LOOKUP_TABLE_UNAVAILABLE'
+      && error.diagnostic === 'alt-rpc-read-failed'
+      && attempts === 1
+    ),
+  );
 });
 
 test('execution allowlist is intersected with current canonical token status', async () => {
