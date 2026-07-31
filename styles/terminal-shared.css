@@ -42,9 +42,9 @@
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid {
-    --ft-terminal-account-height: clamp(180px, 24dvh, 224px);
-    --ft-terminal-chart-height: min(
-      480px,
+    --ft-terminal-account-height: clamp(160px, 20dvh, 190px);
+    --ft-terminal-chart-height: max(
+      580px,
       calc(
         100dvh
         - var(--site-header-height)
@@ -64,7 +64,7 @@
       var(--ft-terminal-account-height);
     align-items: stretch;
     gap: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* The chart-height calculation reserves 45px for this row at every desktop
@@ -183,6 +183,22 @@
 
   [data-ft-mode="token"].ft-proposal-focus .ft-market-stage {
     display: none;
+  }
+
+  /* A complete execution ticket sets the minimum shared track height. On a
+     short viewport, scroll the surrounding workspace instead of clipping a
+     ticket or adding a nested ticket scrollbar. */
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .app-content {
+    overflow-y: auto !important;
+  }
+
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .dashboard.active,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .token-markets-root,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-shell,
+  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-main {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
   }
 }
 

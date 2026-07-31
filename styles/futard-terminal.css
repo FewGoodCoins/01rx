@@ -8362,8 +8362,9 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
   display: flex;
   min-height: 0;
   height: 100%;
-  padding: 10px 12px 12px;
+  padding: 12px 14px 14px;
   flex-direction: column;
+  overflow: visible;
   border-color: #272724;
   background: #0b0b0b;
   box-shadow: none;
@@ -8371,7 +8372,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-ownership-side-tabs {
   display: grid;
-  min-height: 42px;
+  min-height: 50px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   background: #20201f;
 }
@@ -8386,7 +8387,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 }
 
 .ft-ownership-side-tabs button {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
@@ -8403,7 +8404,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-ownership-order-tabs {
   display: grid;
-  min-height: 44px;
+  min-height: 52px;
   grid-template-columns: 1.05fr 1.35fr 0.9fr 0.8fr;
   align-items: stretch;
   border-bottom: 1px solid #393936;
@@ -8413,7 +8414,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
   position: relative;
   min-width: 0;
   padding: 4px 2px 0;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -8544,14 +8545,14 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 }
 
 .ft-ownership-order-body {
-  padding-top: 14px;
+  padding-top: 18px;
 }
 
 .ft-ownership-swap-field {
   position: relative;
   display: grid;
-  height: 54px;
-  grid-template-columns: minmax(0, 1fr) minmax(108px, 0.42fr);
+  height: 62px;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr);
   align-items: stretch;
   overflow: hidden;
   border: 1px solid #77776f;
@@ -8570,7 +8571,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
   top: 50%;
   left: 11px;
   color: #a2a19a;
-  font-size: 12px;
+  font-size: 13px;
   transform: translateY(-50%);
   pointer-events: none;
 }
@@ -8584,7 +8585,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
   background: transparent;
   color: #a8a79f;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 520;
   text-align: right;
 }
@@ -8625,7 +8626,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 .ft-ownership-asset strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8633,8 +8634,8 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-ownership-asset .ft-token-logo,
 .ft-ownership-usdc-logo {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
 }
 
@@ -8655,12 +8656,12 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-ownership-balance {
   display: flex;
-  min-height: 28px;
+  min-height: 32px;
   padding: 0 2px;
   align-items: center;
   gap: 8px;
   color: #85847d;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .ft-ownership-wallet-icon {
@@ -8686,14 +8687,14 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-ownership-presets {
   display: grid;
-  margin: 1px 0 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 36px;
-  gap: 5px;
+  margin: 2px 0 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 40px;
+  gap: 6px;
 }
 
 .ft-ownership-presets button {
   min-width: 0;
-  height: 32px;
+  height: 36px;
   padding: 0 3px;
   overflow: hidden;
   border: 1px solid #3f3f3b;
@@ -8701,7 +8702,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
   background: transparent;
   color: #aaa9a2;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8747,13 +8748,13 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-shell .ft-ownership-connect {
   width: 100%;
-  min-height: 46px;
-  margin-top: 12px;
+  min-height: 52px;
+  margin-top: 18px;
   border: 1px solid #f2f1ee;
   background: #f2f1ee;
   color: #20201f;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 650;
 }
 
@@ -8770,8 +8771,8 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 .ft-ownership-order-details {
   display: grid;
   margin: auto 0 0;
-  padding: 14px 1px 0;
-  gap: 6px;
+  padding: 18px 1px 0;
+  gap: 8px;
 }
 
 .ft-ownership-order-details > div {
@@ -8784,7 +8785,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-ownership-order-details dt {
   color: #85847d;
-  font-size: 10px;
+  font-size: 11px;
   text-decoration: underline dotted #77776f;
   text-underline-offset: 3px;
 }
@@ -8792,7 +8793,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 .ft-ownership-order-details dd {
   margin: 0;
   color: #e8e7e3;
-  font-size: 10px;
+  font-size: 11px;
   text-align: right;
 }
 
@@ -9112,11 +9113,11 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
       minmax(275px, 0.72fr);
     grid-template-rows:
       auto
-      minmax(0, 1fr)
-      clamp(180px, 24dvh, 224px);
-    height: 100%;
+      var(--ft-terminal-chart-height)
+      var(--ft-terminal-account-height);
+    height: auto;
     align-items: stretch;
-    overflow: hidden;
+    overflow: visible;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-chart-header-region {
@@ -9874,43 +9875,44 @@ html[data-01rx-chart-frame="true"] body#navgator-app.is-token {
 .ft-ownership-ticket {
   min-height: 0;
   height: 100%;
-  padding: 10px 12px 12px;
+  padding: 12px 14px 14px;
+  overflow: visible;
 }
 
 .ft-ownership-side-tabs {
-  min-height: 42px;
+  min-height: 50px;
 }
 
 .ft-ownership-side-tabs button {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .ft-ownership-order-tabs {
-  min-height: 44px;
+  min-height: 52px;
 }
 
 .ft-ownership-order-tabs button {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .ft-ownership-order-body {
-  padding-top: 14px;
+  padding-top: 18px;
 }
 
 .ft-ownership-swap-field {
-  height: 54px;
-  grid-template-columns: minmax(0, 1fr) minmax(108px, 0.42fr);
+  height: 62px;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr);
 }
 
 .ft-ownership-swap-field > span {
   left: 11px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ft-ownership-swap-field input,
 .ft-ownership-swap-field output {
   padding: 0 10px 0 73px;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .ft-ownership-asset {
@@ -9919,46 +9921,46 @@ html[data-01rx-chart-frame="true"] body#navgator-app.is-token {
 }
 
 .ft-ownership-asset strong {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .ft-ownership-asset .ft-token-logo,
 .ft-ownership-usdc-logo {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .ft-ownership-balance {
-  min-height: 28px;
-  font-size: 10px;
-}
-
-.ft-ownership-presets {
-  margin: 1px 0 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 36px;
-  gap: 5px;
-}
-
-.ft-ownership-presets button {
-  height: 32px;
-  padding: 0 3px;
+  min-height: 32px;
   font-size: 11px;
 }
 
+.ft-ownership-presets {
+  margin: 2px 0 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 40px;
+  gap: 6px;
+}
+
+.ft-ownership-presets button {
+  height: 36px;
+  padding: 0 3px;
+  font-size: 12px;
+}
+
 .ft-shell .ft-ownership-connect {
-  min-height: 46px;
-  margin-top: 12px;
-  font-size: 14px;
+  min-height: 52px;
+  margin-top: 18px;
+  font-size: 15px;
 }
 
 .ft-ownership-order-details {
-  padding: 14px 1px 0;
-  gap: 6px;
+  padding: 18px 1px 0;
+  gap: 8px;
 }
 
 .ft-ownership-order-details dt,
 .ft-ownership-order-details dd {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .ft-ownership-transactions {
@@ -10268,11 +10270,11 @@ html[data-01rx-chart-frame="true"] body#navgator-app.is-token {
       minmax(275px, 0.72fr);
     grid-template-rows:
       auto
-      minmax(0, 1fr)
-      clamp(180px, 24dvh, 224px);
-    height: 100%;
+      var(--ft-terminal-chart-height)
+      var(--ft-terminal-account-height);
+    height: auto;
     align-items: stretch;
-    overflow: hidden;
+    overflow: visible;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-market-chart-header-region {
@@ -11044,6 +11046,50 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
 .ft-ownership-transactions-columns,
 .ft-ownership-transaction-row {
   border-bottom: 0;
+}
+
+.ft-ownership-transactions-header {
+  padding-right: 12px;
+  padding-left: 12px;
+}
+
+.ft-ownership-transactions-header strong {
+  font-size: 12px;
+}
+
+.ft-ownership-transactions-header > span {
+  min-width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.ft-ownership-transactions-columns {
+  min-height: 36px;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-size: 9px;
+}
+
+.ft-ownership-transaction-row {
+  min-height: 40px;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.ft-decision-transaction-summary {
+  height: 26px;
+  font-size: 9px;
+}
+
+.ft-decision-transaction-summary dt {
+  font-size: 8px;
+}
+
+.ft-decision-transaction-summary dd,
+.ft-decision-transaction-side {
+  font-size: 9px;
 }
 
 .ft-ownership-transaction-row > span.ft-ownership-transaction-size {
