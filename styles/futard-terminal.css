@@ -11039,6 +11039,54 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
   display: none !important;
 }
 
+/* Recent trade tape: keep rows open like a terminal feed and let the size
+   heading switch between quote value and base-token amount. */
+.ft-ownership-transactions-columns,
+.ft-ownership-transaction-row {
+  border-bottom: 0;
+}
+
+.ft-transaction-size-heading {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ft-transaction-size-heading button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-transform: uppercase;
+}
+
+.ft-transaction-size-heading button:hover,
+.ft-transaction-size-heading button:focus-visible {
+  color: #d7d6d1;
+}
+
+/* Keep the market summary visually grouped without drawing a box around every
+   metric. The identity and primary price are the only structural boundaries. */
+@media (min-width: 981px) {
+  [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-header > * {
+    border-right: 0;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-identity,
+  [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-metric-featured {
+    border-right: 1px solid #343636;
+  }
+}
+
 /* Keep decision execution reachable inside the fixed-height desktop terminal.
    The controls scroll independently while the reviewed action stays fully
    inside the ticket boundary. */

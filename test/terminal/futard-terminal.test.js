@@ -1358,6 +1358,22 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   );
   assert.equal(byRole(root, 'proposal-recent-volume').textContent, '$50.00');
   assert.equal(byRole(root, 'proposal-recent-count').textContent, '4');
+  const sizeUnit = byRole(root, 'transaction-size-unit');
+  assert.equal(sizeUnit.textContent, 'USD');
+  assert.deepEqual(
+    Array.from(recentTransactions.querySelectorAll('[data-ft-role="transaction-size"]'))
+      .map(element => element.textContent),
+    ['$12.5', '$7.5', '$2.5', '$27.5'],
+  );
+  sizeUnit.click();
+  assert.equal(byRole(root, 'transaction-size-unit').textContent, 'LOYAL');
+  assert.deepEqual(
+    Array.from(
+      byRole(root, 'proposal-recent-transactions')
+        .querySelectorAll('[data-ft-role="transaction-size"]'),
+    ).map(element => element.textContent),
+    ['100', '50', '10', '125'],
+  );
   assert.match(
     recentTransactions.querySelector('.ft-decision-transaction-summary').title,
     /currently loaded/,
@@ -2165,7 +2181,14 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
   const rows = recentTransactions.querySelectorAll('.ft-ownership-transaction-row');
   assert.equal(rows.length, 1);
-  assert.match(rows[0].textContent, /\$0\.1291[\s\S]+1,250/);
+  assert.match(rows[0].textContent, /\$0\.1291[\s\S]+\$161\.38/);
+  assert.equal(byRole(root, 'transaction-size-unit').textContent, 'USD');
+  byRole(root, 'transaction-size-unit').click();
+  assert.equal(byRole(root, 'transaction-size-unit').textContent, 'LOYAL');
+  assert.match(
+    byRole(root, 'ownership-recent-transactions').textContent,
+    /\$0\.1291[\s\S]+1,250/,
+  );
   assert.equal(
     rows[0].getAttribute('href'),
     `https://solscan.io/tx/${TRANSACTION_SIGNATURE}`,
