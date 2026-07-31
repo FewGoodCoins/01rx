@@ -200,3 +200,18 @@ test('spot and decision routes share one authoritative desktop terminal geometry
     /\.ft-(?:ownership|live|archive)-market \.ft-terminal-grid/,
   );
 });
+
+test('desktop account activity stays inside the viewport and scrolls its body', () => {
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus \.ft-chart-market-header > \*\s*\{\s*min-height: 44px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus \.ft-ownership-account-tabs\s*\{\s*flex: 0 0 74px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus \.ft-ownership-account-panel\s*\{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior-y: contain;/,
+  );
+});

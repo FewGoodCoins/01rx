@@ -226,6 +226,22 @@ export function proposalChartEndpoint(points, field, interval = '1h') {
   return null;
 }
 
+export function proposalChartLiveEndpoints(points, interval = '1h') {
+  return PROPOSAL_HISTORY_SERIES.map((definition) => {
+    const endpoint = proposalChartEndpoint(points, definition.field, interval);
+    if (!endpoint) return null;
+    return {
+      field: definition.field,
+      key: definition.field === 'underlyingPrice'
+        ? 'price'
+        : definition.field === 'passPrice'
+          ? 'pass'
+          : 'fail',
+      endpoint,
+    };
+  }).filter(Boolean);
+}
+
 export function interpolateChartTimeCoordinate(time, plottedTimes, coordinateForTime) {
   if (!Number.isFinite(time) || typeof coordinateForTime !== 'function') return null;
   const direct = coordinateForTime(time);
@@ -499,24 +515,14 @@ export function createProposalHistoryChart({
     }
   }
   if (isLive) {
-    PROPOSAL_HISTORY_SERIES
-      .filter(definition => (
-        definition.field === 'passPrice' || definition.field === 'failPrice'
-      ))
-      .forEach((definition) => {
-        const endpoint = proposalChartEndpoint(
-          points,
-          definition.field,
-          history.interval,
-        );
-        if (!endpoint) return;
-        const outcome = definition.field === 'passPrice' ? 'pass' : 'fail';
+    proposalChartLiveEndpoints(points, history.interval)
+      .forEach(({ field, key, endpoint }) => {
         const dot = runtime.document.createElement('span');
-        dot.className = `ft-proposal-live-dot ft-proposal-live-dot-${outcome}`;
-        dot.dataset.ftLiveEndpoint = outcome;
+        dot.className = `ft-proposal-live-dot ft-proposal-live-dot-${key}`;
+        dot.dataset.ftLiveEndpoint = key;
         dot.setAttribute('aria-hidden', 'true');
         container.appendChild(dot);
-        liveEndpointDots.set(definition.field, {
+        liveEndpointDots.set(field, {
           element: dot,
           endpoint,
         });

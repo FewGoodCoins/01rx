@@ -67,6 +67,13 @@
     overflow: hidden;
   }
 
+  /* The chart-height calculation reserves 45px for this row at every desktop
+     width. Keep the header compact below 1181px too so the account row cannot
+     be pushed underneath the fixed status footer. */
+  [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-header > * {
+    min-height: 44px;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus .ft-market-chart-header-region {
     grid-column: 1 / -1;
     grid-row: 1;
@@ -159,8 +166,19 @@
     min-height: 0;
   }
 
+  [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-tabs {
+    flex: 0 0 74px;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-panel {
     min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-color: #3a3a37 transparent;
+    scrollbar-width: thin;
+    align-items: safe center;
+    justify-content: safe center;
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-market-stage {

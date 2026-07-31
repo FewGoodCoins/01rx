@@ -4189,6 +4189,10 @@ body.is-futard-terminal #token-switch-loader {
   display: none;
 }
 
+.ft-proposal-live-dot-price {
+  color: var(--ft-ink-strong);
+}
+
 .ft-proposal-live-dot-pass {
   color: var(--ft-positive);
 }
@@ -9478,6 +9482,69 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 [data-ft-mode="token"].ft-proposal-focus .ft-decision-transaction-branch[data-branch="fail"] {
   color: #ff737e;
+}
+
+.ft-decision-transaction-summary {
+  display: flex;
+  height: 24px;
+  margin: 0;
+  flex: 0 0 auto;
+  align-items: stretch;
+  border: 1px solid #333330;
+  color: #8d8c86;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.ft-decision-transaction-summary > div {
+  display: flex;
+  padding: 0 6px;
+  align-items: center;
+  gap: 4px;
+}
+
+.ft-decision-transaction-summary > div + div {
+  border-left: 1px solid #333330;
+}
+
+.ft-decision-transaction-summary dt {
+  color: #64635e;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ft-decision-transaction-summary dd {
+  margin: 0;
+  color: #d3d2ce;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.ft-decision-transaction-trade {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.ft-decision-transaction-side {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+}
+
+.ft-decision-transaction-side[data-side="buy"] {
+  color: #58dcb0;
+}
+
+.ft-decision-transaction-side[data-side="sell"] {
+  color: #ff737e;
+}
+
+.ft-decision-transaction-branch {
+  font-weight: 700;
 }
 
 [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-ticket-column,
