@@ -1,5 +1,7 @@
 import * as crypto from 'node:crypto';
 import {
+  AddressLookupTableAccount,
+  AddressLookupTableProgram,
   Connection,
   PublicKey,
   VersionedTransaction,
@@ -14,11 +16,23 @@ import {
   MAINNET_USDC_MINT,
   normalizeOwnershipTokenKey,
 } from './ownership-token-registry.js';
+import {
+  DFLOW_MAX_COMPUTE_UNIT_LIMIT,
+  DFLOW_MAX_PRIORITY_FEE_LAMPORTS,
+  DFLOW_POLICY_PROGRAM_ID,
+  decodeAndValidateDflowSwap,
+  loadAndValidateDflowProgramIntegrity,
+  loadAndValidateTradeAccountState,
+  simulationAccountRequest,
+  validateComputeBudgetPolicy,
+  validateDflowSwapAccounts,
+  validateSimulatedTradeEffects,
+} from './dflow-transaction-policy.js';
 
 export const MAINNET_CLUSTER = 'solana:mainnet';
 export const DFLOW_PRODUCTION_URL = 'https://quote-api.dflow.net';
 export const DFLOW_DEVELOPMENT_URL = 'https://dev-quote-api.dflow.net';
-export const DFLOW_PROGRAM_ID = 'DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH';
+export const DFLOW_PROGRAM_ID = DFLOW_POLICY_PROGRAM_ID;
 export const DFLOW_SIGNING_KEY = 'EZKxYr7bbXHaKAGw2MEpVUU9He3hwXGejSpCsdsZCmiF';
 export const COMPUTE_BUDGET_PROGRAM_ID = 'ComputeBudget111111111111111111111111111111';
 export const MAX_REVIEW_AGE_SECONDS = 120;
@@ -166,6 +180,38 @@ function requireSafeInteger(value, label, { minimum = 0, maximum = Number.MAX_SA
     throw tradingError(`${label} is invalid`, 'INVALID_DFLOW_RESPONSE', 502);
   }
   return value;
+}
+
+function requireContextBoundFee(response, minimumSlot) {
+  if (
+    !Number.isSafeInteger(response?.context?.slot)
+    || response.context.slot < minimumSlot
+    || !Number.isSafeInteger(response.value)
+    || response.value < 0
+  ) {
+    throw tradingError(
+      'The Solana network fee could not be verified at the reviewed slot',
+      'SOLANA_FEE_UNAVAILABLE',
+      503,
+    );
+  }
+  return response.value;
+}
+
+function requireContextBoundSimulation(response, minimumSlot) {
+  if (
+    !Number.isSafeInteger(response?.context?.slot)
+    || response.context.slot < minimumSlot
+    || !response.value
+    || typeof response.value !== 'object'
+  ) {
+    throw tradingError(
+      'The Solana simulation could not be verified at the reviewed slot',
+      'SOLANA_SIMULATION_UNAVAILABLE',
+      503,
+    );
+  }
+  return response.value;
 }
 
 export function formatRawAmount(value, decimals) {
@@ -409,6 +455,8 @@ async function fetchDflowOrder({
     maxTransactionSize: String(MAX_TRANSACTION_BYTES),
     onlyDirectRoutes: 'true',
     outputMint: intent.outputMint,
+    perLegSlippage: 'true',
+    predictionMarketSlippageBps: String(intent.slippageBps),
     prioritizationFeeLamports: 'medium',
     prioritizationFeeMaxLamports: '1000000',
     slippageBps: String(intent.slippageBps),
@@ -550,13 +598,28 @@ export function validateOrderResponse(payload, intent, { transactionRequired = f
   );
   const contextSlot = requireSafeInteger(payload.contextSlot, 'DFlow context slot');
   const priceImpactFraction = Number(payload.priceImpactPct);
+  const predictionMarketSlippageBps = payload.predictionMarketSlippageBps == null
+    ? null
+    : requireSafeInteger(
+      payload.predictionMarketSlippageBps,
+      'DFlow prediction-market slippage',
+      { maximum: 65_535 },
+    );
+  const expectedMinimumAmountOut = (
+    BigInt(outAmount) * BigInt(10_000 - slippageBps) + 9_999n
+  ) / 10_000n;
   if (
     inputMint !== intent.inputMint
     || outputMint !== intent.outputMint
     || inAmount !== intent.atomicAmount
     || slippageBps !== intent.slippageBps
     || minimumAmountOut !== otherAmountThreshold
-    || BigInt(minimumAmountOut) > BigInt(outAmount)
+    || BigInt(minimumAmountOut) !== expectedMinimumAmountOut
+    || (
+      predictionMarketSlippageBps != null
+      && predictionMarketSlippageBps !== intent.slippageBps
+    )
+    || (payload.isNativePredictionMarketOutput === true && predictionMarketSlippageBps == null)
     || payload.executionMode !== 'sync'
     || !Number.isFinite(priceImpactFraction)
     || priceImpactFraction < 0
@@ -568,15 +631,21 @@ export function validateOrderResponse(payload, intent, { transactionRequired = f
       502,
     );
   }
-  const platformFeeBps = payload.platformFee == null
-    ? 0
-    : requireSafeInteger(payload.platformFee?.feeBps, 'DFlow platform fee', {
-      maximum: 10_000,
-    });
-  if (platformFeeBps !== 0) {
+  if (payload.platformFee != null) {
     throw tradingError('Unexpected platform fee in DFlow response', 'INVALID_DFLOW_RESPONSE', 502);
   }
+  const platformFeeBps = 0;
   const routeData = validateRoutePlan(payload.routePlan, intent, outAmount);
+  if (
+    (intent.inputDecimals != null && routeData.inputDecimals !== intent.inputDecimals)
+    || (intent.outputDecimals != null && routeData.outputDecimals !== intent.outputDecimals)
+  ) {
+    throw tradingError(
+      'DFlow route decimals do not match the reviewed assets',
+      'INVALID_DFLOW_RESPONSE',
+      502,
+    );
+  }
   const hasTransaction = typeof payload.transaction === 'string' && payload.transaction.length > 0;
   if (transactionRequired !== hasTransaction) {
     throw tradingError(
@@ -587,7 +656,46 @@ export function validateOrderResponse(payload, intent, { transactionRequired = f
       502,
     );
   }
+  let computeUnitLimit = null;
+  let computeUnitPriceMicroLamports = null;
+  let prioritizationFeeLamports = null;
+  if (hasTransaction) {
+    computeUnitLimit = requireSafeInteger(
+      payload.computeUnitLimit,
+      'DFlow compute unit limit',
+      { minimum: 1, maximum: DFLOW_MAX_COMPUTE_UNIT_LIMIT },
+    );
+    prioritizationFeeLamports = requireSafeInteger(
+      payload.prioritizationFeeLamports,
+      'DFlow prioritization fee',
+      { maximum: DFLOW_MAX_PRIORITY_FEE_LAMPORTS },
+    );
+    const prioritizationType = requireObject(
+      payload.prioritizationType,
+      'DFlow prioritization type',
+    );
+    const computeBudget = requireObject(
+      prioritizationType.computeBudget,
+      'DFlow compute budget',
+    );
+    computeUnitPriceMicroLamports = requireSafeInteger(
+      computeBudget.microLamports,
+      'DFlow compute unit price',
+    );
+    const calculatedPriorityFee = (
+      BigInt(computeUnitLimit) * BigInt(computeUnitPriceMicroLamports) + 999_999n
+    ) / 1_000_000n;
+    if (calculatedPriorityFee !== BigInt(prioritizationFeeLamports)) {
+      throw tradingError(
+        'DFlow prioritization fee does not match its compute budget',
+        'INVALID_DFLOW_RESPONSE',
+        502,
+      );
+    }
+  }
   return {
+    computeUnitLimit,
+    computeUnitPriceMicroLamports,
     contextSlot,
     inAmount,
     inputDecimals: routeData.inputDecimals,
@@ -601,6 +709,7 @@ export function validateOrderResponse(payload, intent, { transactionRequired = f
     outputMint,
     platformFeeBps,
     priceImpactPercent: priceImpactFraction * 100,
+    prioritizationFeeLamports,
     route: routeData.route,
     slippageBps,
   };
@@ -650,19 +759,43 @@ function validateLookupProof(payloadTables, transaction, lookupTables) {
   });
 }
 
-async function defaultLoadLookupTables(connection, lookups) {
+export async function loadAndValidateDflowLookupTables(
+  connection,
+  lookups,
+  { minContextSlot = 0 } = {},
+) {
   return Promise.all(lookups.map(async (lookup) => {
-    const response = await connection.getAddressLookupTable(lookup.accountKey, {
-      commitment: 'confirmed',
-    });
-    if (!response?.value) {
-      throw tradingError(
+    try {
+      const response = await connection.getAccountInfoAndContext(lookup.accountKey, {
+        commitment: 'confirmed',
+        minContextSlot,
+      });
+      const account = response?.value;
+      if (
+        !account
+        || !Number.isSafeInteger(response.context?.slot)
+        || response.context.slot < minContextSlot
+        || !account.owner?.equals?.(AddressLookupTableProgram.programId)
+        || account.executable === true
+        || !Buffer.isBuffer(account.data)
+      ) {
+        throw new Error('lookup table account mismatch');
+      }
+      const table = new AddressLookupTableAccount({
+        key: lookup.accountKey,
+        state: AddressLookupTableAccount.deserialize(account.data),
+      });
+      if (!table.isActive()) throw new Error('lookup table is inactive');
+      return table;
+    } catch (cause) {
+      const error = tradingError(
         'A DFlow address lookup table is unavailable',
         'DFLOW_LOOKUP_TABLE_UNAVAILABLE',
         503,
       );
+      error.cause = cause;
+      throw error;
     }
-    return response.value;
   }));
 }
 
@@ -694,7 +827,9 @@ export async function validateDflowTransaction({
   payload,
   quote,
   owner,
-  loadLookupTables = defaultLoadLookupTables,
+  loadLookupTables = loadAndValidateDflowLookupTables,
+  loadProgramIntegrity = loadAndValidateDflowProgramIntegrity,
+  loadTradeAccountState = loadAndValidateTradeAccountState,
   simulate = true,
 }) {
   const decoded = decodeVersionedTransaction(payload.transaction, 'DFlow transaction');
@@ -749,43 +884,42 @@ export async function validateDflowTransaction({
     );
   }
 
-  const lookupTables = await loadLookupTables(connection, message.addressTableLookups);
+  const lookupTables = await loadLookupTables(
+    connection,
+    message.addressTableLookups,
+    { minContextSlot: quote.contextSlot },
+  );
   validateLookupProof(payload.addressLookupTables, transaction, lookupTables);
   const accountKeys = message.getAccountKeys({
     addressLookupTableAccounts: lookupTables,
   });
-  const allAddresses = new Set();
-  for (let index = 0; index < accountKeys.length; index += 1) {
-    allAddresses.add(accountKeys.get(index).toBase58());
-  }
-  if (
-    !allAddresses.has(owner)
-    || !allAddresses.has(quote.inputMint)
-    || !allAddresses.has(quote.outputMint)
-  ) {
-    throw tradingError(
-      'DFlow transaction accounts do not match the reviewed assets',
-      'INVALID_DFLOW_TRANSACTION',
-      502,
-    );
-  }
   const swapInstruction = message.compiledInstructions.find(instruction => (
     staticKeys[instruction.programIdIndex] === DFLOW_PROGRAM_ID
   ));
-  const swapAddresses = new Set(
-    [...swapInstruction.accountKeyIndexes].map(index => accountKeys.get(index).toBase58()),
-  );
-  if (
-    !swapAddresses.has(owner)
-    || !swapAddresses.has(quote.inputMint)
-    || !swapAddresses.has(quote.outputMint)
-  ) {
-    throw tradingError(
-      'DFlow swap instruction does not bind the reviewed assets',
-      'INVALID_DFLOW_TRANSACTION',
-      502,
-    );
-  }
+  validateComputeBudgetPolicy({
+    instructions: message.compiledInstructions,
+    programIds: instructionPrograms,
+    quote,
+  });
+  const swapPolicy = decodeAndValidateDflowSwap(swapInstruction.data, quote);
+  const swapAccounts = validateDflowSwapAccounts({
+    accountKeys,
+    message,
+    owner,
+    quote,
+    swapInstruction,
+    swapPolicy,
+  });
+  const [, tradeState] = await Promise.all([
+    loadProgramIntegrity(connection, { minContextSlot: quote.contextSlot }),
+    loadTradeAccountState(connection, {
+      accountKeys,
+      message,
+      owner,
+      quote,
+      swapAccounts,
+    }),
+  ]);
 
   let simulation = {
     error: '',
@@ -795,24 +929,24 @@ export async function validateDflowTransaction({
   };
   let networkFeeLamports = null;
   if (simulate) {
+    const minimumSlot = Math.max(quote.contextSlot, tradeState.contextSlot);
     const [simulationResponse, feeResponse] = await Promise.all([
       connection.simulateTransaction(transaction, {
+        accounts: simulationAccountRequest(tradeState),
         commitment: 'confirmed',
-        minContextSlot: quote.contextSlot,
+        minContextSlot: minimumSlot,
         sigVerify: false,
       }),
       connection.getFeeForMessage(message, 'confirmed'),
     ]);
-    const value = simulationResponse?.value || {};
+    const value = requireContextBoundSimulation(simulationResponse, minimumSlot);
     simulation = {
       error: value.err == null ? '' : JSON.stringify(value.err).slice(0, 500),
       logs: Array.isArray(value.logs) ? value.logs.slice(-30) : [],
       ok: value.err == null,
       unitsConsumed: Number.isSafeInteger(value.unitsConsumed) ? value.unitsConsumed : null,
     };
-    networkFeeLamports = Number.isSafeInteger(feeResponse?.value)
-      ? feeResponse.value
-      : null;
+    networkFeeLamports = requireContextBoundFee(feeResponse, minimumSlot);
     if (!simulation.ok) {
       const error = tradingError(
         'The exact DFlow transaction did not pass mainnet simulation',
@@ -822,12 +956,21 @@ export async function validateDflowTransaction({
       error.simulation = simulation;
       throw error;
     }
+    validateSimulatedTradeEffects(
+      value,
+      tradeState,
+      quote,
+      owner,
+      networkFeeLamports,
+    );
   }
   return {
+    actionNames: swapPolicy.actionNames,
     feePayer,
     networkFeeLamports,
     programIds: [...new Set(instructionPrograms)],
     simulation,
+    tradeState,
     transaction,
     transactionFingerprint: crypto.createHash('sha256').update(bytes).digest('hex'),
   };
@@ -883,9 +1026,9 @@ async function resolveTokenIntent({
   }
   const inputMint = side === 'buy' ? usdcMint : tokenMint;
   const outputMint = side === 'buy' ? tokenMint : usdcMint;
-  const inputDecimals = side === 'buy'
-    ? 6
-    : await loadMintDecimals(connection(), tokenMint);
+  const tokenDecimals = await loadMintDecimals(connection(), tokenMint);
+  const inputDecimals = side === 'buy' ? 6 : tokenDecimals;
+  const outputDecimals = side === 'buy' ? tokenDecimals : 6;
   const amount = parseUiAmount(request.amount, inputDecimals);
   const owner = request.owner == null || request.owner === ''
     ? ''
@@ -897,6 +1040,7 @@ async function resolveTokenIntent({
     inputMint,
     name: String(config.name || config.ticker || tokenKey.toUpperCase()).slice(0, 80),
     outputMint,
+    outputDecimals,
     owner,
     side,
     slippageBps: boundedSlippage(request.slippageBps),
@@ -943,9 +1087,13 @@ export function createDflowSpotOrderService(dependencies = {}) {
     fetchImpl,
   }));
   const connection = dependencies.connection || createConnectionFactory(env);
-  const loadLookupTables = dependencies.loadLookupTables || defaultLoadLookupTables;
+  const loadLookupTables = dependencies.loadLookupTables || loadAndValidateDflowLookupTables;
   const loadMintDecimals = dependencies.loadMintDecimals || defaultLoadMintDecimals;
   const loadDflowOrder = dependencies.fetchDflowOrder || fetchDflowOrder;
+  const loadProgramIntegrity = dependencies.loadDflowProgramIntegrity
+    || loadAndValidateDflowProgramIntegrity;
+  const loadTradeAccountState = dependencies.loadTradeAccountState
+    || loadAndValidateTradeAccountState;
   const decodeToken = dependencies.decodeReviewToken || decodeReviewToken;
   if (typeof fetchImpl !== 'function') {
     throw new TypeError('DFlow spot order service requires fetch');
@@ -986,6 +1134,8 @@ export function createDflowSpotOrderService(dependencies = {}) {
       review = await validateDflowTransaction({
         connection: connection(),
         loadLookupTables,
+        loadProgramIntegrity,
+        loadTradeAccountState,
         owner: intent.owner,
         payload,
         quote,
@@ -1060,9 +1210,11 @@ export function createDflowSpotOrderService(dependencies = {}) {
       slippageBps: boundedSlippage(payload.slippageBps),
     };
     const quote = validateOrderResponse(payload, intent, { transactionRequired: true });
-    await validateDflowTransaction({
+    const validatedReview = await validateDflowTransaction({
       connection: connection(),
       loadLookupTables,
+      loadProgramIntegrity,
+      loadTradeAccountState,
       owner,
       payload,
       quote,
@@ -1099,23 +1251,37 @@ export function createDflowSpotOrderService(dependencies = {}) {
         409,
       );
     }
-    const simulationResponse = await rpc.simulateTransaction(signed.transaction, {
-      commitment: 'confirmed',
-      minContextSlot: quote.contextSlot,
-      sigVerify: true,
-    });
-    if (simulationResponse?.value?.err != null) {
+    const minimumSlot = Math.max(quote.contextSlot, validatedReview.tradeState.contextSlot);
+    const [simulationResponse, feeResponse] = await Promise.all([
+      rpc.simulateTransaction(signed.transaction, {
+        accounts: simulationAccountRequest(validatedReview.tradeState),
+        commitment: 'confirmed',
+        minContextSlot: minimumSlot,
+        sigVerify: true,
+      }),
+      rpc.getFeeForMessage(signed.transaction.message, 'confirmed'),
+    ]);
+    const simulationValue = requireContextBoundSimulation(simulationResponse, minimumSlot);
+    const networkFeeLamports = requireContextBoundFee(feeResponse, minimumSlot);
+    if (simulationValue.err != null) {
       throw tradingError(
         'Signed transaction failed final mainnet simulation',
         'SIGNED_TRANSACTION_SIMULATION_FAILED',
         422,
       );
     }
+    validateSimulatedTradeEffects(
+      simulationValue,
+      validatedReview.tradeState,
+      quote,
+      owner,
+      networkFeeLamports,
+    );
     const signature = normalizeSolanaSignature(await rpc.sendRawTransaction(
       signed.bytes,
       {
         maxRetries: 3,
-        minContextSlot: quote.contextSlot,
+        minContextSlot: minimumSlot,
         preflightCommitment: 'confirmed',
         skipPreflight: false,
       },
