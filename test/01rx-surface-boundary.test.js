@@ -122,6 +122,17 @@ test('desktop market summary uses only identity and primary-price separators', (
   );
 });
 
+test('desktop trades and ticket columns share the chart track height', () => {
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus \.ft-activity-row,\s*\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-ticket-column \{\s*min-height: 0;\s*height: 100%;\s*align-self: stretch;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus \.ft-activity-row > \.ft-ownership-transactions,[\s\S]*?box-sizing: border-box;/,
+  );
+});
+
 test('token markets do not reserve a second empty header row', () => {
   assert.match(
     frameCss,
