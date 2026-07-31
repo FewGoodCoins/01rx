@@ -143,6 +143,10 @@ test('desktop trades and ticket columns share the chart track height', () => {
     frameCss,
     /\.ft-proposal-focus \.ft-activity-row > \.ft-ownership-transactions,[\s\S]*?box-sizing: border-box;/,
   );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-archive-market, \.ft-ownership-market\) \.ft-market-chart,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-ownership-chart-panel \{\s*height: 100%;\s*min-height: 0;\s*max-height: none;\s*aspect-ratio: auto;/,
+  );
 });
 
 test('token markets do not reserve a second empty header row', () => {
