@@ -322,6 +322,29 @@ function formatCompactMoney(value) {
   return `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
+function decisionTradeVolumeUsd(transaction) {
+  const indexedVolume = nonNegativeNumber(transaction?.volumeUsd);
+  if (Number.isFinite(indexedVolume)) return indexedVolume;
+
+  const quoteAmount = nonNegativeNumber(transaction?.quoteAmount);
+  if (Number.isFinite(quoteAmount)) return quoteAmount;
+
+  const price = nonNegativeNumber(transaction?.price);
+  const baseAmount = nonNegativeNumber(transaction?.baseAmount);
+  if (!Number.isFinite(price) || !Number.isFinite(baseAmount)) return null;
+  const calculatedVolume = price * baseAmount;
+  return Number.isFinite(calculatedVolume) ? calculatedVolume : null;
+}
+
+function formatTradeVolume(value) {
+  if (!Number.isFinite(value) || value < 0) return '—';
+  if (value >= 1_000) return formatCompactMoney(value);
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: value === 0 ? 0 : 2,
+    maximumFractionDigits: value < 1 ? 4 : 2,
+  })}`;
+}
+
 function formatPercent(value, options = {}) {
   if (!Number.isFinite(value)) return '—';
   const sign = options.sign !== false && value > 0 ? '+' : '';
@@ -5495,6 +5518,13 @@ export function mountFutardTerminal({
     if (state.hostMode === 'token' && market) {
       const entry = state.marketDataByProposal.get(market.id);
       const transactions = entry?.data?.recentTrades || [];
+      const transactionVolumes = transactions
+        .map(decisionTradeVolumeUsd)
+        .filter(Number.isFinite);
+      const recentVolumeUsd = transactionVolumes.length
+        ? transactionVolumes.reduce((total, volume) => total + volume, 0)
+        : null;
+      const recentVolumeLabel = formatTradeVolume(recentVolumeUsd);
       renderDecisionAccountActivity(market, transactions);
       regions.positions.innerHTML = `
         <section
@@ -5504,12 +5534,25 @@ export function mountFutardTerminal({
         >
           <header class="ft-ownership-transactions-header">
             <strong>Recent transactions</strong>
-            <span>${transactions.length}</span>
+            <dl
+              class="ft-decision-transaction-summary"
+              aria-label="Recent loaded volume ${escapeHtml(recentVolumeLabel)} across ${transactions.length} transactions"
+              title="Volume totals the recent transactions currently loaded"
+            >
+              <div>
+                <dt>Vol</dt>
+                <dd data-ft-role="proposal-recent-volume">${escapeHtml(recentVolumeLabel)}</dd>
+              </div>
+              <div>
+                <dt>Tx</dt>
+                <dd data-ft-role="proposal-recent-count">${transactions.length}</dd>
+              </div>
+            </dl>
           </header>
           <div class="ft-ownership-transactions-columns" aria-hidden="true">
             <span>Price</span>
             <span>Size</span>
-            <span>Market</span>
+            <span>Trade</span>
             <span>Age</span>
           </div>
           <div class="ft-ownership-transactions-list">
@@ -5527,7 +5570,19 @@ export function mountFutardTerminal({
                   : Number.isFinite(transaction.volumeUsd)
                     ? formatCompactMoney(transaction.volumeUsd)
                     : '—'}</span>
-                <span class="ft-decision-transaction-branch" data-branch="${escapeHtml(transaction.branch)}">${escapeHtml(transaction.branch.toUpperCase())}</span>
+                <span
+                  class="ft-decision-transaction-trade"
+                  title="${transaction.side === 'buy' ? 'Bought' : 'Sold'} ${escapeHtml(transaction.branch.toUpperCase())}"
+                >
+                  <strong
+                    class="ft-decision-transaction-side"
+                    data-side="${escapeHtml(transaction.side)}"
+                  >${transaction.side === 'buy' ? 'BUY' : 'SELL'}</strong>
+                  <span
+                    class="ft-decision-transaction-branch"
+                    data-branch="${escapeHtml(transaction.branch)}"
+                  >${escapeHtml(transaction.branch.toUpperCase())}</span>
+                </span>
                 <span>${transaction.blockTime
                   ? escapeHtml(formatRelativeTime(transaction.blockTime).replace(/\s+ago$/i, ''))
                   : '—'}</span>

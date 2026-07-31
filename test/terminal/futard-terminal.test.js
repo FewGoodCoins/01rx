@@ -934,6 +934,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     interpolateChartTimeCoordinate,
     proposalChartData,
     proposalChartEndpoint,
+    proposalChartLiveEndpoints,
     proposalLaunchSeriesMarker,
     splitProposalChartSeries,
   } = await loadProposalChartModule();
@@ -994,6 +995,40 @@ test('TradingView chart adapter splits null values and missing hours into honest
     },
   );
   assert.equal(proposalChartEndpoint(points, 'failPrice'), null);
+  assert.deepEqual(
+    proposalChartLiveEndpoints([{
+      timestamp: '2026-06-16T15:00:00.000Z',
+      underlyingPrice: 4.75,
+      passPrice: 4.8,
+      failPrice: 4.7,
+    }]).map(({ field, key, endpoint }) => ({ field, key, endpoint })),
+    [
+      {
+        field: 'underlyingPrice',
+        key: 'price',
+        endpoint: {
+          time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+          value: 4.75,
+        },
+      },
+      {
+        field: 'passPrice',
+        key: 'pass',
+        endpoint: {
+          time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+          value: 4.8,
+        },
+      },
+      {
+        field: 'failPrice',
+        key: 'fail',
+        endpoint: {
+          time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+          value: 4.7,
+        },
+      },
+    ],
+  );
   assert.deepEqual(
     proposalLaunchSeriesMarker({
       chartTimestamp: '2026-06-16T09:30:00.000Z',
@@ -1231,6 +1266,85 @@ test('proposal-first terminal renders validated market state and a safe trade in
 
   controller.destroy();
   assert.equal(root.childElementCount, 0);
+  cleanupMount(mounted);
+});
+
+test('proposal transaction feed labels every outcome side and totals recent volume', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const proposalMarketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
+  proposalMarketData.recentTrades = [
+    {
+      branch: 'pass',
+      side: 'buy',
+      venue: 'manifest',
+      price: 0.125,
+      baseAmount: 100,
+      quoteAmount: 99,
+      volumeUsd: 12.5,
+      blockTime: '2026-07-24T11:59:30.000Z',
+      signature: base58.encode(Buffer.alloc(64, 5)),
+    },
+    {
+      branch: 'pass',
+      side: 'sell',
+      venue: 'futarchy_amm',
+      price: 0.15,
+      baseAmount: 50,
+      quoteAmount: 7.5,
+      blockTime: '2026-07-24T11:58:30.000Z',
+      signature: base58.encode(Buffer.alloc(64, 6)),
+    },
+    {
+      branch: 'fail',
+      side: 'buy',
+      venue: 'manifest',
+      price: 0.25,
+      baseAmount: 10,
+      blockTime: '2026-07-24T11:57:30.000Z',
+      signature: base58.encode(Buffer.alloc(64, 7)),
+    },
+    {
+      branch: 'fail',
+      side: 'sell',
+      venue: 'futarchy_amm',
+      price: 0.2,
+      baseAmount: 125,
+      volumeUsd: 27.5,
+      blockTime: '2026-07-24T11:56:30.000Z',
+      signature: base58.encode(Buffer.alloc(64, 8)),
+    },
+  ];
+  const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+    marketWalletSlot: true,
+    proposalMarketData,
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settleUntil(window, () => (
+    byRole(root, 'proposal-recent-transactions')
+      ?.querySelectorAll('.ft-ownership-transaction-row').length === 4
+  ));
+
+  const recentTransactions = byRole(root, 'proposal-recent-transactions');
+  assert.deepEqual(
+    Array.from(recentTransactions.querySelectorAll('.ft-decision-transaction-trade'))
+      .map(element => element.textContent.trim().replace(/\s+/g, ' ')),
+    ['BUY PASS', 'SELL PASS', 'BUY FAIL', 'SELL FAIL'],
+  );
+  assert.equal(byRole(root, 'proposal-recent-volume').textContent, '$50.00');
+  assert.equal(byRole(root, 'proposal-recent-count').textContent, '4');
+  assert.match(
+    recentTransactions.querySelector('.ft-decision-transaction-summary').title,
+    /currently loaded/,
+  );
+
   cleanupMount(mounted);
 });
 
