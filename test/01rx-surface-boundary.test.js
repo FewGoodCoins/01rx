@@ -100,6 +100,28 @@ test('proposal recent transactions header aligns with the chart toolbar', () => 
   );
 });
 
+test('recent transaction rows use an open tape without divider lines', () => {
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transactions-columns,\s*\.ft-ownership-transaction-row \{\s*border-bottom: 0;\s*\}/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-transaction-size-heading button \{[\s\S]*?text-decoration: underline;/,
+  );
+});
+
+test('desktop market summary uses only identity and primary-price separators', () => {
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus \.ft-chart-market-header > \* \{\s*border-right: 0;\s*\}/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-focus \.ft-chart-market-identity,\s*\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-chart-market-metric-featured \{\s*border-right: 1px solid #343636;/,
+  );
+});
+
 test('token markets do not reserve a second empty header row', () => {
   assert.match(
     frameCss,

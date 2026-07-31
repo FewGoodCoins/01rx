@@ -336,6 +336,26 @@ function decisionTradeVolumeUsd(transaction) {
   return Number.isFinite(calculatedVolume) ? calculatedVolume : null;
 }
 
+function ownershipTradeVolumeUsd(transaction) {
+  const indexedVolume = nonNegativeNumber(transaction?.valueUsd);
+  if (Number.isFinite(indexedVolume)) return indexedVolume;
+
+  const price = nonNegativeNumber(transaction?.price);
+  const size = nonNegativeNumber(transaction?.size);
+  if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
+  const calculatedVolume = price * size;
+  return Number.isFinite(calculatedVolume) ? calculatedVolume : null;
+}
+
+function formatTransactionSizeUsd(value) {
+  if (!Number.isFinite(value) || value < 0) return '—';
+  if (value >= 1_000) return formatCompactMoney(value);
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: value < 1 ? 4 : 2,
+  })}`;
+}
+
 function formatTradeVolume(value) {
   if (!Number.isFinite(value) || value < 0) return '—';
   if (value >= 1_000) return formatCompactMoney(value);
@@ -1930,6 +1950,7 @@ export function mountFutardTerminal({
     },
     activityTab: 'balances',
     ownershipActivityTab: 'balances',
+    transactionSizeUnit: 'usd',
     bookTab: 'pass',
     recurring: {
       enabled: false,
@@ -5470,6 +5491,8 @@ export function mountFutardTerminal({
     if (isOwnershipWorkspace()) {
       const asset = ownershipTokenSnapshot();
       const transactions = asset.recentTransactions || [];
+      const showTransactionSizesInUsd = state.transactionSizeUnit === 'usd';
+      const sizeUnit = showTransactionSizesInUsd ? 'USD' : asset.ticker;
       renderOwnershipAccountActivity(asset, transactions);
       regions.positions.innerHTML = `
         <section
@@ -5481,9 +5504,19 @@ export function mountFutardTerminal({
             <strong>Recent transactions</strong>
             <span>${transactions.length}</span>
           </header>
-          <div class="ft-ownership-transactions-columns" aria-hidden="true">
+          <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
             <span>Price</span>
-            <span>Size</span>
+            <span class="ft-transaction-size-heading">
+              <span>Size</span>
+              <button
+                type="button"
+                data-ft-action="toggle-transaction-size-unit"
+                data-ft-role="transaction-size-unit"
+                data-ft-size-unit="${escapeHtml(state.transactionSizeUnit)}"
+                aria-label="Show transaction sizes in ${escapeHtml(showTransactionSizesInUsd ? asset.ticker : 'USD')}"
+                title="Show sizes in ${escapeHtml(showTransactionSizesInUsd ? asset.ticker : 'USD')}"
+              >${escapeHtml(sizeUnit)}</button>
+            </span>
             <span>Trader</span>
             <span>Age</span>
           </div>
@@ -5493,10 +5526,10 @@ export function mountFutardTerminal({
                 <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${Number.isFinite(transaction.price)
                   ? formatChartCurrency(transaction.price)
                   : '—'}</span>
-                <span>${Number.isFinite(transaction.size)
-                  ? formatTokenAmount(transaction.size, 4)
-                  : Number.isFinite(transaction.valueUsd)
-                    ? formatCompactMoney(transaction.valueUsd)
+                <span class="ft-ownership-transaction-size" data-ft-role="transaction-size">${showTransactionSizesInUsd
+                  ? formatTransactionSizeUsd(ownershipTradeVolumeUsd(transaction))
+                  : Number.isFinite(transaction.size)
+                    ? formatTokenAmount(transaction.size, 4)
                     : '—'}</span>
                 <span title="${escapeHtml(transaction.trader)}">${transaction.trader
                   ? escapeHtml(shortenAddress(transaction.trader, 3))
@@ -5533,6 +5566,8 @@ export function mountFutardTerminal({
     if (state.hostMode === 'token' && market) {
       const entry = state.marketDataByProposal.get(market.id);
       const transactions = entry?.data?.recentTrades || [];
+      const showTransactionSizesInUsd = state.transactionSizeUnit === 'usd';
+      const sizeUnit = showTransactionSizesInUsd ? 'USD' : market.ticker;
       const transactionVolumes = transactions
         .map(decisionTradeVolumeUsd)
         .filter(Number.isFinite);
@@ -5564,9 +5599,19 @@ export function mountFutardTerminal({
               </div>
             </dl>
           </header>
-          <div class="ft-ownership-transactions-columns" aria-hidden="true">
+          <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
             <span>Price</span>
-            <span>Size</span>
+            <span class="ft-transaction-size-heading">
+              <span>Size</span>
+              <button
+                type="button"
+                data-ft-action="toggle-transaction-size-unit"
+                data-ft-role="transaction-size-unit"
+                data-ft-size-unit="${escapeHtml(state.transactionSizeUnit)}"
+                aria-label="Show transaction sizes in ${escapeHtml(showTransactionSizesInUsd ? market.ticker : 'USD')}"
+                title="Show sizes in ${escapeHtml(showTransactionSizesInUsd ? market.ticker : 'USD')}"
+              >${escapeHtml(sizeUnit)}</button>
+            </span>
             <span>Trade</span>
             <span>Age</span>
           </div>
@@ -5580,10 +5625,10 @@ export function mountFutardTerminal({
                 title="Open transaction on Solscan"
               >
                 <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${formatChartPrice(transaction.price)}</span>
-                <span>${Number.isFinite(transaction.baseAmount)
-                  ? formatTokenAmount(transaction.baseAmount, 4)
-                  : Number.isFinite(transaction.volumeUsd)
-                    ? formatCompactMoney(transaction.volumeUsd)
+                <span class="ft-ownership-transaction-size" data-ft-role="transaction-size">${showTransactionSizesInUsd
+                  ? formatTransactionSizeUsd(decisionTradeVolumeUsd(transaction))
+                  : Number.isFinite(transaction.baseAmount)
+                    ? formatTokenAmount(transaction.baseAmount, 4)
                     : '—'}</span>
                 <span
                   class="ft-decision-transaction-trade"
@@ -7893,6 +7938,9 @@ export function mountFutardTerminal({
         state.ownershipActivityTab = tab;
         renderPositions();
       }
+    } else if (action === 'toggle-transaction-size-unit') {
+      state.transactionSizeUnit = state.transactionSizeUnit === 'usd' ? 'token' : 'usd';
+      renderPositions();
     } else if (action === 'select-book') {
       const book = target.dataset.ftBook;
       if (book === 'pass' || book === 'fail') {
