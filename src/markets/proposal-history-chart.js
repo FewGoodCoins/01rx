@@ -31,6 +31,7 @@ const CHART_INTERACTION_EVENTS = Object.freeze([
 ]);
 
 export const PROPOSAL_HISTORY_GUIDE_LINE_STYLE = LineStyle.SparseDotted;
+export const PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE = false;
 
 export const PROPOSAL_HISTORY_SERIES = Object.freeze([
   {
@@ -455,11 +456,7 @@ export function createProposalHistoryChart({
         precision,
         minMove,
       },
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 4,
-      crosshairMarkerBorderWidth: 1,
-      crosshairMarkerBorderColor: currentTheme.background,
-      crosshairMarkerBackgroundColor: color,
+      crosshairMarkerVisible: PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE,
       pointMarkersVisible: valueCount === 1,
       pointMarkersRadius: 4,
       lastValueVisible: Number.isFinite(finiteValue(
@@ -740,8 +737,6 @@ export function createProposalHistoryChart({
       for (const series of seriesByField.get(definition.field) || []) {
         series.applyOptions({
           color,
-          crosshairMarkerBorderColor: currentTheme.background,
-          crosshairMarkerBackgroundColor: color,
           priceLineColor: color,
         });
       }

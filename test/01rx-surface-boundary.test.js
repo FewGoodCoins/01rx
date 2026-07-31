@@ -3,6 +3,9 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const faviconAsset = fs.readFileSync(
+  new URL('../public/logos/01rx-favicon.png', import.meta.url),
+);
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
 const sharedTerminalCss = fs.readFileSync(
@@ -36,16 +39,19 @@ test('01RX exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('browser icon metadata uses only the cache-busted 01RX logo', () => {
+test('browser icon metadata uses only the compact cache-busted 01RX mark', () => {
   const iconLinks = [...indexSource.matchAll(
     /<link\b[^>]*rel="(?:icon|shortcut icon|apple-touch-icon)"[^>]*>/g,
   )].map(match => match[0]);
 
   assert.equal(iconLinks.length, 3);
   iconLinks.forEach((link) => {
-    assert.match(link, /href="\/logos\/01rx\.png\?v=8"/);
+    assert.match(link, /href="\/logos\/01rx-favicon\.png\?v=1"/);
     assert.doesNotMatch(link, /navgator|favicon\.ico/i);
   });
+  assert.equal(faviconAsset.subarray(1, 4).toString('ascii'), 'PNG');
+  assert.equal(faviconAsset.readUInt32BE(16), 512);
+  assert.equal(faviconAsset.readUInt32BE(20), 512);
 });
 
 test('01RX adds functional NAV, Growth, and chart expansion controls plus a disabled TradingView placeholder', () => {

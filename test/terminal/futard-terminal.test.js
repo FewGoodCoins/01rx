@@ -928,6 +928,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
 
 test('TradingView chart adapter splits null values and missing hours into honest segments', async () => {
   const {
+    PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE,
     PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
     PROPOSAL_HISTORY_SERIES,
     interpolateChartTimeCoordinate,
@@ -983,6 +984,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     PROPOSAL_HISTORY_SERIES.map(series => series.label),
     ['Price', 'Pass', 'Fail'],
   );
+  assert.equal(PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE, false);
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
   assert.deepEqual(
     proposalChartEndpoint(points, 'passPrice'),
