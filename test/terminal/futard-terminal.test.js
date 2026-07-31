@@ -936,6 +936,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     proposalChartEndpoint,
     proposalChartLiveEndpoints,
     proposalLaunchSeriesMarker,
+    normalizeProposalChartLivePoint,
     splitProposalChartSeries,
   } = await loadProposalChartModule();
   const points = [
@@ -1029,6 +1030,23 @@ test('TradingView chart adapter splits null values and missing hours into honest
       },
     ],
   );
+  assert.deepEqual(
+    normalizeProposalChartLivePoint({
+      timestamp: '2026-06-16T14:59:30.000Z',
+      underlyingPrice: 4.72,
+      passPrice: 4.81,
+      failPrice: 4.61,
+    }, Date.parse('2026-06-16T15:00:00.000Z') / 1_000),
+    {
+      time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+      values: {
+        underlyingPrice: 4.72,
+        passPrice: 4.81,
+        failPrice: 4.61,
+      },
+    },
+  );
+  assert.equal(normalizeProposalChartLivePoint({ timestamp: 'invalid' }), null);
   assert.deepEqual(
     proposalLaunchSeriesMarker({
       chartTimestamp: '2026-06-16T09:30:00.000Z',
@@ -1352,6 +1370,7 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   const { mountFutardTerminal } = await loadTerminalModule();
   let activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
   let marketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
+  const livePoints = [];
   const { requests, root, window } = makeWindow({
     activeMarketsResponder() {
       return { ok: true, data: activeMarkets };
@@ -1360,7 +1379,19 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
       return { ok: true, data: marketData };
     },
   });
-  const controller = mountFutardTerminal({ window, root });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    createProposalHistoryChart() {
+      return {
+        destroy() {},
+        updateLivePoint(point) {
+          livePoints.push(point);
+          return true;
+        },
+      };
+    },
+  });
   const mounted = trackMount(controller, window);
   await controller.ready;
   await settleUntil(window, () => (
@@ -1374,10 +1405,24 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   const marketDataRequestsBefore = requests.filter(url => (
     /view=market-data/.test(url)
   )).length;
+  assert.deepEqual(livePoints.at(-1), {
+    timestamp: ACTIVE_MARKETS.markets[0].source.asOf,
+    underlyingPrice: 0.1291,
+    passPrice: 0.1337,
+    failPrice: 0.1279,
+  });
+  assert.equal(
+    byRole(root, 'proposal-chart-header')
+      .querySelector('[data-ft-chart-header-metric="fail"] strong')
+      .textContent,
+    '$0.1279',
+  );
 
   activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
   activeMarkets.asOf = '2026-07-24T12:00:07.000Z';
   activeMarkets.slot = 355000007;
+  activeMarkets.markets[0].source.asOf = '2026-07-24T12:00:07.000Z';
+  activeMarkets.markets[0].source.slot = 355000007;
   activeMarkets.markets[0].spot.price = 0.1305;
   activeMarkets.markets[0].pass.price = 0.1555;
   activeMarkets.markets[0].fail.price = 0.1111;
@@ -1419,6 +1464,12 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
       .textContent,
     '$0.1111',
   );
+  assert.deepEqual(livePoints.at(-1), {
+    timestamp: '2026-07-24T12:00:07.000Z',
+    underlyingPrice: 0.1305,
+    passPrice: 0.1555,
+    failPrice: 0.1111,
+  });
   cleanupMount(mounted);
 });
 
