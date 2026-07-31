@@ -109,6 +109,18 @@ test('recent transaction rows use an open tape without divider lines', () => {
     frameCss,
     /\.ft-transaction-size-heading button \{[\s\S]*?text-decoration: underline;/,
   );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transaction-row > span\.ft-ownership-transaction-size \{\s*text-align: left;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transactions-list \{\s*scrollbar-width: none;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transactions-list::\-webkit-scrollbar \{\s*display: none;/,
+  );
 });
 
 test('desktop market summary uses only identity and primary-price separators', () => {
