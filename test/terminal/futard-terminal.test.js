@@ -1504,6 +1504,108 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   cleanupMount(mounted);
 });
 
+test('the implicit market landing opens the live decision market before revealing the workspace', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=solo&view=markets&tab=tokens',
+  });
+  window.document.documentElement.dataset.defaultMarketSelection =
+    'live-decision-if-available';
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'solo',
+  });
+  const mounted = trackMount(controller, window);
+
+  await controller.ready;
+  await settleUntil(window, () => (
+    controller.getState().token === 'loyal'
+    && controller.getState().selectedId === PROPOSAL_ID
+    && !root.hasAttribute('data-ft-transition')
+  ));
+
+  assert.deepEqual(
+    {
+      token: controller.getState().token,
+      workspaceTab: controller.getState().workspaceTab,
+      selectedId: controller.getState().selectedId,
+    },
+    {
+      token: 'loyal',
+      workspaceTab: 'decisions',
+      selectedId: PROPOSAL_ID,
+    },
+  );
+  assert.equal(
+    window.location.search,
+    `?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  );
+  assert.equal(
+    window.document.documentElement.dataset.defaultMarketSelection,
+    undefined,
+  );
+  assert.equal(root.hasAttribute('data-ft-transition'), false);
+
+  cleanupMount(mounted);
+});
+
+test('the implicit market landing stays on spot when there is no live decision market', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const priorProposalIndex = {
+    ...PROPOSAL_INDEX,
+    summary: {
+      ...PROPOSAL_INDEX.summary,
+      total: 2,
+      pending: 0,
+      tradable: 0,
+      filtered: 2,
+    },
+    pagination: {
+      ...PROPOSAL_INDEX.pagination,
+      returned: 2,
+      total: 2,
+    },
+    proposals: PROPOSAL_INDEX.proposals.filter(proposal => (
+      proposal.status === 'passed' || proposal.status === 'failed'
+    )),
+  };
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=solo&view=markets&tab=tokens',
+    activeMarkets: {
+      ...ACTIVE_MARKETS,
+      pendingProposalCount: 0,
+      markets: [],
+    },
+    proposalIndex: priorProposalIndex,
+  });
+  window.document.documentElement.dataset.defaultMarketSelection =
+    'live-decision-if-available';
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'solo',
+  });
+  const mounted = trackMount(controller, window);
+
+  await controller.ready;
+
+  assert.equal(controller.getState().token, 'solo');
+  assert.equal(controller.getState().workspaceTab, 'tokens');
+  assert.equal(
+    window.location.search,
+    '?token=solo&view=markets&tab=tokens',
+  );
+  assert.equal(
+    window.document.documentElement.dataset.defaultMarketSelection,
+    undefined,
+  );
+
+  cleanupMount(mounted);
+});
+
 test('token Markets places the live wallet control alongside the global 01RX brand', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const provider = {

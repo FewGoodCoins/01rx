@@ -11312,7 +11312,7 @@ function initLWChart() {
   function _makeLiveDot(id, color) {
     var dot = document.createElement('span');
     dot.id = id;
-    dot.style.cssText = 'position:absolute;left:0;top:0;width:7px;height:7px;margin-left:-3.5px;margin-top:-3.5px;pointer-events:none;display:none;z-index:1001;background:' + color + ';color:' + color + ';opacity:0;will-change:transform;animation:pulse-dot 3s ease-in-out infinite;';
+    dot.style.cssText = 'position:absolute;left:0;top:0;width:7px;height:7px;margin-left:-3.5px;margin-top:-3.5px;pointer-events:none;display:none;z-index:1001;background:' + color + ';color:' + color + ';opacity:0;will-change:transform;';
     dot.setAttribute('data-momentum', id === 'live-dot-nav' ? (_liveMomentum.nav || 'flat') : (_liveMomentum.price || 'flat'));
     return dot;
   }
@@ -11368,9 +11368,8 @@ function initLWChart() {
       color: color,
       channels: _chartColorChannels(color),
       start: performance.now(),
-      duration: 600,
-      maxR: 16,
-      rings: 2
+      duration: 900,
+      maxR: 14
     });
   }
 
@@ -11414,18 +11413,16 @@ function initLWChart() {
       alive.push(rp);
       var channels = rp.channels || _chartColorChannels(rp.color);
       var cr = channels[0], cg = channels[1], cb = channels[2];
-      for (var ri = 0; ri < rp.rings; ri++) {
-        var offset = ri * 0.15;
-        var rt = Math.max(0, Math.min(1, (t - offset) / (1 - offset)));
-        if (rt <= 0) continue;
-        var radius = 3.5 + rt * rp.maxR;
-        var alpha = 0.5 * (1 - rt) * (1 - rt);
-        ctx.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + alpha + ')';
-        ctx.lineWidth = 1.5 * (1 - rt * 0.5);
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // Keep the endpoint itself solid. One eased band expands away from it,
+      // then fully clears before the next interval instead of blinking the dot.
+      var easedT = 1 - Math.pow(1 - t, 3);
+      var radius = 4 + easedT * rp.maxR;
+      var alpha = 0.52 * Math.pow(1 - t, 2);
+      ctx.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + alpha + ')';
+      ctx.lineWidth = 1.8 - easedT * 0.7;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.stroke();
     }
     _ripples = alive;
     ctx.restore();

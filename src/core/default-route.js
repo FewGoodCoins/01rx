@@ -1,3 +1,5 @@
+export const DEFAULT_MARKET_SELECTION = 'live-decision-if-available';
+
 export function default01rxDestination(locationLike) {
   const pathname = String(locationLike?.pathname || '/')
     .replace(/\/index\.html$/, '/') || '/';
@@ -25,7 +27,17 @@ export function default01rxDestination(locationLike) {
 export function installDefault01rxRoute(browserWindow) {
   const destination = default01rxDestination(browserWindow.location);
   if (!destination) return false;
+  const initialParams = new URLSearchParams(browserWindow.location.search || '');
+  const hasExplicitMarketSelection = (
+    initialParams.has('token')
+    || initialParams.has('proposal')
+    || initialParams.has('tab')
+  );
   browserWindow.history.replaceState(null, '', destination);
   browserWindow.document.documentElement.dataset.workspace = 'markets';
+  if (!hasExplicitMarketSelection) {
+    browserWindow.document.documentElement.dataset.defaultMarketSelection =
+      DEFAULT_MARKET_SELECTION;
+  }
   return true;
 }

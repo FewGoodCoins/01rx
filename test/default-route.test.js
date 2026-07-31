@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  DEFAULT_MARKET_SELECTION,
   default01rxDestination,
   installDefault01rxRoute,
 } from '../src/core/default-route.js';
@@ -62,4 +63,26 @@ test('default route updates history without navigating away', () => {
     '/?token=solo&view=markets&tab=tokens#chart',
   ]]);
   assert.equal(runtime.document.documentElement.dataset.workspace, 'markets');
+  assert.equal(
+    runtime.document.documentElement.dataset.defaultMarketSelection,
+    DEFAULT_MARKET_SELECTION,
+  );
+});
+
+test('an explicit token route keeps its spot-market selection', () => {
+  const runtime = {
+    document: { documentElement: { dataset: {} } },
+    history: { replaceState() {} },
+    location: {
+      pathname: '/',
+      search: '?token=loyal',
+      hash: '',
+    },
+  };
+
+  assert.equal(installDefault01rxRoute(runtime), true);
+  assert.equal(
+    runtime.document.documentElement.dataset.defaultMarketSelection,
+    undefined,
+  );
 });

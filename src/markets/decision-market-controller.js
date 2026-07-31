@@ -1,5 +1,6 @@
 import { create01ResolvedClient } from '@01resolved/api-client';
 import base58Module from 'bs58';
+import { DEFAULT_MARKET_SELECTION } from '../core/default-route.js';
 // Shared by the homepage discovery and token-scoped Markets renderers.
 const THEME_STORAGE_KEY = 'navgator-terminal-theme';
 const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
@@ -1797,6 +1798,9 @@ export function mountFutardTerminal({
   const initialWorkspaceTab = hostMode === 'token' && initialParams.get('tab') === 'tokens'
     ? 'tokens'
     : 'decisions';
+  const preferInitialLiveDecision = hostMode === 'token'
+    && runtime.document.documentElement.dataset.defaultMarketSelection
+      === DEFAULT_MARKET_SELECTION;
   const requestedFilter = String(initialParams.get('filter') || '').toLowerCase();
   const initialFilter = requestedFilter === 'live'
     ? 'live'
@@ -1814,6 +1818,7 @@ export function mountFutardTerminal({
   const state = {
     hostMode,
     workspaceTab: initialWorkspaceTab,
+    preferInitialLiveDecision,
     tokenFilter: hostMode === 'token' ? initialToken : '',
     destroyed: false,
     requestId: 0,
@@ -7466,6 +7471,26 @@ export function mountFutardTerminal({
       || proposalSnapshot?.asOf
       || state.asOf
       || new Date().toISOString();
+    if (state.preferInitialLiveDecision) {
+      state.preferInitialLiveDecision = false;
+      delete runtime.document.documentElement.dataset.defaultMarketSelection;
+      const liveMarket = state.sidebarMarkets.find(market => (
+        market?.proposal?.statusGroup === 'live'
+        && Boolean(market.token)
+      ));
+      if (liveMarket) {
+        state.workspaceTab = 'decisions';
+        state.proposalFocus = true;
+        state.selectedId = liveMarket.id;
+        state.requestedProposalId = liveMarket.id;
+        const destination = tokenMarketsUrl(liveMarket.token, liveMarket.id);
+        runtime.history?.replaceState?.(null, '', destination);
+        syncCanonicalUrl(destination);
+        if (liveMarket.token !== state.tokenFilter) {
+          return setToken(liveMarket.token, { proposalId: liveMarket.id });
+        }
+      }
+    }
     if (
       state.requestedProposalId
       && !state.markets.some(market => market.id === state.requestedProposalId)
