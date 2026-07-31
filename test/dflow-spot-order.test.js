@@ -450,7 +450,10 @@ test('lookup-table loader validates owner, active state, and quote context', asy
           return response;
         },
       }, [{ accountKey: tableAddress }], { minContextSlot: 500_000_000 }),
-      error => error.code === 'DFLOW_LOOKUP_TABLE_UNAVAILABLE',
+      error => (
+        error.code === 'DFLOW_LOOKUP_TABLE_UNAVAILABLE'
+        && /^alt-/.test(error.diagnostic)
+      ),
     );
   }
 });

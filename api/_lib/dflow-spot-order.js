@@ -765,37 +765,49 @@ export async function loadAndValidateDflowLookupTables(
   { minContextSlot = 0 } = {},
 ) {
   return Promise.all(lookups.map(async (lookup) => {
-    try {
-      const response = await connection.getAccountInfoAndContext(lookup.accountKey, {
-        commitment: 'confirmed',
-        minContextSlot,
-      });
-      const account = response?.value;
-      if (
-        !account
-        || !Number.isSafeInteger(response.context?.slot)
-        || response.context.slot < minContextSlot
-        || !account.owner?.equals?.(AddressLookupTableProgram.programId)
-        || account.executable === true
-        || !Buffer.isBuffer(account.data)
-      ) {
-        throw new Error('lookup table account mismatch');
-      }
-      const table = new AddressLookupTableAccount({
-        key: lookup.accountKey,
-        state: AddressLookupTableAccount.deserialize(account.data),
-      });
-      if (!table.isActive()) throw new Error('lookup table is inactive');
-      return table;
-    } catch (cause) {
+    const unavailable = (diagnostic, cause) => {
       const error = tradingError(
         'A DFlow address lookup table is unavailable',
         'DFLOW_LOOKUP_TABLE_UNAVAILABLE',
         503,
       );
+      error.diagnostic = diagnostic;
       error.cause = cause;
-      throw error;
+      return error;
+    };
+    let response;
+    try {
+      response = await connection.getAccountInfoAndContext(lookup.accountKey, {
+        commitment: 'confirmed',
+        minContextSlot,
+      });
+    } catch (cause) {
+      throw unavailable('alt-rpc-read-failed', cause);
     }
+    const account = response?.value;
+    if (!account) throw unavailable('alt-account-missing');
+    if (
+      !Number.isSafeInteger(response.context?.slot)
+      || response.context.slot < minContextSlot
+    ) {
+      throw unavailable('alt-context-stale');
+    }
+    if (!account.owner?.equals?.(AddressLookupTableProgram.programId)) {
+      throw unavailable('alt-owner-mismatch');
+    }
+    if (account.executable === true) throw unavailable('alt-unexpected-executable');
+    if (!Buffer.isBuffer(account.data)) throw unavailable('alt-data-invalid');
+    let table;
+    try {
+      table = new AddressLookupTableAccount({
+        key: lookup.accountKey,
+        state: AddressLookupTableAccount.deserialize(account.data),
+      });
+    } catch (cause) {
+      throw unavailable('alt-data-invalid', cause);
+    }
+    if (!table.isActive()) throw unavailable('alt-inactive');
+    return table;
   }));
 }
 

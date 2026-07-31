@@ -70,6 +70,7 @@ function logServerError(logger, error, statusCode) {
   if (statusCode < 500 || typeof logger?.error !== 'function') return;
   const diagnostic = {
     code: safeErrorText(error?.code || 'INTERNAL_ERROR'),
+    diagnostic: safeErrorText(error?.diagnostic || error?.cause?.code || ''),
     message: safeErrorText(error?.message || 'Unknown server error'),
     name: safeErrorText(error?.name || 'Error'),
     statusCode,
