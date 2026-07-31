@@ -11046,6 +11046,18 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
   border-bottom: 0;
 }
 
+.ft-ownership-transaction-row > span.ft-ownership-transaction-size {
+  text-align: left;
+}
+
+.ft-ownership-transactions-list {
+  scrollbar-width: none;
+}
+
+.ft-ownership-transactions-list::-webkit-scrollbar {
+  display: none;
+}
+
 .ft-transaction-size-heading {
   display: inline-flex;
   min-width: 0;
