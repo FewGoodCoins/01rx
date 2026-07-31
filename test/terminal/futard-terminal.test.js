@@ -2304,6 +2304,9 @@ test('ownership market orders quote through DFlow and submit only after explicit
       };
     },
     solanaTradingOverrides: {
+      createMainnetConnection() {
+        return {};
+      },
       buildDflowSpotPlan(payload, walletAddress) {
         assert.equal(payload.owner, walletAddress);
         return {
@@ -2329,7 +2332,7 @@ test('ownership market orders quote through DFlow and submit only after explicit
       async transactionReviewFingerprint() {
         return fingerprint;
       },
-      async signReviewedPlan(_adapter, plan) {
+      async signReviewedPlan(_connection, _adapter, plan) {
         assert.equal(plan.reviewFingerprint, fingerprint);
         return { signedTransaction: 'wallet-signed-wire' };
       },

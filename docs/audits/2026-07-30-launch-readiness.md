@@ -9,7 +9,7 @@
 | Tree parity | Audited tree and target-baseline tree are identical |
 | Scope | All tracked 01RX code; NAVgator is an external integration |
 | Production activity | GET/HEAD and read-only public RPC only |
-| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, and H-04 enforced WAF rollout: 2026-07-31 |
+| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, H-04 enforced WAF rollout, and enabled-path Solana execution safety: 2026-07-31 |
 | Overall status | **HIGH-SEVERITY GATE CLEARED; RELEASE GATE OPEN** |
 
 ## Executive conclusion
@@ -22,7 +22,7 @@ approval, co-signature preservation, and fail-closed program-integrity checks
 for decision-market trading.
 
 The audit recorded five High findings. Post-audit remediation on 2026-07-31
-closed H-01 through H-05. The current full gate passes 504 tests and a
+closed H-01 through H-05. The current full gate passes 514 tests and a
 production build, and `npm audit` reports zero vulnerabilities. H-04 is closed:
 a distributed Vercel WAF fixed-window rule now enforces HTTP 429 on the exact
 trading route using IP and JA4 keys. A bounded method-only production smoke test
@@ -32,6 +32,14 @@ an unrelated public API route continued to return 200.
 The High-severity gate now has zero open Critical or High findings and no High
 is accepted. The full release gate remains open because Medium findings and
 their coverage, CI, deployment, and policy exit criteria are not yet complete.
+
+Enabled decision and ownership trading now independently validate code-owned
+ProgramData deployment slots and upgrade authorities before simulation and at
+the final submission boundary. A canonical LastRestartSlot check also runs
+before wallet approval and pauses execution for 1,500 slots after a cluster
+restart while leaving read-only market data available. Recurring creation
+remains disabled and cannot be considered launch-ready until its eventual
+program receives the same pin.
 
 The original audit changed documentation and gitignored evidence only.
 Post-audit runtime changes follow the ordered remediation plan below.
@@ -77,7 +85,7 @@ Local machine evidence is stored in `.context/audit/` and is intentionally
 gitignored. It contains reproducible commands and redacted summaries, not
 private environment data.
 
-The 2026-07-31 remediation gate runs 504 native Node tests. Coverage percentages
+The 2026-07-31 remediation gate runs 514 native Node tests. Coverage percentages
 remain the original audit measurements until the coverage evidence is rerun.
 
 ## Architecture and trust boundaries
@@ -128,7 +136,7 @@ wallet, browser-location, and chain response remains untrusted until validated.
 | Wallet address/account | Untrusted | Solana trading | Base58/PublicKey parse, mainnet account selection, fee-payer equality | Legacy provider capabilities are less uniform |
 | Wallet-returned signed bytes | Untrusted | Browser and trading API | Exact message comparison when `signTransaction` is available; signature verification server-side for DFlow submission | `signAndSendTransaction` cannot return bytes for independent comparison |
 | NAVgator market/token data | Untrusted network data | Browser/relay/trading registry | JSON shapes in typed client; code-owned ownership allowlist; status filters; launchpad labels rendered as DOM text | Remaining legacy presentation sinks require incremental inventory |
-| NAVgator program-integrity data | Untrusted attestation | Decision controller | Shape, count, status, and base58 checks | Browser does not compare IDs/slots/authorities with a code-owned inventory |
+| NAVgator program-integrity data | Untrusted attestation | Decision controller | Shape, count, status, and base58 checks; execution independently validates code-owned on-chain pins | It remains a presentation/readiness signal rather than the execution authority |
 | DFlow response | Untrusted vendor response | DFlow service | Status/type/size, Ed25519 proof, digest, request ID, timestamp, pinned public key, strict instruction/account/effect policy | Only reviewed direct route profiles are enabled; all other shapes fail closed |
 | DFlow API key | Server secret | DFlow service | Required in production/preview; never returned | Operational rotation and Vercel scope were not inspectable |
 | `NAVGATOR_API_ORIGIN` and RPC URL | Trusted deployment configuration | Relay/services | HTTPS origin validation for NAVgator; Connection construction for RPC | Missing NAVgator env falls back to a future product domain |
@@ -265,10 +273,11 @@ The decision flow is stronger at the instruction level:
 - `sendPlan` verifies the reviewed fingerprint and wallet-returned bytes before
   RPC submission when the wallet supports `signTransaction`.
 
-Residual gaps are the upstream-trusted program-integrity inventory (M-01), the
+Residual gaps are the unpinned future recurring program (M-01), the
 wallet-standard sign-and-send fallback (L-01), and incomplete negative/property
-coverage (M-05). Recurring orders were disabled and had no configured program ID
-at audit time; they must remain disabled until M-01 is fixed.
+coverage (M-05). Recurring order creation was disabled and had no configured
+program ID at audit time; it must remain disabled until a code-owned deployment
+pin and full execution policy are reviewed.
 
 ## Read-only mainnet verification
 
@@ -288,6 +297,15 @@ The production program-integrity endpoint reported Futarchy, Conditional Vault,
 Manifest Core, and Manifest Wrapper as verified against expected slots and
 authorities. It did not report DFlow. These checks validate account structure at
 one point in time; they do not make RPC or upstream attestations trusted.
+
+On 2026-07-31, the new code-owned validator was exercised through read-only
+public JSON-RPC methods at confirmed context slot `436435564`. It matched the
+pinned ProgramData address, deployment slot, and upgrade authority for MetaDAO
+Futarchy, Conditional Vault, Manifest Core, Manifest Wrapper, Meteora DLMM, and
+Meteora DAMM v2. The canonical `SysvarLastRestartS1ot...` account was owned by
+the sysvar program, contained exactly eight bytes, and reported restart slot
+`246464040`, outside the 1,500-slot cooldown. No order, simulation, signature,
+or transaction submission was performed.
 
 ## Test, dependency, secret, and build baseline
 
@@ -385,7 +403,7 @@ Finding status is explicit in the register. No High is accepted.
 | H-03 | High | Mutable third-party scripts execute on the trading origin | Browser/deployment | Frontend/platform owner | Closed 2026-07-31 | N/A |
 | H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Closed 2026-07-31 | N/A |
 | H-05 | High | Six inherited dependency findings have no formal expiring exception | Supply chain | Dependency owner | Closed 2026-07-31 | N/A |
-| M-01 | Medium | Program-integrity policy is upstream-defined and incomplete | Decision/recurring/DFlow | Execution security owner | Open | N/A |
+| M-01 | Medium | Program-integrity policy is incomplete for the future recurring program | Decision/recurring/DFlow | Execution security owner | Partially remediated 2026-07-31; recurring blocked | N/A |
 | M-02 | Medium | Relay has an unbounded response and overly broad path/cache policy | API relay | API owner | Open | N/A |
 | M-03 | Medium | Installed dependency tree is invalid and blocks an SBOM | Supply chain | Dependency owner | Open | N/A |
 | M-04 | Medium | Shipped third-party license obligations are unresolved | Supply chain/legal | Dependency owner | Open | N/A |
@@ -634,7 +652,7 @@ cover big- and little-endian conversions, invalid widths/signed values, and a
 chains deduped to the reviewed workspace package; `npm audit` reports zero
 vulnerabilities. H-05 is closed without a risk exception.
 
-### M-01 — Program-integrity policy is upstream-defined and incomplete
+### M-01 — Program-integrity policy is incomplete for the future recurring program
 
 **Evidence.** `normalizeProgramIntegrity` validates status, base58 shapes, a
 count of four, and “verified” flags, but does not compare returned identities,
@@ -652,6 +670,18 @@ derive ProgramData locally, compare observed slots/authorities, and fail closed
 on omissions, extras, and changes. Keep recurring disabled until its program,
 PDAs, instruction schema, keeper, and upgrade authority are pinned. Reclassify
 this finding High immediately if recurring is enabled first.
+
+**Remediation (2026-07-31).** Enabled execution no longer authorizes programs
+from the NAVgator integrity payload. 01RX code now pins MetaDAO Futarchy,
+Conditional Vault, Manifest Core, Manifest Wrapper, and both supported Meteora
+route programs by program ID, ProgramData address, deployment slot, and upgrade
+authority. It validates BPF Upgradeable Loader state from one confirmed minimum
+context before decision simulation/submission and DFlow review/submission. The
+same boundary validates canonical LastRestartSlot state and pauses trading for
+1,500 slots after a restart. Tests mutate every pinned field and prove safety
+failures occur before simulation, wallet signing, or broadcast. M-01 remains
+open only for the intentionally disabled, not-yet-deployed recurring program;
+adding an upstream program ID cannot satisfy this exit criterion.
 
 ### M-02 — Relay response, path, and cache policy are too broad
 
@@ -820,8 +850,9 @@ Do not enable recurring orders during Phase 0.
 
 ### Phase 1 — Execution and deployment hardening
 
-1. Replace upstream-defined program integrity with a complete code-owned
-   inventory, including DFlow and the disabled recurring program.
+1. Finish M-01 by adding the disabled recurring program only after its program,
+   ProgramData, authority, PDAs, instructions, and keeper are ready for review.
+   Enabled decision, DFlow, and Meteora execution pins are complete.
 2. Bound relay responses and classify current routes by method and cache
    sensitivity without changing their public paths.
 3. Add negative/property tests and reach 85% line/80% branch on critical backend

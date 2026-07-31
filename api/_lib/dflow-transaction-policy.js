@@ -14,6 +14,9 @@ import {
   unpackAccount,
   unpackMint,
 } from '@solana/spl-token';
+import {
+  loadAndValidateSolanaExecutionSafety,
+} from '../../src/core/solana-execution-safety.js';
 
 export const DFLOW_POLICY_PROGRAM_ID = 'DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH';
 export const DFLOW_PROGRAM_DATA_ADDRESS = 'HKHbVGGPJCbEkbY8Lg5kqdda3Mo8BJqUYaXqyPBaxy3m';
@@ -25,6 +28,24 @@ export const DFLOW_IDL_ACCOUNT_SHA256 = '65e64f66e376d328c6b69944e8db54b6cff055a
 export const DFLOW_IDL_JSON_SHA256 = 'bb414adbf6982afc505fe1045a33863e8af6a9dcddd72b91908d471731dd2eca';
 export const DFLOW_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 export const DFLOW_MAX_PRIORITY_FEE_LAMPORTS = 1_000_000;
+export const DFLOW_ROUTE_PROGRAM_POLICIES = Object.freeze([
+  Object.freeze({
+    key: 'meteora-dlmm',
+    label: 'Meteora DLMM',
+    programId: 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
+    programDataAddress: 'HZcJwcJ2njPDxZtpPoKnF8v2w9QAx2rS7TdJPSRkbEhu',
+    deploymentSlot: 423_977_638,
+    upgradeAuthority: 'JADaUV8kvDpDbJr55wxXJHVaBS3VCj8thZZHjfeuCVLd',
+  }),
+  Object.freeze({
+    key: 'meteora-damm-v2',
+    label: 'Meteora DAMM v2',
+    programId: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
+    programDataAddress: 'AUh8bm2XsMfex3KjYGcM3G4uBqUNSDw6HEhWaWMYnyPH',
+    deploymentSlot: 428_936_648,
+    upgradeAuthority: 'JADaUV8kvDpDbJr55wxXJHVaBS3VCj8thZZHjfeuCVLd',
+  }),
+]);
 
 const BPF_UPGRADEABLE_LOADER_ID = new PublicKey(
   'BPFLoaderUpgradeab1e11111111111111111111111',
@@ -32,6 +53,9 @@ const BPF_UPGRADEABLE_LOADER_ID = new PublicKey(
 const DFLOW_PROGRAM = new PublicKey(DFLOW_POLICY_PROGRAM_ID);
 const DFLOW_PROGRAM_DATA = new PublicKey(DFLOW_PROGRAM_DATA_ADDRESS);
 const DFLOW_IDL = new PublicKey(DFLOW_IDL_ADDRESS);
+const DFLOW_ROUTE_PROGRAM_BY_ID = new Map(
+  DFLOW_ROUTE_PROGRAM_POLICIES.map(policy => [policy.programId, policy]),
+);
 const DFLOW_EVENT_AUTHORITY = PublicKey.findProgramAddressSync(
   [Buffer.from('__event_authority')],
   DFLOW_PROGRAM,
@@ -259,6 +283,29 @@ export async function loadAndValidateDflowProgramIntegrity(connection, {
       programResponse.value[1],
     ],
     expected,
+  );
+}
+
+/**
+ * Enforces restart cooldown plus the code-owned ProgramData pin for the exact
+ * Meteora venue selected by the decoded DFlow route.
+ */
+export async function loadAndValidateDflowExecutionSafety(connection, {
+  minContextSlot = 0,
+  requiredProgram,
+} = {}) {
+  const policy = DFLOW_ROUTE_PROGRAM_BY_ID.get(String(requiredProgram || ''));
+  if (!policy) {
+    throw policyError(
+      'DFlow route program is outside the reviewed execution policy',
+      'INVALID_DFLOW_TRANSACTION',
+      502,
+    );
+  }
+  return loadAndValidateSolanaExecutionSafety(
+    connection,
+    [policy],
+    { minContextSlot },
   );
 }
 
