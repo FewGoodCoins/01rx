@@ -5501,7 +5501,7 @@ export function mountFutardTerminal({
           aria-label="Recent ${escapeHtml(asset.ticker)} transactions"
         >
           <header class="ft-ownership-transactions-header">
-            <strong>Recent transactions</strong>
+            <strong>Trades</strong>
             <span>${transactions.length}</span>
           </header>
           <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
@@ -5583,7 +5583,7 @@ export function mountFutardTerminal({
           aria-label="Recent ${escapeHtml(market.ticker)} proposal transactions"
         >
           <header class="ft-ownership-transactions-header">
-            <strong>Recent transactions</strong>
+            <strong>Trades</strong>
             <dl
               class="ft-decision-transaction-summary"
               aria-label="Recent loaded volume ${escapeHtml(recentVolumeLabel)} across ${transactions.length} transactions"
@@ -5655,7 +5655,6 @@ export function mountFutardTerminal({
               </div>
             `}
           </div>
-          <p class="ft-ownership-transactions-source">Public indexed proposal activity</p>
         </section>
       `;
       return;

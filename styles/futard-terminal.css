@@ -11085,6 +11085,27 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-metric-featured {
     border-right: 1px solid #343636;
   }
+
+  /* The chart owns the desktop track height. Stretch both adjacent columns to
+     that same track so their bottom borders terminate on one shared line. */
+  [data-ft-mode="token"].ft-proposal-focus .ft-activity-row,
+  [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column {
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-activity-row > .ft-ownership-transactions,
+  [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"],
+  [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"] > .ft-ticket {
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-activity-row > .ft-ownership-transactions {
+    max-height: none;
+  }
 }
 
 /* Keep decision execution reachable inside the fixed-height desktop terminal.

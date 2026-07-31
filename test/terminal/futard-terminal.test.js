@@ -1351,6 +1351,11 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   ));
 
   const recentTransactions = byRole(root, 'proposal-recent-transactions');
+  assert.equal(
+    recentTransactions.querySelector('.ft-ownership-transactions-header strong').textContent,
+    'Trades',
+  );
+  assert.equal(recentTransactions.querySelector('.ft-ownership-transactions-source'), null);
   assert.deepEqual(
     Array.from(recentTransactions.querySelectorAll('.ft-decision-transaction-trade'))
       .map(element => element.textContent.trim().replace(/\s+/g, ' ')),
@@ -2179,6 +2184,10 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
 
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
+  assert.equal(
+    recentTransactions.querySelector('.ft-ownership-transactions-header strong').textContent,
+    'Trades',
+  );
   const rows = recentTransactions.querySelectorAll('.ft-ownership-transaction-row');
   assert.equal(rows.length, 1);
   assert.match(rows[0].textContent, /\$0\.1291[\s\S]+\$161\.38/);
