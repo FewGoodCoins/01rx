@@ -9,7 +9,7 @@
 | Tree parity | Audited tree and target-baseline tree are identical |
 | Scope | All tracked 01RX code; NAVgator is an external integration |
 | Production activity | GET/HEAD and read-only public RPC only |
-| Runtime changes in this audit | None |
+| Runtime changes | Audit run: none; post-audit H-01 remediation: 2026-07-31 |
 | Overall status | **NOT AUDIT-READY** |
 
 ## Executive conclusion
@@ -21,28 +21,28 @@ short-lived review tokens, exact transaction fingerprints, explicit wallet
 approval, co-signature preservation, and fail-closed program-integrity checks
 for decision-market trading.
 
-Those controls do not yet close the launch threat model. Five open High findings
-remain:
+The audit recorded five High findings. Post-audit remediation on 2026-07-31
+implemented the H-01 code-owned DFlow instruction, program, account, and
+simulated-effect policy. H-01 remains at release verification pending until a
+sanitized authentic unsponsored `/order` fixture passes that policy. Four other
+High findings remain:
 
-1. A DFlow-signed transaction is not decoded far enough to prove that its
-   amounts, slippage, accounts, route, and compute-budget instructions match the
-   trade displayed to the user.
-2. API-provided launchpad metadata reaches `innerHTML` without escaping, creating
+1. API-provided launchpad metadata reaches `innerHTML` without escaping, creating
    a DOM-injection path on a wallet-enabled trading origin.
-3. Mutable third-party scripts execute on the trading origin without a CSP or
+2. Mutable third-party scripts execute on the trading origin without a CSP or
    integrity boundary.
-4. Trading abuse controls are stored in one serverless instance and do not
+3. Trading abuse controls are stored in one serverless instance and do not
    provide a distributed rate limit.
-5. Six inherited High dependency paths remain open without a named,
+4. Six inherited High dependency paths remain open without a named,
    time-bounded risk acceptance.
 
 The repository therefore does not meet the stated gate of “no unaccepted
 Critical or High finding.” No Critical finding was identified. The audit
-records 5 High, 9 Medium, and 2 Low findings. None of the High findings is
-accepted.
+recorded 5 High, 9 Medium, and 2 Low findings; the current ledger has 4 open
+High findings plus H-01 verification pending. No High is accepted.
 
-The audit itself changes documentation and gitignored evidence only. Sensitive
-execution changes should follow the ordered remediation plan below.
+The original audit changed documentation and gitignored evidence only.
+Post-audit runtime changes follow the ordered remediation plan below.
 
 ## Scope, method, and limitations
 
@@ -370,7 +370,7 @@ All findings are Open unless explicitly accepted. No High is accepted.
 
 | ID | Severity | Finding | Component | Owner | Status | Acceptance expiry |
 |---|---|---|---|---|---|---|
-| H-01 | High | DFlow transaction semantics are not fully bound to reviewed intent | Execution backend | Execution security owner | Open | N/A |
+| H-01 | High | DFlow transaction semantics are not fully bound to reviewed intent | Execution backend | Execution security owner | Remediated; release verification pending | N/A |
 | H-02 | High | Unescaped API metadata reaches a DOM HTML sink | Legacy browser UI | Frontend security owner | Open | N/A |
 | H-03 | High | Mutable third-party scripts execute on the trading origin | Browser/deployment | Frontend/platform owner | Open | N/A |
 | H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Open | N/A |
@@ -426,6 +426,56 @@ the authenticated quote fields.
    policy; pause and require review on change.
 7. Preserve the current endpoint, response envelope, review-token flow,
    simulation, expiry, and wallet approval.
+
+**Remediation (2026-07-31).** 01RX now pins the reviewed DFlow ProgramData
+address, deployment slot, upgrade authority, Anchor IDL account, IDL authority,
+and both raw and decoded IDL hashes. Execution pauses on any drift. A dedicated
+transaction-policy boundary fully decodes the supported `swap` and `swap2`
+action vectors with exact end-of-buffer validation; rejects destination-bearing,
+native, sponsored, multi-route, unknown, and fee-bearing variants; and binds the
+encoded input amount, quoted output, slippage, zero platform fee, venue profile,
+and per-leg output guard to the signed quote. Program, IDL, lookup-table, mint,
+account, simulation, and fee reads are required at or after the signed quote's
+context slot. ProgramData reads are limited to the 45-byte reviewed header.
+
+The policy also verifies the fixed DFlow account prefix and privileges, derives
+the wallet's classic-SPL input and output ATAs, independently checks both mint
+decimals and token-account mint/authority state, requires the reviewed market
+and executable venue program, requires active address-lookup tables owned by
+Solana's lookup-table program, and rejects any unreviewed executable program or
+extra writable token account controlled by the wallet as owner, delegate, or
+close authority. A missing destination ATA is allowed only when the decoded
+action vector contains its idempotent initializer. Compute unit
+limit, micro-lamport price, and total priority fee are decoded and checked
+against the signed response and code-owned caps. Both the unsigned review
+simulation and final signature-verifying simulation must prove an exact input
+debit, at least the reviewed minimum output at the derived wallet ATA, unchanged
+existing ATA rent, delegate, delegated-amount, and close-authority state, and an
+exact fee-payer SOL debit limited to the verified network fee plus bounded
+destination-ATA rent before broadcast. The
+existing endpoint and contracts, response proof, review token, expiry,
+exact-message comparison, wallet signature, and explicit submission flow remain
+unchanged.
+
+The public DFlow IDL does not name every venue-specific remaining account.
+01RX therefore treats the pinned action/program/market membership checks and
+independent token-state effects as a combined invariant, and rejects unsupported
+profiles instead of weakening validation. The guarded profile recognizes only
+the Meteora DAMM v2 action observed at slot `436244725` in public mainnet
+transaction
+`3HveUKp3NQaJTpeYbGrkg2UD1BNTXiHRph6GHwnqd3cADyzW4qLkqPtCSagsfdLkwEDJbCWGDk6w8vQuRUrv4dfx`;
+Manifest, Vault, MetaDAO, sponsored, and multihop action shapes remain disabled.
+Mutation tests cover instruction economics, discriminators/actions, compute
+budgets, account roles, program and IDL drift, stale RPC contexts, executable
+decoys, ATA initialization, token authority/control state, token and SOL effects,
+and no-broadcast failure paths.
+
+The public sample was sponsored and did not originate from a captured
+authenticated `/order` response, so it intentionally fails the owner-funded
+policy. Before H-01 closes or this path is treated as production-compatible, a
+sanitized signed unsponsored order fixture must prove the minimum-output
+rounding, sole fee payer, top-level instruction shape, executable account set,
+and exact simulated fee/rent delta. Any mismatch remains fail-closed.
 
 ### H-02 — Unescaped API metadata reaches a DOM HTML sink
 
@@ -693,13 +743,13 @@ data, or full query URLs.
 
 ### Phase 0 — Launch blockers
 
-| Order | Work | Exit criterion |
-|---:|---|---|
-| 1 | H-01 DFlow semantic decoder and program-integrity pin | Every encoded economic/account/compute field is bound to canonical intent; unknown versions fail closed |
-| 2 | H-02 DOM sink fix | Malicious metadata tests pass; no unescaped launchpad value reaches HTML/attribute/ID context |
-| 3 | H-03 remote-script and Supabase removal | Local watchlist retained; dormant auth/CDN loaders absent; Supabase owner action recorded |
-| 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks |
-| 5 | H-05 dependency resolution/acceptance | No scanner High, or one approved named and expiring exception with compensating controls |
+| Order | Work | Exit criterion | Status |
+|---:|---|---|---|
+| 1 | H-01 DFlow semantic decoder and program-integrity pin | Every encoded economic/account/compute field is bound to canonical intent; unknown versions fail closed | Implemented; signed-fixture verification pending |
+| 2 | H-02 DOM sink fix | Malicious metadata tests pass; no unescaped launchpad value reaches HTML/attribute/ID context | Open |
+| 3 | H-03 remote-script and Supabase removal | Local watchlist retained; dormant auth/CDN loaders absent; Supabase owner action recorded | Open |
+| 4 | H-04 distributed abuse controls | WAF rule observed in Log mode, tuned, enforced, and covered by deployment smoke checks | Open |
+| 5 | H-05 dependency resolution/acceptance | No scanner High, or one approved named and expiring exception with compensating controls | Open |
 
 Do not enable recurring orders during Phase 0.
 
