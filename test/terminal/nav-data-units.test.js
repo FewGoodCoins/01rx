@@ -4879,6 +4879,17 @@ test('live dot glow and canvas ripple accept the line gradient RGB colors', () =
   assert.equal(source.includes("dotEl.style.removeProperty('box-shadow');"), true);
 });
 
+test('current price endpoints stay solid while one band pulses outward', () => {
+  assert.equal(source.includes('animation:pulse-dot 3s ease-in-out infinite;'), false);
+  assert.equal(source.includes('duration: 900,'), true);
+  assert.equal(source.includes('maxR: 14'), true);
+  assert.equal(source.includes('rings: 2'), false);
+  assert.equal(source.includes('var easedT = 1 - Math.pow(1 - t, 3);'), true);
+  assert.equal(source.includes('var radius = 4 + easedT * rp.maxR;'), true);
+  assert.equal(source.includes('var alpha = 0.52 * Math.pow(1 - t, 2);'), true);
+  assert.equal(source.includes('for (var ri = 0; ri < rp.rings; ri++)'), false);
+});
+
 test('chart overlays and live dots resync every frame during wheel and drag gestures', () => {
   assert.equal(source.includes('var _liveDotSyncFrames = 0;'), true);
   const scheduleSync = extractFunction('_scheduleLiveDotSyncBurst');

@@ -123,6 +123,11 @@ export async function loadLegacyPage({ loadClassicScript }) {
   });
   installTokenWorkspaceMetadata(window, token, marketTab);
   await window.NAVGATOR.marketWorkspace.ready;
-  installTokenWorkspaceMetadata(window, token, marketTab);
+  const workspaceState = window.NAVGATOR.marketWorkspace.getState();
+  installTokenWorkspaceMetadata(
+    window,
+    workspaceState.token || token,
+    workspaceState.workspaceTab || marketTab,
+  );
   revealMarketWorkspace(document);
 }
