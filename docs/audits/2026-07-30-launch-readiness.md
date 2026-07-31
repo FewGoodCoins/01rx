@@ -409,12 +409,12 @@ Finding status is explicit in the register. No High is accepted.
 | H-05 | High | Six inherited dependency findings have no formal expiring exception | Supply chain | Dependency owner | Closed 2026-07-31 | N/A |
 | M-01 | Medium | Program-integrity policy is incomplete for the future recurring program | Decision/recurring/DFlow | Execution security owner | Partially remediated 2026-07-31; recurring blocked | N/A |
 | M-02 | Medium | Relay has an unbounded response and overly broad path/cache policy | API relay | API owner | Closed 2026-07-31 | N/A |
-| M-03 | Medium | Installed dependency tree is invalid and blocks an SBOM | Supply chain | Dependency owner | Open | N/A |
+| M-03 | Medium | Installed dependency tree is invalid and blocks an SBOM | Supply chain | Dependency owner | Closed 2026-07-31 | N/A |
 | M-04 | Medium | Shipped third-party license obligations are unresolved | Supply chain/legal | Dependency owner | Open | N/A |
 | M-05 | Medium | Critical execution coverage is below the release gate | Tests | Test owner | Open | N/A |
 | M-06 | Medium | Production domain, contract, degraded-state, and preview parity drift | Deployment | Release owner | Open | N/A |
 | M-07 | Medium | Browser security-header baseline is absent | Browser/deployment | Platform owner | Open | N/A |
-| M-08 | Medium | CI, lint/type checks, ownership, and security governance are absent | Repository | Engineering owner | Partially remediated 2026-07-31; CI active | N/A |
+| M-08 | Medium | CI, lint/type checks, ownership, and security governance are absent | Repository | Engineering owner | Partially remediated 2026-07-31; CI, dependency review, SBOM, secret scanning, ownership, and policy active | N/A |
 | M-09 | Medium | Monoliths and direct/global browser boundaries make safety review fragile | Browser architecture | Frontend owner | Open | N/A |
 | L-01 | Low | Sign-and-send wallet fallback cannot independently inspect returned bytes | Wallet integration | Wallet owner | Open | N/A |
 | L-02 | Low | Silent catches and limited structured telemetry reduce incident evidence | Observability | Platform owner | Open | N/A |
@@ -732,6 +732,17 @@ lockfile or produce the required CycloneDX SBOM.
 bundled packages with the SBOM; never “fix” the result by editing installed
 modules.
 
+**Remediation (2026-07-31).** The broad `rpc-websockets` and nested `jayson`
+overrides were replaced by a compatible direct WebSocket pin and a narrow UUID
+security floor; npm no longer marks their required children invalid. CI first runs
+the complete build and security gate with platform-native optional packages,
+then performs a clean script-free install of the portable required graph.
+`npm ls --all` must pass on that graph, and `npm sbom` produces a CycloneDX
+artifact retained with the workflow run for 90 days. Platform-specific optional
+native add-ons are deliberately excluded from the portable SBOM because their
+mutually exclusive platform and peer ranges are not one deployable graph.
+M-03 is closed.
+
 ### M-04 — Third-party license obligations are unresolved
 
 **Evidence.** The shipped graph includes LGPL-3.0-only `rpc-websockets`,
@@ -812,10 +823,15 @@ least-privilege Node 24 workflow with SHA-pinned official checkout/setup
 actions, credential persistence disabled, no repository secrets, a locked
 script-free install, all tests, the production build, `npm audit` at High, and
 registry signature/attestation verification. The exact clean-install workflow
-passed 522 tests, the production build, zero-vulnerability audit, 328 verified
-registry signatures, and 30 attestations. M-08 remains open for lint/format,
-staged `checkJs`, broader static and secret scanning, CODEOWNERS, security and
-contribution documents, and protected-branch configuration.
+passed 523 tests, the production build, zero-vulnerability audit, 328 verified
+registry signatures, and 30 attestations. A second SHA-pinned dependency-review
+job rejects newly introduced High/Critical findings, every release run retains
+a CycloneDX SBOM, and GitHub native full-history secret scanning and push
+protection are enabled. `CODEOWNERS`, `SECURITY.md`, private vulnerability
+reporting, `CONTRIBUTING.md`, and protected `main` review/check rules establish
+the repository ownership boundary. M-08 remains open for lint/format, staged
+`checkJs`, broader configured static analysis, and branch-protection validation
+from an independent contributor account.
 
 ### M-09 — Browser architecture makes safety review fragile
 
@@ -885,8 +901,9 @@ Do not enable recurring orders during Phase 0.
    2026-07-31 without changing public paths.
 3. Add negative/property tests and reach 85% line/80% branch on critical backend
    modules.
-4. Produce a clean-install SBOM, registry-verification artifact, and reviewed
-   license inventory.
+4. Clean-install dependency validation and retained SBOM — completed
+   2026-07-31. Registry verification runs in CI; the reviewed legal disposition
+   for M-04 remains open.
 5. Resolve domain/DNS/contract/degraded-state drift and establish current preview
    parity.
 6. Roll out security headers and CSP report-only, then enforce after inline and

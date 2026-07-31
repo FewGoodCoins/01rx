@@ -1,0 +1,9 @@
+# Default owner for every tracked change.
+* @FewGoodCoins
+
+# Execution, deployment, and wire-contract changes require explicit ownership.
+/api/ @FewGoodCoins
+/src/markets/ @FewGoodCoins
+/packages/contracts/ @FewGoodCoins
+/.github/workflows/ @FewGoodCoins
+/vercel.json @FewGoodCoins
