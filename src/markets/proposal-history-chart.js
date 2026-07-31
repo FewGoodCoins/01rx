@@ -242,6 +242,33 @@ export function proposalChartLiveEndpoints(points, interval = '1h') {
   }).filter(Boolean);
 }
 
+export function normalizeProposalChartLivePoint(point, latestTimestamp = null, now = Date.now()) {
+  const values = {};
+  let hasValue = false;
+  PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+    const value = finiteValue(point?.[definition.field]);
+    values[definition.field] = value;
+    if (Number.isFinite(value)) hasValue = true;
+  });
+  if (!hasValue) return null;
+
+  const observedTimestamp = unixTime(
+    point?.timestamp || point?.observedAt || point?.asOf,
+  );
+  const fallbackTimestamp = Math.floor(Number(now) / 1_000);
+  const timestamp = Number.isFinite(observedTimestamp)
+    ? observedTimestamp
+    : fallbackTimestamp;
+  if (!Number.isFinite(timestamp)) return null;
+
+  return {
+    time: Number.isFinite(latestTimestamp)
+      ? Math.max(latestTimestamp, timestamp)
+      : timestamp,
+    values,
+  };
+}
+
 export function interpolateChartTimeCoordinate(time, plottedTimes, coordinateForTime) {
   if (!Number.isFinite(time) || typeof coordinateForTime !== 'function') return null;
   const direct = coordinateForTime(time);
@@ -334,7 +361,7 @@ export function createProposalHistoryChart({
   let currentTheme = chartTheme(runtime, themeRoot, theme);
   const latest = latestValues(observations);
   const firstTimestamp = Math.floor(proposalChartPointTime(points[0]) / 1_000);
-  const lastTimestamp = Math.floor(
+  let lastTimestamp = Math.floor(
     proposalChartPointTime(points[points.length - 1]) / 1_000,
   );
   const plottedTimes = points.filter(point => PROPOSAL_HISTORY_SERIES.some(
@@ -514,20 +541,24 @@ export function createProposalHistoryChart({
       container.dataset.ftLaunchAnchorRenderer = 'series-marker';
     }
   }
-  if (isLive) {
-    proposalChartLiveEndpoints(points, history.interval)
-      .forEach(({ field, key, endpoint }) => {
-        const dot = runtime.document.createElement('span');
-        dot.className = `ft-proposal-live-dot ft-proposal-live-dot-${key}`;
-        dot.dataset.ftLiveEndpoint = key;
-        dot.setAttribute('aria-hidden', 'true');
-        container.appendChild(dot);
-        liveEndpointDots.set(field, {
-          element: dot,
-          endpoint,
-        });
-      });
+  function setLiveEndpoint(field, key, endpoint) {
+    if (!isLive || !endpoint) return;
+    let record = liveEndpointDots.get(field);
+    if (!record) {
+      const dot = runtime.document.createElement('span');
+      dot.className = `ft-proposal-live-dot ft-proposal-live-dot-${key}`;
+      dot.dataset.ftLiveEndpoint = key;
+      dot.setAttribute('aria-hidden', 'true');
+      container.appendChild(dot);
+      record = { element: dot, endpoint };
+      liveEndpointDots.set(field, record);
+    }
+    record.endpoint = endpoint;
   }
+  proposalChartLiveEndpoints(points, history.interval)
+    .forEach(({ field, key, endpoint }) => {
+      setLiveEndpoint(field, key, endpoint);
+    });
   const twapEndTimestamp = unixTime(windowEndedAt);
   const eventDefinitions = [
     {
@@ -758,6 +789,37 @@ export function createProposalHistoryChart({
     });
   }
 
+  function updateLivePoint(point) {
+    if (!isLive) return false;
+    const normalized = normalizeProposalChartLivePoint(point, lastTimestamp);
+    if (!normalized) return false;
+
+    PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+      const value = normalized.values[definition.field];
+      if (!Number.isFinite(value)) return;
+      const series = seriesByField.get(definition.field)?.[0];
+      series?.update?.({ time: normalized.time, value });
+      latest[definition.field] = value;
+      setLiveEndpoint(
+        definition.field,
+        definition.field === 'underlyingPrice'
+          ? 'price'
+          : definition.field === 'passPrice'
+            ? 'pass'
+            : 'fail',
+        { time: normalized.time, value },
+      );
+    });
+    lastTimestamp = normalized.time;
+    if (!plottedTimes.includes(normalized.time)) {
+      plottedTimes.push(normalized.time);
+      plottedTimes.sort((left, right) => left - right);
+    }
+    updateReadout(readout, lastTimestamp, latest);
+    scheduleEventPosition();
+    return true;
+  }
+
   const flushCrosshairReadout = () => {
     readoutFrame = null;
     const parameter = pendingCrosshair;
@@ -805,6 +867,7 @@ export function createProposalHistoryChart({
     resetView,
     setRange,
     setSeriesVisible,
+    updateLivePoint,
     zoomIn() {
       zoom(0.72);
     },

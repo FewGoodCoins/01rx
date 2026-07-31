@@ -2651,6 +2651,7 @@ export function mountFutardTerminal({
         showHourlyChartMountError(chartRoot);
         return;
       }
+      updateProposalChartLivePoint(market);
       chartRoot?.classList.remove('ft-hourly-chart-pending', 'ft-hourly-chart-failed');
       if (chartRoot) {
         chartRoot.dataset.ftChartState = 'ready';
@@ -2762,13 +2763,16 @@ export function mountFutardTerminal({
     const latest = Array.isArray(history?.series) && history.series.length
       ? history.series[history.series.length - 1]
       : {};
-    const price = firstNumber(
-      latest.underlyingPrice,
-      market.spot.price,
-      market.nav.spot,
-    );
-    const passPrice = firstNumber(latest.passPrice, market.pass.price);
-    const failPrice = firstNumber(latest.failPrice, market.fail.price);
+    const live = market.proposal.statusGroup === 'live';
+    const price = live
+      ? firstNumber(market.spot.price, market.nav.spot, latest.underlyingPrice)
+      : firstNumber(latest.underlyingPrice, market.spot.price, market.nav.spot);
+    const passPrice = live
+      ? firstNumber(market.pass.price, latest.passPrice)
+      : firstNumber(latest.passPrice, market.pass.price);
+    const failPrice = live
+      ? firstNumber(market.fail.price, latest.failPrice)
+      : firstNumber(latest.failPrice, market.fail.price);
     const displayStatus = proposalDisplayStatus(market.proposal);
     const result = market.proposal.statusGroup === 'passed'
       ? { label: 'Passed', tone: 'positive' }
@@ -3612,6 +3616,16 @@ export function mountFutardTerminal({
     `;
   }
 
+  function updateProposalChartLivePoint(market) {
+    if (!market || market.proposal.statusGroup !== 'live') return false;
+    return state.historyChart?.updateLivePoint?.({
+      timestamp: firstText(market.source?.asOf, market.marketAsOf, state.asOf),
+      underlyingPrice: firstNumber(market.spot.price, market.nav.spot),
+      passPrice: market.pass.price,
+      failPrice: market.fail.price,
+    }) === true;
+  }
+
   function renderLivePriceSurfaces(market, options = {}) {
     if (
       state.destroyed
@@ -3630,6 +3644,7 @@ export function mountFutardTerminal({
       );
       if (metric) metric.textContent = value;
     });
+    updateProposalChartLivePoint(market);
 
     if (options.renderBooks !== false) renderLiveMarketStage(market);
     renderTradeTicket();
