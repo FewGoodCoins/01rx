@@ -11,6 +11,7 @@ import {
   AccountLayout,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   MintLayout,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
@@ -30,6 +31,7 @@ const BPF_UPGRADEABLE_LOADER_ID = new PublicKey(
 );
 const COMPUTE_BUDGET_PROGRAM_ID = 'ComputeBudget111111111111111111111111111111';
 const METEORA_DAMM_V2_PROGRAM_ID = 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG';
+const METEORA_DLMM_PROGRAM_ID = 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo';
 const SWAP_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
 const SWAP2_DISCRIMINATOR = Buffer.from([65, 75, 63, 76, 235, 91, 91, 136]);
 const IDL_ACCOUNT_DISCRIMINATOR = Buffer.from('184662bf3a907b9e', 'hex');
@@ -67,6 +69,19 @@ function tradeAction({
   data.writeUInt8(tag, 0);
   data.writeBigUInt64LE(amount, 1);
   data.writeUInt8(flags, 9);
+  return data;
+}
+
+function dlmmTradeAction({
+  amount = 1_000_000n,
+  flags = 0x01,
+  numBinArrays = 1,
+} = {}) {
+  const data = Buffer.alloc(11);
+  data.writeUInt8(4, 0);
+  data.writeBigUInt64LE(amount, 1);
+  data.writeUInt8(numBinArrays, 9);
+  data.writeUInt8(flags, 10);
   return data;
 }
 
@@ -170,6 +185,39 @@ test('strict DFlow swap decoder binds the reviewed economics and route action', 
     ).tradeAction,
     'MeteoraDammV2Swap',
   );
+});
+
+test('strict DFlow swap decoder accepts only the observed direct Meteora DLMM profile', () => {
+  assert.deepEqual(
+    decodeAndValidateDflowSwap(
+      buildSwapData({
+        actions: [metadataAction(), dlmmTradeAction()],
+      }),
+      economicQuote({ route: [{ venue: 'Meteora DLMM' }] }),
+    ),
+    {
+      actionNames: ['RecordId', 'MeteoraDlmmSwap'],
+      initializesOutputAta: true,
+      requiredProgram: METEORA_DLMM_PROGRAM_ID,
+      tradeAction: 'MeteoraDlmmSwap',
+    },
+  );
+
+  for (const action of [
+    dlmmTradeAction({ amount: 999_999n }),
+    dlmmTradeAction({ flags: 0 }),
+    dlmmTradeAction({ flags: 0x80 }),
+    dlmmTradeAction({ numBinArrays: 0 }),
+    dlmmTradeAction({ numBinArrays: 2 }),
+  ]) {
+    assertPolicyRejection(
+      () => decodeAndValidateDflowSwap(
+        buildSwapData({ actions: [metadataAction(), action] }),
+        economicQuote({ route: [{ venue: 'Meteora DLMM' }] }),
+      ),
+      /economics/,
+    );
+  }
 });
 
 test('DFlow swap decoder rejects unknown and destination-bearing instructions', () => {
@@ -418,6 +466,67 @@ test('swap-account policy accepts the exact fixed accounts, wallet ATAs, mints, 
     result.instructionAddresses,
     fixture.keys.map(key => key.toBase58()),
   );
+
+  fixture.swapInstruction.accountKeyIndexes.push(3);
+  assert.equal(
+    validateDflowSwapAccounts(fixture).instructionAddresses.at(-1),
+    fixture.owner,
+  );
+});
+
+test('swap-account policy allows one read-only Token-2022 compatibility program only', () => {
+  const fixture = swapAccountFixture();
+  fixture.keys.push(TOKEN_2022_PROGRAM_ID);
+  fixture.swapInstruction.accountKeyIndexes.push(fixture.keys.length - 1);
+  const result = validateDflowSwapAccounts(fixture);
+  assert.ok(result.allowedExecutablePrograms.includes(TOKEN_2022_PROGRAM_ID.toBase58()));
+
+  for (const mutate of [
+    value => value.writableIndexes.add(value.keys.length - 1),
+    value => value.signerIndexes.add(value.keys.length - 1),
+    value => {
+      value.keys.push(TOKEN_2022_PROGRAM_ID);
+      value.swapInstruction.accountKeyIndexes.push(value.keys.length - 1);
+    },
+  ]) {
+    const invalid = swapAccountFixture();
+    invalid.keys.push(TOKEN_2022_PROGRAM_ID);
+    invalid.swapInstruction.accountKeyIndexes.push(invalid.keys.length - 1);
+    mutate(invalid);
+    assertPolicyRejection(
+      () => validateDflowSwapAccounts(invalid),
+      /Token-2022|ambiguous/,
+    );
+  }
+});
+
+test('swap-account policy allows one read-only instructions sysvar only', () => {
+  const fixture = swapAccountFixture();
+  const sysvarInstructions = new PublicKey(
+    'Sysvar1nstructions1111111111111111111111111',
+  );
+  fixture.keys.push(sysvarInstructions);
+  fixture.swapInstruction.accountKeyIndexes.push(fixture.keys.length - 1);
+  const result = validateDflowSwapAccounts(fixture);
+  assert.deepEqual(result.allowedVirtualAccounts, [sysvarInstructions.toBase58()]);
+
+  for (const mutate of [
+    value => value.writableIndexes.add(value.keys.length - 1),
+    value => value.signerIndexes.add(value.keys.length - 1),
+    value => {
+      value.keys.push(sysvarInstructions);
+      value.swapInstruction.accountKeyIndexes.push(value.keys.length - 1);
+    },
+  ]) {
+    const invalid = swapAccountFixture();
+    invalid.keys.push(sysvarInstructions);
+    invalid.swapInstruction.accountKeyIndexes.push(invalid.keys.length - 1);
+    mutate(invalid);
+    assertPolicyRejection(
+      () => validateDflowSwapAccounts(invalid),
+      /sysvar|ambiguous/,
+    );
+  }
 });
 
 test('swap-account policy rejects altered fixed, owner, ATA, mint, market, and venue accounts', () => {
@@ -1241,6 +1350,28 @@ test('trade account-state loader allows an uninitialized destination ATA before 
       outputControlState: null,
       outputTokenAccount: fixture.outputAddress,
     },
+  );
+});
+
+test('trade account-state loader allows only an explicitly reviewed virtual sysvar', async () => {
+  const fixture = tradeAccountStateFixture();
+  const sysvar = 'Sysvar1nstructions1111111111111111111111111';
+  fixture.swapAccounts = {
+    ...fixture.swapAccounts,
+    allowedVirtualAccounts: [sysvar],
+    instructionAddresses: [...fixture.swapAccounts.instructionAddresses, sysvar],
+    instructionIndexes: [...fixture.swapAccounts.instructionIndexes, 99],
+  };
+  fixture.accounts.set(sysvar, null);
+  assert.equal((await loadTradeAccountState(fixture)).contextSlot, 500_000_123);
+
+  fixture.swapAccounts = {
+    ...fixture.swapAccounts,
+    allowedVirtualAccounts: [],
+  };
+  await assertAccountStateRejection(
+    () => loadTradeAccountState(fixture),
+    { pattern: /unexpected uninitialized account/ },
   );
 });
 

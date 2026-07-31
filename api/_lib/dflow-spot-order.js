@@ -884,15 +884,6 @@ export async function validateDflowTransaction({
     );
   }
 
-  const lookupTables = await loadLookupTables(
-    connection,
-    message.addressTableLookups,
-    { minContextSlot: quote.contextSlot },
-  );
-  validateLookupProof(payload.addressLookupTables, transaction, lookupTables);
-  const accountKeys = message.getAccountKeys({
-    addressLookupTableAccounts: lookupTables,
-  });
   const swapInstruction = message.compiledInstructions.find(instruction => (
     staticKeys[instruction.programIdIndex] === DFLOW_PROGRAM_ID
   ));
@@ -902,6 +893,15 @@ export async function validateDflowTransaction({
     quote,
   });
   const swapPolicy = decodeAndValidateDflowSwap(swapInstruction.data, quote);
+  const lookupTables = await loadLookupTables(
+    connection,
+    message.addressTableLookups,
+    { minContextSlot: quote.contextSlot },
+  );
+  validateLookupProof(payload.addressLookupTables, transaction, lookupTables);
+  const accountKeys = message.getAccountKeys({
+    addressLookupTableAccounts: lookupTables,
+  });
   const swapAccounts = validateDflowSwapAccounts({
     accountKeys,
     message,
