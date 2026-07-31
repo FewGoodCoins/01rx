@@ -121,6 +121,18 @@ test('recent transaction rows use an open tape without divider lines', () => {
     frameCss,
     /\.ft-ownership-transactions-list::\-webkit-scrollbar \{\s*display: none;/,
   );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transactions-header strong \{\s*font-size: 12px;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transactions-columns \{\s*min-height: 36px;[\s\S]*?font-size: 9px;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transaction-row \{\s*min-height: 40px;[\s\S]*?font-size: 10px;/,
+  );
 });
 
 test('desktop market summary uses only identity and primary-price separators', () => {
@@ -201,14 +213,18 @@ test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the pl
   );
 });
 
-test('desktop spot trading stays within the viewport without document scrolling', () => {
+test('desktop spot ticket grows to expose every control without internal scrolling', () => {
   assert.match(
     frameCss,
-    /body\.is-token-markets:has\(\.ft-ownership-market\) \.app-shell\s*\{\s*height: calc\(100dvh - var\(--site-header-height\) - var\(--site-footer-height\)\) !important;/,
+    /\.ft-ownership-ticket\s*\{[\s\S]*?padding: 12px 14px 14px;[\s\S]*?overflow: visible;/,
   );
   assert.match(
-    frameCss,
-    /\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?grid-template-rows:\s*auto\s*minmax\(0, 1fr\)\s*clamp\(180px, 24dvh, 224px\);/,
+    sharedTerminalCss,
+    /:has\(\[data-ft-mode="token"\]\.ft-proposal-focus\) \.app-content\s*\{\s*overflow-y: auto !important;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus \.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: max\(\s*580px,[\s\S]*?overflow: visible;/,
   );
 });
 
