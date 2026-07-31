@@ -1,6 +1,5 @@
 import '../styles/styles.css';
 import { installBrowserApi } from './core/api-client.js';
-import { installBrowserAuth } from './core/auth.js';
 import { installDefault01rxRoute } from './core/default-route.js';
 import { installBrowserEmbed } from './core/embed.js';
 import { installBrowserMarketNavigation } from './core/market-navigation.js';
@@ -9,7 +8,6 @@ import {
   markMarketWorkspacePending,
 } from './core/market-boot.js';
 import { bootPageApplication, createPageEntryLoader } from './core/page-entry.js';
-import { installBrowserTelemetry } from './core/telemetry.js';
 import projectMetadata from './generated/project-metadata.js';
 import { installBrowserShell } from './shell/index.js';
 import appCoreUrl from './legacy/app-core.js?url';
@@ -43,8 +41,6 @@ window.NAVGATOR = window.NAVGATOR || {};
 window.NAVGATOR.projectMetadata = projectMetadata;
 window.NAVGATOR.marketNavigation = marketNavigation;
 installBrowserApi(window);
-installBrowserAuth(window);
-installBrowserTelemetry(window);
 installBrowserShell(window);
 installBrowserEmbed(window);
 const loadPageEntry = createPageEntryLoader();

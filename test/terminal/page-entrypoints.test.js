@@ -168,6 +168,7 @@ test('token runtime installs models, controller, and the actions bridge together
   const bridge = installBrowserTokenPage(runtime);
 
   assert.equal(runtime.NAVGATOR.token.chartData, bridge.chartData);
+  assert.equal(runtime.NAVGATOR.token.launchpadSections, bridge.launchpadSections);
   assert.equal(runtime.NAVGATOR.token.navModel, bridge.navModel);
   assert.equal(runtime.NAVGATOR.token.proposalModel, bridge.proposalModel);
   assert.equal(runtime.NAVGATOR.tokenController, bridge.tokenController);

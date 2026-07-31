@@ -501,25 +501,26 @@ async function renderTokenLeftPanel(priceMap) {
 
   var launchpadList = document.getElementById('tlp-launchpad-list');
   if (launchpadList) {
-    var byLaunchpad = {};
+    var byLaunchpad = new Map();
     liveTokens.forEach(function(e) {
-      var lp = e[1].launchpad || 'Other';
-      if (!byLaunchpad[lp]) byLaunchpad[lp] = [];
-      byLaunchpad[lp].push(e);
+      var launchpadSections = window.NAVGATOR.token.launchpadSections;
+      var lp = launchpadSections.normalizeLaunchpadLabel(e[1].launchpad);
+      if (!byLaunchpad.has(lp)) byLaunchpad.set(lp, []);
+      byLaunchpad.get(lp).push(e);
     });
-    var lpHtml = '';
-    var arrowSvg = '';
-    Object.keys(byLaunchpad).forEach(function(lp) {
-      var lpKey = lp.toLowerCase().replace(/\s+/g, '-');
-      lpHtml += '<button class="tp-section-label tp-lp-sublabel" data-lp="' + lpKey + '" onclick="toggleSectionArrow(this)" type="button" aria-expanded="true">'
-        + '<span class="tp-lp-name">' + _lpIcon(lp, 11, 'var(--green)') + ' ' + lp + '</span>'
-        + '<span class="tp-section-arrow">' + arrowSvg + '</span>'
-        + '</button>';
-      lpHtml += '<div class="tp-section-body" id="lp-tokens-' + lpKey + '">';
-      lpHtml += byLaunchpad[lp].sort(function(a, b) { return a[1].ticker.localeCompare(b[1].ticker); }).map(function(e) { return makeItem(e[0], e[1], priceMap[e[0]]); }).join('');
-      lpHtml += '</div>';
+    window.NAVGATOR.token.launchpadSections.renderLaunchpadSections({
+      document: document,
+      groups: Array.from(byLaunchpad.entries()),
+      logoSrc: _launchpadLogoSrc,
+      onToggle: toggleSectionArrow,
+      renderItems: function(entries) {
+        return entries
+          .sort(function(a, b) { return a[1].ticker.localeCompare(b[1].ticker); })
+          .map(function(e) { return makeItem(e[0], e[1], priceMap[e[0]]); })
+          .join('');
+      },
+      root: launchpadList
     });
-    launchpadList.innerHTML = lpHtml;
   }
 
   // New launches section — most recent first by launchDate
@@ -612,9 +613,9 @@ async function renderTokenLeftPanel(priceMap) {
 
   setTimeout(function() {
     // Mark active launchpad group
-    var activeLp = CFG ? (CFG.launchpad || '').toLowerCase().replace(/\s+/g, '-') : null;
+    var activeLp = CFG ? window.NAVGATOR.token.launchpadSections.normalizeLaunchpadLabel(CFG.launchpad) : null;
     document.querySelectorAll('.tp-lp-sublabel').forEach(function(el) {
-      el.classList.toggle('tp-lp-active', el.dataset.lp === activeLp);
+      el.classList.toggle('tp-lp-active', el.dataset.launchpad === activeLp);
     });
   }, 50);
 }
@@ -24491,12 +24492,12 @@ window.addEventListener('popstate', function() {
     var bar = document.getElementById('sec-header');
     if (!bar || !cfg) return;
     var tags = [];
-    tags.push('<span class="sec-tag sec-name">' + (cfg.ticker || '') + '</span>');
-    tags.push('<span class="sec-tag sec-pair">' + (cfg.pair || '') + '</span>');
-    if (cfg.launchpad) tags.push('<span class="sec-tag">' + _lpIcon(cfg.launchpad, 10) + ' ' + cfg.launchpad + '</span>');
+    tags.push('<span class="sec-tag sec-name">' + _esc(cfg.ticker || '') + '</span>');
+    tags.push('<span class="sec-tag sec-pair">' + _esc(cfg.pair || '') + '</span>');
+    if (cfg.launchpad) tags.push('<span class="sec-tag">' + _lpIcon(cfg.launchpad, 10) + ' ' + _esc(cfg.launchpad) + '</span>');
     tags.push('<span class="sec-tag">Futarchy</span>');
     tags.push('<span class="sec-tag">Solana</span>');
-    if (cfg.tldr) tags.push('<span class="sec-tag" style="color:#FFB000">' + cfg.tldr + '</span>');
+    if (cfg.tldr) tags.push('<span class="sec-tag" style="color:#FFB000">' + _esc(cfg.tldr) + '</span>');
     bar.innerHTML = tags.join('');
   };
 })();

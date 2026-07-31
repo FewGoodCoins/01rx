@@ -134,9 +134,9 @@ body {
 .stat-tip::after, .stat-tip[data-tip]::after,
 .beta-warn-tip::after, .price-check-badge::after,
 #stale-tooltip, .tm-tooltip { border-radius: 6px !important; }
-/* Exceptions — search, command palette, auth */
-.tp-search, .cmd-item, .auth-modal { border-radius: 6px !important; }
-.cmd-kbd, .auth-btn, .auth-input { border-radius: 4px !important; }
+/* Exceptions — search and command palette */
+.tp-search, .cmd-item { border-radius: 6px !important; }
+.cmd-kbd { border-radius: 4px !important; }
 /* Exceptions — pill badges */
 .lp-badge { border-radius: 20px !important; }
 /* Exceptions — progress bars, scrollbar thumbs */
@@ -166,7 +166,7 @@ a, button, [role="button"], .tp-item, .cmd-item, .re-card,
 .nav-link, .cbtn, .layer-btn, .chart-pill-btn, .chart-fs-btn,
 .lp-filter-btn, .rp-link-btn, .rp-action-btn, .tc-toggle-btn,
 .addr-copy, .refresh-btn, .wl-star, .tx-filter-btn,
-.tp-search, .auth-input, .cmd-input,
+.tp-search, .cmd-input,
 .tp-section-arrow, .chg-rotate-frame,
 .view-toggle-btn, .treemap-size-btn {
   transition: color 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
@@ -199,7 +199,7 @@ a, button, [role="button"], .tp-item, .cmd-item, .re-card,
 /* Bloomberg: all fonts monospace */
 .nav-link, .lp-filter-btn, .rp-link-btn, .dp-key, .hero-sub, .tt-name, .tt-ticker,
 .nav-breadcrumb, .rp-stat-label, .dp-sec-label, .dp-group-label, .footer,
-.hs-label, .cmd-input, .auth-btn, .auth-input, .tp-section-label, .rp-contract-label {
+.hs-label, .cmd-input, .tp-section-label, .rp-contract-label {
   font-family: 'JetBrains Mono', monospace !important;
 }
 /* Bloomberg: amber labels */

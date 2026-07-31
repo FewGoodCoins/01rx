@@ -49,48 +49,6 @@ function legacyReorder(list, visibleKeys) {
   return next;
 }
 
-function legacyMerge(localKeys, remoteKeys) {
-  const next = localKeys.slice();
-  remoteKeys.forEach((key) => {
-    if (!next.includes(key)) next.push(key);
-  });
-  return next;
-}
-
-function createRemoteClient(remoteRows = []) {
-  const calls = [];
-  return {
-    calls,
-    from(table) {
-      calls.push(['from', table]);
-      return {
-        delete() {
-          calls.push(['delete']);
-          return {
-            eq(field, value) {
-              calls.push(['eq', field, value]);
-              return Promise.resolve({ data: null });
-            },
-          };
-        },
-        insert(rows) {
-          calls.push(['insert', rows]);
-          return Promise.resolve({ data: rows });
-        },
-        select(columns) {
-          calls.push(['select', columns]);
-          return {
-            order(column) {
-              calls.push(['order', column]);
-              return Promise.resolve({ data: remoteRows });
-            },
-          };
-        },
-      };
-    },
-  };
-}
-
 test('watchlist state preserves legacy normalization, add/remove order, and deferred restore position', async () => {
   const storage = createStorage({
     navgator_watchlist: JSON.stringify([' METAdao ', 'solo', 'meta', 'bad token', 'FUTARIO']),
@@ -144,56 +102,6 @@ test('watchlist reorder exactly preserves visible DOM order then hidden saved en
   );
 });
 
-test('watchlist remote merge keeps local order and appends normalized remote-only tokens', async () => {
-  const local = ['solo', 'meta'];
-  const storage = createStorage({ navgator_watchlist: JSON.stringify(local) });
-  const watchlist = await createController({ storage });
-  const client = createRemoteClient([
-    { token_key: 'METAdao', position: 0 },
-    { token_key: 'super', position: 1 },
-    { token_key: 'FUTARIO', position: 2 },
-    { token_key: 'super', position: 3 },
-  ]);
-
-  const merged = await watchlist.mergeRemote(client);
-  const normalizedRemote = ['meta', 'super', 'futardio'];
-  assert.deepEqual(merged, legacyMerge(local, normalizedRemote));
-  assert.deepEqual(client.calls, [
-    ['from', 'user_watchlists'],
-    ['select', 'token_key, position'],
-    ['order', 'position'],
-  ]);
-  assert.equal(storage.getItem('navgator_watchlist'), JSON.stringify(merged));
-});
-
-test('watchlist remote sync preserves delete-then-positioned-insert contract', async () => {
-  const watchlist = await createController({
-    storage: createStorage({ navgator_watchlist: JSON.stringify(['super', 'solo']) }),
-  });
-  const client = createRemoteClient();
-
-  await watchlist.syncRemote(client, { id: 'user-1' });
-  assert.deepEqual(client.calls, [
-    ['from', 'user_watchlists'],
-    ['delete'],
-    ['eq', 'user_id', 'user-1'],
-    ['from', 'user_watchlists'],
-    ['insert', [
-      { user_id: 'user-1', token_key: 'super', position: 0 },
-      { user_id: 'user-1', token_key: 'solo', position: 1 },
-    ]],
-  ]);
-
-  watchlist.replace([]);
-  const emptyClient = createRemoteClient();
-  await watchlist.syncRemote(emptyClient, { id: 'user-1' });
-  assert.deepEqual(emptyClient.calls, [
-    ['from', 'user_watchlists'],
-    ['delete'],
-    ['eq', 'user_id', 'user-1'],
-  ]);
-});
-
 test('watchlist storage failures fall back safely while preserving in-memory ordering', async () => {
   const errors = [];
   const readFailure = await createController({
@@ -217,6 +125,13 @@ test('watchlist storage failures fall back safely while preserving in-memory ord
   const corrupt = await createController({ storage: corruptStorage });
   assert.deepEqual(corrupt.get(), []);
   assert.deepEqual(corrupt.toggle('solo').items, ['solo']);
+});
+
+test('watchlist controller is local-only and exposes no remote persistence surface', async () => {
+  const watchlist = await createController({ storage: createStorage() });
+  assert.equal('mergeRemote' in watchlist, false);
+  assert.equal('syncRemote' in watchlist, false);
+  assert.deepEqual(watchlist.add('solo').items, ['solo']);
 });
 
 test('public legacy watchlist facades delegate all storage ownership to the shell', () => {

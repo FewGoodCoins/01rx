@@ -19,9 +19,7 @@
   },
   "dependencies": {
     "@01resolved/api-client": "file:packages/api-client",
-    "@01resolved/auth": "file:packages/auth",
     "@01resolved/contracts": "file:packages/contracts",
-    "@01resolved/telemetry": "file:packages/telemetry",
     "@01resolved/ui": "file:packages/ui",
     "@cks-systems/manifest-sdk": "0.2.38",
     "@coral-xyz/anchor": "0.29.0",
