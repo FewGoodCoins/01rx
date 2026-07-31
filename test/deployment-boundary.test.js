@@ -33,7 +33,10 @@ test('production keeps NAV data relayed and trading credentials server-only in 0
     envExample,
     /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION|VITE_ZERO_ONE_RESOLVED/,
   );
-  assert.ok(Array.isArray(vercel.headers));
+  assert.equal(
+    (vercel.headers || []).some(rule => rule.source === '/api/:path*'),
+    false,
+  );
   assert.deepEqual(vercel.rewrites[0], {
     source: '/api/:relayPath*',
     destination: '/api/relay?relayPath=:relayPath',
@@ -52,4 +55,31 @@ test('browser trading code cannot call DFlow or read server credentials directly
   assert.match(browserSources, /trading\.spotOrder/);
   assert.match(browserSources, /trading\.spotSubmit/);
   assert.match(browserSources, /trading\.decisionAttest/);
+});
+
+test('pull requests run a least-privilege Node 24 release gate', () => {
+  const workflow = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+  assert.match(workflow, /^\s*pull_request:\s*$/m);
+  assert.doesNotMatch(workflow, /pull_request_target|secrets\./);
+  assert.match(workflow, /permissions:\s*\n\s+contents: read/);
+  assert.match(workflow, /runs-on: ubuntu-24\.04/);
+  assert.match(workflow, /node-version: 24/);
+  assert.match(
+    workflow,
+    /actions\/checkout@[a-f0-9]{40}\s+# v6\.0\.2/,
+  );
+  assert.match(
+    workflow,
+    /actions\/setup-node@[a-f0-9]{40}\s+# v6\.3\.0/,
+  );
+  assert.match(workflow, /persist-credentials: false/);
+  assert.match(workflow, /package-manager-cache: false/);
+  assert.match(workflow, /npm ci --ignore-scripts --no-audit --fund=false/);
+  assert.match(workflow, /npm run check:ci/);
+  assert.equal(
+    packageJson.scripts['check:supply-chain'],
+    'npm audit --audit-level=high && npm audit signatures',
+  );
 });

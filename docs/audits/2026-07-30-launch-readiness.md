@@ -9,7 +9,7 @@
 | Tree parity | Audited tree and target-baseline tree are identical |
 | Scope | All tracked 01RX code; NAVgator is an external integration |
 | Production activity | GET/HEAD and read-only public RPC only |
-| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, H-04 enforced WAF rollout, and enabled-path Solana execution safety: 2026-07-31 |
+| Runtime changes | Audit run: none; post-audit H-01/H-02/H-03/H-05 remediation, Vercel Git reconnection, H-04 enforced WAF rollout, enabled-path Solana execution safety, M-02 relay hardening, and the first M-08 CI gate: 2026-07-31 |
 | Overall status | **HIGH-SEVERITY GATE CLEARED; RELEASE GATE OPEN** |
 
 ## Executive conclusion
@@ -22,7 +22,7 @@ approval, co-signature preservation, and fail-closed program-integrity checks
 for decision-market trading.
 
 The audit recorded five High findings. Post-audit remediation on 2026-07-31
-closed H-01 through H-05. The current full gate passes 514 tests and a
+closed H-01 through H-05. The current full gate passes 522 tests and a
 production build, and `npm audit` reports zero vulnerabilities. H-04 is closed:
 a distributed Vercel WAF fixed-window rule now enforces HTTP 429 on the exact
 trading route using IP and JA4 keys. A bounded method-only production smoke test
@@ -31,7 +31,8 @@ an unrelated public API route continued to return 200.
 
 The High-severity gate now has zero open Critical or High findings and no High
 is accepted. The full release gate remains open because Medium findings and
-their coverage, CI, deployment, and policy exit criteria are not yet complete.
+their coverage, static-analysis, governance, deployment, and policy exit
+criteria are not yet complete.
 
 Enabled decision and ownership trading now independently validate code-owned
 ProgramData deployment slots and upgrade authorities before simulation and at
@@ -85,7 +86,7 @@ Local machine evidence is stored in `.context/audit/` and is intentionally
 gitignored. It contains reproducible commands and redacted summaries, not
 private environment data.
 
-The 2026-07-31 remediation gate runs 514 native Node tests. Coverage percentages
+The 2026-07-31 remediation gate runs 522 native Node tests. Coverage percentages
 remain the original audit measurements until the coverage evidence is rerun.
 
 ## Architecture and trust boundaries
@@ -195,16 +196,16 @@ Tracked serverless paths:
 
 | Control | NAVgator relay | Trading endpoint |
 |---|---|---|
-| Methods | GET, HEAD, POST, OPTIONS; rejects others | POST, OPTIONS; rejects others |
-| Query validation | Requires `/api/` path; otherwise forwards query | Only `view`; rejects unknown keys and unknown operations |
+| Methods | Route-specific GET/HEAD or POST; OPTIONS is handled locally; rejects others | POST, OPTIONS; rejects others |
+| Query validation | Code-owned path and futarchy-view allowlist; other reviewed-route query values remain upstream-validated | Only `view`; rejects unknown keys and unknown operations |
 | Body validation | 2 MiB request bound; body is opaque to relay | 128 KiB; JSON object; service-specific strict schemas |
 | SSRF | Server origin must be an HTTPS origin with no credentials/path/query/fragment | DFlow URL selected from code-owned allowlist; registry origin has same HTTPS restrictions |
 | Request headers | Only `Accept` and `Content-Type`; replaces User-Agent | Does not forward browser auth/cookies to DFlow |
-| Redirects | `redirect: manual` | DFlow `redirect: manual` |
+| Redirects | `redirect: manual`; every 3xx is rejected | DFlow `redirect: manual` |
 | Timeout | 25 seconds | DFlow 12 seconds; registry 5 seconds; RPC calls depend on client/provider |
-| Response limit | **Missing for general relay** | 64 KiB DFlow; 128 KiB registry; 1,232-byte transaction |
+| Response limit | Declared and streamed bounds: 4 MiB private, 8 MiB public, 16 MiB chart/history | 64 KiB DFlow; 128 KiB registry; 1,232-byte transaction |
 | Replay | Read relay has normal cache/retry semantics; POST is opaque | Review token is short-lived and exact-message bound; duplicate Solana bytes retain one signature |
-| Cache | Upstream cache header is forwarded, overriding one uniform policy | `private, no-store` |
+| Cache | Upstream cache is ignored; explicit live/history/config TTLs; private, degraded, and error responses are no-store | `private, no-store` |
 | Error disclosure | Generic relay error | Expected 4xx messages; redacted bounded 5xx diagnostics |
 | Log redaction | No request logging in handler | API-key query and query-bearing URL redaction; 500-char limits |
 | IP source | Not used | Trusts Vercel-forwarded/real-IP headers at application layer |
@@ -215,13 +216,16 @@ Positive conclusions:
 - No user-controlled outbound origin was found, so no direct SSRF path was
   identified.
 - Browser cookies and authorization headers are stripped by the relay.
-- Redirect following is disabled.
+- Redirect following is disabled and redirect responses are rejected.
+- Unknown upstream paths and futarchy views are denied before fetch.
+- Oversized declared or streamed responses are aborted and fail closed.
 - Trading query/body schemas reject unknown fields, which reduces ambiguous
   contract behavior.
 - Private execution responses are marked `private, no-store`.
 
-Open API concerns are recorded as M-02 and M-06. H-04 was closed after the
-distributed rule was enforced and verified on 2026-07-31.
+M-02 was closed by the code-owned relay policy on 2026-07-31. M-06 remains
+open. H-04 was closed after the distributed rule was enforced and verified on
+2026-07-31.
 
 ## Execution-flow assessment
 
@@ -404,13 +408,13 @@ Finding status is explicit in the register. No High is accepted.
 | H-04 | High | Per-instance rate limiting is ineffective as a serverless abuse boundary | Trading API | Platform owner | Closed 2026-07-31 | N/A |
 | H-05 | High | Six inherited dependency findings have no formal expiring exception | Supply chain | Dependency owner | Closed 2026-07-31 | N/A |
 | M-01 | Medium | Program-integrity policy is incomplete for the future recurring program | Decision/recurring/DFlow | Execution security owner | Partially remediated 2026-07-31; recurring blocked | N/A |
-| M-02 | Medium | Relay has an unbounded response and overly broad path/cache policy | API relay | API owner | Open | N/A |
+| M-02 | Medium | Relay has an unbounded response and overly broad path/cache policy | API relay | API owner | Closed 2026-07-31 | N/A |
 | M-03 | Medium | Installed dependency tree is invalid and blocks an SBOM | Supply chain | Dependency owner | Open | N/A |
 | M-04 | Medium | Shipped third-party license obligations are unresolved | Supply chain/legal | Dependency owner | Open | N/A |
 | M-05 | Medium | Critical execution coverage is below the release gate | Tests | Test owner | Open | N/A |
 | M-06 | Medium | Production domain, contract, degraded-state, and preview parity drift | Deployment | Release owner | Open | N/A |
 | M-07 | Medium | Browser security-header baseline is absent | Browser/deployment | Platform owner | Open | N/A |
-| M-08 | Medium | CI, lint/type checks, ownership, and security governance are absent | Repository | Engineering owner | Open | N/A |
+| M-08 | Medium | CI, lint/type checks, ownership, and security governance are absent | Repository | Engineering owner | Partially remediated 2026-07-31; CI active | N/A |
 | M-09 | Medium | Monoliths and direct/global browser boundaries make safety review fragile | Browser architecture | Frontend owner | Open | N/A |
 | L-01 | Low | Sign-and-send wallet fallback cannot independently inspect returned bytes | Wallet integration | Wallet owner | Open | N/A |
 | L-02 | Low | Silent catches and limited structured telemetry reduce incident evidence | Observability | Platform owner | Open | N/A |
@@ -685,7 +689,7 @@ adding an upstream program ID cannot satisfy this exit criterion.
 
 ### M-02 — Relay response, path, and cache policy are too broad
 
-**Evidence.** The relay bounds requests but buffers
+**Original evidence.** The relay bounds requests but buffers
 `await upstream.arrayBuffer()` without a response limit. It forwards any
 `/api/*` path and copies upstream `Cache-Control`, so future upstream routes and
 cache policy become browser-visible automatically.
@@ -699,6 +703,20 @@ and maintain a reviewed route/method/cache classification. Preserve current
 paths, but default unknown routes to deny until explicitly classified. Force
 private/no-store on POST and execution-shaped responses; allow explicit public
 TTL/stale policies only for reviewed market-data routes.
+
+**Remediation (2026-07-31).** `relay-policy.js` now records every shipped
+browser/research path, its allowed method, response ceiling, and one of the
+explicit live/history/config/private cache classes. Unknown paths and futarchy
+views return 404 before an upstream fetch; method mismatches return a
+route-specific 405. The relay rejects 3xx responses, enforces Content-Length and
+streamed-body limits, cancels overflow reads, maps timeouts to 504, ignores
+upstream cache directives, strips ETags from private/error responses, and makes
+degraded and failed reads no-store. The uniform Vercel `/api/*` cache override
+was removed so these reviewed classifications take effect. Negative tests cover
+unknown paths/views, method mismatches, redirects, timeout, oversized request
+and response bodies, streamed overflow, cache poisoning, degraded reads, and
+HEAD behavior. Focused coverage is 97.64% line/81.08% branch for the policy and
+92.31% line/81.10% branch for the relay handler. M-02 is closed.
 
 ### M-03 — Installed dependency tree blocks reproducible SBOM evidence
 
@@ -774,9 +792,9 @@ strict referrer policy, least-privilege Permissions-Policy, HSTS on final
 domains, and explicit CORS/cache rules. Add COOP/COEP only after wallet and
 embed compatibility tests.
 
-### M-08 — Automated repository governance is absent
+### M-08 — Repository automation and governance are incomplete
 
-**Evidence.** No PR CI, ESLint project config, formatting check, staged
+**Original evidence.** No PR CI, ESLint project config, formatting check, staged
 `checkJs`, dependency review, secret-scanning workflow, CODEOWNERS,
 `SECURITY.md`, or `CONTRIBUTING.md` is tracked.
 
@@ -788,6 +806,16 @@ format-check, staged `checkJs`, audit policy, registry verification, SBOM,
 secret scan, and targeted static rules. Add CODEOWNERS for execution/contracts,
 a private vulnerability process, contribution/release guidance, and protected
 branch required checks.
+
+**Remediation (2026-07-31).** Pull requests and pushes to `main` now run a
+least-privilege Node 24 workflow with SHA-pinned official checkout/setup
+actions, credential persistence disabled, no repository secrets, a locked
+script-free install, all tests, the production build, `npm audit` at High, and
+registry signature/attestation verification. The exact clean-install workflow
+passed 522 tests, the production build, zero-vulnerability audit, 328 verified
+registry signatures, and 30 attestations. M-08 remains open for lint/format,
+staged `checkJs`, broader static and secret scanning, CODEOWNERS, security and
+contribution documents, and protected-branch configuration.
 
 ### M-09 — Browser architecture makes safety review fragile
 
@@ -853,8 +881,8 @@ Do not enable recurring orders during Phase 0.
 1. Finish M-01 by adding the disabled recurring program only after its program,
    ProgramData, authority, PDAs, instructions, and keeper are ready for review.
    Enabled decision, DFlow, and Meteora execution pins are complete.
-2. Bound relay responses and classify current routes by method and cache
-   sensitivity without changing their public paths.
+2. M-02 relay response bounds and method/cache classification — completed
+   2026-07-31 without changing public paths.
 3. Add negative/property tests and reach 85% line/80% branch on critical backend
    modules.
 4. Produce a clean-install SBOM, registry-verification artifact, and reviewed
