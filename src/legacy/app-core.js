@@ -78,6 +78,12 @@ function _fmtSidebarPct(v) {
   if (abs >= 10) return abs.toFixed(1);
   return abs.toFixed(2);
 }
+
+function _fmtSignedSidebarPct(v) {
+  if (v === undefined || v === null || !isFinite(v)) return '—';
+  var sign = v > 0 ? '+' : v < 0 ? '-' : '';
+  return sign + _fmtSidebarPct(v);
+}
 setInterval(_renderBackendHealth, 60000);
 
 // ═══════════════════════════════════════════════════════════════════════

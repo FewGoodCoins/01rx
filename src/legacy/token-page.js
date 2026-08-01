@@ -401,7 +401,7 @@ async function renderTokenLeftPanel(priceMap) {
     }
     value = Number(value);
     return '<div class="tt-change tp-token-secondary" data-metric="' + metricKey + '"><span class="' + (value >= 0 ? 'up' : 'down') + '">' +
-      (value >= 0 ? '+' : '') + _fmtSidebarPct(value) + '%</span></div>';
+      _fmtSignedSidebarPct(value) + '%</span></div>';
   }
 
   var _dragHandleSvg = '<span class="wl-drag-handle"><svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor"><circle cx="1" cy="1" r="1"/><circle cx="5" cy="1" r="1"/><circle cx="1" cy="5" r="1"/><circle cx="5" cy="5" r="1"/><circle cx="1" cy="9" r="1"/><circle cx="5" cy="9" r="1"/></svg></span>';
@@ -430,7 +430,7 @@ async function renderTokenLeftPanel(priceMap) {
       if (v === undefined || v === null) return '<span class="neutral">—</span>';
       // Treat sub-0.01% movement as flat ("stable" — typically zero-volume tokens)
       if (Math.abs(v) < 0.01) return '<span class="neutral">- 0.00%</span>';
-      return '<span class="' + (v >= 0 ? 'up' : 'down') + '">' + (v >= 0 ? '+' : '') + _fmtSidebarPct(v) + '%</span>';
+      return '<span class="' + (v >= 0 ? 'up' : 'down') + '">' + _fmtSignedSidebarPct(v) + '%</span>';
     }
     var chg24 = entry && entry.change24h;
     var isNewLaunch = tok.launchDate && (Date.now() - new Date(tok.launchDate).getTime()) < 24 * 60 * 60 * 1000;
@@ -453,7 +453,7 @@ async function renderTokenLeftPanel(priceMap) {
     } else if (isNewLaunch) {
       chg24Html = '<div class="rainbow-new" style="font-size:12px;font-weight:800;letter-spacing:1.5px">NEW</div>';
     } else {
-      chg24Html = chg24 !== undefined && chg24 !== null && isFinite(chg24) ? (Math.abs(chg24) < 0.01 ? '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span style="color:var(--dim)"><span style="display:inline-block;width:10px;text-align:center">—</span> 0.00%</span></div>' : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (chg24 >= 0 ? 'up' : 'down') + '"><span style="display:inline-block;width:10px;text-align:center">' + (chg24 >= 0 ? '▲' : '▼') + '</span> ' + _fmtSidebarPct(chg24) + '%</span></div>') : '<div class="tt-change" style="font-size:12px"><span class="tt-skel tt-skel-sm"></span></div>';
+      chg24Html = chg24 !== undefined && chg24 !== null && isFinite(chg24) ? (Math.abs(chg24) < 0.01 ? '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span style="color:var(--dim)"><span style="display:inline-block;width:10px;text-align:center">—</span> 0.00%</span></div>' : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (chg24 >= 0 ? 'up' : 'down') + '"><span style="display:inline-block;width:10px;text-align:center">' + (chg24 >= 0 ? '▲' : '▼') + '</span> ' + _fmtSignedSidebarPct(chg24) + '%</span></div>') : '<div class="tt-change" style="font-size:12px"><span class="tt-skel tt-skel-sm"></span></div>';
     }
     if (isMarketWorkspace && !_isLiquidated && !_pendingLiq) {
       chg24Html = renderSecondaryMetric(entry);

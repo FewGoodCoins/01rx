@@ -1241,6 +1241,10 @@ test('proposal-first terminal renders validated market state and a safe trade in
   for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Result']) {
     assert.match(chartHeader.textContent, new RegExp(label));
   }
+  assert.equal(
+    chartHeader.querySelector('[data-ft-chart-header-metric="threshold"] strong').textContent,
+    '+1.5%',
+  );
   assert.doesNotMatch(chartHeader.textContent, /Liquidity/);
   assert.match(
     chartHeader.querySelector('[data-ft-chart-header-metric="price"] strong').textContent,
@@ -1958,7 +1962,7 @@ test('market sidebar keeps live decisions above tokens and renders past proposal
     '#tlp-decisions-list .tp-decision-item',
   );
   assert.ok(liveDecision.querySelector('.tp-decision-live-dot'));
-  assert.match(liveDecision.textContent, /Live[\s\S]+1\.50%/);
+  assert.match(liveDecision.textContent, /Live[\s\S]+\+1\.5%/);
   assert.doesNotMatch(liveDecision.textContent, /Awaiting/);
   assert.match(
     window.document.getElementById('tlp-decisions-list').textContent,
