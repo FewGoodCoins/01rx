@@ -679,11 +679,11 @@ export function createProposalHistoryChart({
             },
             relativeGradient: false,
             topLineColor: color,
-            topFillColor1: 'rgba(66, 216, 155, 0.22)',
-            topFillColor2: 'rgba(66, 216, 155, 0.02)',
+            topFillColor1: 'rgba(66, 216, 155, 0)',
+            topFillColor2: 'rgba(66, 216, 155, 0)',
             bottomLineColor: negativeColor,
-            bottomFillColor1: 'rgba(255, 111, 125, 0.02)',
-            bottomFillColor2: 'rgba(255, 111, 125, 0.22)',
+            bottomFillColor1: 'rgba(255, 111, 125, 0)',
+            bottomFillColor2: 'rgba(255, 111, 125, 0)',
           }
         : {
             color,
