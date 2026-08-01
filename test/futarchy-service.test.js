@@ -162,6 +162,7 @@ test('proposal history aggregates official 15-minute chart observations', async 
   assert.equal(result.series[0].timestamp, '2026-07-31T21:00:00.000Z');
   assert.deepEqual(result.summary.coverage, {
     underlying: 1,
+    underlyingTwap: 0,
     pass: 1,
     fail: 1,
     passTwap: 0,
@@ -217,11 +218,13 @@ test('proposal history fills missing post-open TWAPs from exact on-chain events'
       return [{
         timestamp: '2026-07-31T21:00:00.000Z',
         observedAt: '2026-07-31T21:14:00.000Z',
+        underlyingTwap: 1.01,
         passTwap: 1.04,
         failTwap: 0.96,
       }, {
         timestamp: '2026-07-31T21:15:00.000Z',
         observedAt: '2026-07-31T21:29:00.000Z',
+        underlyingTwap: 1.02,
         passTwap: 1.05,
         failTwap: 0.95,
       }];
@@ -232,10 +235,15 @@ test('proposal history fills missing post-open TWAPs from exact on-chain events'
   assert.equal(backfillCalls.length, 1);
   assert.equal(backfillCalls[0].daoAddress, DAO);
   assert.equal(backfillCalls[0].rpcUrl.includes('server-secret'), true);
-  assert.deepEqual(result.series.map(row => [row.passTwap, row.failTwap]), [
-    [1.04, 0.96],
-    [1.05, 0.95],
+  assert.deepEqual(result.series.map(row => [
+    row.underlyingTwap,
+    row.passTwap,
+    row.failTwap,
+  ]), [
+    [1.01, 1.04, 0.96],
+    [1.02, 1.05, 0.95],
   ]);
+  assert.equal(result.summary.coverage.underlyingTwap, 2);
   assert.equal(result.summary.coverage.passTwap, 2);
   assert.equal(result.source.provider, '01Resolved');
   assert.equal(result.source.twapProvider, 'Solana Futarchy SpotSwapEvent history');

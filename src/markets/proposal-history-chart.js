@@ -55,16 +55,6 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     priceLineVisible: true,
   },
   {
-    field: 'passTwap',
-    label: 'Pass TWAP',
-    colorVariable: '--ft-positive',
-    fallbackColor: '#42d89b',
-    lineStyle: LineStyle.Dashed,
-    lineWidth: 1,
-    liveEndpoint: null,
-    priceLineVisible: false,
-  },
-  {
     field: 'failPrice',
     label: 'Fail',
     colorVariable: '--ft-negative',
@@ -73,6 +63,26 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     lineWidth: 2,
     liveEndpoint: 'fail',
     priceLineVisible: true,
+  },
+  {
+    field: 'underlyingTwap',
+    label: 'General TWAP',
+    colorVariable: '--ft-ink-strong',
+    fallbackColor: '#f4f6f8',
+    lineStyle: LineStyle.Dashed,
+    lineWidth: 1,
+    liveEndpoint: null,
+    priceLineVisible: false,
+  },
+  {
+    field: 'passTwap',
+    label: 'Pass TWAP',
+    colorVariable: '--ft-positive',
+    fallbackColor: '#42d89b',
+    lineStyle: LineStyle.Dashed,
+    lineWidth: 1,
+    liveEndpoint: null,
+    priceLineVisible: false,
   },
   {
     field: 'failTwap',
@@ -867,7 +877,7 @@ export function createProposalHistoryChart({
       const value = normalized.values[definition.field];
       if (!Number.isFinite(value)) return;
       if (
-        (definition.field === 'passTwap' || definition.field === 'failTwap')
+        definition.field.endsWith('Twap')
         && Number.isFinite(twapStartTimestamp)
         && normalized.time < twapStartTimestamp
       ) return;

@@ -57,6 +57,7 @@ export function proposalLaunchAnchor(history, options = {}) {
     observedAt: timestamp,
     chartTimestamp: timestamp,
     underlyingPrice: price,
+    underlyingTwap: null,
     passPrice: price,
     failPrice: price,
     passTwap: null,
@@ -78,7 +79,11 @@ export function proposalHistoryChartObservations(history) {
       ...(Number.isFinite(time)
         ? { chartTimestamp: new Date(time).toISOString() }
         : {}),
-      ...(beforeTwap ? { passTwap: null, failTwap: null } : {}),
+      ...(beforeTwap ? {
+        underlyingTwap: null,
+        passTwap: null,
+        failTwap: null,
+      } : {}),
     };
   });
 }

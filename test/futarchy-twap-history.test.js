@@ -36,6 +36,7 @@ test('spot-swap events produce distinct PASS and FAIL protocol TWAP observations
       postAmmState: {
         state: {
           futarchy: {
+            spot: { oracle: oracle(30_000_000_000_000n, 1_500_000_000_000n) },
             pass: { oracle: oracle(20_000_000_000_000n, 2_000_000_000_000n) },
             fail: { oracle: oracle(40_000_000_000_000n, 1_000_000_000_000n) },
           },
@@ -49,6 +50,7 @@ test('spot-swap events produce distinct PASS and FAIL protocol TWAP observations
     baseDecimals: 6,
     quoteDecimals: 6,
   });
+  assert.ok(Math.abs(snapshot.underlyingTwap - 1.5) < 1e-12);
   assert.ok(Math.abs(snapshot.passTwap - 1.333333333333) < 1e-12);
   assert.ok(Math.abs(snapshot.failTwap - 1.666666666666) < 1e-12);
   assert.equal(twapSnapshotFromEvent(event, {

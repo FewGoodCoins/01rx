@@ -74,6 +74,7 @@ function normalizePriceChartRows(payload) {
       return {
         observedMs,
         underlyingPrice: finitePrice(row.spotPrice),
+        underlyingTwap: finitePrice(row.underlyingTwap ?? row.spotTwap),
         passPrice: finitePrice(row.approvedPrice),
         failPrice: finitePrice(row.rejectedPrice),
         passTwap: finitePrice(row.approvedTwap),
@@ -97,6 +98,7 @@ function normalizeOrderRows(payload) {
       return {
         observedMs,
         underlyingPrice: null,
+        underlyingTwap: null,
         passPrice: market === 'pass' ? price : null,
         failPrice: market === 'fail' ? price : null,
         passTwap: null,
@@ -119,6 +121,7 @@ function aggregateRows(rows, interval) {
       bucketMs,
       lastObservedMs: row.observedMs,
       underlyingPrice: null,
+      underlyingTwap: null,
       passPrice: null,
       failPrice: null,
       passTwap: null,
@@ -129,6 +132,7 @@ function aggregateRows(rows, interval) {
     current.sampleCount += 1;
     for (const field of [
       'underlyingPrice',
+      'underlyingTwap',
       'passPrice',
       'failPrice',
       'passTwap',
@@ -145,6 +149,7 @@ function aggregateRows(rows, interval) {
       timestamp: new Date(row.bucketMs).toISOString(),
       observedAt: new Date(row.lastObservedMs).toISOString(),
       underlyingPrice: row.underlyingPrice,
+      underlyingTwap: row.underlyingTwap,
       passPrice: row.passPrice,
       failPrice: row.failPrice,
       passTwap: row.passTwap,
@@ -153,6 +158,7 @@ function aggregateRows(rows, interval) {
     }))
     .filter(row => (
       Number.isFinite(row.underlyingPrice)
+      || Number.isFinite(row.underlyingTwap)
       || Number.isFinite(row.passPrice)
       || Number.isFinite(row.failPrice)
       || Number.isFinite(row.passTwap)
@@ -163,6 +169,7 @@ function aggregateRows(rows, interval) {
 function coverageForSeries(series) {
   const coverage = {
     underlying: 0,
+    underlyingTwap: 0,
     pass: 0,
     fail: 0,
     passTwap: 0,
@@ -170,6 +177,7 @@ function coverageForSeries(series) {
   };
   for (const point of series) {
     if (Number.isFinite(point.underlyingPrice)) coverage.underlying += 1;
+    if (Number.isFinite(point.underlyingTwap)) coverage.underlyingTwap += 1;
     if (Number.isFinite(point.passPrice)) coverage.pass += 1;
     if (Number.isFinite(point.failPrice)) coverage.fail += 1;
     if (Number.isFinite(point.passTwap)) coverage.passTwap += 1;
