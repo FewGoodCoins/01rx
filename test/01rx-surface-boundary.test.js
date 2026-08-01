@@ -231,22 +231,26 @@ test('decision charts render without a token or PASS/FAIL backdrop', () => {
   assert.doesNotMatch(proposalChartSource, /PASS\s*\/\s*FAIL/);
 });
 
-test('decision chart endpoints keep a solid center with one synchronized pulse band', () => {
+test('decision chart endpoints keep small solid centers with sequenced pulse bands', () => {
   const pulseStart = frameCss.indexOf('@keyframes ft-proposal-live-pulse');
   const pulseEnd = frameCss.indexOf('\n}\n\n.ft-hourly-live', pulseStart);
   const pulseKeyframes = frameCss.slice(pulseStart, pulseEnd + 2);
   assert.ok(pulseStart >= 0 && pulseEnd > pulseStart);
   assert.match(
     frameCss,
-    /\.ft-proposal-live-dot\s*\{[\s\S]*?animation: none !important;/,
+    /\.ft-proposal-live-dot\s*\{[\s\S]*?width: 5px;[\s\S]*?height: 5px;[\s\S]*?animation: none !important;/,
   );
   assert.match(
     frameCss,
-    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse 1\.8s ease-out infinite;/,
+    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse 3s ease-out infinite;[\s\S]*?animation-delay: var\(--ft-proposal-live-pulse-delay\);/,
   );
-  assert.doesNotMatch(
+  assert.match(
     frameCss,
-    /\.ft-proposal-live-dot-fail\s*\{[\s\S]*?animation-delay:/,
+    /\.ft-proposal-live-dot-pass\s*\{\s*--ft-proposal-live-pulse-delay: 1s;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-live-dot-fail\s*\{\s*--ft-proposal-live-pulse-delay: 2s;/,
   );
   assert.doesNotMatch(
     pulseKeyframes,
