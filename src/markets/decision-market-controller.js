@@ -7,6 +7,7 @@ const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
 const MAX_STORED_TRANSACTIONS = 30;
 const TRANSACTION_STATUS_INTERVAL_MS = 5_000;
 const LIVE_PRICE_INTERVAL_MS = 5_000;
+const LIVE_MARKET_PULSE_INTERVAL_MS = 1_000;
 const POLL_INTERVAL_MS = 30_000;
 const MAX_PROPOSAL_HISTORY_POINTS = 1_000;
 const REVIEWED_PROGRAM_COUNT = 4;
@@ -1102,6 +1103,38 @@ function buildNavMap(payload) {
     if (key) map.set(key, { ...(map.get(key) || {}), ...row });
   });
 
+  return map;
+}
+
+function buildOwnershipCompatibilityMap(payload) {
+  const source = buildNavMap(payload);
+  const map = new Map();
+  source.forEach((row, key) => {
+    map.set(key, {
+      config: isObject(row.config) ? { ...row.config } : {},
+      contractAddress: row.contractAddress,
+      contract_address: row.contract_address,
+      key,
+      logo: row.logo,
+      mint: row.mint,
+      mintAddress: row.mintAddress,
+      mint_address: row.mint_address,
+      name: row.name,
+      recentTrades: Array.isArray(row.recentTrades) ? row.recentTrades : [],
+      ticker: row.ticker,
+      token: key,
+      tokenMint: row.tokenMint,
+      token_mint: row.token_mint,
+    });
+  });
+  return map;
+}
+
+function mergeCurrentNavMap(compatibilityMap, currentPayload) {
+  const map = new Map(compatibilityMap);
+  buildNavMap(currentPayload).forEach((row, key) => {
+    map.set(key, { ...(map.get(key) || {}), ...row });
+  });
   return map;
 }
 
@@ -3139,6 +3172,13 @@ export function mountFutardTerminal({
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
+    const pulseNow = runtime.Date?.now?.() ?? Date.now();
+    const pulsePhaseMs = Math.round(pulseNow) % LIVE_MARKET_PULSE_INTERVAL_MS;
+    list.style.setProperty(
+      '--tp-live-pulse-duration',
+      `${LIVE_MARKET_PULSE_INTERVAL_MS}ms`,
+    );
+    list.style.setProperty('--tp-live-pulse-delay', `${-pulsePhaseMs}ms`);
 
     function renderSidebarMarket(market) {
       const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
@@ -7493,21 +7533,26 @@ export function mountFutardTerminal({
       marketResult,
       proposalResult,
       homeResult,
+      currentNavResult,
       recurringResult,
       integrityResult,
     ] = await Promise.allSettled([
       client.futarchy.activeMarkets({ signal }),
       client.futarchy.proposals({}, { signal }),
       client.core.homeBootstrap({ cacheOnly: true }, { signal }),
+      client.core.currentNav({ includeInactive: true }, { signal }),
       client.futarchy.recurringConfig({ signal }),
       client.futarchy.programIntegrity({ signal }),
     ]);
 
     if (state.destroyed || requestId !== state.requestId) return state.markets;
 
-    if (homeResult.status === 'fulfilled') {
-      state.navMap = buildNavMap(homeResult.value);
-    }
+    const compatibilityMap = homeResult.status === 'fulfilled'
+      ? buildOwnershipCompatibilityMap(homeResult.value)
+      : new Map();
+    state.navMap = currentNavResult.status === 'fulfilled'
+      ? mergeCurrentNavMap(compatibilityMap, currentNavResult.value)
+      : compatibilityMap;
     if (recurringResult.status === 'fulfilled') {
       const config = recurringResult.value || {};
       state.recurring.enabled = config.enabled === true;

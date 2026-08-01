@@ -117,6 +117,8 @@ test('active markets join 01Resolved identity, NAV configuration, and validated 
   assert.equal(first.markets[0].proposal.passBaseMint, snapshot().proposal.passBaseMint);
   assert.equal(second, first);
   assert.equal(calls.length, 2);
+  assert.ok(calls.includes('https://nav.example/api/tokens-config?token=futardio'));
+  assert.equal(calls.some(url => url.includes('/api/current-nav')), false);
 });
 
 test('active markets fail closed when every indexed market fails account validation', async () => {

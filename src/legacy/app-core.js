@@ -879,21 +879,10 @@ function _tokenDiscoveryHasFallbackCoverage(data) {
 
 function _currentNavHasFallbackCoverage(data) {
   if (!data || !Array.isArray(data.tokens) || data.tokens.length === 0) return false;
-  var hasUsableCurrent = data.tokens.some(function(t) {
+  return data.tokens.some(function(t) {
     if (!t) return false;
     if (t.currentNavStatus === 'dependency_unavailable') return false;
     return t.nav != null || t.snapshotTime || t.hasCurrentNav === true;
-  });
-  if (!hasUsableCurrent) return false;
-  var seen = {};
-  data.tokens.forEach(function(t) {
-    var key = t && (t.token || t.key);
-    if (key) seen[String(key).toLowerCase()] = true;
-  });
-  return Object.keys(TOKENS_FALLBACK).every(function(key) {
-    var token = TOKENS_FALLBACK[key];
-    if (!token || token.live === false || token.graveyard) return true;
-    return !!seen[key];
   });
 }
 
@@ -1154,13 +1143,9 @@ function fetchTokenConfig(key, requestOptions) {
 var _allTokensPromise = null;
 function getAllTokens() {
   if (!_allTokensPromise) {
-    var currentP = _apiJson(API_BASE + '/api/current-nav?includeInactive=1', { timeoutMs: 12000 }).catch(function() { return null; });
-    var bootstrapCurrentP = getHomeBootstrap()
-      .then(function(home) { return home && home.currentNav ? home.currentNav : null; })
-      .catch(function() { return null; });
-    _allTokensPromise = _firstUsefulApiResult([bootstrapCurrentP, currentP], function(data) {
-        return _currentNavHasFallbackCoverage(data);
-      })
+    // Current NAV has one canonical browser boundary. Do not race the legacy
+    // home bootstrap: it can contain an older NAVgator-owned current snapshot.
+    _allTokensPromise = _apiJson(API_BASE + '/api/current-nav?includeInactive=1', { timeoutMs: 12000 })
       .then(function(data) {
         if (!data || !_currentNavHasFallbackCoverage(data)) {
           _allTokensPromise = null;

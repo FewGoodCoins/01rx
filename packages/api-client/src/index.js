@@ -98,6 +98,9 @@ export function create01ResolvedClient(options = {}) {
     endpointBaseUrl,
     endpointUrl,
     core: Object.freeze({
+      currentNav(query = {}, callOptions) {
+        return json('core.currentNav', query, callOptions);
+      },
       homeBootstrap(query = { cacheOnly: true }, callOptions) {
         return json('core.homeBootstrap', query, callOptions);
       },

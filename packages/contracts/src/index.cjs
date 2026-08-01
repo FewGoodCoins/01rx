@@ -30,6 +30,19 @@ function endpoint(definition) {
 }
 
 const API_ENDPOINTS = Object.freeze({
+  'core.currentNav': endpoint({
+    id: 'core.currentNav',
+    contract: 'core.current-nav.v1',
+    path: '/api/current-nav',
+    surface: API_SURFACES.STABLE,
+    query: Object.freeze([
+      'token',
+      'includeInactive',
+      'compact',
+      'includeDaoBreakdown',
+      'cache',
+    ]),
+  }),
   'core.homeBootstrap': endpoint({
     id: 'core.homeBootstrap',
     contract: 'core.home-bootstrap.v1',

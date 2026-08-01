@@ -22,7 +22,7 @@ Vercel domain assignments, not GitHub visibility.
 
    ```text
    GET  https://api.navgator.xyz/api/health
-   GET  https://api.navgator.xyz/api/current-nav?token=solo
+   GET  https://api.navgator.xyz/api/historic-nav?token=solo&days=1&resolution=1D
    GET  https://api.navgator.xyz/api/v1/futarchy?view=proposals&limit=1
    ```
 
@@ -33,13 +33,15 @@ Vercel domain assignments, not GitHub visibility.
    `O1RX_ATTRIBUTION_SIGNING_KEY`, its pinned
    `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `HELIUS_URL` for
    Preview and Production. Add `ZERO_ONE_RESOLVED_API_KEY` for server-side
-   decision-history reads; the existing `ONE_RESOLVED_API_KEY` spelling is also
-   accepted as a compatibility alias. They must remain server-only and must
+   current-NAV and decision-data reads; the existing
+   `ONE_RESOLVED_API_KEY` spelling is also accepted as a compatibility alias.
+   They must remain server-only and must
    never use a `VITE_*` prefix. Keep the attribution key stable so all 01RX
    decision volume remains queryable through one public authority.
-6. Deploy a preview and verify token data, active decisions, public history,
-   wallet discovery, and an ownerless DFlow display quote through
-   `/api/beta/trading?view=spot-order`.
+6. Deploy a preview and verify `/api/current-nav?token=solo` reports
+   `source.provider: "01Resolved"`, then verify token data, active decisions,
+   public history, wallet discovery, and an ownerless DFlow display quote
+   through `/api/beta/trading?view=spot-order`.
 7. Move `navgator.xyz` and `www.navgator.xyz` from the NAVgator project to the
    01RX project.
 8. Verify the same checks through `https://navgator.xyz/api/...`, then confirm

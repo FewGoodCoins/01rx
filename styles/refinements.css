@@ -1227,9 +1227,18 @@ html[data-workspace="markets"] #tlp-all-list .tp-item.active {
 
 html[data-workspace="markets"] #tlp-all-list .wl-star {
   display: inline-flex;
+  position: relative;
+  z-index: 2;
   grid-column: 1;
   flex: 0 0 12px;
   color: #737378;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+html[data-workspace="markets"] #tlp-all-list .wl-star:focus-visible {
+  outline: 0;
+  color: #00cc66;
 }
 
 html[data-workspace="markets"] #tlp-all-list .wl-star svg {
@@ -1391,7 +1400,8 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
   border-radius: 50%;
   background: #00cc66;
   box-shadow: 0 0 0 0 rgba(0, 204, 102, 0.48);
-  animation: tp-decision-live-pulse 1.6s ease-out infinite;
+  animation: tp-decision-live-pulse var(--tp-live-pulse-duration, 1s) ease-out infinite;
+  animation-delay: var(--tp-live-pulse-delay, 0ms);
 }
 
 .tp-decision-result {

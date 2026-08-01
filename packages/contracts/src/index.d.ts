@@ -1,5 +1,6 @@
 export type ApiSurface = 'stable' | 'beta';
 export type EndpointId =
+  | 'core.currentNav'
   | 'core.homeBootstrap'
   | 'futarchy.activeMarkets'
   | 'futarchy.proposals'
@@ -138,6 +139,14 @@ export interface HomeBootstrapData {
   readonly marketTickers?: Record<string, unknown>;
 }
 
+export interface CurrentNavData {
+  readonly asOf?: string;
+  readonly publicationGateApplied?: boolean;
+  readonly preview?: boolean;
+  readonly source?: Record<string, unknown>;
+  readonly tokens: readonly Record<string, unknown>[];
+}
+
 export interface SpotOrderQuote {
   readonly inputMint: string;
   readonly outputMint: string;
@@ -207,6 +216,7 @@ export interface DecisionAttestData {
 }
 
 export interface EndpointResponseMap {
+  readonly 'core.currentNav': CurrentNavData | Record<string, unknown>;
   readonly 'core.homeBootstrap': HomeBootstrapData;
   readonly 'futarchy.activeMarkets': ActiveMarketsData;
   readonly 'futarchy.proposals': ProposalArchiveData;

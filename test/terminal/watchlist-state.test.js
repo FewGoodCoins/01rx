@@ -143,10 +143,15 @@ test('public legacy watchlist facades delegate all storage ownership to the shel
   assert.match(appCore, /function _getWatchlist\(\) \{\s+return _navgatorWatchlist\.get\(\);\s+\}/);
   assert.match(appCore, /function _setWatchlist\(list\) \{\s+return _navgatorWatchlist\.replace\(list\);\s+\}/);
   assert.match(landing, /window\.toggleWatchStar = function/);
+  assert.match(landing, /data-watchlist-action="toggle"/);
+  assert.match(landing, /document\.addEventListener\('click', _handleWatchlistStarClick\)/);
+  assert.match(landing, /document\.addEventListener\('keydown', _handleWatchlistStarKeydown\)/);
+  assert.doesNotMatch(legacySource, /onclick="[^"]*toggleWatchStar/);
   assert.match(landing, /_pendingUnstar/);
   assert.match(tokenPage, /window\.toggleRpWatchlist = function/);
   assert.match(tokenPage, /window\.toggleLeftWatchlist = function/);
   assert.equal(legacySource.includes('navgator_watchlist'), false);
+  assert.doesNotMatch(legacySource, /_syncWatchlistToRemote/);
   assert.doesNotMatch(legacySource, /localStorage\.(?:getItem|setItem)\([^)]*watchlist/i);
 });
 

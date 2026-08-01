@@ -475,7 +475,7 @@ async function renderTokenLeftPanel(priceMap) {
       ' data-sort-market-cap="' + _esc(String(sortMarketCap || '')) + '"' +
       ' data-sort-volume="' + _esc(String(sortVolume || '')) + '"' +
       ' href="' + _tokenPageUrl(key) + '">' +
-      (isWl ? '' : '<span class="wl-star' + (sw ? ' active' : '') + '" onclick="event.preventDefault();event.stopPropagation();toggleWatchStar(this,this.closest(\'.tp-item\').dataset.key)">' + starSvg(sw) + '</span>') +
+      (isWl ? '' : '<span class="wl-star' + (sw ? ' active' : '') + '" role="button" tabindex="0" data-watchlist-action="toggle" aria-label="Toggle watchlist">' + starSvg(sw) + '</span>') +
       (isWl ? _dragHandleSvg : '') +
       iconH +
       '<div class="tp-content">' +
@@ -834,7 +834,6 @@ window.addEventListener('popstate', function() {
 function _getWl() { return _getWatchlist(); }
 function _setWl(arr) {
   var watchlist = _setWatchlist(arr);
-  _syncWatchlistToRemote();
   return watchlist;
 }
 
@@ -859,7 +858,6 @@ function updateRpWlBtn() {
 }
 window.toggleRpWatchlist = function() {
   var result = _navgatorWatchlist.toggle(tokenKey);
-  _syncWatchlistToRemote();
   updateRpWlBtn();
   // Sync sidebar stars
   var w = result.watched;
@@ -3872,104 +3870,6 @@ function _navHistoryIgnoresSnapshotCutoffForTF(tf) {
   return flags[navTf] === true || flags[chartTf] === true || flags[requestedTf] === true;
 }
 
-function _maybeUseLatestHistoricNavForCurrentDisplay() {
-  var tk = String(tokenKey || '').trim().toLowerCase();
-  if (tk !== 'meta' && tk !== 'metadao') return false;
-  if (!CFG || !_navHistory || _navHistory.length === 0) return false;
-
-  var latest = null;
-  for (var i = _navHistory.length - 1; i >= 0; i--) {
-    var row = _navHistory[i] || {};
-    var rowTime = Number(row.time || row.ts);
-    var rowNav = Number(row.nav || row.value);
-    if (rowTime > 0 && rowNav > 0) {
-      latest = row;
-      break;
-    }
-  }
-  if (!latest) return false;
-
-  var latestTime = Number(latest.time || latest.ts);
-  var latestNav = Number(latest.nav || latest.value);
-  var snapshotMs = CFG.snapshotTime ? Date.parse(CFG.snapshotTime) : NaN;
-  var snapshotSec = isFinite(snapshotMs) && snapshotMs > 0 ? Math.floor(snapshotMs / 1000) : 0;
-  if (snapshotSec > 0 && latestTime <= snapshotSec) return false;
-
-  var currentNav = _navPerTokenFromCfg(CFG) || Number(CFG.nav) || 0;
-  if (currentNav > 0 && Math.abs(latestNav - currentNav) / currentNav < 0.002) return false;
-
-  var latestTreasuryRow = null;
-  if (Array.isArray(_lwTreasuryHistory)) {
-    for (var j = _lwTreasuryHistory.length - 1; j >= 0; j--) {
-      var treasuryRow = _lwTreasuryHistory[j] || {};
-      var treasuryTime = Number(treasuryRow.time || treasuryRow.ts);
-      if (treasuryTime > 0 && treasuryTime <= latestTime) {
-        latestTreasuryRow = treasuryRow;
-        break;
-      }
-    }
-  }
-
-  var latestTreasury = Number(
-    latest.treasury || latest.treasury_usdc ||
-    (latestTreasuryRow && (latestTreasuryRow.treasury || latestTreasuryRow.treasury_usdc))
-  );
-  var latestSupply = Number(
-    latest.effSupply || latest.effective_supply || latest.supply ||
-    (latestTreasuryRow && (latestTreasuryRow.effSupply || latestTreasuryRow.effective_supply || latestTreasuryRow.supply))
-  );
-  var latestIso = new Date(latestTime * 1000).toISOString();
-  CFG.nav = latestNav;
-  CFG.snapshotTime = latestIso;
-  if (latestTreasury > 0) CFG.treasuryUSDC = latestTreasury;
-  if (latestSupply > 0) CFG.effectiveSupply = latestSupply;
-  if (latestTreasury > 0 || latestSupply > 0) {
-    var treasuryEntry = {
-      time: latestTime,
-      treasury: latestTreasury > 0 ? latestTreasury : 0,
-      effSupply: latestSupply > 0 ? latestSupply : 0
-    };
-    function upsertLatestTreasuryRow(rows) {
-      var list = Array.isArray(rows) ? rows.filter(function(row) {
-        return Number(row && (row.time || row.ts)) !== latestTime;
-      }) : [];
-      list.push(treasuryEntry);
-      return list.sort(function(a, b) {
-        return Number(a && (a.time || a.ts)) - Number(b && (b.time || b.ts));
-      });
-    }
-    _lwTreasuryHistory = upsertLatestTreasuryRow(_lwTreasuryHistory);
-    var activeTf = _getRecommendedNavResolution(_fallbackTF(_chartTF || '1D'));
-    if (activeTf) _treasuryHistoryByTF[activeTf] = upsertLatestTreasuryRow(_treasuryHistoryByTF[activeTf]);
-  }
-  CFG.navSnapshot = {
-    token: tk,
-    ticker: CFG.ticker || 'META',
-    status: 'stale',
-    statusLabel: 'NAV from latest historic point',
-    issues: ['current_snapshot_stale'],
-    timestampMs: latestTime * 1000,
-    timestamp: latestIso,
-    treasuryUSDC: latestTreasury > 0 ? latestTreasury : CFG.treasuryUSDC,
-    navPerToken: latestNav,
-    supply: {
-      effective: latestSupply > 0 ? latestSupply : CFG.effectiveSupply
-    },
-    treasury: {
-      reportedUSDC: latestTreasury > 0 ? latestTreasury : CFG.treasuryUSDC,
-      components: []
-    },
-    market: {
-      spot: Number(latest.spot || CFG.spot) || 0
-    },
-    sources: {
-      nav: 'historic-nav',
-      reason: 'MetaDAO current snapshot was older than the latest historic NAV point'
-    }
-  };
-  return true;
-}
-
 function _daoBreakdownRowValue(row) {
   if (!row || typeof row !== 'object') return 0;
   return (Number(row.usdc) || 0) + (Number(row.usdv) || 0) + (Number(row.sol) || 0);
@@ -4948,7 +4848,6 @@ async function fetchNavHistory(tf, _prefetchedJson, _forceRefresh, requestOption
   if (_navHistoryByTF[navTf] && !_forceRefresh) {
     if (navTf === _getRecommendedNavResolution(_fallbackTF(_chartTF || '1D'))) {
       _activateNavHistoryForTF(chartTf);
-      _maybeUseLatestHistoricNavForCurrentDisplay();
       _refreshActiveChartAfterNavHistoryLoad(chartTf);
     }
     return _navHistoryByTF[navTf];
@@ -5166,7 +5065,6 @@ async function fetchNavHistory(tf, _prefetchedJson, _forceRefresh, requestOption
     // downgraded into the active cache. Activate and repaint the timeframe the
     // user is actually viewing, not the superseded request label.
     _activateNavHistoryForTF(_chartTF);
-    _maybeUseLatestHistoricNavForCurrentDisplay();
     _refreshActiveChartAfterNavHistoryLoad(_chartTF);
     return _navHistory;
   } catch(e) { return []; }
@@ -6475,22 +6373,6 @@ function _resolveEmbedCurrentNav(baseCurrentPromise, embedCurrentPromise, expect
   });
 }
 
-function _currentPayloadFreshEnough(current, key) {
-  if (!current || typeof current !== 'object' || current.error) return false;
-  var normalizedKey = String(key || current.token || tokenKey || '').trim().toLowerCase();
-  var payloadToken = _normalizeTokenKey(current.token || current.key);
-  if (!normalizedKey || payloadToken !== normalizedKey) return false;
-  if (normalizedKey === 'meta') {
-    if (current.metadaoFeeAssetsUSD == null && current.metadao_fee_assets_usd == null) return false;
-    if (!Array.isArray(current.daoBreakdown) && !Array.isArray(current.dao_breakdown)) return false;
-  }
-  if (current.terminalNav === true || current.currentPriceTracked === false) return true;
-  var rawTime = current.snapshotTime || current.snapshot_time;
-  var ts = rawTime ? new Date(rawTime).getTime() : NaN;
-  if (!isFinite(ts)) return false;
-  return (Date.now() - ts) <= 36 * 60 * 60 * 1000;
-}
-
 function _prefetchTokenBootstrap(key, requestOptions) {
   if (!key) return Promise.resolve(null);
   return _apiJson(_tokenBootstrapUrl(key), requestOptions).catch(function() { return null; });
@@ -6523,20 +6405,15 @@ function _firstUsefulResult(promises, isUseful) {
   });
 }
 
-function _bootstrapCurrentOrFetch(bootstrapP, key, requestOptions) {
+function _bootstrapCurrentOrFetch(_bootstrapP, key, requestOptions) {
   if (!key) return Promise.resolve(null);
   var normalizedKey = String(key || '').trim().toLowerCase();
-  var directP = _apiJson(_currentNavUrl(key, normalizedKey === 'meta'
+  // Token bootstrap still supplies history and OHLCV, but current NAV must
+  // always cross the dedicated 01Resolved-backed current-nav boundary.
+  return _apiJson(_currentNavUrl(key, normalizedKey === 'meta'
     ? { cacheBypass: true }
     : { compact: true, includeDaoBreakdown: false }
   ), requestOptions).catch(function() { return null; });
-  if (!bootstrapP) return directP;
-  var bootstrapCurrentP = bootstrapP.then(function(payload) {
-    return payload && payload.current ? payload.current : null;
-  }).catch(function() { return null; });
-  return _firstUsefulResult([bootstrapCurrentP, directP], function(current) {
-    return _currentPayloadFreshEnough(current, normalizedKey);
-  });
 }
 
 function _bootstrapHistoryOrFetch(bootstrapP, key, tf, requestOptions) {
@@ -7012,7 +6889,6 @@ async function fetchFromAPI(_prefetchedJson) {
       }
     }
     _applySnapshotInfoToCfg(CFG, _globalSnapshotInfo);
-    _maybeUseLatestHistoricNavForCurrentDisplay();
     if (data.monthlyAllowance > 0) CFG.monthlyAllowance = data.monthlyAllowance;
     if (data.daoVolume24h >= 0) CFG.daoVolume24h = data.daoVolume24h;
     if (data.futammVolume24h >= 0) CFG.futammVolume24h = data.futammVolume24h;
@@ -7024,7 +6900,6 @@ async function fetchFromAPI(_prefetchedJson) {
     if (data.fees) CFG.fees = data.fees;
     if (data.liquidityUsd >= 0) CFG.liquidityUsd = data.liquidityUsd;
     _pruneNavCachesToSnapshot();
-    _maybeUseLatestHistoricNavForCurrentDisplay();
     // Hydrate token config from embedded config (saves separate API call)
     if (data.config && !_tokenConfigHydrated) {
       hydrateConfig(data.config);

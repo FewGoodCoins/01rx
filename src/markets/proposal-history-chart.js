@@ -5,7 +5,6 @@ import {
   LineStyle,
   createChart,
   createSeriesMarkers,
-  createTextWatermark,
 } from 'lightweight-charts';
 import { mountTradingViewAttribution } from '../chart/tradingview-attribution.js';
 import {
@@ -142,7 +141,6 @@ function chartTheme(runtime, themeRoot, theme) {
     border: cssColor(runtime, themeRoot, '--ft-border', light ? '#cbd0d4' : '#2a323d'),
     grid: light ? 'rgba(18, 22, 27, 0.055)' : 'rgba(255, 255, 255, 0.045)',
     crosshair: light ? 'rgba(32, 36, 42, 0.42)' : 'rgba(230, 233, 237, 0.38)',
-    watermark: light ? 'rgba(32, 36, 42, 0.045)' : 'rgba(230, 233, 237, 0.04)',
     font: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
   };
 }
@@ -395,7 +393,6 @@ export function createProposalHistoryChart({
   themeRoot,
   container,
   history,
-  ticker = 'TOKEN',
   theme = 'dark',
   visibility = {},
   range = 'all',
@@ -432,7 +429,6 @@ export function createProposalHistoryChart({
   let chart = null;
   let resizeObserver = null;
   let interactionHandler = null;
-  let watermark = null;
   let launchAnchorMarkers = null;
   let currentRange = range;
   const eventDefinitions = proposalChartBoundaryEvents(
@@ -597,18 +593,6 @@ export function createProposalHistoryChart({
     line.setData(data);
     seriesByField.set(definition.field, [line]);
     seriesVisibility.set(definition.field, seriesVisible);
-  });
-
-  watermark = createTextWatermark(chart.panes()[0], {
-    horzAlign: 'center',
-    vertAlign: 'center',
-    lines: [{
-      text: `${ticker} · PASS / FAIL`,
-      color: currentTheme.watermark,
-      fontSize: 24,
-      fontStyle: '700',
-      fontFamily: currentTheme.font,
-    }],
   });
 
   const launchAnchor = points.find(point => point.protocolLaunchAnchor === true);
@@ -847,15 +831,6 @@ export function createProposalHistoryChart({
         });
       }
     });
-    watermark?.applyOptions({
-      lines: [{
-        text: `${ticker} · PASS / FAIL`,
-        color: currentTheme.watermark,
-        fontSize: 24,
-        fontStyle: '700',
-        fontFamily: currentTheme.font,
-      }],
-    });
   }
 
   function updateLivePoint(point) {
@@ -970,7 +945,6 @@ export function createProposalHistoryChart({
       launchAnchorMarkers?.detach();
       delete container.dataset.ftLaunchAnchorRenderer;
       preTwapBand?.remove();
-      watermark?.detach();
       chart.remove();
     },
   };
