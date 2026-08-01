@@ -629,7 +629,6 @@ export function createProposalHistoryChart({
 
   PROPOSAL_HISTORY_SERIES.forEach((definition) => {
     const data = proposalChartData(points, definition.field, history.interval);
-    const valueCount = data.filter(point => Number.isFinite(point.value)).length;
     const color = cssColor(
       runtime,
       themeRoot,
@@ -662,8 +661,10 @@ export function createProposalHistoryChart({
             minMove,
           },
       crosshairMarkerVisible: PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE,
-      pointMarkersVisible: valueCount === 1,
-      pointMarkersRadius: 4,
+      // Current values use the synchronized DOM pulse markers below. Keeping
+      // the chart engine's point markers disabled avoids a second hollow dot
+      // appearing on sparse TWAP series and being mistaken for a live value.
+      pointMarkersVisible: false,
       lastValueVisible: Number.isFinite(definitionValue(
         definition,
         observations[observations.length - 1]?.[definition.field],

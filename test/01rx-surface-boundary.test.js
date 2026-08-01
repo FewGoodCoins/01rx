@@ -252,6 +252,14 @@ test('decision chart endpoints keep a solid center with one synchronized pulse b
     pulseKeyframes,
     /box-shadow:/,
   );
+  assert.match(
+    proposalChartSource,
+    /pointMarkersVisible: false,/,
+  );
+  assert.doesNotMatch(
+    proposalChartSource,
+    /pointMarkersVisible:\s*valueCount === 1/,
+  );
 });
 
 test('global wallet control uses the white 01RX header treatment', () => {
