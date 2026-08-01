@@ -932,9 +932,12 @@ test('TradingView chart adapter splits null values and missing hours into honest
     PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
     PROPOSAL_HISTORY_SERIES,
     interpolateChartTimeCoordinate,
+    proposalChartBoundaryEvents,
+    proposalChartBoundaryTimeline,
     proposalChartData,
     proposalChartEndpoint,
     proposalChartLiveEndpoints,
+    proposalChartObservedRange,
     proposalLaunchSeriesMarker,
     normalizeProposalChartLivePoint,
     splitProposalChartSeries,
@@ -988,6 +991,60 @@ test('TradingView chart adapter splits null values and missing hours into honest
   );
   assert.equal(PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE, false);
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
+  assert.deepEqual(
+    proposalChartBoundaryEvents(
+      '2026-06-17T10:00:00.000Z',
+      '2026-06-18T10:00:00.000Z',
+    ),
+    [
+      {
+        kind: 'twap-start',
+        label: 'TWAP Open',
+        time: Date.parse('2026-06-17T10:00:00.000Z') / 1_000,
+      },
+      {
+        kind: 'twap-end',
+        label: 'TWAP Close',
+        time: Date.parse('2026-06-18T10:00:00.000Z') / 1_000,
+      },
+    ],
+  );
+  assert.deepEqual(
+    proposalChartBoundaryTimeline(
+      [
+        { time: Date.parse('2026-06-16T11:00:00.000Z') / 1_000 },
+        { time: Date.parse('2026-06-16T13:00:00.000Z') / 1_000 },
+      ],
+      [Date.parse('2026-06-16T10:00:00.000Z') / 1_000],
+      '1h',
+    ),
+    [10, 11, 12, 13].map(hour => (
+      Date.parse(`2026-06-16T${hour}:00:00.000Z`) / 1_000
+    )),
+  );
+  assert.deepEqual(
+    proposalChartObservedRange(
+      [
+        Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
+        Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+      ],
+      '1h',
+    ),
+    {
+      from: Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
+      to: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+    },
+  );
+  assert.deepEqual(
+    proposalChartObservedRange(
+      [Date.parse('2026-06-16T10:00:00.000Z') / 1_000],
+      '1h',
+    ),
+    {
+      from: Date.parse('2026-06-16T09:00:00.000Z') / 1_000,
+      to: Date.parse('2026-06-16T11:00:00.000Z') / 1_000,
+    },
+  );
   assert.deepEqual(
     proposalChartEndpoint(points, 'passPrice'),
     {

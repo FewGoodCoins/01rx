@@ -1,6 +1,54 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { localFutarchyApi } from '../vite.config.js';
+
+test('local preview relays public futarchy reads but keeps writes in-process', async () => {
+  const routes = new Map();
+  const calls = [];
+  const plugin = localFutarchyApi({
+    publicReadOrigin: 'https://01rx.vercel.app',
+    relay: async (request, response, options) => {
+      calls.push({ kind: 'relay', url: request.url, origin: options.upstreamOrigin });
+      response.status(200).json({ ok: true });
+    },
+    handler: async (request, response) => {
+      calls.push({ kind: 'handler', url: request.url });
+      response.statusCode = 204;
+      response.end();
+    },
+  });
+  plugin.configureServer({
+    middlewares: {
+      use(route, middleware) {
+        routes.set(route, middleware);
+      },
+    },
+  });
+  const response = () => ({
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value; },
+    end() {},
+  });
+
+  await routes.get('/api/v1/futarchy')(
+    { method: 'GET', url: '/?view=proposals', headers: {} },
+    response(),
+  );
+  await routes.get('/api/beta/futarchy')(
+    { method: 'POST', url: '/?view=solana-rpc', headers: {} },
+    response(),
+  );
+
+  assert.deepEqual(calls, [
+    {
+      kind: 'relay',
+      url: '/api/v1/futarchy?view=proposals',
+      origin: 'https://01rx.vercel.app',
+    },
+    { kind: 'handler', url: '/api/beta/futarchy?view=solana-rpc' },
+  ]);
+});
 
 test('production keeps NAV data relayed and Solana decision services server-only in 01RX', () => {
   const relay = fs.readFileSync('api/[...path].js', 'utf8');
@@ -8,6 +56,7 @@ test('production keeps NAV data relayed and Solana decision services server-only
   const trading = fs.readFileSync('api/_lib/dflow-spot-order.js', 'utf8');
   const attribution = fs.readFileSync('api/_lib/decision-attribution.js', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
+  const viteConfig = fs.readFileSync('vite.config.js', 'utf8');
   const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
 
   assert.match(relay, /process\.env\.NAVGATOR_API_ORIGIN/);
@@ -31,6 +80,11 @@ test('production keeps NAV data relayed and Solana decision services server-only
   assert.match(envExample, /^ZERO_ONE_RESOLVED_API_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_PUBLIC_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_SIGNING_KEY=$/m);
+  assert.match(viteConfig, /'ZERO_ONE_RESOLVED_API_KEY'/);
+  assert.match(viteConfig, /'ONE_RESOLVED_API_KEY'/);
+  assert.match(viteConfig, /'RESOLVED_01_API_KEY'/);
+  assert.match(viteConfig, /method === 'GET' \|\| method === 'HEAD'/);
+  assert.match(viteConfig, /publicReadOrigin: hasLocalProposalIndex \? '' : LOCAL_PUBLIC_API_ORIGIN/);
   assert.doesNotMatch(
     envExample,
     /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION|VITE_ZERO_ONE_RESOLVED/,
