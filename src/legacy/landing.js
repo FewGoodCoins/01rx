@@ -881,6 +881,9 @@ window._cachedPriceMap = _cachedPriceMap;
         return '<div class="tt-change tp-token-secondary is-neutral" data-metric="' + metricKey + '">—</div>';
       }
       value = Number(value);
+      if (metricKey === 'change24h' && _isFlatSidebarChange(value)) {
+        return '<div class="tt-change tp-token-secondary is-neutral is-flat" data-metric="change24h">—</div>';
+      }
       return '<div class="tt-change tp-token-secondary" data-metric="' + metricKey + '"><span class="' + (value >= 0 ? 'up' : 'down') + '">' +
         _fmtSignedSidebarPct(value) + '%</span></div>';
     }

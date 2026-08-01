@@ -233,23 +233,33 @@ test('global wallet control uses the 01RX green palette', () => {
   );
 });
 
-test('market sidebar pins history below tokens and shows threshold for live decisions', () => {
+test('market sidebar uses one market section with a leading live indicator', () => {
   assert.match(
     sharedTerminalCss,
     /#tlp-all-list,[\s\S]*?#tlp-wl-list\s*\{[\s\S]*?scrollbar-width: none;[\s\S]*?-ms-overflow-style: none;/,
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?<span>Threshold<\/span>[\s\S]*?id="tlp-all-panel"/,
-  );
-  assert.ok(
-    indexSource.indexOf('id="tlp-decision-history-toggle-slot"')
-      > indexSource.indexOf('id="tlp-past-decisions-panel"'),
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Pass<\/span>[\s\S]*?<span>Fail<\/span>[\s\S]*?id="tp-live-decision-count">0 markets live<\/span>[\s\S]*?id="tlp-all-panel"/,
   );
   assert.match(
-    refinementCss,
-    /\.tp-decision-history-slot\s*\{[\s\S]*?flex: 0 0 auto;/,
+    indexSource,
+    /data-market-sidebar-tab="watchlist"[^>]*>[\s\S]*?<\/button>[\s\S]*?data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Markets<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>/,
   );
+  assert.doesNotMatch(indexSource, /tlp-past-decisions|tp-past-decisions|tlp-decision-history-toggle-slot/);
+  assert.doesNotMatch(indexSource, /<span>Status<\/span>/);
+  assert.doesNotMatch(indexSource, /tp-decision-columns|tp-token-columns|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
+  assert.match(
+    indexSource,
+    /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?<span>Price<\/span>[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
+  );
+  assert.match(refinementCss, /\.tp-all-section\.is-collapsed\s*\{[\s\S]*?flex: 0 0 30px;/);
+  assert.match(refinementCss, /\.is-collapsed \.tp-unified-section-columns\s*\{\s*display: none;/);
+  assert.match(refinementCss, /\.is-collapsed \.tp-unified-section-count\s*\{\s*display: inline-flex;/);
+  assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="tokens"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
+  assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="watchlist"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
+  assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="markets"\] \.tp-all-section\s*\{[\s\S]*?display: none !important;/);
+  assert.match(refinementCss, /\.tp-decision-live-dot\s*\{[\s\S]*?grid-column: 1;/);
   assert.match(
     refinementCss,
     /\.tp-decision-live-dot\s*\{[\s\S]*?animation: tp-decision-live-pulse 1\.6s ease-out infinite;/,

@@ -84,6 +84,10 @@ function _fmtSignedSidebarPct(v) {
   var sign = v > 0 ? '+' : v < 0 ? '-' : '';
   return sign + _fmtSidebarPct(v);
 }
+
+function _isFlatSidebarChange(v) {
+  return v !== undefined && v !== null && isFinite(v) && Math.abs(Number(v)) < 0.01;
+}
 setInterval(_renderBackendHealth, 60000);
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -245,7 +249,7 @@ function toggleMarketSidebarSearch(event) {
 }
 
 function setMarketSidebarTab(nextTab) {
-  if (nextTab !== 'all' && nextTab !== 'watchlist') return;
+  if (nextTab !== 'watchlist' && nextTab !== 'all' && nextTab !== 'markets' && nextTab !== 'tokens') return;
   _marketSidebarTab = nextTab;
   document.documentElement.dataset.marketSidebarTab = nextTab;
   document.querySelectorAll('[data-market-sidebar-tab]').forEach(function(tab) {
@@ -289,13 +293,6 @@ function _syncMarketSortMenu() {
   if (directionLabel) directionLabel.textContent = _marketSidebarSortAscending ? 'Low to high' : 'High to low';
   var directionIcon = document.getElementById('tp-market-sort-direction-icon');
   if (directionIcon) directionIcon.textContent = _marketSidebarSortAscending ? '↑' : '↓';
-  var assetLabel = document.getElementById('tp-token-primary-label');
-  if (assetLabel) {
-    assetLabel.textContent = 'Asset' + (_marketTokenSortKey === 'asset'
-      ? (_marketSidebarSortAscending ? ' ↑' : ' ↓')
-      : '');
-    assetLabel.classList.toggle('active', _marketTokenSortKey === 'asset');
-  }
 }
 
 function closeMarketSortMenu() {
@@ -337,16 +334,6 @@ function toggleMarketSidebarSortDirection(event) {
 
 function toggleMarketSidebarSort() {
   toggleMarketSidebarSortDirection();
-}
-
-function toggleMarketAssetSort() {
-  if (_marketTokenSortKey === 'asset') {
-    _marketSidebarSortAscending = !_marketSidebarSortAscending;
-    _syncMarketSortMenu();
-    applyMarketSidebarSearch();
-    return;
-  }
-  setMarketSidebarSort('asset');
 }
 
 function _marketSearchScore(item, query) {
@@ -427,8 +414,11 @@ function applyMarketSidebarSearch() {
   var tokenList = document.getElementById('tlp-all-list');
   var visibleTokens = _orderMarketSidebarList(tokenList, 'tokens', query) || 0;
   if (tokenList) tokenList.hidden = visibleTokens === 0;
+  var tokenCount = document.getElementById('tp-token-count');
+  if (tokenCount) {
+    tokenCount.textContent = visibleTokens + ' ' + (visibleTokens === 1 ? 'token' : 'tokens') + ' live';
+  }
   _orderMarketSidebarList(document.getElementById('tlp-decisions-list'), 'decisions', query);
-  _orderMarketSidebarList(document.getElementById('tlp-past-decisions-list'), 'decisions', query);
   var empty = document.getElementById('tp-market-empty');
   if (empty) {
     empty.hidden = visibleTokens > 0;
@@ -453,17 +443,17 @@ function _bindMarketSidebarSearch() {
 
 window.applyMarketSidebarSearch = applyMarketSidebarSearch;
 
-window.toggleMarketProposalSection = function toggleMarketProposalSection(sectionId, button) {
+window.toggleMarketSidebarSection = function toggleMarketSidebarSection(sectionId, button) {
   var section = document.getElementById(sectionId);
   if (!section || !button) return;
   var collapsed = section.classList.toggle('is-collapsed');
-  var isLive = sectionId === 'tlp-decisions-panel';
+  var sectionLabel = sectionId === 'tlp-all-panel' ? 'tokens' : 'decision markets';
   button.setAttribute('aria-expanded', String(!collapsed));
   button.setAttribute(
     'aria-label',
     collapsed
-      ? 'Expand ' + (isLive ? 'live decision markets' : 'past proposals')
-      : 'Collapse ' + (isLive ? 'live decision markets' : 'past proposals')
+      ? 'Expand ' + sectionLabel
+      : 'Collapse ' + sectionLabel
   );
 };
 

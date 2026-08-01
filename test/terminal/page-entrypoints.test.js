@@ -291,23 +291,22 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(main, /installBrowserEmbed\(window\)/);
 });
 
-test('market sidebar orders live decisions, tokens, then selected-token proposal history', () => {
+test('market sidebar places collapsible decision and token sections in order', () => {
   const document = fs.readFileSync('index.html', 'utf8');
   const appCore = fs.readFileSync('src/legacy/app-core.js', 'utf8');
   const liveDecisions = document.indexOf('id="tlp-decisions-panel"');
   const tokens = document.indexOf('id="tlp-all-panel"');
-  const pastProposals = document.indexOf('id="tlp-past-decisions-panel"');
 
   assert.ok(liveDecisions >= 0);
   assert.ok(tokens > liveDecisions);
-  assert.ok(pastProposals > tokens);
+  assert.doesNotMatch(document, /id="tlp-past-decisions-panel"/);
   assert.match(
     document,
-    /tp-unified-section-toggle-live[\s\S]+aria-label="Collapse live decision markets"[\s\S]+M1 4L4 1L7 4/,
+    /tp-unified-section-toggle-live[\s\S]+aria-label="Collapse decision markets"[\s\S]+M1 4L4 1L7 4/,
   );
   assert.match(
     document,
-    /tp-unified-section-toggle-past[\s\S]+aria-label="Collapse past proposals"[\s\S]+M1 1L4 4L7 1/,
+    /tp-unified-section-toggle-tokens[\s\S]+aria-label="Collapse tokens"[\s\S]+M1 4L4 1L7 4/,
   );
-  assert.match(appCore, /toggleMarketProposalSection[\s\S]+classList\.toggle\('is-collapsed'\)/);
+  assert.match(appCore, /toggleMarketSidebarSection[\s\S]+classList\.toggle\('is-collapsed'\)/);
 });
