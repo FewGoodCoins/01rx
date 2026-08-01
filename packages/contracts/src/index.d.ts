@@ -59,6 +59,7 @@ export interface ProposalHistoryPoint {
   readonly timestamp: string;
   readonly observedAt?: string | null;
   readonly underlyingPrice?: number | null;
+  readonly underlyingTwap?: number | null;
   readonly passPrice?: number | null;
   readonly failPrice?: number | null;
   readonly passTwap?: number | null;

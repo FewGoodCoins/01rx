@@ -373,6 +373,7 @@ function hourlyHistory(proposalId, ticker, base, options = {}) {
     timestamp: new Date(Date.parse('2026-06-16T14:00:00.000Z') + offset * 15 * 60_000).toISOString(),
     observedAt: new Date(Date.parse('2026-06-16T14:00:00.000Z') + offset * 15 * 60_000).toISOString(),
     underlyingPrice: options.missingUnderlying ? null : base + offset * 0.01,
+    underlyingTwap: base + offset * 0.006,
     passPrice: base + 0.2 + offset * 0.015,
     failPrice: base - 0.1 + offset * 0.005,
     passTwap: base + 0.18 + offset * 0.01,
@@ -381,6 +382,7 @@ function hourlyHistory(proposalId, ticker, base, options = {}) {
   }));
   const coverage = {
     underlying: series.filter(point => Number.isFinite(point.underlyingPrice)).length,
+    underlyingTwap: series.filter(point => Number.isFinite(point.underlyingTwap)).length,
     pass: series.filter(point => Number.isFinite(point.passPrice)).length,
     passTwap: series.filter(point => Number.isFinite(point.passTwap)).length,
     fail: series.filter(point => Number.isFinite(point.failPrice)).length,
@@ -872,15 +874,19 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   }));
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
-  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 10);
+  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 12);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 0);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]'), null);
-  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-trigger"]').length, 1);
-  assert.equal(chart.querySelector('[data-ft-role="hourly-series-menu"]').hidden, true);
+  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-trigger"]').length, 2);
+  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-menu"]').length, 2);
+  assert.equal(
+    chart.querySelector('[data-ft-series-group="price"] [data-ft-role="hourly-series-menu"]').hidden,
+    true,
+  );
   assert.equal(
     chart.querySelectorAll('[data-ft-role="hourly-series-menu"] [role="menuitemcheckbox"]').length,
-    5,
+    6,
   );
   assert.equal(
     chart.querySelector('[data-ft-readout-value="passTwap"]').textContent,
@@ -895,7 +901,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     true,
   );
   assert.equal(
-    chart.querySelector('[data-ft-role="hourly-twap-toggle"]').disabled,
+    chart.querySelector('[data-ft-series-field="underlyingTwap"]').disabled,
     true,
   );
   assert.equal(chart.querySelector('[aria-label="Hide annotations placeholder"]'), null);
@@ -1024,7 +1030,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
   );
   assert.deepEqual(
     PROPOSAL_HISTORY_SERIES.map(series => series.label),
-    ['Price', 'Pass', 'Pass TWAP', 'Fail', 'Fail TWAP'],
+    ['Price', 'Pass', 'Fail', 'General TWAP', 'Pass TWAP', 'Fail TWAP'],
   );
   assert.equal(PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE, false);
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
@@ -1135,6 +1141,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
       time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
       values: {
         underlyingPrice: 4.72,
+        underlyingTwap: null,
         passPrice: 4.81,
         passTwap: null,
         failPrice: 4.61,
@@ -1564,6 +1571,7 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   assert.deepEqual(livePoints.at(-1), {
     timestamp: ACTIVE_MARKETS.markets[0].source.asOf,
     underlyingPrice: 0.1291,
+    underlyingTwap: 0.1284,
     passPrice: 0.1337,
     passTwap: 0.1319,
     failPrice: 0.1279,
@@ -1634,6 +1642,7 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   assert.deepEqual(livePoints.at(-1), {
     timestamp: '2026-07-24T12:00:07.000Z',
     underlyingPrice: 0.1305,
+    underlyingTwap: 0.1284,
     passPrice: 0.1555,
     passTwap: 0.1455,
     failPrice: 0.1111,
@@ -2978,29 +2987,34 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.deepEqual(activeChart.visibility.at(-1), ['passTwap', false]);
   passTwapToggle.click();
 
-  const twapToggle = root.querySelector('[data-ft-role="hourly-twap-toggle"]');
-  assert.equal(twapToggle.getAttribute('aria-pressed'), 'true');
-  twapToggle.click();
-  assert.equal(twapToggle.getAttribute('aria-pressed'), 'false');
-  assert.deepEqual(activeChart.visibility.slice(-2), [
-    ['passTwap', false],
-    ['failTwap', false],
-  ]);
-  twapToggle.click();
-  assert.equal(twapToggle.getAttribute('aria-pressed'), 'true');
-  assert.deepEqual(activeChart.visibility.slice(-2), [
-    ['passTwap', true],
-    ['failTwap', true],
-  ]);
-
-  const seriesTrigger = root.querySelector('[data-ft-role="hourly-series-trigger"]');
-  const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
-  const passSeriesOption = seriesMenu.querySelector(
+  const priceTrigger = root.querySelector(
+    '[data-ft-role="hourly-series-trigger"][data-ft-series-group="price"]',
+  );
+  const priceMenu = root.querySelector(
+    '[data-ft-role="hourly-series-menu"][data-ft-series-group="price"]',
+  );
+  const twapTrigger = root.querySelector(
+    '[data-ft-role="hourly-series-trigger"][data-ft-series-group="twap"]',
+  );
+  const twapMenu = root.querySelector(
+    '[data-ft-role="hourly-series-menu"][data-ft-series-group="twap"]',
+  );
+  assert.deepEqual(
+    Array.from(priceMenu.querySelectorAll('[data-ft-series-field]'))
+      .map(option => option.textContent.trim().replace('✓', '').trim()),
+    ['Current price', 'Pass price', 'Fail price'],
+  );
+  assert.deepEqual(
+    Array.from(twapMenu.querySelectorAll('[data-ft-series-field]'))
+      .map(option => option.textContent.trim().replace('✓', '').trim()),
+    ['General TWAP', 'Pass TWAP', 'Fail TWAP'],
+  );
+  const passSeriesOption = priceMenu.querySelector(
     '[data-ft-series-field="passPrice"]',
   );
-  seriesTrigger.click();
-  assert.equal(seriesTrigger.getAttribute('aria-expanded'), 'true');
-  assert.equal(seriesMenu.hidden, false);
+  priceTrigger.click();
+  assert.equal(priceTrigger.getAttribute('aria-expanded'), 'true');
+  assert.equal(priceMenu.hidden, false);
   passSeriesOption.click();
   assert.equal(passSeriesOption.getAttribute('aria-checked'), 'false');
   assert.equal(
@@ -3010,9 +3024,21 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.deepEqual(activeChart.visibility.at(-1), ['passPrice', false]);
   passSeriesOption.click();
   assert.equal(passSeriesOption.getAttribute('aria-checked'), 'true');
-  seriesTrigger.click();
-  assert.equal(seriesTrigger.getAttribute('aria-expanded'), 'false');
-  assert.equal(seriesMenu.hidden, true);
+  twapTrigger.click();
+  assert.equal(priceTrigger.getAttribute('aria-expanded'), 'false');
+  assert.equal(priceMenu.hidden, true);
+  assert.equal(twapTrigger.getAttribute('aria-expanded'), 'true');
+  assert.equal(twapMenu.hidden, false);
+  const generalTwapOption = twapMenu.querySelector(
+    '[data-ft-series-field="underlyingTwap"]',
+  );
+  generalTwapOption.click();
+  assert.equal(generalTwapOption.getAttribute('aria-checked'), 'false');
+  assert.deepEqual(activeChart.visibility.at(-1), ['underlyingTwap', false]);
+  generalTwapOption.click();
+  twapTrigger.click();
+  assert.equal(twapTrigger.getAttribute('aria-expanded'), 'false');
+  assert.equal(twapMenu.hidden, true);
 
   assert.equal(root.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(root.querySelector('[data-ft-role="hourly-range-menu"]'), null);

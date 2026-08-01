@@ -3840,7 +3840,13 @@ body.is-futard-terminal #token-switch-loader {
   color: var(--ft-ink);
 }
 
-.ft-hourly-twap-toggle {
+.ft-hourly-series-control-labeled {
+  width: 74px;
+  min-width: 74px;
+  flex-basis: 74px;
+}
+
+.ft-hourly-series-trigger-labeled {
   display: inline-flex;
   width: 74px;
   min-width: 74px;
@@ -3855,15 +3861,9 @@ body.is-futard-terminal #token-switch-loader {
   letter-spacing: 0.035em;
 }
 
-.ft-hourly-twap-toggle.ft-is-active {
-  background: #202020;
-  color: var(--ft-ink-strong);
-}
-
-.ft-hourly-twap-toggle:disabled {
-  color: var(--ft-faint);
-  cursor: default;
-  opacity: 0.45;
+.ft-hourly-series-trigger-labeled svg {
+  width: 17px;
+  height: 17px;
 }
 
 .ft-hourly-twap-glyph {
@@ -3881,6 +3881,13 @@ body.is-futard-terminal #token-switch-loader {
 
 .ft-hourly-twap-glyph i:last-child {
   border-color: var(--ft-negative);
+}
+
+.ft-hourly-overlay-twap strong {
+  color: var(--ft-ink-strong);
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .ft-hourly-range-menu {

@@ -380,6 +380,7 @@ function aggregateHistoryRows(rows, interval) {
       timestamp: new Date(bucketMs).toISOString(),
       observedAt,
       underlyingPrice: null,
+      underlyingTwap: null,
       passPrice: null,
       failPrice: null,
       passTwap: null,
@@ -391,6 +392,7 @@ function aggregateHistoryRows(rows, interval) {
     current.sampleCount += 1;
     const values = {
       underlyingPrice: finiteNumber(row?.spotPrice),
+      underlyingTwap: finiteNumber(row?.underlyingTwap ?? row?.spotTwap),
       passPrice: finiteNumber(row?.approvedPrice),
       failPrice: finiteNumber(row?.rejectedPrice),
       passTwap: finiteNumber(row?.approvedTwap),
@@ -409,6 +411,7 @@ function aggregateHistoryRows(rows, interval) {
 function historyCoverage(series) {
   return {
     underlying: series.filter(row => Number.isFinite(row.underlyingPrice)).length,
+    underlyingTwap: series.filter(row => Number.isFinite(row.underlyingTwap)).length,
     pass: series.filter(row => Number.isFinite(row.passPrice)).length,
     fail: series.filter(row => Number.isFinite(row.failPrice)).length,
     passTwap: series.filter(row => Number.isFinite(row.passTwap)).length,
@@ -418,14 +421,17 @@ function historyCoverage(series) {
 
 function postTwapCoverage(series, preTwap) {
   const start = new Date(preTwap || '').getTime();
-  if (!Number.isFinite(start)) return { passTwap: 0, failTwap: 0 };
+  if (!Number.isFinite(start)) {
+    return { underlyingTwap: 0, passTwap: 0, failTwap: 0 };
+  }
   return (Array.isArray(series) ? series : []).reduce((coverage, row) => {
     const observed = new Date(row?.observedAt || row?.timestamp || '').getTime();
     if (!Number.isFinite(observed) || observed < start) return coverage;
+    if (Number.isFinite(row.underlyingTwap)) coverage.underlyingTwap += 1;
     if (Number.isFinite(row.passTwap)) coverage.passTwap += 1;
     if (Number.isFinite(row.failTwap)) coverage.failTwap += 1;
     return coverage;
-  }, { passTwap: 0, failTwap: 0 });
+  }, { underlyingTwap: 0, passTwap: 0, failTwap: 0 });
 }
 
 function mergeTwapHistory(series, twapRows) {
@@ -436,6 +442,7 @@ function mergeTwapHistory(series, twapRows) {
       timestamp: twap.timestamp,
       observedAt: twap.observedAt || twap.timestamp,
       underlyingPrice: null,
+      underlyingTwap: null,
       passPrice: null,
       failPrice: null,
       passTwap: null,
@@ -444,6 +451,9 @@ function mergeTwapHistory(series, twapRows) {
     };
     rows.set(twap.timestamp, {
       ...current,
+      underlyingTwap: Number.isFinite(twap.underlyingTwap)
+        ? twap.underlyingTwap
+        : current.underlyingTwap,
       passTwap: Number.isFinite(twap.passTwap) ? twap.passTwap : current.passTwap,
       failTwap: Number.isFinite(twap.failTwap) ? twap.failTwap : current.failTwap,
     });
@@ -669,7 +679,11 @@ export function createFutarchyService(options = {}) {
     if (
       configuredRpc
       && preTwap
-      && (indexedTwapCoverage.passTwap < 2 || indexedTwapCoverage.failTwap < 2)
+      && (
+        indexedTwapCoverage.underlyingTwap < 2
+        || indexedTwapCoverage.passTwap < 2
+        || indexedTwapCoverage.failTwap < 2
+      )
     ) {
       try {
         const active = await activeMarkets();

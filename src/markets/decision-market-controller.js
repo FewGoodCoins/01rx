@@ -663,6 +663,7 @@ export function normalizeProposalHistoryPayload(raw) {
         point.spotPrice,
         point.tokenPrice,
       ),
+      underlyingTwap: nonNegativeNumber(point.underlyingTwap, point.spotTwap),
       passPrice: nonNegativeNumber(point.passPrice, point.approvedPrice),
       failPrice: nonNegativeNumber(point.failPrice, point.rejectedPrice),
       passTwap: nonNegativeNumber(point.passTwap, point.passTwapPrice),
@@ -677,6 +678,7 @@ export function normalizeProposalHistoryPayload(raw) {
     ))
     .filter(point => (
       Number.isFinite(point.underlyingPrice)
+      || Number.isFinite(point.underlyingTwap)
       || Number.isFinite(point.passPrice)
       || Number.isFinite(point.failPrice)
       || Number.isFinite(point.passTwap)
@@ -713,6 +715,8 @@ export function normalizeProposalHistoryPayload(raw) {
       coverage: {
         underlying: nonNegativeNumber(coverage.underlying)
           ?? series.filter(point => Number.isFinite(point.underlyingPrice)).length,
+        underlyingTwap: nonNegativeNumber(coverage.underlyingTwap)
+          ?? series.filter(point => Number.isFinite(point.underlyingTwap)).length,
         pass: nonNegativeNumber(coverage.pass)
           ?? series.filter(point => Number.isFinite(point.passPrice)).length,
         passTwap: nonNegativeNumber(coverage.passTwap)
@@ -904,11 +908,20 @@ function renderProposalChartStatusShell({
       aria-busy="${failed ? 'false' : 'true'}"
     >
       <div class="ft-hourly-toolbar" aria-hidden="true">
-        <div class="ft-hourly-series-control">
-          <button class="ft-hourly-style-cell" type="button" disabled tabindex="-1">
+        <div class="ft-hourly-series-control ft-hourly-series-control-labeled">
+          <button class="ft-hourly-style-cell ft-hourly-series-trigger-labeled" type="button" disabled tabindex="-1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 17L9 11L13 14L20 6"/>
             </svg>
+            <span>Price</span>
+          </button>
+        </div>
+        <div class="ft-hourly-series-control ft-hourly-series-control-labeled">
+          <button class="ft-hourly-style-cell ft-hourly-series-trigger-labeled" type="button" disabled tabindex="-1">
+            <span class="ft-hourly-twap-glyph" aria-hidden="true">
+              <i></i><i></i>
+            </span>
+            <span>TWAP</span>
           </button>
         </div>
         ${renderTradingViewToolbarPreview()}
@@ -945,6 +958,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const cadenceLabel = historyCadenceLabel(interval);
   const values = observations.flatMap(point => [
     point.underlyingPrice,
+    point.underlyingTwap,
     point.passPrice,
     point.passTwap,
     point.failPrice,
@@ -968,14 +982,12 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const coverage = history.summary?.coverage || {};
   const visibleCoverage = {
     ...coverage,
+    underlyingTwap: observations.filter(point => Number.isFinite(point.underlyingTwap)).length,
     passTwap: observations.filter(point => Number.isFinite(point.passTwap)).length,
     failTwap: observations.filter(point => Number.isFinite(point.failTwap)).length,
   };
   const visibility = isObject(options.visibility) ? options.visibility : {};
-  const availableTwapFields = ['passTwap', 'failTwap'].filter(
-    field => visibleCoverage[field] > 0,
-  );
-  const twapVisible = availableTwapFields.some(field => visibility[field] !== false);
+  const latestUnderlyingTwap = latestValue('underlyingTwap');
   const latestPass = latestValue('passPrice');
   const latestPassTwap = latestValue('passTwap');
   const latestFail = latestValue('failPrice');
@@ -989,32 +1001,39 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
       aria-busy="true"
     >
       <div class="ft-hourly-toolbar">
-        <div class="ft-hourly-series-control" data-ft-role="hourly-series-control">
+        <div
+          class="ft-hourly-series-control ft-hourly-series-control-labeled"
+          data-ft-role="hourly-series-control"
+          data-ft-series-group="price"
+        >
           <button
-            class="ft-hourly-style-cell"
+            class="ft-hourly-style-cell ft-hourly-series-trigger-labeled"
             type="button"
             data-ft-action="toggle-hourly-series-menu"
             data-ft-role="hourly-series-trigger"
-            aria-label="Choose historical chart series"
+            data-ft-series-group="price"
+            aria-label="Choose price chart series"
             aria-haspopup="menu"
             aria-expanded="false"
-            title="Historical chart series"
+            title="Price chart series"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 17L9 11L13 14L20 6"/>
             </svg>
+            <span>Price</span>
           </button>
           <div
             class="ft-hourly-series-menu"
             data-ft-role="hourly-series-menu"
+            data-ft-series-group="price"
             role="menu"
-            aria-label="Historical chart series"
+            aria-label="Price chart series"
             hidden
           >
-            <div class="ft-hourly-series-menu-label">Historical series</div>
+            <div class="ft-hourly-series-menu-label">Price series</div>
             ${historySeriesMenuOption({
               field: 'underlyingPrice',
-              label: 'Spot price',
+              label: 'Current price',
               count: visibleCoverage.underlying || 0,
               visible: visibility.underlyingPrice !== false,
             })}
@@ -1025,16 +1044,54 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               visible: visibility.passPrice !== false,
             })}
             ${historySeriesMenuOption({
-              field: 'passTwap',
-              label: 'Pass TWAP',
-              count: visibleCoverage.passTwap || 0,
-              visible: visibility.passTwap !== false,
-            })}
-            ${historySeriesMenuOption({
               field: 'failPrice',
               label: 'Fail price',
               count: visibleCoverage.fail || 0,
               visible: visibility.failPrice !== false,
+            })}
+          </div>
+        </div>
+        <div
+          class="ft-hourly-series-control ft-hourly-series-control-labeled"
+          data-ft-role="hourly-series-control"
+          data-ft-series-group="twap"
+        >
+          <button
+            class="ft-hourly-style-cell ft-hourly-series-trigger-labeled"
+            type="button"
+            data-ft-action="toggle-hourly-series-menu"
+            data-ft-role="hourly-series-trigger"
+            data-ft-series-group="twap"
+            aria-label="Choose TWAP chart series"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            title="TWAP chart series"
+          >
+            <span class="ft-hourly-twap-glyph" aria-hidden="true">
+              <i></i><i></i>
+            </span>
+            <span>TWAP</span>
+          </button>
+          <div
+            class="ft-hourly-series-menu"
+            data-ft-role="hourly-series-menu"
+            data-ft-series-group="twap"
+            role="menu"
+            aria-label="TWAP chart series"
+            hidden
+          >
+            <div class="ft-hourly-series-menu-label">TWAP series</div>
+            ${historySeriesMenuOption({
+              field: 'underlyingTwap',
+              label: 'General TWAP',
+              count: visibleCoverage.underlyingTwap || 0,
+              visible: visibility.underlyingTwap !== false,
+            })}
+            ${historySeriesMenuOption({
+              field: 'passTwap',
+              label: 'Pass TWAP',
+              count: visibleCoverage.passTwap || 0,
+              visible: visibility.passTwap !== false,
             })}
             ${historySeriesMenuOption({
               field: 'failTwap',
@@ -1044,21 +1101,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
             })}
           </div>
         </div>
-        <button
-          class="ft-hourly-style-cell ft-hourly-twap-toggle${twapVisible ? ' ft-is-active' : ''}"
-          type="button"
-          data-ft-action="toggle-hourly-twap"
-          data-ft-role="hourly-twap-toggle"
-          aria-label="Toggle PASS and FAIL TWAP history"
-          aria-pressed="${twapVisible}"
-          title="Show or hide both protocol TWAP histories"
-          ${availableTwapFields.length ? '' : 'disabled'}
-        >
-          <span class="ft-hourly-twap-glyph" aria-hidden="true">
-            <i></i><i></i>
-          </span>
-          <span>TWAP</span>
-        </button>
         ${renderTradingViewToolbarPreview()}
       </div>
       <div class="ft-hourly-plot-shell">
@@ -1098,20 +1140,28 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               visible: visibility.passPrice !== false,
             })}
             ${historyOverlayMetric({
-              className: 'ft-hourly-overlay-pass-twap',
-              field: 'passTwap',
-              label: 'Pass TWAP',
-              value: latestPassTwap,
-              count: visibleCoverage.passTwap || 0,
-              visible: visibility.passTwap !== false,
-            })}
-            ${historyOverlayMetric({
               className: 'ft-hourly-overlay-fail',
               field: 'failPrice',
               label: 'Fail',
               value: latestFail,
               count: visibleCoverage.fail || 0,
               visible: visibility.failPrice !== false,
+            })}
+            ${historyOverlayMetric({
+              className: 'ft-hourly-overlay-twap',
+              field: 'underlyingTwap',
+              label: 'TWAP',
+              value: latestUnderlyingTwap,
+              count: visibleCoverage.underlyingTwap || 0,
+              visible: visibility.underlyingTwap !== false,
+            })}
+            ${historyOverlayMetric({
+              className: 'ft-hourly-overlay-pass-twap',
+              field: 'passTwap',
+              label: 'Pass TWAP',
+              value: latestPassTwap,
+              count: visibleCoverage.passTwap || 0,
+              visible: visibility.passTwap !== false,
             })}
             ${historyOverlayMetric({
               className: 'ft-hourly-overlay-fail-twap',
@@ -2023,6 +2073,7 @@ export function mountFutardTerminal({
     historyRange: 'all',
     historySeriesVisibility: {
       underlyingPrice: true,
+      underlyingTwap: true,
       passPrice: true,
       passTwap: true,
       failPrice: true,
@@ -3717,6 +3768,7 @@ export function mountFutardTerminal({
     return state.historyChart?.updateLivePoint?.({
       timestamp: firstText(market.source?.asOf, market.marketAsOf, state.asOf),
       underlyingPrice: firstNumber(market.spot.price, market.nav.spot),
+      underlyingTwap: market.spot.twapPrice,
       passPrice: market.pass.price,
       passTwap: market.pass.twapPrice,
       failPrice: market.fail.price,
@@ -7852,11 +7904,26 @@ export function mountFutardTerminal({
     }
   }
 
-  function setHourlySeriesMenuOpen(open, options = {}) {
-    const menu = root.querySelector('[data-ft-role="hourly-series-menu"]');
-    const trigger = root.querySelector('[data-ft-role="hourly-series-trigger"]');
+  function setHourlySeriesMenuOpen(group, open, options = {}) {
+    const normalizedGroup = group === 'twap' ? 'twap' : 'price';
+    const menu = root.querySelector(
+      `[data-ft-role="hourly-series-menu"][data-ft-series-group="${normalizedGroup}"]`,
+    );
+    const trigger = root.querySelector(
+      `[data-ft-role="hourly-series-trigger"][data-ft-series-group="${normalizedGroup}"]`,
+    );
     if (!menu || !trigger) return;
     const shouldOpen = Boolean(open);
+    if (shouldOpen) {
+      root.querySelectorAll('[data-ft-role="hourly-series-menu"]').forEach((otherMenu) => {
+        if (otherMenu === menu) return;
+        otherMenu.hidden = true;
+        const otherGroup = otherMenu.dataset.ftSeriesGroup;
+        root.querySelector(
+          `[data-ft-role="hourly-series-trigger"][data-ft-series-group="${otherGroup}"]`,
+        )?.setAttribute('aria-expanded', 'false');
+      });
+    }
     menu.hidden = !shouldOpen;
     trigger.setAttribute('aria-expanded', String(shouldOpen));
     if (shouldOpen && options.focusSelection) {
@@ -7874,6 +7941,7 @@ export function mountFutardTerminal({
     const observations = proposalHistoryChartObservations(history);
     return Object.fromEntries([
       'underlyingPrice',
+      'underlyingTwap',
       'passPrice',
       'passTwap',
       'failPrice',
@@ -7901,16 +7969,6 @@ export function mountFutardTerminal({
     root.querySelectorAll(`[data-ft-series="${field}"]`).forEach((series) => {
       series.classList.toggle('ft-is-hidden', !nextVisible);
     });
-  }
-
-  function syncHourlyTwapToggle(availability = hourlySeriesAvailability()) {
-    const control = root.querySelector('[data-ft-role="hourly-twap-toggle"]');
-    if (!control) return;
-    const fields = ['passTwap', 'failTwap'].filter(field => availability[field]);
-    const visible = fields.some(field => state.historySeriesVisibility[field] !== false);
-    control.disabled = fields.length === 0;
-    control.setAttribute('aria-pressed', String(visible));
-    control.classList.toggle('ft-is-active', visible);
   }
 
   async function selectSidebarProposal(anchor) {
@@ -7967,11 +8025,12 @@ export function mountFutardTerminal({
     if (rangeSelector && rangeMenu && !rangeMenu.hidden && !rangeSelector.contains(event.target)) {
       setHourlyRangeMenuOpen(false);
     }
-    const seriesSelector = root.querySelector('[data-ft-role="hourly-series-control"]');
-    const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
-    if (seriesSelector && seriesMenu && !seriesMenu.hidden && !seriesSelector.contains(event.target)) {
-      setHourlySeriesMenuOpen(false);
-    }
+    root.querySelectorAll('[data-ft-role="hourly-series-control"]').forEach((control) => {
+      const seriesMenu = control.querySelector('[data-ft-role="hourly-series-menu"]');
+      if (seriesMenu && !seriesMenu.hidden && !control.contains(event.target)) {
+        setHourlySeriesMenuOpen(control.dataset.ftSeriesGroup, false);
+      }
+    });
   }
 
   function handleClick(event) {
@@ -8031,20 +8090,11 @@ export function mountFutardTerminal({
       }
     } else if (action === 'retry-hourly-history') {
       loadProposalHistory(selectedMarket(), { force: true });
-    } else if (action === 'toggle-hourly-twap') {
-      event.preventDefault();
-      const availability = hourlySeriesAvailability();
-      const fields = ['passTwap', 'failTwap'].filter(field => availability[field]);
-      if (!fields.length) return;
-      const nextVisible = !fields.some(
-        field => state.historySeriesVisibility[field] !== false,
-      );
-      fields.forEach(field => setHourlySeriesVisible(field, nextVisible));
-      syncHourlyTwapToggle(availability);
     } else if (action === 'toggle-hourly-series') {
       const field = target.dataset.ftSeriesField;
       if (![
         'underlyingPrice',
+        'underlyingTwap',
         'passPrice',
         'passTwap',
         'failPrice',
@@ -8064,11 +8114,13 @@ export function mountFutardTerminal({
         }
       }
       setHourlySeriesVisible(field, nextVisible);
-      syncHourlyTwapToggle();
     } else if (action === 'toggle-hourly-series-menu') {
       event.preventDefault();
-      const menu = root.querySelector('[data-ft-role="hourly-series-menu"]');
-      setHourlySeriesMenuOpen(menu?.hidden !== false, { focusSelection: true });
+      const group = target.dataset.ftSeriesGroup;
+      const menu = root.querySelector(
+        `[data-ft-role="hourly-series-menu"][data-ft-series-group="${group}"]`,
+      );
+      setHourlySeriesMenuOpen(group, menu?.hidden !== false, { focusSelection: true });
     } else if (action === 'hourly-chart-tool') {
       const tool = target.dataset.ftChartTool;
       if (tool === 'zoom-in') {
@@ -8377,12 +8429,17 @@ export function mountFutardTerminal({
   }
 
   function handleKeydown(event) {
-    const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
-    const activeMenu = seriesMenu && !seriesMenu.hidden ? seriesMenu : null;
+    const activeMenu = Array.from(
+      root.querySelectorAll('[data-ft-role="hourly-series-menu"]'),
+    ).find(menu => !menu.hidden) || null;
     if (activeMenu) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setHourlySeriesMenuOpen(false, { restoreFocus: true });
+        setHourlySeriesMenuOpen(
+          activeMenu.dataset.ftSeriesGroup,
+          false,
+          { restoreFocus: true },
+        );
         return;
       }
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {

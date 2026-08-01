@@ -78,16 +78,19 @@ test('proposal TWAP observations begin at TWAP Open without mutating indexed his
     series: [
       {
         observedAt: '2026-07-23T00:59:59.000Z',
+        underlyingTwap: 0.13,
         passTwap: 0.134,
         failTwap: 0.127,
       },
       {
         observedAt: '2026-07-23T01:00:00.000Z',
+        underlyingTwap: 0.131,
         passTwap: 0.135,
         failTwap: 0.126,
       },
       {
         observedAt: '2026-07-23T01:15:00.000Z',
+        underlyingTwap: 0.132,
         passTwap: 0.136,
         failTwap: 0.125,
       },
@@ -96,12 +99,16 @@ test('proposal TWAP observations begin at TWAP Open without mutating indexed his
 
   const observations = proposalHistoryChartObservations(history);
 
+  assert.equal(observations[0].underlyingTwap, null);
   assert.equal(observations[0].passTwap, null);
   assert.equal(observations[0].failTwap, null);
+  assert.equal(observations[1].underlyingTwap, 0.131);
   assert.equal(observations[1].passTwap, 0.135);
   assert.equal(observations[1].failTwap, 0.126);
+  assert.equal(observations[2].underlyingTwap, 0.132);
   assert.equal(observations[2].passTwap, 0.136);
   assert.equal(observations[2].failTwap, 0.125);
+  assert.equal(history.series[0].underlyingTwap, 0.13);
   assert.equal(history.series[0].passTwap, 0.134);
   assert.equal(history.series[0].failTwap, 0.127);
 });
