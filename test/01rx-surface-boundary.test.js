@@ -256,6 +256,18 @@ test('market sidebar uses one market section with a leading live indicator', () 
   assert.match(refinementCss, /\.tp-all-section\.is-collapsed\s*\{[\s\S]*?flex: 0 0 30px;/);
   assert.match(refinementCss, /\.is-collapsed \.tp-unified-section-columns\s*\{\s*display: none;/);
   assert.match(refinementCss, /\.is-collapsed \.tp-unified-section-count\s*\{\s*display: inline-flex;/);
+  assert.match(
+    refinementCss,
+    /\.tp-unified-section-count\s*\{[\s\S]*?background: transparent;[\s\S]*?font-size: 10px;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-unified-section-toggle\s*\{[\s\S]*?background: transparent !important;[\s\S]*?box-shadow: none !important;/,
+  );
+  assert.doesNotMatch(
+    refinementCss,
+    /\.tp-unified-section-toggle:hover\s*\{[\s\S]*?background: #292929;/,
+  );
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="tokens"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="watchlist"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="markets"\] \.tp-all-section\s*\{[\s\S]*?display: none !important;/);

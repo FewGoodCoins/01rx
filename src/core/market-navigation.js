@@ -28,6 +28,13 @@ function controllerOwnsLink(browserWindow, anchor) {
   );
 }
 
+function nestedRowActionOwnsClick(event, anchor) {
+  const action = event?.target?.closest?.(
+    '.wl-star, .wl-drag-handle, [data-market-navigation-ignore]',
+  );
+  return Boolean(action && action !== anchor && anchor?.contains?.(action));
+}
+
 export function marketNavigationUrl(browserWindow, href) {
   try {
     const destination = new browserWindow.URL(href, browserWindow.location.href);
@@ -44,6 +51,7 @@ export function marketNavigationUrl(browserWindow, href) {
 
 export function shouldGuardMarketNavigation(event, anchor, browserWindow) {
   return plainPrimaryClick(event, anchor)
+    && !nestedRowActionOwnsClick(event, anchor)
     && !controllerOwnsLink(browserWindow, anchor)
     && Boolean(marketNavigationUrl(browserWindow, anchor.href));
 }
