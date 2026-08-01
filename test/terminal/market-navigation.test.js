@@ -23,7 +23,10 @@ test('market navigation guard covers native market links but leaves SPA proposal
     shouldGuardMarketNavigation,
   } = await marketNavigationModulePromise;
   const dom = new JSDOM(`
-    <a id="market" href="/?token=solo&view=markets&tab=tokens">Markets</a>
+    <a id="market" href="/?token=solo&view=markets&tab=tokens">
+      Markets
+      <span id="watchlist-star" class="wl-star">Watchlist</span>
+    </a>
     <a id="external" href="https://example.com/?view=markets">External</a>
     <a id="decision" class="tp-decision-item" data-ft-proposal-id="proposal" href="/?token=loyal&view=markets&proposal=proposal">Decision</a>
   `, {
@@ -31,6 +34,7 @@ test('market navigation guard covers native market links but leaves SPA proposal
   });
   const { window } = dom;
   const market = window.document.getElementById('market');
+  const watchlistStar = window.document.getElementById('watchlist-star');
   const external = window.document.getElementById('external');
   const decision = window.document.getElementById('decision');
 
@@ -40,6 +44,14 @@ test('market navigation guard covers native market links but leaves SPA proposal
   );
   assert.equal(marketNavigationUrl(window, external.href), null);
   assert.equal(shouldGuardMarketNavigation(primaryClick(), market, window), true);
+  assert.equal(
+    shouldGuardMarketNavigation(
+      { ...primaryClick(), target: watchlistStar },
+      market,
+      window,
+    ),
+    false,
+  );
   assert.equal(shouldGuardMarketNavigation(primaryClick(), external, window), false);
 
   window.NAVGATOR = {

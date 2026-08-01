@@ -1044,17 +1044,18 @@ html[data-workspace="markets"] .tp-unified-section-heading {
 
 html[data-workspace="markets"] .tp-unified-section-count {
   display: none;
-  min-width: 18px;
-  height: 18px;
   align-items: center;
-  justify-content: center;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: #252525;
-  color: #9b9b98;
-  font-family: var(--numeric-font);
-  font-size: 9px;
+  justify-content: flex-end;
+  padding: 0;
+  background: transparent;
+  color: #8f8f8c;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
   font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 html[data-workspace="markets"] .tp-unified-section-columns {
@@ -1094,17 +1095,21 @@ html[data-workspace="markets"] .tp-unified-section-toggle {
   display: inline-grid;
   width: 20px;
   height: 20px;
+  appearance: none;
   padding: 0;
   place-items: center;
   border: 0;
-  border-radius: 3px;
-  background: transparent;
+  border-radius: 0;
+  outline: 0;
+  background: transparent !important;
+  box-shadow: none !important;
   color: #8f8f91;
   cursor: pointer;
 }
 
-html[data-workspace="markets"] .tp-unified-section-toggle:hover {
-  background: #292929;
+html[data-workspace="markets"] .tp-unified-section-toggle:is(:hover, :focus-visible, :active) {
+  background: transparent !important;
+  box-shadow: none !important;
   color: #ffffff;
 }
 
