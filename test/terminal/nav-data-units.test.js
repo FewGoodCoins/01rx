@@ -186,6 +186,7 @@ function loadHelpers(extra = '', sandboxOverrides = {}) {
     '_canonicalPriceChange24h',
     '_fmtSidebarPct',
     '_fmtSignedSidebarPct',
+    '_isFlatSidebarChange',
     '_applyCurrentNavLifecycle',
     '_cfgVal',
     '_finiteNumOrNull',
@@ -522,6 +523,22 @@ test('sidebar price changes include explicit positive and negative signs', () =>
     ];
   `);
   assert.deepEqual(Array.from(sandbox.result), ['+3.00', '-1.40', '0']);
+});
+
+test('sidebar treats displayed zero 24-hour movement as flat', () => {
+  const sandbox = loadHelpers(`
+    result = [
+      _isFlatSidebarChange(0),
+      _isFlatSidebarChange(0.009),
+      _isFlatSidebarChange(-0.009),
+      _isFlatSidebarChange(0.01),
+      _isFlatSidebarChange(-0.01)
+    ];
+  `);
+  assert.deepEqual(Array.from(sandbox.result), [true, true, true, false, false]);
+  assert.equal((source.match(/tp-token-secondary is-neutral is-flat/g) || []).length, 2);
+  assert.equal((source.match(/data-metric="change24h">—<\/div>/g) || []).length, 2);
+  assert.match(source, /\.tp-token-secondary\.is-flat\s*\{\s*color: var\(--dim\);/);
 });
 
 test('landing filter exposes enabled graveyard button next to permissionless', () => {

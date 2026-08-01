@@ -387,7 +387,7 @@ function formatPercent(value, options = {}) {
   return `${sign}${value.toFixed(options.digits == null ? 2 : options.digits)}%`;
 }
 
-function formatThresholdPercent(value) {
+function formatCompactPercent(value) {
   return formatPercent(value).replace(/\.00%$/, '%').replace(/(\.\d)0%$/, '$1%');
 }
 
@@ -1923,7 +1923,6 @@ export function mountFutardTerminal({
     routeNotice: '',
     markets: [],
     sidebarMarkets: [],
-    sidebarHistoryOpen: false,
     activeMarkets: [],
     indexedProposals: [],
     selectedId: initialProposalId,
@@ -2890,7 +2889,7 @@ export function mountFutardTerminal({
         ${metric({
           key: 'threshold',
           label: 'Threshold',
-          value: formatThresholdPercent(market.thresholdPct),
+          value: formatCompactPercent(market.thresholdPct),
           tone: 'warning',
         })}
         ${metric({
@@ -3137,88 +3136,54 @@ export function mountFutardTerminal({
     if (!list) return;
     const section = runtime.document.getElementById('tlp-decisions-panel');
     const count = runtime.document.getElementById('tp-live-decision-count');
-    const pastSection = runtime.document.getElementById('tlp-past-decisions-panel');
-    const pastList = runtime.document.getElementById('tlp-past-decisions-list');
-    const pastCount = runtime.document.getElementById('tp-past-decision-count');
-    const pastTitle = runtime.document.getElementById('tp-past-decisions-title');
-    const historyToggleSlot = runtime.document.getElementById(
-      'tlp-decision-history-toggle-slot',
-    );
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
-    const priorMarkets = state.sidebarMarkets
-      .filter(market => (
-        market.proposal.statusGroup === 'passed'
-        || market.proposal.statusGroup === 'failed'
-      ))
-      .sort((left, right) => {
-        const leftTime = Date.parse(
-          left.proposal.resolvedAt || left.proposal.endsAt || left.proposal.createdAt || '',
-        ) || 0;
-        const rightTime = Date.parse(
-          right.proposal.resolvedAt || right.proposal.endsAt || right.proposal.createdAt || '',
-        ) || 0;
-        return rightTime - leftTime;
-      });
-    const visiblePriorMarkets = state.tokenFilter
-      ? priorMarkets.filter(market => market.token === state.tokenFilter)
-      : priorMarkets;
 
-    function renderSidebarMarket(market, isPrior = false) {
+    function renderSidebarMarket(market) {
       const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
       const proposalNumber = market.proposal.number == null
-        ? (isPrior ? 'Proposal' : '')
-        : isPrior
-          ? `Proposal #${Math.round(market.proposal.number)}`
-          : ` #${Math.round(market.proposal.number)}`;
+        ? ''
+        : ` #${Math.round(market.proposal.number)}`;
       const destination = tokenMarketsUrl(market.token, market.id);
-      const statusGroup = market.proposal.statusGroup;
-      const trailingValue = isPrior
-        ? (statusGroup === 'passed' ? 'Passed' : 'Failed')
-        : formatThresholdPercent(market.thresholdPct);
-      const trailingState = isPrior
-        ? trailingValue.toLowerCase().replace(/\s+/g, '-')
-        : 'threshold';
-      const status = isPrior
-        ? 'Closed'
-        : `
-          <span class="tp-decision-live-dot" aria-hidden="true"></span>
-          <span>Live</span>
-        `;
+      const passPrice = nonNegativeNumber(market.pass?.price);
+      const failPrice = nonNegativeNumber(market.fail?.price);
       return `
         <a
-          class="tp-decision-item${isPrior ? ' tp-decision-prior tp-past-proposal-item' : ''}"
+          class="tp-decision-item"
           href="${escapeHtml(destination)}"
-          title="${escapeHtml(market.proposal.title)}"
+          title="Live · ${escapeHtml(market.proposal.title)}"
           data-ft-proposal-id="${escapeHtml(market.id)}"
           data-ft-token="${escapeHtml(market.token || '')}"
           data-market-search-primary="${escapeHtml(ticker)}"
           data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
-          ${isPrior ? 'data-decision-history-item="true"' : ''}
           ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
         >
+          <span class="tp-decision-live-dot" role="img" aria-label="Live market"></span>
           <span class="tp-decision-project">
             ${renderLogo(market, 'small')}
             <span class="tp-decision-copy">
-              <strong>${escapeHtml(isPrior ? proposalNumber : `${ticker}${proposalNumber}`)}</strong>
-              ${isPrior ? `<small>${escapeHtml(market.proposal.title)}</small>` : ''}
+              <strong>${escapeHtml(`${ticker}${proposalNumber}`)}</strong>
             </span>
           </span>
-          <span class="tp-decision-state" data-state="${isPrior ? 'closed' : 'live'}">${status}</span>
           <span
-            class="tp-decision-result${isPrior ? '' : ' tp-decision-threshold'}"
-            data-result="${escapeHtml(trailingState)}"
-          >${escapeHtml(trailingValue)}</span>
+            class="tp-decision-result tp-decision-pass-price"
+            data-result="pass"
+            data-available="${Number.isFinite(passPrice)}"
+          >${escapeHtml(formatPrice(passPrice))}</span>
+          <span
+            class="tp-decision-result tp-decision-fail-price"
+            data-result="fail"
+            data-available="${Number.isFinite(failPrice)}"
+          >${escapeHtml(formatPrice(failPrice))}</span>
         </a>
       `;
     }
 
-    if (count) count.textContent = `${liveMarkets.length} active`;
+    if (count) {
+      count.textContent = `${liveMarkets.length} ${liveMarkets.length === 1 ? 'market' : 'markets'} live`;
+    }
     if (section) section.hidden = false;
-    runtime.document.documentElement.dataset.decisionHistory = state.sidebarHistoryOpen
-      ? 'open'
-      : 'closed';
 
     const activeHtml = liveMarkets.length
       ? liveMarkets.map(market => renderSidebarMarket(market)).join('')
@@ -3228,45 +3193,7 @@ export function mountFutardTerminal({
           <span>There are no proposals currently trading.</span>
         </div>
       `;
-    const historyToggle = visiblePriorMarkets.length
-      ? `
-        <button
-          class="tp-decision-history-toggle"
-          type="button"
-          data-decision-sidebar-action="toggle-history"
-          aria-expanded="${state.sidebarHistoryOpen}"
-        >
-          <span>${state.sidebarHistoryOpen ? 'Hide' : 'View'} prior decision markets</span>
-          <span class="tp-decision-history-meta">
-            <span>${visiblePriorMarkets.length}</span>
-            <svg viewBox="0 0 10 6" fill="none" aria-hidden="true"><path d="m1 1 4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-        </button>
-      `
-      : '';
-    const priorHtml = visiblePriorMarkets
-      .map(market => renderSidebarMarket(market, true))
-      .join('');
-
-    if (historyToggleSlot) {
-      list.innerHTML = activeHtml;
-      historyToggleSlot.innerHTML = historyToggle;
-    } else {
-      list.innerHTML = activeHtml + historyToggle;
-    }
-    if (pastSection) pastSection.hidden = !state.sidebarHistoryOpen || !visiblePriorMarkets.length;
-    if (pastList) {
-      pastList.innerHTML = priorHtml || '<div class="tp-decisions-empty">0 past proposals</div>';
-    }
-    if (pastCount) pastCount.textContent = String(visiblePriorMarkets.length);
-    if (pastTitle) {
-      const ticker = firstText(
-        state.navMap.get(state.tokenFilter)?.ticker,
-        state.sidebarMarkets.find(market => market.token === state.tokenFilter)?.ticker,
-        state.tokenFilter,
-      ).toUpperCase();
-      pastTitle.textContent = ticker ? `Past Proposals · ${ticker}` : 'Past Proposals';
-    }
+    list.innerHTML = activeHtml;
     runtime.applyMarketSidebarSearch?.();
   }
 
@@ -3640,7 +3567,7 @@ export function mountFutardTerminal({
           <strong>${escapeHtml(marketStatusLabel(market))}${Number.isFinite(market.decision.marginPct)
             ? ` by ${Math.abs(market.decision.marginPct).toFixed(2)}%`
             : ''}</strong>
-          <span>Threshold ${formatThresholdPercent(market.thresholdPct)}</span>
+          <span>Threshold ${formatCompactPercent(market.thresholdPct)}</span>
           <span>${escapeHtml(twapState)}</span>
           <span data-ft-region="countdown">${escapeHtml(formatCountdown(market.proposal.endsAt))}</span>
           <span>Spot ${formatPrice(market.nav.spot)}</span>
@@ -3842,7 +3769,7 @@ export function mountFutardTerminal({
           </div>
           <div class="ft-decision-metric">
             <span>Required uplift</span>
-            <strong>${formatThresholdPercent(market.thresholdPct)}</strong>
+            <strong>${formatCompactPercent(market.thresholdPct)}</strong>
           </div>
           <div class="ft-decision-metric">
             <span>PASS target TWAP</span>
@@ -3888,7 +3815,7 @@ export function mountFutardTerminal({
         <section class="ft-convergence-panel">
           <div class="ft-section-heading">
             <div><span class="ft-kicker">Decision mechanics</span><h3>Spot and TWAP convergence</h3></div>
-            <span>Threshold ${formatThresholdPercent(market.thresholdPct)}</span>
+            <span>Threshold ${formatCompactPercent(market.thresholdPct)}</span>
           </div>
           ${geometry ? `
             <div class="ft-convergence">
@@ -7836,24 +7763,6 @@ export function mountFutardTerminal({
 
   function handleDocumentClick(event) {
     if (state.execution.building || state.execution.submitting) return;
-    const decisionSidebarAction = event.target?.closest?.('[data-decision-sidebar-action]');
-    if (decisionSidebarAction) {
-      const decisionSection = runtime.document.getElementById('tlp-decisions-panel');
-      const historyToggleSlot = runtime.document.getElementById(
-        'tlp-decision-history-toggle-slot',
-      );
-      if (
-        decisionSection?.contains(decisionSidebarAction)
-        || historyToggleSlot?.contains(decisionSidebarAction)
-      ) {
-        event.preventDefault();
-        if (decisionSidebarAction.dataset.decisionSidebarAction === 'toggle-history') {
-          state.sidebarHistoryOpen = !state.sidebarHistoryOpen;
-          renderDecisionSidebar();
-        }
-        return;
-      }
-    }
     const sidebarProposal = event.target?.closest?.(
       '.tp-decision-item[data-ft-proposal-id]',
     );

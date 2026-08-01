@@ -140,6 +140,7 @@ try {
   if (_bootParams.get('view') === 'markets') {
     document.documentElement.setAttribute('data-workspace', 'markets');
     document.documentElement.setAttribute('data-market-boot', 'pending');
+    document.documentElement.setAttribute('data-market-sidebar-tab', 'all');
   }
 } catch (e) {}
 try {
@@ -530,30 +531,33 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         </div>
       </div>
     </div>
-    <div class="tp-market-tabs" role="tablist" aria-label="Asset list">
-      <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
-      <button class="tp-market-tab" id="tp-market-tab-watchlist" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="watchlist" onclick="setMarketSidebarTab('watchlist')">Watchlist</button>
+    <div class="tp-market-tabs" role="tablist" aria-label="Market list views">
+      <button class="tp-market-tab tp-market-tab-watchlist" id="tp-market-tab-watchlist" type="button" role="tab" aria-label="Watchlist" title="Watchlist" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="watchlist" onclick="setMarketSidebarTab('watchlist')">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3.4 2.65 5.37 5.93.86-4.29 4.18 1.01 5.91L12 16.93l-5.3 2.79 1.01-5.91-4.29-4.18 5.93-.86L12 3.4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
+      <button class="tp-market-tab" id="tp-market-tab-markets" type="button" role="tab" aria-selected="false" aria-controls="tlp-decisions-panel" data-market-sidebar-tab="markets" onclick="setMarketSidebarTab('markets')">Markets</button>
+      <button class="tp-market-tab" id="tp-market-tab-tokens" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="tokens" onclick="setMarketSidebarTab('tokens')">Tokens</button>
     </div>
-    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-live-decisions-title">
+    <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-decision-markets-title">
       <div class="tp-unified-section-heading">
         <span class="tp-unified-section-title-group">
           <button
             class="tp-unified-section-toggle tp-unified-section-toggle-live"
             type="button"
-            aria-label="Collapse live decision markets"
+            aria-label="Collapse decision markets"
             aria-expanded="true"
-            onclick="toggleMarketProposalSection('tlp-decisions-panel', this)"
+            onclick="toggleMarketSidebarSection('tlp-decisions-panel', this)"
           >
             <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
-          <span id="tp-live-decisions-title">Live Decision Markets</span>
+          <span id="tp-decision-markets-title">Markets</span>
         </span>
-        <span class="tp-unified-section-count" id="tp-live-decision-count">0</span>
-      </div>
-      <div class="tp-decision-columns" aria-hidden="true">
-        <span>Market</span>
-        <span>Status</span>
-        <span>Threshold</span>
+        <span class="tp-unified-section-columns tp-unified-section-columns-market" aria-hidden="true">
+          <span>Pass</span>
+          <span>Fail</span>
+        </span>
+        <span class="tp-unified-section-count" id="tp-live-decision-count">0 markets live</span>
       </div>
       <div id="tlp-decisions-list">
         <div class="tp-decisions-empty">0 live decision markets</div>
@@ -561,7 +565,23 @@ window.toggleChartFeatureMenu = function(trigger, event) {
     </section>
     <section class="tp-all-section" id="tlp-all-panel" aria-labelledby="tp-token-section-title">
       <div class="tp-unified-section-heading">
-        <span id="tp-token-section-title">Tokens</span>
+        <span class="tp-unified-section-title-group">
+          <button
+            class="tp-unified-section-toggle tp-unified-section-toggle-tokens"
+            type="button"
+            aria-label="Collapse tokens"
+            aria-expanded="true"
+            onclick="toggleMarketSidebarSection('tlp-all-panel', this)"
+          >
+            <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span id="tp-token-section-title">Tokens</span>
+        </span>
+        <span class="tp-unified-section-columns tp-unified-section-columns-token" aria-hidden="true">
+          <span>Price</span>
+          <span id="tp-token-secondary-label">24h</span>
+        </span>
+        <span class="tp-unified-section-count" id="tp-token-count">0 tokens live</span>
       </div>
       <button class="tp-section-label" onclick="toggleSectionArrow(this)" type="button" aria-expanded="true">
         <span style="display:flex;align-items:center;gap:6px">
@@ -570,47 +590,9 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         </span>
         <span class="tp-section-arrow"><svg width="8" height="5" viewBox="0 0 8 5" fill="none"><path d="M1 1L4 4L7 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </button>
-      <div class="tp-token-columns" aria-label="Asset columns">
-        <button id="tp-token-primary-label" type="button" onclick="toggleMarketAssetSort()">Asset ↓</button>
-        <span>Price</span>
-        <span id="tp-token-secondary-label">24h</span>
-      </div>
       <div id="tlp-all-list"></div>
       <div class="tp-market-empty" id="tp-market-empty" hidden>No assets found</div>
     </section>
-    <section
-      class="tp-decisions-section tp-past-proposals-section"
-      id="tlp-past-decisions-panel"
-      aria-labelledby="tp-past-decisions-title"
-    >
-      <div class="tp-unified-section-heading">
-        <span class="tp-unified-section-title-group">
-          <button
-            class="tp-unified-section-toggle tp-unified-section-toggle-past"
-            type="button"
-            aria-label="Collapse past proposals"
-            aria-expanded="true"
-            onclick="toggleMarketProposalSection('tlp-past-decisions-panel', this)"
-          >
-            <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 1L4 4L7 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <span id="tp-past-decisions-title">Past Proposals</span>
-        </span>
-        <span class="tp-unified-section-count" id="tp-past-decision-count">0</span>
-      </div>
-      <div class="tp-decision-columns" aria-hidden="true">
-        <span>Proposal</span>
-        <span>Status</span>
-        <span>Result</span>
-      </div>
-      <div id="tlp-past-decisions-list">
-        <div class="tp-decisions-empty">Select a token to view past proposals</div>
-      </div>
-    </section>
-    <div
-      class="tp-decision-history-slot"
-      id="tlp-decision-history-toggle-slot"
-    ></div>
     <div id="tlp-wl-section" class="tp-wl-section">
       <button class="tp-section-label collapsed" onclick="toggleWlCollapse()" type="button" aria-expanded="false">
         <span style="display:flex;align-items:center;gap:6px">

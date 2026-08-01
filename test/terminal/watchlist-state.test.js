@@ -150,7 +150,7 @@ test('public legacy watchlist facades delegate all storage ownership to the shel
   assert.doesNotMatch(legacySource, /localStorage\.(?:getItem|setItem)\([^)]*watchlist/i);
 });
 
-test('market sidebar offers only All and Watchlist asset tabs backed by rendered watch state', () => {
+test('market sidebar separates decision markets from tokens while retaining watch controls', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const appCore = fs.readFileSync('src/legacy/app-core.js', 'utf8');
   const tokenPage = fs.readFileSync('src/legacy/token-page.js', 'utf8');
@@ -159,8 +159,9 @@ test('market sidebar offers only All and Watchlist asset tabs backed by rendered
     (match) => match[1],
   );
 
-  assert.deepEqual(tabs, ['all', 'watchlist']);
+  assert.deepEqual(tabs, ['watchlist', 'all', 'markets', 'tokens']);
   assert.match(appCore, /function setMarketSidebarTab\(nextTab\)/);
+  assert.match(appCore, /var _marketSidebarTab = 'all';/);
   assert.match(appCore, /item\.dataset\.watched === 'true'/);
   assert.match(tokenPage, /data-watched=/);
 });
