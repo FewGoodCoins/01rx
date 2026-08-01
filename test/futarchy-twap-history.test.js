@@ -50,7 +50,6 @@ test('spot-swap events produce distinct PASS and FAIL protocol TWAP observations
     baseDecimals: 6,
     quoteDecimals: 6,
   });
-  assert.ok(Math.abs(snapshot.underlyingTwap - 1.5) < 1e-12);
   assert.ok(Math.abs(snapshot.passTwap - 1.333333333333) < 1e-12);
   assert.ok(Math.abs(snapshot.failTwap - 1.666666666666) < 1e-12);
   assert.equal(twapSnapshotFromEvent(event, {

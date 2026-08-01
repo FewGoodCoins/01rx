@@ -71,26 +71,26 @@ test('proposal chart omits a launch anchor when the first spot price is unavaila
   assert.equal(points[0].failPrice, 0.127);
 });
 
-test('proposal TWAP observations begin at TWAP Open without mutating indexed history', async () => {
-  const { proposalHistoryChartObservations } = await loadModel();
+test('proposal TWAP and decision-edge observations begin at TWAP Open without mutating indexed history', async () => {
+  const {
+    proposalDecisionEdge,
+    proposalHistoryChartObservations,
+  } = await loadModel();
   const history = {
     preTwap: '2026-07-23T01:00:00.000Z',
     series: [
       {
         observedAt: '2026-07-23T00:59:59.000Z',
-        underlyingTwap: 0.13,
         passTwap: 0.134,
         failTwap: 0.127,
       },
       {
         observedAt: '2026-07-23T01:00:00.000Z',
-        underlyingTwap: 0.131,
         passTwap: 0.135,
         failTwap: 0.126,
       },
       {
         observedAt: '2026-07-23T01:15:00.000Z',
-        underlyingTwap: 0.132,
         passTwap: 0.136,
         failTwap: 0.125,
       },
@@ -99,16 +99,26 @@ test('proposal TWAP observations begin at TWAP Open without mutating indexed his
 
   const observations = proposalHistoryChartObservations(history);
 
-  assert.equal(observations[0].underlyingTwap, null);
   assert.equal(observations[0].passTwap, null);
   assert.equal(observations[0].failTwap, null);
-  assert.equal(observations[1].underlyingTwap, 0.131);
+  assert.equal(observations[0].decisionEdge, null);
   assert.equal(observations[1].passTwap, 0.135);
   assert.equal(observations[1].failTwap, 0.126);
-  assert.equal(observations[2].underlyingTwap, 0.132);
+  assert.equal(
+    observations[1].decisionEdge,
+    proposalDecisionEdge(0.135, 0.126),
+  );
   assert.equal(observations[2].passTwap, 0.136);
   assert.equal(observations[2].failTwap, 0.125);
-  assert.equal(history.series[0].underlyingTwap, 0.13);
+  assert.equal(
+    observations[2].decisionEdge,
+    proposalDecisionEdge(0.136, 0.125),
+  );
   assert.equal(history.series[0].passTwap, 0.134);
   assert.equal(history.series[0].failTwap, 0.127);
+  assert.equal(history.series[0].decisionEdge, undefined);
+  assert.equal(proposalDecisionEdge(1.03, 1), 3.0000000000000027);
+  assert.equal(proposalDecisionEdge(0.97, 1), -3.0000000000000027);
+  assert.equal(proposalDecisionEdge(null, 1), null);
+  assert.equal(proposalDecisionEdge(1, 0), null);
 });

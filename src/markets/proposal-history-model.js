@@ -57,14 +57,27 @@ export function proposalLaunchAnchor(history, options = {}) {
     observedAt: timestamp,
     chartTimestamp: timestamp,
     underlyingPrice: price,
-    underlyingTwap: null,
     passPrice: price,
     failPrice: price,
     passTwap: null,
     failTwap: null,
+    decisionEdge: null,
     sampleCount: 0,
     protocolLaunchAnchor: true,
   };
+}
+
+export function proposalDecisionEdge(passTwap, failTwap) {
+  if (passTwap == null || passTwap === '' || failTwap == null || failTwap === '') {
+    return null;
+  }
+  const pass = Number(passTwap);
+  const fail = Number(failTwap);
+  if (!Number.isFinite(pass) || !Number.isFinite(fail) || pass < 0 || fail <= 0) {
+    return null;
+  }
+  const edge = ((pass / fail) - 1) * 100;
+  return Number.isFinite(edge) ? edge : null;
 }
 
 export function proposalHistoryChartObservations(history) {
@@ -79,8 +92,10 @@ export function proposalHistoryChartObservations(history) {
       ...(Number.isFinite(time)
         ? { chartTimestamp: new Date(time).toISOString() }
         : {}),
+      decisionEdge: beforeTwap
+        ? null
+        : proposalDecisionEdge(point.passTwap, point.failTwap),
       ...(beforeTwap ? {
-        underlyingTwap: null,
         passTwap: null,
         failTwap: null,
       } : {}),
