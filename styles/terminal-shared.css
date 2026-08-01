@@ -339,6 +339,20 @@
   order: -1;
 }
 
+/* Decision charts use labeled Price and TWAP controls. Their flex items must
+   own the same width as the buttons or the buttons spill into one another. */
+[data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market) .ft-hourly-series-control-labeled {
+  width: 74px;
+  min-width: 74px;
+  flex: 0 0 74px;
+}
+
+[data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market) .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+  width: 50px;
+  min-width: 50px;
+  flex: 0 0 50px;
+}
+
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-growth-button {
   width: 42px;
   min-width: 42px;

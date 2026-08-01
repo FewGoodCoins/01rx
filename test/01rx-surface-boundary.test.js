@@ -337,6 +337,17 @@ test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the pl
   );
 });
 
+test('decision chart toolbar wrappers match their labeled button widths', () => {
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-archive-market\) \.ft-hourly-series-control-labeled\s*\{\s*width: 74px;\s*min-width: 74px;\s*flex: 0 0 74px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-archive-market\) \.ft-hourly-toolbar \.chart-tv-placeholder-controls-primary\s*\{\s*width: 50px;\s*min-width: 50px;\s*flex: 0 0 50px;/,
+  );
+});
+
 test('desktop spot ticket grows to expose every control without internal scrolling', () => {
   assert.match(
     frameCss,

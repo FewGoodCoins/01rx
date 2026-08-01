@@ -31,9 +31,12 @@ const CHART_INTERACTION_EVENTS = Object.freeze([
   'dblclick',
 ]);
 const MAX_BOUNDARY_TIMELINE_POINTS = 2_048;
+const MINIMUM_ZOOM_OUT_WIDTH = 24;
+const ZOOM_OUT_CONTENT_MULTIPLIER = 3;
 
 export const PROPOSAL_HISTORY_GUIDE_LINE_STYLE = LineStyle.SparseDotted;
 export const PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE = false;
+export const PROPOSAL_HISTORY_MIN_BAR_SPACING = 0.5;
 
 export const PROPOSAL_HISTORY_SERIES = Object.freeze([
   {
@@ -399,6 +402,20 @@ export function proposalChartObservedRange(plottedTimes, interval = '1h') {
   return { from: times[0], to: times[times.length - 1] };
 }
 
+export function proposalChartMaximumLogicalWidth(pointCount, boundaryPointCount = 0) {
+  const contentWidth = Math.max(
+    1,
+    Number.isFinite(Number(pointCount)) ? Math.floor(Number(pointCount)) : 0,
+    Number.isFinite(Number(boundaryPointCount))
+      ? Math.floor(Number(boundaryPointCount))
+      : 0,
+  );
+  return Math.max(
+    MINIMUM_ZOOM_OUT_WIDTH,
+    contentWidth * ZOOM_OUT_CONTENT_MULTIPLIER,
+  );
+}
+
 export function proposalLaunchSeriesMarker(anchor) {
   const timeMs = proposalChartPointTime(anchor);
   const price = finiteValue(anchor?.underlyingPrice);
@@ -565,7 +582,7 @@ export function createProposalHistoryChart({
       timeVisible: true,
       secondsVisible: false,
       rightOffset: 2,
-      minBarSpacing: 2,
+      minBarSpacing: PROPOSAL_HISTORY_MIN_BAR_SPACING,
       lockVisibleTimeRangeOnResize: true,
       tickMarkFormatter(time, tickMarkType) {
         const date = new Date(Number(time) * 1_000);
@@ -890,7 +907,10 @@ export function createProposalHistoryChart({
     const visible = chart.timeScale().getVisibleLogicalRange();
     if (!visible || !Number.isFinite(factor) || factor <= 0) return;
     const currentWidth = Math.max(2, visible.to - visible.from);
-    const maximumWidth = Math.max(4, points.length + 4);
+    const maximumWidth = proposalChartMaximumLogicalWidth(
+      plottedTimes.length,
+      boundaryTimeline.length,
+    );
     const nextWidth = Math.min(maximumWidth, Math.max(2, currentWidth * factor));
     const center = (visible.from + visible.to) / 2;
     chart.timeScale().setVisibleLogicalRange({
