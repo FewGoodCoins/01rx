@@ -3748,8 +3748,22 @@ body.is-futard-terminal #token-switch-loader {
   color: var(--ft-positive);
 }
 
+.ft-hourly-overlay-pass-twap strong {
+  color: var(--ft-positive);
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 .ft-hourly-overlay-fail strong {
   color: var(--ft-negative);
+}
+
+.ft-hourly-overlay-fail-twap strong {
+  color: var(--ft-negative);
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .ft-hourly-range {
@@ -3824,6 +3838,49 @@ body.is-futard-terminal #token-switch-loader {
 .ft-hourly-style-cell[aria-expanded="true"] {
   background: #202020;
   color: var(--ft-ink);
+}
+
+.ft-hourly-twap-toggle {
+  display: inline-flex;
+  width: 74px;
+  min-width: 74px;
+  flex: 0 0 74px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--ft-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+.ft-hourly-twap-toggle.ft-is-active {
+  background: #202020;
+  color: var(--ft-ink-strong);
+}
+
+.ft-hourly-twap-toggle:disabled {
+  color: var(--ft-faint);
+  cursor: default;
+  opacity: 0.45;
+}
+
+.ft-hourly-twap-glyph {
+  display: inline-flex;
+  width: 14px;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ft-hourly-twap-glyph i {
+  display: block;
+  height: 0;
+  border-top: 1px dashed var(--ft-positive);
+}
+
+.ft-hourly-twap-glyph i:last-child {
+  border-color: var(--ft-negative);
 }
 
 .ft-hourly-range-menu {

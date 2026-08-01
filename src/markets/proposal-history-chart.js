@@ -41,6 +41,8 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     fallbackColor: '#f4f6f8',
     lineStyle: LineStyle.Solid,
     lineWidth: 2,
+    liveEndpoint: 'price',
+    priceLineVisible: false,
   },
   {
     field: 'passPrice',
@@ -49,6 +51,18 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     fallbackColor: '#42d89b',
     lineStyle: LineStyle.Solid,
     lineWidth: 2,
+    liveEndpoint: 'pass',
+    priceLineVisible: true,
+  },
+  {
+    field: 'passTwap',
+    label: 'Pass TWAP',
+    colorVariable: '--ft-positive',
+    fallbackColor: '#42d89b',
+    lineStyle: LineStyle.Dashed,
+    lineWidth: 1,
+    liveEndpoint: null,
+    priceLineVisible: false,
   },
   {
     field: 'failPrice',
@@ -57,6 +71,18 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     fallbackColor: '#ff6f7d',
     lineStyle: LineStyle.Solid,
     lineWidth: 2,
+    liveEndpoint: 'fail',
+    priceLineVisible: true,
+  },
+  {
+    field: 'failTwap',
+    label: 'Fail TWAP',
+    colorVariable: '--ft-negative',
+    fallbackColor: '#ff6f7d',
+    lineStyle: LineStyle.Dashed,
+    lineWidth: 1,
+    liveEndpoint: null,
+    priceLineVisible: false,
   },
 ]);
 
@@ -226,16 +252,14 @@ export function proposalChartEndpoint(points, field, interval = '1h') {
 }
 
 export function proposalChartLiveEndpoints(points, interval = '1h') {
-  return PROPOSAL_HISTORY_SERIES.map((definition) => {
+  return PROPOSAL_HISTORY_SERIES.filter(
+    definition => definition.liveEndpoint,
+  ).map((definition) => {
     const endpoint = proposalChartEndpoint(points, definition.field, interval);
     if (!endpoint) return null;
     return {
       field: definition.field,
-      key: definition.field === 'underlyingPrice'
-        ? 'price'
-        : definition.field === 'passPrice'
-          ? 'pass'
-          : 'fail',
+      key: definition.liveEndpoint,
       endpoint,
     };
   }).filter(Boolean);
@@ -404,8 +428,8 @@ export function createProposalHistoryChart({
     return null;
   }
 
-  const observations = history.series;
   const points = proposalChartPoints(history, { launchedAt });
+  const observations = points.filter(point => point.protocolLaunchAnchor !== true);
   const chartRoot = container.closest('.ft-hourly-chart') || container;
   const readout = readoutElements(chartRoot);
   const precision = pricePrecision(points);
@@ -431,6 +455,7 @@ export function createProposalHistoryChart({
   let interactionHandler = null;
   let launchAnchorMarkers = null;
   let currentRange = range;
+  const twapStartTimestamp = unixTime(history.preTwap);
   const eventDefinitions = proposalChartBoundaryEvents(
     history.preTwap,
     windowEndedAt,
@@ -585,7 +610,7 @@ export function createProposalHistoryChart({
       lastValueVisible: Number.isFinite(finiteValue(
         observations[observations.length - 1]?.[definition.field],
       )),
-      priceLineVisible: definition.field !== 'underlyingPrice',
+      priceLineVisible: definition.priceLineVisible === true,
       priceLineColor: color,
       priceLineStyle: PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
       priceLineWidth: 1,
@@ -841,18 +866,21 @@ export function createProposalHistoryChart({
     PROPOSAL_HISTORY_SERIES.forEach((definition) => {
       const value = normalized.values[definition.field];
       if (!Number.isFinite(value)) return;
+      if (
+        (definition.field === 'passTwap' || definition.field === 'failTwap')
+        && Number.isFinite(twapStartTimestamp)
+        && normalized.time < twapStartTimestamp
+      ) return;
       const series = seriesByField.get(definition.field)?.[0];
       series?.update?.({ time: normalized.time, value });
       latest[definition.field] = value;
-      setLiveEndpoint(
-        definition.field,
-        definition.field === 'underlyingPrice'
-          ? 'price'
-          : definition.field === 'passPrice'
-            ? 'pass'
-            : 'fail',
-        { time: normalized.time, value },
-      );
+      if (definition.liveEndpoint) {
+        setLiveEndpoint(
+          definition.field,
+          definition.liveEndpoint,
+          { time: normalized.time, value },
+        );
+      }
     });
     lastTimestamp = normalized.time;
     if (!plottedTimes.includes(normalized.time)) {

@@ -382,7 +382,9 @@ function hourlyHistory(proposalId, ticker, base, options = {}) {
   const coverage = {
     underlying: series.filter(point => Number.isFinite(point.underlyingPrice)).length,
     pass: series.filter(point => Number.isFinite(point.passPrice)).length,
+    passTwap: series.filter(point => Number.isFinite(point.passTwap)).length,
     fail: series.filter(point => Number.isFinite(point.failPrice)).length,
+    failTwap: series.filter(point => Number.isFinite(point.failTwap)).length,
   };
   return {
     proposalId,
@@ -861,6 +863,8 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(history.series[0].passPrice, null);
   assert.equal(history.series[0].passTwap, 4.8);
   assert.equal(history.series[1].failPrice, null);
+  assert.equal(history.summary.coverage.passTwap, 1);
+  assert.equal(history.summary.coverage.failTwap, 0);
   assert.equal(history.preTwap, '2026-06-16T11:00:00.000Z');
 
   const dom = new JSDOM(renderHourlyPriceChart(history, 'META', {
@@ -868,7 +872,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   }));
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
-  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 6);
+  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 10);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 0);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]'), null);
@@ -876,7 +880,23 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(chart.querySelector('[data-ft-role="hourly-series-menu"]').hidden, true);
   assert.equal(
     chart.querySelectorAll('[data-ft-role="hourly-series-menu"] [role="menuitemcheckbox"]').length,
-    3,
+    5,
+  );
+  assert.equal(
+    chart.querySelector('[data-ft-readout-value="passTwap"]').textContent,
+    '—',
+  );
+  assert.equal(
+    chart.querySelector('[data-ft-series-field="passTwap"]').disabled,
+    true,
+  );
+  assert.equal(
+    chart.querySelector('[data-ft-series-field="failTwap"]').disabled,
+    true,
+  );
+  assert.equal(
+    chart.querySelector('[data-ft-role="hourly-twap-toggle"]').disabled,
+    true,
   );
   assert.equal(chart.querySelector('[aria-label="Hide annotations placeholder"]'), null);
   assert.equal(chart.querySelector('[aria-label="TradingView undo placeholder"]'), null);
@@ -893,6 +913,11 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
       .dataset.ftChartEngine,
     'tradingview-lightweight',
+  );
+  assert.match(
+    chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
+      .getAttribute('aria-label'),
+    /indexed PASS and FAIL TWAP series/,
   );
   assert.equal(chart.querySelector('[data-ft-role="tradingview-attribution"]'), null);
   assert.equal(chart.querySelector('[data-ft-role="proposal-history-fallback"]'), null);
@@ -989,9 +1014,17 @@ test('TradingView chart adapter splits null values and missing hours into honest
     PROPOSAL_HISTORY_SERIES.find(series => series.field === 'underlyingPrice').lineWidth,
     2,
   );
+  assert.equal(
+    PROPOSAL_HISTORY_SERIES.find(series => series.field === 'passTwap').lineStyle,
+    2,
+  );
+  assert.equal(
+    PROPOSAL_HISTORY_SERIES.find(series => series.field === 'failTwap').lineWidth,
+    1,
+  );
   assert.deepEqual(
     PROPOSAL_HISTORY_SERIES.map(series => series.label),
-    ['Price', 'Pass', 'Fail'],
+    ['Price', 'Pass', 'Pass TWAP', 'Fail', 'Fail TWAP'],
   );
   assert.equal(PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE, false);
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
@@ -1103,7 +1136,9 @@ test('TradingView chart adapter splits null values and missing hours into honest
       values: {
         underlyingPrice: 4.72,
         passPrice: 4.81,
+        passTwap: null,
         failPrice: 4.61,
+        failTwap: null,
       },
     },
   );
@@ -1242,13 +1277,19 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   assert.doesNotMatch(chartHeader.textContent, /Fund Loyal contributor growth for Q3/);
   assert.equal(chartHeader.querySelector('.ft-chart-market-identity a'), null);
-  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Result']) {
+  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Pass signal']) {
     assert.match(chartHeader.textContent, new RegExp(label));
   }
   assert.equal(
     chartHeader.querySelector('[data-ft-chart-header-metric="threshold"] strong').textContent,
     '+1.5%',
   );
+  const passSignal = chartHeader.querySelector(
+    '[data-ft-chart-header-metric="pass-signal"]',
+  );
+  assert.equal(passSignal.querySelector('strong').textContent, '+1.63%');
+  assert.equal(passSignal.dataset.tone, 'positive');
+  assert.match(passSignal.title, /decision signal, not a probability/);
   assert.doesNotMatch(chartHeader.textContent, /Liquidity/);
   assert.match(
     chartHeader.querySelector('[data-ft-chart-header-metric="price"] strong').textContent,
@@ -1524,7 +1565,9 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
     timestamp: ACTIVE_MARKETS.markets[0].source.asOf,
     underlyingPrice: 0.1291,
     passPrice: 0.1337,
+    passTwap: 0.1319,
     failPrice: 0.1279,
+    failTwap: 0.1279,
   });
   assert.equal(
     byRole(root, 'proposal-chart-header')
@@ -1539,8 +1582,12 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   activeMarkets.markets[0].source.asOf = '2026-07-24T12:00:07.000Z';
   activeMarkets.markets[0].source.slot = 355000007;
   activeMarkets.markets[0].spot.price = 0.1305;
+  activeMarkets.markets[0].decision.passing = false;
+  activeMarkets.markets[0].decision.marginPct = -0.4;
   activeMarkets.markets[0].pass.price = 0.1555;
+  activeMarkets.markets[0].pass.twapPrice = 0.1455;
   activeMarkets.markets[0].fail.price = 0.1111;
+  activeMarkets.markets[0].fail.twapPrice = 0.1211;
   marketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
   marketData.asOf = '2026-07-24T12:00:07.000Z';
   marketData.slot = 355000007;
@@ -1579,11 +1626,18 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
       .textContent,
     '$0.1111',
   );
+  const passSignal = byRole(root, 'proposal-chart-header')
+    .querySelector('[data-ft-chart-header-metric="pass-signal"]');
+  assert.equal(passSignal.querySelector('strong').textContent, '-0.4%');
+  assert.equal(passSignal.dataset.tone, 'negative');
+  assert.match(passSignal.title, /Current failing margin/);
   assert.deepEqual(livePoints.at(-1), {
     timestamp: '2026-07-24T12:00:07.000Z',
     underlyingPrice: 0.1305,
     passPrice: 0.1555,
+    passTwap: 0.1455,
     failPrice: 0.1111,
+    failTwap: 0.1211,
   });
   cleanupMount(mounted);
 });
@@ -2105,6 +2159,15 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
     readyChart.querySelector('[data-ft-role="proposal-history-tradingview"]'),
   );
   assert.equal(chartMounts[0].isLive, false);
+  const resultMetric = byRole(root, 'proposal-chart-header')
+    .querySelector('[data-ft-chart-header-metric="result"]');
+  assert.equal(resultMetric.querySelector('span').textContent, 'Result');
+  assert.equal(resultMetric.querySelector('strong').textContent, 'Passed');
+  assert.equal(
+    byRole(root, 'proposal-chart-header')
+      .querySelector('[data-ft-chart-header-metric="pass-signal"]'),
+    null,
+  );
 
   cleanupMount(mounted);
 });
@@ -2903,6 +2966,32 @@ test('interactive history chart controls update and clean up an injected chart a
   failToggle.click();
   assert.equal(failToggle.getAttribute('aria-pressed'), 'true');
   assert.deepEqual(activeChart.visibility.at(-1), ['failPrice', true]);
+
+  const passTwapToggle = root.querySelector('.ft-hourly-overlay-pass-twap');
+  assert.equal(passTwapToggle.textContent.includes('Pass TWAP'), true);
+  assert.equal(
+    passTwapToggle.querySelector('[data-ft-readout-value="passTwap"]').textContent,
+    '$0.4600',
+  );
+  passTwapToggle.click();
+  assert.equal(passTwapToggle.getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(activeChart.visibility.at(-1), ['passTwap', false]);
+  passTwapToggle.click();
+
+  const twapToggle = root.querySelector('[data-ft-role="hourly-twap-toggle"]');
+  assert.equal(twapToggle.getAttribute('aria-pressed'), 'true');
+  twapToggle.click();
+  assert.equal(twapToggle.getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(activeChart.visibility.slice(-2), [
+    ['passTwap', false],
+    ['failTwap', false],
+  ]);
+  twapToggle.click();
+  assert.equal(twapToggle.getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(activeChart.visibility.slice(-2), [
+    ['passTwap', true],
+    ['failTwap', true],
+  ]);
 
   const seriesTrigger = root.querySelector('[data-ft-role="hourly-series-trigger"]');
   const seriesMenu = root.querySelector('[data-ft-role="hourly-series-menu"]');
