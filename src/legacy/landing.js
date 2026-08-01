@@ -131,7 +131,7 @@ window._cachedPriceMap = _cachedPriceMap;
             return '<a class="tp-item' + (isActive ? ' active' : '') + '" data-key="' + _esc(k) + '" href="' + _tokenPageUrl(k) + '">' +
               '<span class="wl-drag-handle"><svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor"><circle cx="1" cy="1" r="1"/><circle cx="5" cy="1" r="1"/><circle cx="1" cy="5" r="1"/><circle cx="5" cy="5" r="1"/><circle cx="1" cy="9" r="1"/><circle cx="5" cy="9" r="1"/></svg></span>' +
               iconH +
-              '<div class="tp-content"><div class="tp-row"><span class="tp-name" style="font-size:13px">' + _esc(tok.ticker) + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + (entry.change24h !== undefined ? (entry.change24h === 0 ? '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span style="color:var(--dim)">— 0%</span></div>' : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (entry.change24h >= 0 ? 'up' : 'down') + '">' + (entry.change24h >= 0 ? '▲' : '▼') + ' ' + _fmtSidebarPct(entry.change24h) + '%</span></div>') : '') + '</div></div></div></a>';
+              '<div class="tp-content"><div class="tp-row"><span class="tp-name" style="font-size:13px">' + _esc(tok.ticker) + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + (entry.change24h !== undefined ? (entry.change24h === 0 ? '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span style="color:var(--dim)">— 0%</span></div>' : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (entry.change24h >= 0 ? 'up' : 'down') + '">' + (entry.change24h >= 0 ? '▲' : '▼') + ' ' + _fmtSignedSidebarPct(entry.change24h) + '%</span></div>') : '') + '</div></div></div></a>';
           }).join('');
           initWatchlistDrag();
         } else {
@@ -882,7 +882,7 @@ window._cachedPriceMap = _cachedPriceMap;
       }
       value = Number(value);
       return '<div class="tt-change tp-token-secondary" data-metric="' + metricKey + '"><span class="' + (value >= 0 ? 'up' : 'down') + '">' +
-        (value >= 0 ? '+' : '') + _fmtSidebarPct(value) + '%</span></div>';
+        _fmtSignedSidebarPct(value) + '%</span></div>';
     }
 
     function renderRow(key, tok, overrideBadge, isWatchlist) {
@@ -908,7 +908,7 @@ window._cachedPriceMap = _cachedPriceMap;
       } else if (chg24 !== undefined && chg24 !== null && isFinite(chg24)) {
         chg24Html = chg24 === 0
           ? '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span style="color:var(--dim)">— 0%</span></div>'
-          : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (chg24 >= 0 ? 'up' : 'down') + '">' + (chg24 >= 0 ? '▲' : '▼') + ' ' + _fmtSidebarPct(chg24) + '%</span></div>';
+          : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (chg24 >= 0 ? 'up' : 'down') + '">' + (chg24 >= 0 ? '▲' : '▼') + ' ' + _fmtSignedSidebarPct(chg24) + '%</span></div>';
       } else {
         chg24Html = '<div class="tt-change" style="font-size:12px"><span class="tt-skel tt-skel-sm"></span></div>';
       }

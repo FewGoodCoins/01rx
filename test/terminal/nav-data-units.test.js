@@ -184,6 +184,8 @@ function loadHelpers(extra = '', sandboxOverrides = {}) {
     '_calcSparkChange',
     '_getSparkPrice',
     '_canonicalPriceChange24h',
+    '_fmtSidebarPct',
+    '_fmtSignedSidebarPct',
     '_applyCurrentNavLifecycle',
     '_cfgVal',
     '_finiteNumOrNull',
@@ -510,6 +512,17 @@ function loadProposalHelpers(extra = '', sandboxOverrides = {}) {
   vm.runInNewContext(`${extractVarObject('_proposalFallbackIdByTokenDate')}\n${helperSource}\n${extra}`, sandbox);
   return sandbox;
 }
+
+test('sidebar price changes include explicit positive and negative signs', () => {
+  const sandbox = loadHelpers(`
+    result = [
+      _fmtSignedSidebarPct(3),
+      _fmtSignedSidebarPct(-1.4),
+      _fmtSignedSidebarPct(0)
+    ];
+  `);
+  assert.deepEqual(Array.from(sandbox.result), ['+3.00', '-1.40', '0']);
+});
 
 test('landing filter exposes enabled graveyard button next to permissionless', () => {
   assert.match(source, /class="lp-filter-btn lp-filter-btn-graveyard"[^>]+data-lp="graveyard"[^>]+filterByLaunchpad\('graveyard'\)/);

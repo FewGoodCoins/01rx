@@ -387,6 +387,10 @@ function formatPercent(value, options = {}) {
   return `${sign}${value.toFixed(options.digits == null ? 2 : options.digits)}%`;
 }
 
+function formatThresholdPercent(value) {
+  return formatPercent(value).replace(/\.00%$/, '%').replace(/(\.\d)0%$/, '$1%');
+}
+
 function formatDateTime(value) {
   if (!value) return '—';
   const date = new Date(value);
@@ -2886,7 +2890,7 @@ export function mountFutardTerminal({
         ${metric({
           key: 'threshold',
           label: 'Threshold',
-          value: formatPercent(market.thresholdPct, { sign: false }),
+          value: formatThresholdPercent(market.thresholdPct),
           tone: 'warning',
         })}
         ${metric({
@@ -3172,7 +3176,7 @@ export function mountFutardTerminal({
       const statusGroup = market.proposal.statusGroup;
       const trailingValue = isPrior
         ? (statusGroup === 'passed' ? 'Passed' : 'Failed')
-        : formatPercent(market.thresholdPct, { sign: false });
+        : formatThresholdPercent(market.thresholdPct);
       const trailingState = isPrior
         ? trailingValue.toLowerCase().replace(/\s+/g, '-')
         : 'threshold';
@@ -3636,7 +3640,7 @@ export function mountFutardTerminal({
           <strong>${escapeHtml(marketStatusLabel(market))}${Number.isFinite(market.decision.marginPct)
             ? ` by ${Math.abs(market.decision.marginPct).toFixed(2)}%`
             : ''}</strong>
-          <span>Threshold ${formatPercent(market.thresholdPct, { sign: false })}</span>
+          <span>Threshold ${formatThresholdPercent(market.thresholdPct)}</span>
           <span>${escapeHtml(twapState)}</span>
           <span data-ft-region="countdown">${escapeHtml(formatCountdown(market.proposal.endsAt))}</span>
           <span>Spot ${formatPrice(market.nav.spot)}</span>
@@ -3838,7 +3842,7 @@ export function mountFutardTerminal({
           </div>
           <div class="ft-decision-metric">
             <span>Required uplift</span>
-            <strong>${formatPercent(market.thresholdPct, { sign: false })}</strong>
+            <strong>${formatThresholdPercent(market.thresholdPct)}</strong>
           </div>
           <div class="ft-decision-metric">
             <span>PASS target TWAP</span>
@@ -3884,7 +3888,7 @@ export function mountFutardTerminal({
         <section class="ft-convergence-panel">
           <div class="ft-section-heading">
             <div><span class="ft-kicker">Decision mechanics</span><h3>Spot and TWAP convergence</h3></div>
-            <span>Threshold ${formatPercent(market.thresholdPct, { sign: false })}</span>
+            <span>Threshold ${formatThresholdPercent(market.thresholdPct)}</span>
           </div>
           ${geometry ? `
             <div class="ft-convergence">
