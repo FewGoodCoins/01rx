@@ -4249,8 +4249,18 @@ body.is-futard-terminal #token-switch-loader {
   background: currentColor;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  will-change: left, top, box-shadow;
-  animation: ft-proposal-live-pulse 1.8s ease-in-out infinite !important;
+  will-change: left, top;
+  animation: none !important;
+}
+
+.ft-proposal-live-dot::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid currentColor;
+  border-radius: inherit;
+  content: '';
+  pointer-events: none;
+  animation: ft-proposal-live-pulse 1.8s ease-out infinite;
 }
 
 .ft-proposal-live-dot[hidden] {
@@ -4267,23 +4277,18 @@ body.is-futard-terminal #token-switch-loader {
 
 .ft-proposal-live-dot-fail {
   color: var(--ft-negative);
-  animation-delay: -0.9s !important;
 }
 
 @keyframes ft-proposal-live-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow:
-      0 0 0 0 currentColor,
-      0 0 7px 0 currentColor;
+  0% {
+    opacity: 0.62;
+    transform: scale(1);
   }
 
-  50% {
-    opacity: 0.88;
-    box-shadow:
-      0 0 0 7px transparent,
-      0 0 13px 1px currentColor;
+  58%,
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
   }
 }
 

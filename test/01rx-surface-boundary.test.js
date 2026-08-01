@@ -231,6 +231,29 @@ test('decision charts render without a token or PASS/FAIL backdrop', () => {
   assert.doesNotMatch(proposalChartSource, /PASS\s*\/\s*FAIL/);
 });
 
+test('decision chart endpoints keep a solid center with one synchronized pulse band', () => {
+  const pulseStart = frameCss.indexOf('@keyframes ft-proposal-live-pulse');
+  const pulseEnd = frameCss.indexOf('\n}\n\n.ft-hourly-live', pulseStart);
+  const pulseKeyframes = frameCss.slice(pulseStart, pulseEnd + 2);
+  assert.ok(pulseStart >= 0 && pulseEnd > pulseStart);
+  assert.match(
+    frameCss,
+    /\.ft-proposal-live-dot\s*\{[\s\S]*?animation: none !important;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse 1\.8s ease-out infinite;/,
+  );
+  assert.doesNotMatch(
+    frameCss,
+    /\.ft-proposal-live-dot-fail\s*\{[\s\S]*?animation-delay:/,
+  );
+  assert.doesNotMatch(
+    pulseKeyframes,
+    /box-shadow:/,
+  );
+});
+
 test('global wallet control uses the white 01RX header treatment', () => {
   assert.match(
     frameCss,
