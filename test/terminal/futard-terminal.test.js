@@ -373,7 +373,6 @@ function hourlyHistory(proposalId, ticker, base, options = {}) {
     timestamp: new Date(Date.parse('2026-06-16T14:00:00.000Z') + offset * 15 * 60_000).toISOString(),
     observedAt: new Date(Date.parse('2026-06-16T14:00:00.000Z') + offset * 15 * 60_000).toISOString(),
     underlyingPrice: options.missingUnderlying ? null : base + offset * 0.01,
-    underlyingTwap: base + offset * 0.006,
     passPrice: base + 0.2 + offset * 0.015,
     failPrice: base - 0.1 + offset * 0.005,
     passTwap: base + 0.18 + offset * 0.01,
@@ -382,7 +381,6 @@ function hourlyHistory(proposalId, ticker, base, options = {}) {
   }));
   const coverage = {
     underlying: series.filter(point => Number.isFinite(point.underlyingPrice)).length,
-    underlyingTwap: series.filter(point => Number.isFinite(point.underlyingTwap)).length,
     pass: series.filter(point => Number.isFinite(point.passPrice)).length,
     passTwap: series.filter(point => Number.isFinite(point.passTwap)).length,
     fail: series.filter(point => Number.isFinite(point.failPrice)).length,
@@ -901,7 +899,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     true,
   );
   assert.equal(
-    chart.querySelector('[data-ft-series-field="underlyingTwap"]').disabled,
+    chart.querySelector('[data-ft-series-field="decisionEdge"]').disabled,
     true,
   );
   assert.equal(chart.querySelector('[aria-label="Hide annotations placeholder"]'), null);
@@ -997,6 +995,16 @@ test('TradingView chart adapter splits null values and missing hours into honest
     )),
     [4.5, 4.6, null, 4.7, null, 4.8],
   );
+  assert.deepEqual(
+    proposalChartData([{
+      timestamp: '2026-06-16T10:00:00.000Z',
+      decisionEdge: -2.5,
+    }, {
+      timestamp: '2026-06-16T11:00:00.000Z',
+      decisionEdge: 3.25,
+    }], 'decisionEdge').map(point => point.value),
+    [-2.5, 3.25],
+  );
 
   const ten = Date.parse('2026-06-16T10:00:00.000Z') / 1_000;
   const eleven = ten + 3_600;
@@ -1029,8 +1037,30 @@ test('TradingView chart adapter splits null values and missing hours into honest
     1,
   );
   assert.deepEqual(
+    {
+      percent: PROPOSAL_HISTORY_SERIES.find(
+        series => series.field === 'decisionEdge',
+      ).percent,
+      priceScaleId: PROPOSAL_HISTORY_SERIES.find(
+        series => series.field === 'decisionEdge',
+      ).priceScaleId,
+      seriesType: PROPOSAL_HISTORY_SERIES.find(
+        series => series.field === 'decisionEdge',
+      ).seriesType,
+      signed: PROPOSAL_HISTORY_SERIES.find(
+        series => series.field === 'decisionEdge',
+      ).signed,
+    },
+    {
+      percent: true,
+      priceScaleId: 'left',
+      seriesType: 'baseline',
+      signed: true,
+    },
+  );
+  assert.deepEqual(
     PROPOSAL_HISTORY_SERIES.map(series => series.label),
-    ['Price', 'Pass', 'Fail', 'General TWAP', 'Pass TWAP', 'Fail TWAP'],
+    ['Price', 'Pass', 'Fail', 'Pass edge', 'Pass TWAP', 'Fail TWAP'],
   );
   assert.equal(PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE, false);
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
@@ -1141,7 +1171,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
       time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
       values: {
         underlyingPrice: 4.72,
-        underlyingTwap: null,
+        decisionEdge: null,
         passPrice: 4.81,
         passTwap: null,
         failPrice: 4.61,
@@ -1571,11 +1601,11 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   assert.deepEqual(livePoints.at(-1), {
     timestamp: ACTIVE_MARKETS.markets[0].source.asOf,
     underlyingPrice: 0.1291,
-    underlyingTwap: 0.1284,
     passPrice: 0.1337,
     passTwap: 0.1319,
     failPrice: 0.1279,
     failTwap: 0.1279,
+    decisionEdge: ((0.1319 / 0.1279) - 1) * 100,
   });
   assert.equal(
     byRole(root, 'proposal-chart-header')
@@ -1642,11 +1672,11 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   assert.deepEqual(livePoints.at(-1), {
     timestamp: '2026-07-24T12:00:07.000Z',
     underlyingPrice: 0.1305,
-    underlyingTwap: 0.1284,
     passPrice: 0.1555,
     passTwap: 0.1455,
     failPrice: 0.1111,
     failTwap: 0.1211,
+    decisionEdge: ((0.1455 / 0.1211) - 1) * 100,
   });
   cleanupMount(mounted);
 });
@@ -2960,6 +2990,7 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.equal(activeChart.options.ticker, 'LOYAL');
   assert.equal(activeChart.options.history.series.length, 16);
   assert.equal(activeChart.options.isLive, true);
+  assert.equal(activeChart.options.thresholdPct, 1.5);
   assert.equal(
     byRole(root, 'proposal-history-chart')
       .classList.contains('ft-hourly-chart-pending'),
@@ -3007,7 +3038,7 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.deepEqual(
     Array.from(twapMenu.querySelectorAll('[data-ft-series-field]'))
       .map(option => option.textContent.trim().replace('✓', '').trim()),
-    ['General TWAP', 'Pass TWAP', 'Fail TWAP'],
+    ['Pass edge vs threshold', 'Pass TWAP', 'Fail TWAP'],
   );
   const passSeriesOption = priceMenu.querySelector(
     '[data-ft-series-field="passPrice"]',
@@ -3029,13 +3060,13 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.equal(priceMenu.hidden, true);
   assert.equal(twapTrigger.getAttribute('aria-expanded'), 'true');
   assert.equal(twapMenu.hidden, false);
-  const generalTwapOption = twapMenu.querySelector(
-    '[data-ft-series-field="underlyingTwap"]',
+  const decisionEdgeOption = twapMenu.querySelector(
+    '[data-ft-series-field="decisionEdge"]',
   );
-  generalTwapOption.click();
-  assert.equal(generalTwapOption.getAttribute('aria-checked'), 'false');
-  assert.deepEqual(activeChart.visibility.at(-1), ['underlyingTwap', false]);
-  generalTwapOption.click();
+  decisionEdgeOption.click();
+  assert.equal(decisionEdgeOption.getAttribute('aria-checked'), 'false');
+  assert.deepEqual(activeChart.visibility.at(-1), ['decisionEdge', false]);
+  decisionEdgeOption.click();
   twapTrigger.click();
   assert.equal(twapTrigger.getAttribute('aria-expanded'), 'false');
   assert.equal(twapMenu.hidden, true);

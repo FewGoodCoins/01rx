@@ -113,11 +113,6 @@ export function twapSnapshotFromEvent(event, options = {}) {
   const futarchy = event.data?.postAmmState?.state?.futarchy;
   const observedAt = Number(options.observedAtSeconds);
   if (!futarchy || !Number.isSafeInteger(observedAt)) return null;
-  const underlyingTwap = rawPriceToUi(
-    calculateOracleTwapRaw(futarchy.spot?.oracle, observedAt),
-    options.baseDecimals,
-    options.quoteDecimals,
-  );
   const passTwap = rawPriceToUi(
     calculateOracleTwapRaw(futarchy.pass?.oracle, observedAt),
     options.baseDecimals,
@@ -128,12 +123,8 @@ export function twapSnapshotFromEvent(event, options = {}) {
     options.baseDecimals,
     options.quoteDecimals,
   );
-  if (
-    !Number.isFinite(underlyingTwap)
-    && !Number.isFinite(passTwap)
-    && !Number.isFinite(failTwap)
-  ) return null;
-  return { underlyingTwap, passTwap, failTwap };
+  if (!Number.isFinite(passTwap) && !Number.isFinite(failTwap)) return null;
+  return { passTwap, failTwap };
 }
 
 function decodeTwapSnapshot(transaction, options) {
@@ -286,7 +277,6 @@ export async function loadFutarchyTwapHistory(options = {}) {
     return {
       timestamp: new Date(row.bucket * 1_000).toISOString(),
       observedAt: new Date(snapshot.observedAtSeconds * 1_000).toISOString(),
-      underlyingTwap: snapshot.underlyingTwap,
       passTwap: snapshot.passTwap,
       failTwap: snapshot.failTwap,
     };

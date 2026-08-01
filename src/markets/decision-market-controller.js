@@ -1,7 +1,10 @@
 import { create01ResolvedClient } from '@01resolved/api-client';
 import base58Module from 'bs58';
 import { DEFAULT_MARKET_SELECTION } from '../core/default-route.js';
-import { proposalHistoryChartObservations } from './proposal-history-model.js';
+import {
+  proposalDecisionEdge,
+  proposalHistoryChartObservations,
+} from './proposal-history-model.js';
 // Shared by the homepage discovery and token-scoped Markets renderers.
 const THEME_STORAGE_KEY = 'navgator-terminal-theme';
 const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
@@ -663,7 +666,6 @@ export function normalizeProposalHistoryPayload(raw) {
         point.spotPrice,
         point.tokenPrice,
       ),
-      underlyingTwap: nonNegativeNumber(point.underlyingTwap, point.spotTwap),
       passPrice: nonNegativeNumber(point.passPrice, point.approvedPrice),
       failPrice: nonNegativeNumber(point.failPrice, point.rejectedPrice),
       passTwap: nonNegativeNumber(point.passTwap, point.passTwapPrice),
@@ -678,7 +680,6 @@ export function normalizeProposalHistoryPayload(raw) {
     ))
     .filter(point => (
       Number.isFinite(point.underlyingPrice)
-      || Number.isFinite(point.underlyingTwap)
       || Number.isFinite(point.passPrice)
       || Number.isFinite(point.failPrice)
       || Number.isFinite(point.passTwap)
@@ -715,8 +716,6 @@ export function normalizeProposalHistoryPayload(raw) {
       coverage: {
         underlying: nonNegativeNumber(coverage.underlying)
           ?? series.filter(point => Number.isFinite(point.underlyingPrice)).length,
-        underlyingTwap: nonNegativeNumber(coverage.underlyingTwap)
-          ?? series.filter(point => Number.isFinite(point.underlyingTwap)).length,
         pass: nonNegativeNumber(coverage.pass)
           ?? series.filter(point => Number.isFinite(point.passPrice)).length,
         passTwap: nonNegativeNumber(coverage.passTwap)
@@ -808,6 +807,7 @@ function historyOverlayMetric({
   value,
   count,
   visible,
+  format = 'currency',
 }) {
   const available = count > 0;
   return `
@@ -821,7 +821,9 @@ function historyOverlayMetric({
       ${available ? '' : 'disabled'}
     >
       <span>${escapeHtml(label)}</span>
-      <strong data-ft-readout-value="${escapeHtml(field)}">${formatChartCurrency(value)}</strong>
+      <strong data-ft-readout-value="${escapeHtml(field)}">${format === 'percent'
+        ? formatCompactPercent(value)
+        : formatChartCurrency(value)}</strong>
     </button>
   `;
 }
@@ -958,7 +960,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const cadenceLabel = historyCadenceLabel(interval);
   const values = observations.flatMap(point => [
     point.underlyingPrice,
-    point.underlyingTwap,
+    point.decisionEdge,
     point.passPrice,
     point.passTwap,
     point.failPrice,
@@ -982,16 +984,19 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const coverage = history.summary?.coverage || {};
   const visibleCoverage = {
     ...coverage,
-    underlyingTwap: observations.filter(point => Number.isFinite(point.underlyingTwap)).length,
+    decisionEdge: observations.filter(point => Number.isFinite(point.decisionEdge)).length,
     passTwap: observations.filter(point => Number.isFinite(point.passTwap)).length,
     failTwap: observations.filter(point => Number.isFinite(point.failTwap)).length,
   };
   const visibility = isObject(options.visibility) ? options.visibility : {};
-  const latestUnderlyingTwap = latestValue('underlyingTwap');
+  const latestDecisionEdge = latestValue('decisionEdge');
   const latestPass = latestValue('passPrice');
   const latestPassTwap = latestValue('passTwap');
   const latestFail = latestValue('failPrice');
   const latestFailTwap = latestValue('failTwap');
+  const decisionEdgePassing = Number.isFinite(latestDecisionEdge)
+    && Number.isFinite(options.thresholdPct)
+    && latestDecisionEdge > options.thresholdPct;
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
   return `
     <div
@@ -1082,10 +1087,10 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           >
             <div class="ft-hourly-series-menu-label">TWAP series</div>
             ${historySeriesMenuOption({
-              field: 'underlyingTwap',
-              label: 'General TWAP',
-              count: visibleCoverage.underlyingTwap || 0,
-              visible: visibility.underlyingTwap !== false,
+              field: 'decisionEdge',
+              label: 'Pass edge vs threshold',
+              count: visibleCoverage.decisionEdge || 0,
+              visible: visibility.decisionEdge !== false,
             })}
             ${historySeriesMenuOption({
               field: 'passTwap',
@@ -1148,12 +1153,13 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               visible: visibility.failPrice !== false,
             })}
             ${historyOverlayMetric({
-              className: 'ft-hourly-overlay-twap',
-              field: 'underlyingTwap',
-              label: 'TWAP',
-              value: latestUnderlyingTwap,
-              count: visibleCoverage.underlyingTwap || 0,
-              visible: visibility.underlyingTwap !== false,
+              className: `ft-hourly-overlay-edge${decisionEdgePassing ? '' : ' ft-is-failing'}`,
+              field: 'decisionEdge',
+              label: 'Pass edge',
+              value: latestDecisionEdge,
+              count: visibleCoverage.decisionEdge || 0,
+              visible: visibility.decisionEdge !== false,
+              format: 'percent',
             })}
             ${historyOverlayMetric({
               className: 'ft-hourly-overlay-pass-twap',
@@ -1181,7 +1187,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           <span class="ft-loader" aria-hidden="true"></span>
           <div>
             <strong>Preparing proposal chart</strong>
-            <p>Applying indexed spot, TWAP, and market-boundary data.</p>
+            <p>Applying indexed prices, decision edge, TWAP, and market-boundary data.</p>
           </div>
         </div>
         <div
@@ -1189,7 +1195,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           data-ft-role="proposal-history-tradingview"
           data-ft-chart-engine="tradingview-lightweight"
           role="img"
-          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series when available.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
+          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series and the PASS edge against its decision threshold when available.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
         ></div>
       </div>
     </div>
@@ -2073,7 +2079,7 @@ export function mountFutardTerminal({
     historyRange: 'all',
     historySeriesVisibility: {
       underlyingPrice: true,
-      underlyingTwap: true,
+      decisionEdge: true,
       passPrice: true,
       passTwap: true,
       failPrice: true,
@@ -2863,6 +2869,7 @@ export function mountFutardTerminal({
         launchedAt: market.proposal.createdAt,
         windowEndedAt: market.proposal.endsAt,
         isLive: market.proposal.statusGroup === 'live',
+        thresholdPct: market.thresholdPct,
       }) || null;
       if (!state.historyChart) {
         showHourlyChartMountError(chartRoot);
@@ -3144,6 +3151,7 @@ export function mountFutardTerminal({
           visibility: state.historySeriesVisibility,
           launchedAt: market.proposal.createdAt,
           windowEndedAt: market.proposal.endsAt,
+          thresholdPct: market.thresholdPct,
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">
@@ -3768,11 +3776,14 @@ export function mountFutardTerminal({
     return state.historyChart?.updateLivePoint?.({
       timestamp: firstText(market.source?.asOf, market.marketAsOf, state.asOf),
       underlyingPrice: firstNumber(market.spot.price, market.nav.spot),
-      underlyingTwap: market.spot.twapPrice,
       passPrice: market.pass.price,
       passTwap: market.pass.twapPrice,
       failPrice: market.fail.price,
       failTwap: market.fail.twapPrice,
+      decisionEdge: proposalDecisionEdge(
+        market.pass.twapPrice,
+        market.fail.twapPrice,
+      ),
     }) === true;
   }
 
@@ -7941,7 +7952,7 @@ export function mountFutardTerminal({
     const observations = proposalHistoryChartObservations(history);
     return Object.fromEntries([
       'underlyingPrice',
-      'underlyingTwap',
+      'decisionEdge',
       'passPrice',
       'passTwap',
       'failPrice',
@@ -8094,7 +8105,7 @@ export function mountFutardTerminal({
       const field = target.dataset.ftSeriesField;
       if (![
         'underlyingPrice',
-        'underlyingTwap',
+        'decisionEdge',
         'passPrice',
         'passTwap',
         'failPrice',

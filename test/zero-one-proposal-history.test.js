@@ -30,7 +30,6 @@ function upstreamBody(overrides = {}) {
         to: null,
         coverage: {
           underlying: 0,
-          underlyingTwap: 0,
           pass: 0,
           fail: 0,
           passTwap: 0,
@@ -120,7 +119,6 @@ test('proposal history is filled from the official 01Resolved price-chart contra
   assert.equal(payload.data.source.endpoint, '/v1/proposal/{publicKey}/price-chart');
   assert.equal(payload.data.series[0].timestamp, '2026-07-31T19:15:00.000Z');
   assert.equal(payload.data.series[0].underlyingPrice, 0.041);
-  assert.equal(payload.data.series[0].underlyingTwap, 0.04);
   assert.equal(payload.data.series[0].passPrice, 0.044);
   assert.equal(payload.data.series[0].failPrice, 0.038);
   assert.deepEqual(payload.data.degraded, {

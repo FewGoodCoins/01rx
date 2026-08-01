@@ -3883,11 +3883,15 @@ body.is-futard-terminal #token-switch-loader {
   border-color: var(--ft-negative);
 }
 
-.ft-hourly-overlay-twap strong {
-  color: var(--ft-ink-strong);
-  text-decoration: underline dashed;
+.ft-hourly-overlay-edge strong {
+  color: var(--ft-positive);
+  text-decoration: underline dotted;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+}
+
+.ft-hourly-overlay-edge.ft-is-failing strong {
+  color: var(--ft-negative);
 }
 
 .ft-hourly-range-menu {
