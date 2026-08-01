@@ -9,6 +9,7 @@ import {
   loadValidatedMarketSnapshot,
   normalizeAddress,
 } from './futarchy-accounts.js';
+import { loadFutarchyTwapHistory } from './futarchy-twap-history.js';
 import { resolveZeroOneResolvedApiKey } from './zero-one-proposal-history.js';
 
 const ZERO_ONE_ORIGIN = 'https://api.01resolved.com';
@@ -415,6 +416,41 @@ function historyCoverage(series) {
   };
 }
 
+function postTwapCoverage(series, preTwap) {
+  const start = new Date(preTwap || '').getTime();
+  if (!Number.isFinite(start)) return { passTwap: 0, failTwap: 0 };
+  return (Array.isArray(series) ? series : []).reduce((coverage, row) => {
+    const observed = new Date(row?.observedAt || row?.timestamp || '').getTime();
+    if (!Number.isFinite(observed) || observed < start) return coverage;
+    if (Number.isFinite(row.passTwap)) coverage.passTwap += 1;
+    if (Number.isFinite(row.failTwap)) coverage.failTwap += 1;
+    return coverage;
+  }, { passTwap: 0, failTwap: 0 });
+}
+
+function mergeTwapHistory(series, twapRows) {
+  const rows = new Map((Array.isArray(series) ? series : []).map(row => [row.timestamp, row]));
+  for (const twap of Array.isArray(twapRows) ? twapRows : []) {
+    if (!isoTimestamp(twap?.timestamp)) continue;
+    const current = rows.get(twap.timestamp) || {
+      timestamp: twap.timestamp,
+      observedAt: twap.observedAt || twap.timestamp,
+      underlyingPrice: null,
+      passPrice: null,
+      failPrice: null,
+      passTwap: null,
+      failTwap: null,
+      sampleCount: 0,
+    };
+    rows.set(twap.timestamp, {
+      ...current,
+      passTwap: Number.isFinite(twap.passTwap) ? twap.passTwap : current.passTwap,
+      failTwap: Number.isFinite(twap.failTwap) ? twap.failTwap : current.failTwap,
+    });
+  }
+  return [...rows.values()].sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+}
+
 function rawToAmountString(raw, decimals) {
   const digits = raw.toString().padStart(decimals + 1, '0');
   if (!decimals) return digits;
@@ -472,6 +508,7 @@ export function createFutarchyService(options = {}) {
     connection: options.connection || null,
     logger: options.logger || console,
     loadMarketSnapshot: options.loadMarketSnapshot || loadValidatedMarketSnapshot,
+    loadTwapHistory: options.loadTwapHistory || loadFutarchyTwapHistory,
     validatePrograms: options.validatePrograms || loadAndValidateDecisionExecutionSafety,
   };
   let connection = dependencies.connection;
@@ -612,7 +649,66 @@ export function createFutarchyService(options = {}) {
       rows = Array.isArray(orders?.data) ? orders.data : [];
       source = 'orders';
     }
-    const series = aggregateHistoryRows(rows, interval);
+    let series = aggregateHistoryRows(rows, interval);
+    const preTwap = isoTimestamp(chart?.data?.preTwap);
+    const degraded = {
+      active: source === 'orders',
+      services: source === 'orders' ? ['01resolved-proposal-price-chart-empty'] : [],
+      issues: source === 'orders'
+        ? [{ code: 'ORDER_PRICE_HISTORY_USED', message: 'Observed trades are shown because the price chart is empty.' }]
+        : [],
+    };
+    let twapProvider = null;
+    const configuredRpc = String(
+      dependencies.env.HELIUS_URL
+      || dependencies.env.HELIUS_RPC_URL
+      || dependencies.env.SOLANA_RPC_URL
+      || '',
+    ).trim();
+    const indexedTwapCoverage = postTwapCoverage(series, preTwap);
+    if (
+      configuredRpc
+      && preTwap
+      && (indexedTwapCoverage.passTwap < 2 || indexedTwapCoverage.failTwap < 2)
+    ) {
+      try {
+        const active = await activeMarkets();
+        const market = active.markets.find(candidate => candidate.proposal.id === proposalId);
+        if (market) {
+          const endedAt = new Date(market.proposal.endsAt || '').getTime();
+          const to = new Date(Math.min(
+            dependencies.now(),
+            Number.isFinite(endedAt) ? endedAt : dependencies.now(),
+          )).toISOString();
+          const twapRows = await dependencies.loadTwapHistory({
+            rpcUrl: resolveFutarchyRpcUrl(dependencies.env),
+            daoAddress: market.daoAddress,
+            from: preTwap,
+            to,
+            interval,
+            baseDecimals: market.baseDecimals,
+            quoteDecimals: market.quoteDecimals,
+            fetchImpl: dependencies.fetchImpl,
+            signal: AbortSignal.timeout(9_000),
+          });
+          if (twapRows.length) {
+            series = mergeTwapHistory(series, twapRows);
+            twapProvider = 'Solana Futarchy SpotSwapEvent history';
+          }
+        }
+      } catch (error) {
+        degraded.active = true;
+        degraded.services.push('solana-futarchy-twap-history');
+        degraded.issues.push({
+          code: 'SOLANA_TWAP_HISTORY_UNAVAILABLE',
+          message: 'Historical on-chain TWAP observations are temporarily unavailable.',
+        });
+        dependencies.logger?.warn?.(
+          '[01rx/futarchy-history] exact TWAP backfill unavailable:',
+          error?.message || error,
+        );
+      }
+    }
     const coverage = historyCoverage(series);
     const complete = coverage.underlying > 0 && coverage.pass > 0 && coverage.fail > 0;
     return {
@@ -620,7 +716,7 @@ export function createFutarchyService(options = {}) {
       interval,
       requestedInterval: interval,
       availability: complete ? 'complete' : series.length ? 'partial' : 'unavailable',
-      preTwap: isoTimestamp(chart?.data?.preTwap),
+      preTwap,
       series,
       summary: {
         pointCount: series.length,
@@ -636,14 +732,9 @@ export function createFutarchyService(options = {}) {
         sourceInterval: source === 'price-chart' ? '15m' : 'event',
         interval,
         requestedInterval: interval,
+        ...(twapProvider ? { twapProvider } : {}),
       },
-      degraded: {
-        active: source === 'orders',
-        services: source === 'orders' ? ['01resolved-proposal-price-chart-empty'] : [],
-        issues: source === 'orders'
-          ? [{ code: 'ORDER_PRICE_HISTORY_USED', message: 'Observed trades are shown because the price chart is empty.' }]
-          : [],
-      },
+      degraded,
     };
   }
 
@@ -815,8 +906,10 @@ export function createFutarchyService(options = {}) {
 
 export const _test = Object.freeze({
   aggregateHistoryRows,
+  mergeTwapHistory,
   normalizeArchiveRow,
   normalizeArchiveStatus,
+  postTwapCoverage,
   resolveNavOrigin,
   tokenFromProjectSlug,
 });

@@ -66,17 +66,25 @@ export function proposalLaunchAnchor(history, options = {}) {
   };
 }
 
-export function proposalChartPoints(history, options = {}) {
+export function proposalHistoryChartObservations(history) {
   const series = Array.isArray(history?.series) ? history.series : [];
-  const observations = series.map((point) => {
+  const twapStart = timestampMs(history?.preTwap);
+  return series.map((point) => {
     const time = proposalChartPointTime(point);
+    const beforeTwap = Number.isFinite(twapStart)
+      && (!Number.isFinite(time) || time < twapStart);
     return {
       ...point,
       ...(Number.isFinite(time)
         ? { chartTimestamp: new Date(time).toISOString() }
         : {}),
+      ...(beforeTwap ? { passTwap: null, failTwap: null } : {}),
     };
   });
+}
+
+export function proposalChartPoints(history, options = {}) {
+  const observations = proposalHistoryChartObservations(history);
   const anchor = proposalLaunchAnchor(history, options);
   return anchor ? [anchor, ...observations] : observations;
 }

@@ -70,3 +70,38 @@ test('proposal chart omits a launch anchor when the first spot price is unavaila
   assert.equal(points[0].passPrice, 0.134);
   assert.equal(points[0].failPrice, 0.127);
 });
+
+test('proposal TWAP observations begin at TWAP Open without mutating indexed history', async () => {
+  const { proposalHistoryChartObservations } = await loadModel();
+  const history = {
+    preTwap: '2026-07-23T01:00:00.000Z',
+    series: [
+      {
+        observedAt: '2026-07-23T00:59:59.000Z',
+        passTwap: 0.134,
+        failTwap: 0.127,
+      },
+      {
+        observedAt: '2026-07-23T01:00:00.000Z',
+        passTwap: 0.135,
+        failTwap: 0.126,
+      },
+      {
+        observedAt: '2026-07-23T01:15:00.000Z',
+        passTwap: 0.136,
+        failTwap: 0.125,
+      },
+    ],
+  };
+
+  const observations = proposalHistoryChartObservations(history);
+
+  assert.equal(observations[0].passTwap, null);
+  assert.equal(observations[0].failTwap, null);
+  assert.equal(observations[1].passTwap, 0.135);
+  assert.equal(observations[1].failTwap, 0.126);
+  assert.equal(observations[2].passTwap, 0.136);
+  assert.equal(observations[2].failTwap, 0.125);
+  assert.equal(history.series[0].passTwap, 0.134);
+  assert.equal(history.series[0].failTwap, 0.127);
+});

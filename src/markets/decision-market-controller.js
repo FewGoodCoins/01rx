@@ -1,6 +1,7 @@
 import { create01ResolvedClient } from '@01resolved/api-client';
 import base58Module from 'bs58';
 import { DEFAULT_MARKET_SELECTION } from '../core/default-route.js';
+import { proposalHistoryChartObservations } from './proposal-history-model.js';
 // Shared by the homepage discovery and token-scoped Markets renderers.
 const THEME_STORAGE_KEY = 'navgator-terminal-theme';
 const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
@@ -714,8 +715,12 @@ export function normalizeProposalHistoryPayload(raw) {
           ?? series.filter(point => Number.isFinite(point.underlyingPrice)).length,
         pass: nonNegativeNumber(coverage.pass)
           ?? series.filter(point => Number.isFinite(point.passPrice)).length,
+        passTwap: nonNegativeNumber(coverage.passTwap)
+          ?? series.filter(point => Number.isFinite(point.passTwap)).length,
         fail: nonNegativeNumber(coverage.fail)
           ?? series.filter(point => Number.isFinite(point.failPrice)).length,
+        failTwap: nonNegativeNumber(coverage.failTwap)
+          ?? series.filter(point => Number.isFinite(point.failTwap)).length,
       },
     },
     degraded: isObject(payload.degraded)
@@ -934,14 +939,16 @@ function renderProposalChartStatusShell({
 }
 
 export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) {
-  const observations = Array.isArray(history?.series) ? history.series : [];
+  const observations = proposalHistoryChartObservations(history);
   const interval = normalizeHistoryInterval(history?.interval);
   const intervalLabel = interval === '15m' ? '15M' : '1H';
   const cadenceLabel = historyCadenceLabel(interval);
   const values = observations.flatMap(point => [
     point.underlyingPrice,
     point.passPrice,
+    point.passTwap,
     point.failPrice,
+    point.failTwap,
   ]).filter(Number.isFinite);
   if (!observations.length || !values.length) return '';
 
@@ -959,9 +966,20 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
     Number.isFinite(latestPoint[field]) ? latestPoint[field] : null
   );
   const coverage = history.summary?.coverage || {};
+  const visibleCoverage = {
+    ...coverage,
+    passTwap: observations.filter(point => Number.isFinite(point.passTwap)).length,
+    failTwap: observations.filter(point => Number.isFinite(point.failTwap)).length,
+  };
   const visibility = isObject(options.visibility) ? options.visibility : {};
+  const availableTwapFields = ['passTwap', 'failTwap'].filter(
+    field => visibleCoverage[field] > 0,
+  );
+  const twapVisible = availableTwapFields.some(field => visibility[field] !== false);
   const latestPass = latestValue('passPrice');
+  const latestPassTwap = latestValue('passTwap');
   const latestFail = latestValue('failPrice');
+  const latestFailTwap = latestValue('failTwap');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
   return `
     <div
@@ -997,23 +1015,50 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
             ${historySeriesMenuOption({
               field: 'underlyingPrice',
               label: 'Spot price',
-              count: coverage.underlying || 0,
+              count: visibleCoverage.underlying || 0,
               visible: visibility.underlyingPrice !== false,
             })}
             ${historySeriesMenuOption({
               field: 'passPrice',
               label: 'Pass price',
-              count: coverage.pass || 0,
+              count: visibleCoverage.pass || 0,
               visible: visibility.passPrice !== false,
+            })}
+            ${historySeriesMenuOption({
+              field: 'passTwap',
+              label: 'Pass TWAP',
+              count: visibleCoverage.passTwap || 0,
+              visible: visibility.passTwap !== false,
             })}
             ${historySeriesMenuOption({
               field: 'failPrice',
               label: 'Fail price',
-              count: coverage.fail || 0,
+              count: visibleCoverage.fail || 0,
               visible: visibility.failPrice !== false,
+            })}
+            ${historySeriesMenuOption({
+              field: 'failTwap',
+              label: 'Fail TWAP',
+              count: visibleCoverage.failTwap || 0,
+              visible: visibility.failTwap !== false,
             })}
           </div>
         </div>
+        <button
+          class="ft-hourly-style-cell ft-hourly-twap-toggle${twapVisible ? ' ft-is-active' : ''}"
+          type="button"
+          data-ft-action="toggle-hourly-twap"
+          data-ft-role="hourly-twap-toggle"
+          aria-label="Toggle PASS and FAIL TWAP history"
+          aria-pressed="${twapVisible}"
+          title="Show or hide both protocol TWAP histories"
+          ${availableTwapFields.length ? '' : 'disabled'}
+        >
+          <span class="ft-hourly-twap-glyph" aria-hidden="true">
+            <i></i><i></i>
+          </span>
+          <span>TWAP</span>
+        </button>
         ${renderTradingViewToolbarPreview()}
       </div>
       <div class="ft-hourly-plot-shell">
@@ -1041,7 +1086,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               field: 'underlyingPrice',
               label: 'Price',
               value: latestValue('underlyingPrice'),
-              count: coverage.underlying || 0,
+              count: visibleCoverage.underlying || 0,
               visible: visibility.underlyingPrice !== false,
             })}
             ${historyOverlayMetric({
@@ -1049,16 +1094,32 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               field: 'passPrice',
               label: 'Pass',
               value: latestPass,
-              count: coverage.pass || 0,
+              count: visibleCoverage.pass || 0,
               visible: visibility.passPrice !== false,
+            })}
+            ${historyOverlayMetric({
+              className: 'ft-hourly-overlay-pass-twap',
+              field: 'passTwap',
+              label: 'Pass TWAP',
+              value: latestPassTwap,
+              count: visibleCoverage.passTwap || 0,
+              visible: visibility.passTwap !== false,
             })}
             ${historyOverlayMetric({
               className: 'ft-hourly-overlay-fail',
               field: 'failPrice',
               label: 'Fail',
               value: latestFail,
-              count: coverage.fail || 0,
+              count: visibleCoverage.fail || 0,
               visible: visibility.failPrice !== false,
+            })}
+            ${historyOverlayMetric({
+              className: 'ft-hourly-overlay-fail-twap',
+              field: 'failTwap',
+              label: 'Fail TWAP',
+              value: latestFailTwap,
+              count: visibleCoverage.failTwap || 0,
+              visible: visibility.failTwap !== false,
             })}
           </div>
         </div>
@@ -1070,7 +1131,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           <span class="ft-loader" aria-hidden="true"></span>
           <div>
             <strong>Preparing proposal chart</strong>
-            <p>Applying the indexed price series and market boundaries.</p>
+            <p>Applying indexed spot, TWAP, and market-boundary data.</p>
           </div>
         </div>
         <div
@@ -1078,7 +1139,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           data-ft-role="proposal-history-tradingview"
           data-ft-chart-engine="tradingview-lightweight"
           role="img"
-          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
+          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series when available.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
         ></div>
       </div>
     </div>
@@ -1748,6 +1809,35 @@ function marketStatusLabel(market) {
   return 'Awaiting signal';
 }
 
+// Futarchy PASS/FAIL prices value the token under each outcome; they are not
+// binary event shares and cannot honestly be converted into a probability.
+function proposalHeaderSignal(market) {
+  if (market?.proposal?.statusGroup === 'passed') {
+    return { key: 'result', label: 'Result', value: 'Passed', tone: 'positive' };
+  }
+  if (market?.proposal?.statusGroup === 'failed') {
+    return { key: 'result', label: 'Result', value: 'Failed', tone: 'negative' };
+  }
+  if (market?.proposal?.statusGroup === 'live') {
+    const margin = market?.decision?.marginPct;
+    const passing = market?.decision?.passing;
+    return {
+      key: 'pass-signal',
+      label: 'Pass signal',
+      value: formatCompactPercent(margin),
+      tone: passing === true
+        ? 'positive'
+        : passing === false
+          ? 'negative'
+          : 'muted',
+      description: Number.isFinite(margin)
+        ? `Current ${passing === true ? 'passing' : 'failing'} margin after the required threshold. This is a decision signal, not a probability.`
+        : 'No current PASS-versus-FAIL TWAP signal is available. Conditional prices do not represent a probability.',
+    };
+  }
+  return { key: 'result', label: 'Result', value: 'Pending', tone: 'muted' };
+}
+
 function renderLogo(market, size = 'normal') {
   if (market.logo) {
     return `<img class="ft-token-logo ft-token-logo-${size}" src="${escapeHtml(market.logo)}" alt="">`;
@@ -1934,7 +2024,9 @@ export function mountFutardTerminal({
     historySeriesVisibility: {
       underlyingPrice: true,
       passPrice: true,
+      passTwap: true,
       failPrice: true,
+      failTwap: true,
     },
     pollTimer: null,
     pricePollTimer: null,
@@ -2848,15 +2940,7 @@ export function mountFutardTerminal({
       ? firstNumber(market.fail.price, latest.failPrice)
       : firstNumber(latest.failPrice, market.fail.price);
     const displayStatus = proposalDisplayStatus(market.proposal);
-    const result = market.proposal.statusGroup === 'passed'
-      ? { label: 'Passed', tone: 'positive' }
-      : market.proposal.statusGroup === 'failed'
-        ? { label: 'Failed', tone: 'negative' }
-        : market.decision.passing === true
-          ? { label: 'Passing', tone: 'positive' }
-          : market.decision.passing === false
-            ? { label: 'Failing', tone: 'negative' }
-            : { label: 'Pending', tone: 'muted' };
+    const signal = proposalHeaderSignal(market);
     const proposalNumber = market.proposal.number == null
       ? 'Proposal'
       : `Proposal #${Math.round(market.proposal.number)}`;
@@ -2866,11 +2950,13 @@ export function mountFutardTerminal({
       value,
       tone = 'neutral',
       featured = false,
+      description = '',
     }) => `
       <div
         class="ft-chart-market-metric${featured ? ' ft-chart-market-metric-featured' : ''}"
         data-ft-chart-header-metric="${escapeHtml(key)}"
         data-tone="${escapeHtml(tone)}"
+        ${description ? `title="${escapeHtml(description)}"` : ''}
       >
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
@@ -2931,10 +3017,11 @@ export function mountFutardTerminal({
           value: displayStatus.label,
         })}
         ${metric({
-          key: 'result',
-          label: 'Result',
-          value: result.label,
-          tone: result.tone,
+          key: signal.key,
+          label: signal.label,
+          value: signal.value,
+          tone: signal.tone,
+          description: signal.description,
         })}
       </header>
     `;
@@ -3631,7 +3718,9 @@ export function mountFutardTerminal({
       timestamp: firstText(market.source?.asOf, market.marketAsOf, state.asOf),
       underlyingPrice: firstNumber(market.spot.price, market.nav.spot),
       passPrice: market.pass.price,
+      passTwap: market.pass.twapPrice,
       failPrice: market.fail.price,
+      failTwap: market.fail.twapPrice,
     }) === true;
   }
 
@@ -3642,16 +3731,23 @@ export function mountFutardTerminal({
       || selectedMarket()?.id !== market.id
     ) return;
 
+    const signal = proposalHeaderSignal(market);
     const metricValues = {
-      price: formatChartCurrency(firstNumber(market.spot.price, market.nav.spot)),
-      pass: formatChartCurrency(market.pass.price),
-      fail: formatChartCurrency(market.fail.price),
+      price: { value: formatChartCurrency(firstNumber(market.spot.price, market.nav.spot)) },
+      pass: { value: formatChartCurrency(market.pass.price) },
+      fail: { value: formatChartCurrency(market.fail.price) },
+      [signal.key]: {
+        value: signal.value,
+        tone: signal.tone,
+        description: signal.description,
+      },
     };
-    Object.entries(metricValues).forEach(([key, value]) => {
-      const metric = root.querySelector(
-        `[data-ft-chart-header-metric="${key}"] strong`,
-      );
-      if (metric) metric.textContent = value;
+    Object.entries(metricValues).forEach(([key, update]) => {
+      const metric = root.querySelector(`[data-ft-chart-header-metric="${key}"]`);
+      const value = metric?.querySelector('strong');
+      if (value) value.textContent = update.value;
+      if (metric && update.tone) metric.dataset.tone = update.tone;
+      if (metric && update.description) metric.title = update.description;
     });
     updateProposalChartLivePoint(market);
 
@@ -7773,6 +7869,50 @@ export function mountFutardTerminal({
     }
   }
 
+  function hourlySeriesAvailability() {
+    const history = state.historyByProposal.get(selectedMarket()?.id)?.data;
+    const observations = proposalHistoryChartObservations(history);
+    return Object.fromEntries([
+      'underlyingPrice',
+      'passPrice',
+      'passTwap',
+      'failPrice',
+      'failTwap',
+    ].map(field => [
+      field,
+      observations.some(point => Number.isFinite(point?.[field])),
+    ]));
+  }
+
+  function setHourlySeriesVisible(field, visible) {
+    const nextVisible = visible !== false;
+    state.historySeriesVisibility[field] = nextVisible;
+    state.historyChart?.setSeriesVisible?.(field, nextVisible);
+    root.querySelectorAll(
+      `[data-ft-action="toggle-hourly-series"][data-ft-series-field="${field}"]`,
+    ).forEach((control) => {
+      if (control.getAttribute('role') === 'menuitemcheckbox') {
+        control.setAttribute('aria-checked', String(nextVisible));
+      } else {
+        control.setAttribute('aria-pressed', String(nextVisible));
+      }
+      control.classList.toggle('ft-is-active', nextVisible);
+    });
+    root.querySelectorAll(`[data-ft-series="${field}"]`).forEach((series) => {
+      series.classList.toggle('ft-is-hidden', !nextVisible);
+    });
+  }
+
+  function syncHourlyTwapToggle(availability = hourlySeriesAvailability()) {
+    const control = root.querySelector('[data-ft-role="hourly-twap-toggle"]');
+    if (!control) return;
+    const fields = ['passTwap', 'failTwap'].filter(field => availability[field]);
+    const visible = fields.some(field => state.historySeriesVisibility[field] !== false);
+    control.disabled = fields.length === 0;
+    control.setAttribute('aria-pressed', String(visible));
+    control.classList.toggle('ft-is-active', visible);
+  }
+
   async function selectSidebarProposal(anchor) {
     const proposalId = safeBase58(anchor?.dataset?.ftProposalId);
     const market = state.sidebarMarkets.find(candidate => candidate.id === proposalId);
@@ -7891,18 +8031,28 @@ export function mountFutardTerminal({
       }
     } else if (action === 'retry-hourly-history') {
       loadProposalHistory(selectedMarket(), { force: true });
+    } else if (action === 'toggle-hourly-twap') {
+      event.preventDefault();
+      const availability = hourlySeriesAvailability();
+      const fields = ['passTwap', 'failTwap'].filter(field => availability[field]);
+      if (!fields.length) return;
+      const nextVisible = !fields.some(
+        field => state.historySeriesVisibility[field] !== false,
+      );
+      fields.forEach(field => setHourlySeriesVisible(field, nextVisible));
+      syncHourlyTwapToggle(availability);
     } else if (action === 'toggle-hourly-series') {
       const field = target.dataset.ftSeriesField;
-      if (!['underlyingPrice', 'passPrice', 'failPrice'].includes(field)) return;
+      if (![
+        'underlyingPrice',
+        'passPrice',
+        'passTwap',
+        'failPrice',
+        'failTwap',
+      ].includes(field)) return;
       const nextVisible = state.historySeriesVisibility[field] === false;
       if (!nextVisible) {
-        const history = state.historyByProposal.get(selectedMarket()?.id)?.data;
-        const coverage = history?.summary?.coverage || {};
-        const available = {
-          underlyingPrice: coverage.underlying > 0,
-          passPrice: coverage.pass > 0,
-          failPrice: coverage.fail > 0,
-        };
+        const available = hourlySeriesAvailability();
         const remaining = Object.keys(available).filter(candidate => (
           candidate !== field
           && available[candidate]
@@ -7913,21 +8063,8 @@ export function mountFutardTerminal({
           return;
         }
       }
-      state.historySeriesVisibility[field] = nextVisible;
-      state.historyChart?.setSeriesVisible?.(field, nextVisible);
-      root.querySelectorAll(
-        `[data-ft-action="toggle-hourly-series"][data-ft-series-field="${field}"]`,
-      ).forEach((control) => {
-        if (control.getAttribute('role') === 'menuitemcheckbox') {
-          control.setAttribute('aria-checked', String(nextVisible));
-        } else {
-          control.setAttribute('aria-pressed', String(nextVisible));
-        }
-        control.classList.toggle('ft-is-active', nextVisible);
-      });
-      root.querySelectorAll(`[data-ft-series="${field}"]`).forEach((series) => {
-        series.classList.toggle('ft-is-hidden', !nextVisible);
-      });
+      setHourlySeriesVisible(field, nextVisible);
+      syncHourlyTwapToggle();
     } else if (action === 'toggle-hourly-series-menu') {
       event.preventDefault();
       const menu = root.querySelector('[data-ft-role="hourly-series-menu"]');

@@ -169,6 +169,79 @@ test('proposal history aggregates official 15-minute chart observations', async 
   });
 });
 
+test('proposal history fills missing post-open TWAPs from exact on-chain events', async () => {
+  const backfillCalls = [];
+  const service = createFutarchyService({
+    env: {
+      ZERO_ONE_RESOLVED_API_KEY: 'server-key',
+      NAVGATOR_API_ORIGIN: 'https://nav.example',
+      HELIUS_RPC_URL: 'https://mainnet.helius-rpc.com/?api-key=server-secret',
+    },
+    connection: {},
+    now: () => Date.parse('2026-07-31T22:00:00Z'),
+    async fetchImpl(url) {
+      const value = String(url);
+      if (value.includes(`/v1/proposal/${PROPOSAL}/price-chart`)) {
+        return jsonResponse({ data: {
+          preTwap: '2026-07-31T21:00:00Z',
+          prices: [{
+            timestamp: '2026-07-31T21:00:00Z',
+            spotPrice: '1',
+            approvedPrice: '1.1',
+            rejectedPrice: '0.9',
+          }, {
+            timestamp: '2026-07-31T21:15:00Z',
+            spotPrice: '1.01',
+            approvedPrice: '1.2',
+            rejectedPrice: '0.8',
+          }],
+        } });
+      }
+      if (value.startsWith('https://api.01resolved.com/')) {
+        return jsonResponse({ data: [{
+          organizationName: 'Futardio Cult',
+          organizationSlug: 'futardio-cult',
+          proposalPublicKey: PROPOSAL,
+          proposalTitle: 'Active proposal',
+        }] });
+      }
+      return jsonResponse({ ok: true, data: {
+        name: 'Futardio Cult',
+        ticker: 'FUTARDIO',
+        config: { futAmm: DAO, mint: BASE, logo: '/logo.png' },
+      } });
+    },
+    async loadMarketSnapshot() { return snapshot(); },
+    async loadTwapHistory(options) {
+      backfillCalls.push(options);
+      return [{
+        timestamp: '2026-07-31T21:00:00.000Z',
+        observedAt: '2026-07-31T21:14:00.000Z',
+        passTwap: 1.04,
+        failTwap: 0.96,
+      }, {
+        timestamp: '2026-07-31T21:15:00.000Z',
+        observedAt: '2026-07-31T21:29:00.000Z',
+        passTwap: 1.05,
+        failTwap: 0.95,
+      }];
+    },
+  });
+
+  const result = await service.proposalHistory({ proposal: PROPOSAL, interval: '15m' });
+  assert.equal(backfillCalls.length, 1);
+  assert.equal(backfillCalls[0].daoAddress, DAO);
+  assert.equal(backfillCalls[0].rpcUrl.includes('server-secret'), true);
+  assert.deepEqual(result.series.map(row => [row.passTwap, row.failTwap]), [
+    [1.04, 0.96],
+    [1.05, 0.95],
+  ]);
+  assert.equal(result.summary.coverage.passTwap, 2);
+  assert.equal(result.source.provider, '01Resolved');
+  assert.equal(result.source.twapProvider, 'Solana Futarchy SpotSwapEvent history');
+  assert.equal(result.degraded.active, false);
+});
+
 test('positions preserve exact atomic balances and ignore unrelated parsed accounts', async () => {
   const active = snapshot();
   const market = {
