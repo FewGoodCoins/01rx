@@ -9487,7 +9487,8 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 .ft-decision-transaction-summary {
   display: flex;
-  height: 24px;
+  min-width: 0;
+  height: 30px;
   margin: 0;
   flex: 0 0 auto;
   align-items: stretch;
@@ -9498,29 +9499,89 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
   line-height: 1;
 }
 
-.ft-decision-transaction-summary > div {
-  display: flex;
-  padding: 0 6px;
-  align-items: center;
-  gap: 4px;
+.ft-decision-trades-reset {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #e9e8e4;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
 }
 
-.ft-decision-transaction-summary > div + div {
+.ft-decision-trades-reset:not(.ft-is-active) {
+  color: #8d8c86;
+}
+
+.ft-decision-transaction-summary > button {
+  display: flex;
+  min-width: 0;
+  padding: 3px 5px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  color: #8d8c86;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.ft-decision-transaction-summary > button + button {
   border-left: 1px solid #333330;
 }
 
-.ft-decision-transaction-summary dt {
-  color: #64635e;
+.ft-decision-transaction-summary > button:hover,
+.ft-decision-transaction-summary > button:focus-visible,
+.ft-decision-transaction-summary > button.ft-is-active {
+  background: #1a1a19;
+}
+
+.ft-ownership-transactions-header .ft-decision-transaction-summary > button > span {
+  display: block;
+  min-width: 0;
+  height: auto;
+  border: 0;
+  color: #77766f;
   font-size: 7px;
+  font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.ft-decision-transaction-summary dd {
-  margin: 0;
+.ft-ownership-transactions-header .ft-decision-transaction-summary small {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
   color: #d3d2ce;
   font-size: 8px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.ft-decision-transaction-summary small b {
   font-weight: 700;
+}
+
+.ft-decision-transaction-summary small i {
+  color: #555550;
+  font-style: normal;
+}
+
+.ft-ownership-transactions-header .ft-decision-support-pass > span,
+.ft-decision-support-pass.ft-is-active small {
+  color: #58dcb0;
+}
+
+.ft-ownership-transactions-header .ft-decision-support-fail > span,
+.ft-decision-support-fail.ft-is-active small {
+  color: #ff737e;
 }
 
 .ft-decision-transaction-trade {
@@ -11079,15 +11140,15 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
 }
 
 .ft-decision-transaction-summary {
-  height: 26px;
+  height: 30px;
   font-size: 9px;
 }
 
-.ft-decision-transaction-summary dt {
+.ft-ownership-transactions-header .ft-decision-transaction-summary > button > span {
   font-size: 8px;
 }
 
-.ft-decision-transaction-summary dd,
+.ft-ownership-transactions-header .ft-decision-transaction-summary small,
 .ft-decision-transaction-side {
   font-size: 9px;
 }
