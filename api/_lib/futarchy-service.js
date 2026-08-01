@@ -231,12 +231,14 @@ function activeIndexRows(payload) {
 
 async function loadTokenConfiguration(token, dependencies) {
   const payload = unwrapData(await fetchNav(
-    `/api/current-nav?token=${encodeURIComponent(token)}`,
+    `/api/tokens-config?token=${encodeURIComponent(token)}`,
     dependencies,
   ));
-  const config = payload?.config && typeof payload.config === 'object' ? payload.config : {};
+  const config = payload?.config && typeof payload.config === 'object'
+    ? payload.config
+    : (payload && typeof payload === 'object' ? payload : {});
   const daoAddress = safeAddress(config.futAmm || config.daoAddress);
-  const baseMint = safeAddress(config.mint || payload?.mint);
+  const baseMint = safeAddress(config.mint);
   if (!daoAddress || !baseMint) {
     throw futarchyServiceError(
       `Configured DAO or mint is unavailable for ${token}`,
@@ -248,9 +250,9 @@ async function loadTokenConfiguration(token, dependencies) {
     daoAddress,
     baseMint,
     quoteMint: safeAddress(config.usdcMint) || USDC_MINT,
-    ticker: String(payload?.ticker || config.ticker || token).toUpperCase().slice(0, 32),
-    name: String(payload?.name || config.name || token).slice(0, 160),
-    logo: String(config.logo || payload?.logo || '').slice(0, 2_048),
+    ticker: String(config.ticker || token).toUpperCase().slice(0, 32),
+    name: String(config.name || token).slice(0, 160),
+    logo: String(config.logo || '').slice(0, 2_048),
   };
 }
 

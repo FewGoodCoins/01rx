@@ -2,6 +2,7 @@ import path from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import { relayApiRequest } from './api/[...path].js';
 import tradingHandler from './api/beta/trading.js';
+import currentNavHandler from './api/_lib/current-nav-handler.js';
 import futarchyHandler from './api/_lib/futarchy-handler.js';
 
 const root = import.meta.dirname;
@@ -35,6 +36,29 @@ function localResponseAdapter(response) {
     };
   }
   return response;
+}
+
+export function localCurrentNavApi(options = {}) {
+  const handler = options.handler || currentNavHandler;
+  const relay = options.relay || relayApiRequest;
+  const publicReadOrigin = String(options.publicReadOrigin || '').trim();
+  return {
+    name: '01rx-local-current-nav-api',
+    configureServer(server) {
+      server.middlewares.use('/api/current-nav', async (request, response) => {
+        const mountedUrl = String(request.url || '');
+        const relativeUrl = new URL(mountedUrl, 'https://01rx.local');
+        request.url = `/api/current-nav${relativeUrl.pathname === '/' ? '' : relativeUrl.pathname}${relativeUrl.search}`;
+        if (publicReadOrigin) {
+          await relay(request, localResponseAdapter(response), {
+            upstreamOrigin: publicReadOrigin,
+          });
+          return;
+        }
+        await handler(request, response);
+      });
+    },
+  };
 }
 
 export function localFutarchyApi(options = {}) {
@@ -84,7 +108,7 @@ export default defineConfig(({ mode }) => {
   const apiTarget = String(
     env.VITE_NAVGATOR_API_BASE || 'https://navgator.xyz',
   ).replace(/\/+$/, '');
-  const hasLocalProposalIndex = Boolean(
+  const hasLocalZeroOneAccess = Boolean(
     env.ZERO_ONE_RESOLVED_API_KEY
     || env.ONE_RESOLVED_API_KEY
     || env.RESOLVED_01_API_KEY,
@@ -93,8 +117,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       localTradingApi(),
+      localCurrentNavApi({
+        publicReadOrigin: hasLocalZeroOneAccess ? '' : LOCAL_PUBLIC_API_ORIGIN,
+      }),
       localFutarchyApi({
-        publicReadOrigin: hasLocalProposalIndex ? '' : LOCAL_PUBLIC_API_ORIGIN,
+        publicReadOrigin: hasLocalZeroOneAccess ? '' : LOCAL_PUBLIC_API_ORIGIN,
       }),
     ],
     publicDir: path.join(root, 'public'),

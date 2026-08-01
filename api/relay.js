@@ -5,10 +5,12 @@ import {
   upstreamApiUrl,
 } from './[...path].js';
 import defaultTradingHandler from './beta/trading.js';
+import defaultCurrentNavHandler from './_lib/current-nav-handler.js';
 import defaultFutarchyHandler from './_lib/futarchy-handler.js';
 
 export function createRelayHandler(options = {}) {
   const tradingHandler = options.tradingHandler || defaultTradingHandler;
+  const currentNavHandler = options.currentNavHandler || defaultCurrentNavHandler;
   const futarchyHandler = options.futarchyHandler || defaultFutarchyHandler;
   const relay = options.relayApiRequest || relayApiRequest;
   return function handler(request, response) {
@@ -19,6 +21,12 @@ export function createRelayHandler(options = {}) {
       localRequest.url = restoredUrl;
       localRequest.query = Object.fromEntries(url.searchParams);
       return tradingHandler(localRequest, response);
+    }
+    if (url.pathname === '/api/current-nav') {
+      const localRequest = Object.create(request);
+      localRequest.url = restoredUrl;
+      localRequest.query = Object.fromEntries(url.searchParams);
+      return currentNavHandler(localRequest, response);
     }
     if (url.pathname === '/api/v1/futarchy' || url.pathname === '/api/beta/futarchy') {
       const localRequest = Object.create(request);

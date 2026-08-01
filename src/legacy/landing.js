@@ -75,7 +75,6 @@ window._cachedPriceMap = _cachedPriceMap;
       _navgatorWatchlist.toggle(key);
     }
 
-    _syncWatchlistToRemote();
     syncFilterBar();
     var w = isWatched(key);
     el.classList.toggle('active', w);
@@ -84,6 +83,12 @@ window._cachedPriceMap = _cachedPriceMap;
     document.querySelectorAll('.tp-item[data-key="' + key + '"] .wl-star').forEach(function(s) {
       if (s !== el) { s.classList.toggle('active', w); s.innerHTML = starSvg(w); }
     });
+    document.querySelectorAll('.tp-item[data-key="' + key + '"]').forEach(function(item) {
+      item.dataset.watched = String(w);
+    });
+    if (typeof window.applyMarketSidebarSearch === 'function') {
+      window.applyMarketSidebarSearch();
+    }
 
     // If unfavoriting from watchlist, defer removal until mouse leaves the row
     var wlItem = el.closest('#tlp-wl-list .tp-item');
@@ -106,6 +111,31 @@ window._cachedPriceMap = _cachedPriceMap;
 
     _rerenderWatchlist();
   };
+
+  function _watchlistStarTokenKey(star) {
+    var item = star && star.closest('.tp-item[data-key]');
+    if (item) return item.dataset.key || '';
+    var row = star && star.closest('tr[data-token-key]');
+    return row ? row.dataset.tokenKey || '' : '';
+  }
+
+  function _handleWatchlistStarClick(event) {
+    var star = event.target && event.target.closest
+      ? event.target.closest('.wl-star[data-watchlist-action="toggle"]')
+      : null;
+    if (!star) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.toggleWatchStar(star, _watchlistStarTokenKey(star));
+  }
+
+  function _handleWatchlistStarKeydown(event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    _handleWatchlistStarClick(event);
+  }
+
+  document.addEventListener('click', _handleWatchlistStarClick);
+  document.addEventListener('keydown', _handleWatchlistStarKeydown);
 
   function _rerenderWatchlist() {
     if (typeof renderTokenLeftPanel === 'function' && window._cachedPriceMap) {
@@ -224,7 +254,6 @@ window._cachedPriceMap = _cachedPriceMap;
             keys.splice(dragIdx, 1);
             keys.splice(curIdx, 0, key);
             _navgatorWatchlist.reorder(keys);
-            _syncWatchlistToRemote();
             if (typeof renderTokenLeftPanel === 'function' && window._cachedPriceMap) {
               renderTokenLeftPanel(window._cachedPriceMap);
             }
@@ -426,7 +455,7 @@ window._cachedPriceMap = _cachedPriceMap;
       if (_isGraveyardToken(t)) {
         var liqOpacity = _activeFilter === 'lp:graveyard' ? '' : ' style="opacity:0.55"';
         return '<tr data-token-key="' + _esc(t.key) + '"' + liqOpacity + '>' +
-          '<td><span class="wl-star' + (isWatched(t.key) ? ' active' : '') + '" onclick="event.stopPropagation();toggleWatchStar(this,this.closest(\'tr\').dataset.tokenKey)">' + starSvg(isWatched(t.key)) + '</span></td>' +
+          '<td><span class="wl-star' + (isWatched(t.key) ? ' active' : '') + '" role="button" tabindex="0" data-watchlist-action="toggle" aria-label="Toggle watchlist">' + starSvg(isWatched(t.key)) + '</span></td>' +
           '<td>' + (i+1) + '</td>' +
           '<td><div class="tt-name-cell">' + iconHtml(t) + '<div><div class="tt-name">' + _esc(t.name) + '</div><div class="tt-ticker">' + _esc(t.ticker) + '</div></div></div></td>' +
           '<td colspan="5"><span class="tt-liquidated">Liquidated</span></td>' +
@@ -459,7 +488,7 @@ window._cachedPriceMap = _cachedPriceMap;
       var skelLg = '<span class="tt-skel tt-skel-lg"></span>';
       var skelSpark = '<div class="spark-container tt-sparkline" data-token="' + t.key + '"><span class="tt-skel tt-skel-spark"></span></div>';
       return '<tr data-token-key="' + _esc(t.key) + '">' +
-        '<td><span class="wl-star' + (sw ? ' active' : '') + '" onclick="event.stopPropagation();toggleWatchStar(this,this.closest(\'tr\').dataset.tokenKey)">' + starSvg(sw) + '</span></td>' +
+        '<td><span class="wl-star' + (sw ? ' active' : '') + '" role="button" tabindex="0" data-watchlist-action="toggle" aria-label="Toggle watchlist">' + starSvg(sw) + '</span></td>' +
         '<td>' + (i+1) + '</td>' +
         '<td><div class="tt-name-cell">' + iconHtml(t) + '<div><div class="tt-name">' + _esc(t.name) + _liqWarnTag + '</div><div class="tt-ticker">' + _esc(t.ticker) + '</div></div></div></td>' +
         '<td><div class="tt-price">' + (noData ? skel : lfmt$(t.spot)) + (t.change24h !== undefined ? (t.change24h === 0 ? '<div class="tt-change" style="color:var(--dim)">—</div>' : '<div class="tt-change ' + (t.change24h >= 0 ? 'up' : 'down') + '">' + (t.change24h >= 0 ? '▲' : '▼') + ' ' + Math.abs(t.change24h).toFixed(2) + '%</div>') : (noData ? '<div class="tt-change">' + skelSm + '</div>' : '')) + '</div></td>' +
@@ -929,7 +958,7 @@ window._cachedPriceMap = _cachedPriceMap;
         ' href="' + _tokenPageUrl(key) + '">' +
         (isWatchlist
           ? dragHandle
-          : '<span class="wl-star' + (watched ? ' active' : '') + '" onclick="event.preventDefault();event.stopPropagation();toggleWatchStar(this,this.closest(\'.tp-item\').dataset.key)">' + starSvg(watched) + '</span>') +
+          : '<span class="wl-star' + (watched ? ' active' : '') + '" role="button" tabindex="0" data-watchlist-action="toggle" aria-label="Toggle watchlist">' + starSvg(watched) + '</span>') +
         iconH +
         '<div class="tp-content"><div class="tp-row"><span class="tp-name">' + _esc(tok.ticker) + verifiedBadge + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div></div>' +
         '</a>';

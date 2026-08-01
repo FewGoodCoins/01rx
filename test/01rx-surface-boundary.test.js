@@ -16,6 +16,10 @@ const refinementCss = fs.readFileSync(
   new URL('../styles/refinements.css', import.meta.url),
   'utf8',
 );
+const proposalChartSource = fs.readFileSync(
+  new URL('../src/markets/proposal-history-chart.js', import.meta.url),
+  'utf8',
+);
 const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
@@ -222,10 +226,19 @@ test('token markets do not reserve a second empty header row', () => {
   );
 });
 
-test('global wallet control uses the 01RX green palette', () => {
+test('decision charts render without a token or PASS/FAIL backdrop', () => {
+  assert.doesNotMatch(proposalChartSource, /createTextWatermark/);
+  assert.doesNotMatch(proposalChartSource, /PASS\s*\/\s*FAIL/);
+});
+
+test('global wallet control uses the white 01RX header treatment', () => {
   assert.match(
     frameCss,
-    /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #35d093;[\s\S]*?--ft-focus: #35d093;/,
+    /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #eeeeea;[\s\S]*?--ft-focus: #ffffff;/,
+  );
+  assert.match(
+    frameCss,
+    /\.site-header-market-wallet \.ft-wallet-button\s*\{[\s\S]*?border-color: #eeeeea;[\s\S]*?background: #eeeeea;[\s\S]*?color: #101010;/,
   );
   assert.match(
     frameCss,
@@ -274,7 +287,7 @@ test('market sidebar uses one market section with a leading live indicator', () 
   assert.match(refinementCss, /\.tp-decision-live-dot\s*\{[\s\S]*?grid-column: 1;/);
   assert.match(
     refinementCss,
-    /\.tp-decision-live-dot\s*\{[\s\S]*?animation: tp-decision-live-pulse 1\.6s ease-out infinite;/,
+    /\.tp-decision-live-dot\s*\{[\s\S]*?animation: tp-decision-live-pulse var\(--tp-live-pulse-duration, 1s\) ease-out infinite;[\s\S]*?animation-delay: var\(--tp-live-pulse-delay, 0ms\);/,
   );
 });
 

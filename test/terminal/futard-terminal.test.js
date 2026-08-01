@@ -544,6 +544,7 @@ function makeWindow(options = {}) {
     activeMarkets: options.activeMarkets || ACTIVE_MARKETS,
     proposalIndex: options.proposalIndex || PROPOSAL_INDEX,
     homeBootstrap: options.homeBootstrap || HOME_BOOTSTRAP,
+    currentNav: options.currentNav || HOME_BOOTSTRAP.currentNav,
     proposalHistories: options.proposalHistories || PROPOSAL_HISTORIES,
     proposalMarketData: options.proposalMarketData || PROPOSAL_MARKET_DATA,
     recurringConfig: options.recurringConfig || RECURRING_CONFIG,
@@ -589,6 +590,10 @@ function makeWindow(options = {}) {
         }
         if (/\/api\/home-bootstrap\?cacheOnly=1$/.test(url)) {
           return { ok: true, data: responses.homeBootstrap };
+        }
+        if (/\/api\/current-nav\?includeInactive=1$/.test(url)) {
+          if (options.currentNavError) throw options.currentNavError;
+          return { ok: true, data: responses.currentNav };
         }
         if (/\/api\/v1\/futarchy\?view=proposal-history/.test(url)) {
           if (typeof options.proposalHistoryResponder === 'function') {
@@ -1928,8 +1933,18 @@ test('market sidebar uses a leading pulse instead of a separate live status colu
     '#tlp-decisions-list .tp-decision-item',
   );
   const liveDot = liveDecision.querySelector('.tp-decision-live-dot');
+  const decisionList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveDecision.firstElementChild, liveDot);
   assert.equal(liveDot.getAttribute('aria-label'), 'Live market');
+  assert.equal(
+    decisionList.style.getPropertyValue('--tp-live-pulse-duration'),
+    '1000ms',
+  );
+  assert.match(
+    decisionList.style.getPropertyValue('--tp-live-pulse-delay'),
+    /^-\d{1,3}ms$/,
+  );
+  assert.equal(liveDot.style.animationDelay, '');
   assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+\$0\.1337[\s\S]+\$0\.1279/);
   assert.equal(
     liveDecision.querySelector('.tp-decision-pass-price').dataset.result,
@@ -2148,6 +2163,14 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
         }],
       },
     },
+    currentNav: {
+      tokens: [{
+        ...HOME_BOOTSTRAP.currentNav.tokens[0],
+        nav: 0.222,
+        navSource: '01resolved',
+        spot: 0.2,
+      }],
+    },
   });
   const controller = mountFutardTerminal({
     window,
@@ -2164,6 +2187,12 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.ok(headerWallet);
   assert.match(headerWallet.textContent, /Connect wallet/i);
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
+  assert.equal(
+    byRole(root, 'ownership-chart-header')
+      .querySelector('[data-ft-chart-header-metric="price"] strong')
+      .textContent,
+    '$0.2000',
+  );
 
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
   assert.equal(

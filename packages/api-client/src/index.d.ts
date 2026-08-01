@@ -1,5 +1,6 @@
 import type {
   ActiveMarketsData,
+  CurrentNavData,
   EndpointId,
   HomeBootstrapData,
   PositionsData,
@@ -77,6 +78,13 @@ export function create01ResolvedClient(options: CreateClientOptions): {
     query?: Record<string, string | number | boolean | null | undefined>,
   ): string;
   readonly core: {
+    currentNav(query?: {
+      token?: string;
+      includeInactive?: boolean;
+      compact?: boolean;
+      includeDaoBreakdown?: boolean;
+      cache?: boolean;
+    }, options?: ClientCallOptions): Promise<CurrentNavData | Record<string, unknown>>;
     homeBootstrap(query?: { cacheOnly?: boolean }, options?: ClientCallOptions): Promise<HomeBootstrapData>;
   };
   readonly futarchy: FutarchyClient;

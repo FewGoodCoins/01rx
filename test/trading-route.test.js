@@ -185,11 +185,15 @@ test('server diagnostics redact API keys before logging', () => {
   );
 });
 
-test('Vercel wildcard relay dispatches trading locally and keeps data on NAVgator', async () => {
+test('Vercel wildcard relay dispatches trading and current NAV locally', async () => {
   const calls = [];
   const handler = createRelayHandler({
     async tradingHandler(req, res) {
       calls.push(['trading', req.url, req.query]);
+      res.status(204).end();
+    },
+    async currentNavHandler(req, res) {
+      calls.push(['current-nav', req.url, req.query]);
       res.status(204).end();
     },
     async relayApiRequest(req, res) {
@@ -215,6 +219,10 @@ test('Vercel wildcard relay dispatches trading locally and keeps data on NAVgato
       '/api/beta/trading?view=spot-order',
       { view: 'spot-order' },
     ],
-    ['relay', '/api/relay?relayPath=current-nav&token=solo'],
+    [
+      'current-nav',
+      '/api/current-nav?token=solo',
+      { token: 'solo' },
+    ],
   ]);
 });

@@ -4,11 +4,12 @@
 markets. This repository owns the product shell, market navigation, chart
 experience, wallet connection, transaction review, and trading UI.
 
-NAVgator remains the canonical backend for token configuration, treasury/NAV
-data, and proposal indexing. 01RX now owns guarded DFlow ownership-token
-routing, Solana account validation, transaction simulation, and submission in
-its server-only API. Browser code uses `@01resolved/api-client`; API credentials
-never enter the browser.
+01Resolved is the canonical source for current NAV through 01RX's server-only
+`/api/current-nav` adapter. NAVgator remains the temporary source for historic
+NAV, token configuration, and other unmigrated data. 01RX also owns guarded
+DFlow ownership-token routing, Solana account validation, transaction
+simulation, and submission in its server-only API. Browser code uses
+`@01resolved/api-client`; API credentials never enter the browser.
 
 The migrated application includes:
 
@@ -38,18 +39,21 @@ routes remain available, for example:
 /?view=markets&archive=1
 ```
 
-Local NAV/data `/api` requests proxy to `VITE_NAVGATOR_API_BASE`, which defaults
-to the currently deployed NAVgator backend. The Vite server handles
-`/api/beta/trading` locally using the same guarded handler as Vercel. Local
-development uses DFlow's development quote endpoint by default. To exercise the
-production endpoint locally, add `DFLOW_API_KEY`, `HELIUS_URL`, and
+Local historic NAV and other unmigrated `/api` requests proxy to
+`VITE_NAVGATOR_API_BASE`. The Vite server handles `/api/current-nav` and
+`/api/beta/trading` on the same boundaries as Vercel. Without a local
+`ZERO_ONE_RESOLVED_API_KEY`, current NAV reads use the deployed 01RX public
+endpoint so the credential still never enters the browser. Local development
+uses DFlow's development quote endpoint by default. To exercise the production
+endpoint locally, add `DFLOW_API_KEY`, `HELIUS_URL`, and
 `DFLOW_TRADE_API_URL=https://quote-api.dflow.net` to `.env.local`.
 
 ## Production boundary
 
-Production NAV/data `/api` requests run through the serverless relay and use
-`NAVGATOR_API_ORIGIN`. Ownership trading is intercepted locally by the 01RX
-serverless API and uses the server-only DFlow and Solana configuration. In the
+Production current NAV is handled locally by the 01RX serverless API and calls
+01Resolved with the server-only key. Historic NAV and other unmigrated reads
+continue through the relay using `NAVGATOR_API_ORIGIN`. Ownership trading also
+stays in 01RX and uses the server-only DFlow and Solana configuration. In the
 01RX Vercel project set:
 
 ```text
