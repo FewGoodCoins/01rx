@@ -963,6 +963,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
   const {
     PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE,
     PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
+    PROPOSAL_HISTORY_MIN_BAR_SPACING,
     PROPOSAL_HISTORY_SERIES,
     interpolateChartTimeCoordinate,
     proposalChartBoundaryEvents,
@@ -970,6 +971,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     proposalChartData,
     proposalChartEndpoint,
     proposalChartLiveEndpoints,
+    proposalChartMaximumLogicalWidth,
     proposalChartObservedRange,
     proposalLaunchSeriesMarker,
     normalizeProposalChartLivePoint,
@@ -1064,6 +1066,10 @@ test('TradingView chart adapter splits null values and missing hours into honest
   );
   assert.equal(PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE, false);
   assert.equal(PROPOSAL_HISTORY_GUIDE_LINE_STYLE, 4);
+  assert.equal(PROPOSAL_HISTORY_MIN_BAR_SPACING, 0.5);
+  assert.equal(proposalChartMaximumLogicalWidth(2), 24);
+  assert.equal(proposalChartMaximumLogicalWidth(16), 48);
+  assert.equal(proposalChartMaximumLogicalWidth(5, 20), 60);
   assert.deepEqual(
     proposalChartBoundaryEvents(
       '2026-06-17T10:00:00.000Z',
