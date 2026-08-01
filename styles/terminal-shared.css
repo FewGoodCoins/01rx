@@ -55,9 +55,9 @@
     );
     height: auto;
     grid-template-columns:
-      minmax(0, 1.55fr)
-      minmax(210px, 0.55fr)
-      minmax(275px, 0.72fr);
+      minmax(0, 55fr)
+      minmax(210px, 20fr)
+      minmax(275px, 25fr);
     grid-template-rows:
       auto
       var(--ft-terminal-chart-height)

@@ -1352,7 +1352,7 @@ test('proposal transaction feed labels every outcome side and totals recent volu
 
   const recentTransactions = byRole(root, 'proposal-recent-transactions');
   assert.equal(
-    recentTransactions.querySelector('.ft-ownership-transactions-header strong').textContent,
+    recentTransactions.querySelector('.ft-decision-trades-reset').textContent,
     'Trades',
   );
   assert.equal(recentTransactions.querySelector('.ft-ownership-transactions-source'), null);
@@ -1363,6 +1363,33 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   );
   assert.equal(byRole(root, 'proposal-recent-volume').textContent, '$50.00');
   assert.equal(byRole(root, 'proposal-recent-count').textContent, '4');
+  assert.equal(byRole(root, 'decision-support-pass-volume').textContent, '$40.00');
+  assert.equal(byRole(root, 'decision-support-pass-count').textContent, '2 TX');
+  assert.equal(byRole(root, 'decision-support-fail-volume').textContent, '$10.00');
+  assert.equal(byRole(root, 'decision-support-fail-count').textContent, '2 TX');
+
+  byRole(root, 'decision-support-pass').click();
+  assert.deepEqual(
+    Array.from(
+      byRole(root, 'proposal-recent-transactions')
+        .querySelectorAll('.ft-decision-transaction-trade'),
+    ).map(element => element.textContent.trim().replace(/\s+/g, ' ')),
+    ['BUY PASS', 'SELL FAIL'],
+  );
+  byRole(root, 'decision-support-fail').click();
+  assert.deepEqual(
+    Array.from(
+      byRole(root, 'proposal-recent-transactions')
+        .querySelectorAll('.ft-decision-transaction-trade'),
+    ).map(element => element.textContent.trim().replace(/\s+/g, ' ')),
+    ['SELL PASS', 'BUY FAIL'],
+  );
+  actionWithText(root, 'filter-decision-trades', /trades/i).click();
+  assert.equal(
+    byRole(root, 'proposal-recent-transactions')
+      .querySelectorAll('.ft-decision-transaction-trade').length,
+    4,
+  );
   const sizeUnit = byRole(root, 'transaction-size-unit');
   assert.equal(sizeUnit.textContent, 'USD');
   assert.deepEqual(
@@ -1381,7 +1408,7 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   );
   assert.match(
     recentTransactions.querySelector('.ft-decision-transaction-summary').title,
-    /currently loaded/,
+    /BUY PASS and SELL FAIL support PASS/,
   );
 
   cleanupMount(mounted);

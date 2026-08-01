@@ -336,6 +336,22 @@ function decisionTradeVolumeUsd(transaction) {
   return Number.isFinite(calculatedVolume) ? calculatedVolume : null;
 }
 
+function decisionTradeSupport(transaction) {
+  if (
+    (transaction?.branch === 'pass' && transaction?.side === 'buy')
+    || (transaction?.branch === 'fail' && transaction?.side === 'sell')
+  ) {
+    return 'pass';
+  }
+  if (
+    (transaction?.branch === 'fail' && transaction?.side === 'buy')
+    || (transaction?.branch === 'pass' && transaction?.side === 'sell')
+  ) {
+    return 'fail';
+  }
+  return '';
+}
+
 function ownershipTradeVolumeUsd(transaction) {
   const indexedVolume = nonNegativeNumber(transaction?.valueUsd);
   if (Number.isFinite(indexedVolume)) return indexedVolume;
@@ -1951,6 +1967,7 @@ export function mountFutardTerminal({
     activityTab: 'balances',
     ownershipActivityTab: 'balances',
     transactionSizeUnit: 'usd',
+    decisionTradeSupportFilter: 'all',
     bookTab: 'pass',
     recurring: {
       enabled: false,
@@ -5575,6 +5592,30 @@ export function mountFutardTerminal({
         ? transactionVolumes.reduce((total, volume) => total + volume, 0)
         : null;
       const recentVolumeLabel = formatTradeVolume(recentVolumeUsd);
+      const supportSummary = ['pass', 'fail'].reduce((summary, support) => {
+        const supportTransactions = transactions.filter(transaction => (
+          decisionTradeSupport(transaction) === support
+        ));
+        const volumes = supportTransactions
+          .map(decisionTradeVolumeUsd)
+          .filter(Number.isFinite);
+        summary[support] = {
+          count: supportTransactions.length,
+          transactions: supportTransactions,
+          volumeLabel: formatTradeVolume(
+            volumes.length
+              ? volumes.reduce((total, volume) => total + volume, 0)
+              : null,
+          ),
+        };
+        return summary;
+      }, {});
+      const supportFilter = ['pass', 'fail'].includes(state.decisionTradeSupportFilter)
+        ? state.decisionTradeSupportFilter
+        : 'all';
+      const visibleTransactions = supportFilter === 'all'
+        ? transactions
+        : supportSummary[supportFilter].transactions;
       renderDecisionAccountActivity(market, transactions);
       regions.positions.innerHTML = `
         <section
@@ -5583,21 +5624,41 @@ export function mountFutardTerminal({
           aria-label="Recent ${escapeHtml(market.ticker)} proposal transactions"
         >
           <header class="ft-ownership-transactions-header">
-            <strong>Trades</strong>
-            <dl
+            <button
+              class="ft-decision-trades-reset${supportFilter === 'all' ? ' ft-is-active' : ''}"
+              type="button"
+              data-ft-action="filter-decision-trades"
+              data-ft-support="all"
+              aria-pressed="${supportFilter === 'all'}"
+              title="Show all loaded trades"
+            >Trades</button>
+            <div
               class="ft-decision-transaction-summary"
-              aria-label="Recent loaded volume ${escapeHtml(recentVolumeLabel)} across ${transactions.length} transactions"
-              title="Volume totals the recent transactions currently loaded"
+              role="group"
+              aria-label="Filter loaded trades by the outcome they support"
+              title="BUY PASS and SELL FAIL support PASS. BUY FAIL and SELL PASS support FAIL."
             >
-              <div>
-                <dt>Vol</dt>
-                <dd data-ft-role="proposal-recent-volume">${escapeHtml(recentVolumeLabel)}</dd>
-              </div>
-              <div>
-                <dt>Tx</dt>
-                <dd data-ft-role="proposal-recent-count">${transactions.length}</dd>
-              </div>
-            </dl>
+              ${['pass', 'fail'].map(support => `
+                <button
+                  class="ft-decision-support-filter ft-decision-support-${support}${supportFilter === support ? ' ft-is-active' : ''}"
+                  type="button"
+                  data-ft-action="filter-decision-trades"
+                  data-ft-support="${support}"
+                  data-ft-role="decision-support-${support}"
+                  aria-pressed="${supportFilter === support}"
+                  aria-label="Show ${supportSummary[support].count} trades supporting ${support.toUpperCase()}, ${supportSummary[support].volumeLabel} loaded volume"
+                >
+                  <span>${support.toUpperCase()}</span>
+                  <small>
+                    <b data-ft-role="decision-support-${support}-volume">${escapeHtml(supportSummary[support].volumeLabel)}</b>
+                    <i aria-hidden="true">·</i>
+                    <b data-ft-role="decision-support-${support}-count">${supportSummary[support].count} TX</b>
+                  </small>
+                </button>
+              `).join('')}
+              <span class="ft-sr-only" data-ft-role="proposal-recent-volume">${escapeHtml(recentVolumeLabel)}</span>
+              <span class="ft-sr-only" data-ft-role="proposal-recent-count">${transactions.length}</span>
+            </div>
           </header>
           <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
             <span>Price</span>
@@ -5616,7 +5677,7 @@ export function mountFutardTerminal({
             <span>Age</span>
           </div>
           <div class="ft-ownership-transactions-list">
-            ${transactions.length ? transactions.map((transaction) => `
+            ${visibleTransactions.length ? visibleTransactions.map((transaction) => `
               <a
                 class="ft-ownership-transaction-row"
                 href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
@@ -5649,7 +5710,9 @@ export function mountFutardTerminal({
               </a>
             `).join('') : `
               <div class="ft-ownership-transactions-empty">
-                ${entry?.loading
+                ${transactions.length && supportFilter !== 'all'
+                  ? `No loaded trades supporting ${supportFilter.toUpperCase()}`
+                  : entry?.loading
                   ? 'Loading recent indexed transactions'
                   : entry?.error || 'No recent indexed transactions'}
               </div>
@@ -7957,6 +8020,12 @@ export function mountFutardTerminal({
     } else if (action === 'toggle-transaction-size-unit') {
       state.transactionSizeUnit = state.transactionSizeUnit === 'usd' ? 'token' : 'usd';
       renderPositions();
+    } else if (action === 'filter-decision-trades') {
+      const support = target.dataset.ftSupport;
+      if (['all', 'pass', 'fail'].includes(support)) {
+        state.decisionTradeSupportFilter = support;
+        renderPositions();
+      }
     } else if (action === 'select-book') {
       const book = target.dataset.ftBook;
       if (book === 'pass' || book === 'fail') {

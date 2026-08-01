@@ -250,7 +250,7 @@ test('desktop decision trading keeps its action outside the scrolling ticket bod
 test('spot and decision routes share one authoritative desktop terminal geometry', () => {
   assert.match(
     sharedTerminalCss,
-    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-terminal-grid\s*\{[\s\S]*?grid-template-columns:[\s\S]*?minmax\(0, 1\.55fr\)[\s\S]*?minmax\(210px, 0\.55fr\)[\s\S]*?minmax\(275px, 0\.72fr\);/,
+    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-terminal-grid\s*\{[\s\S]*?grid-template-columns:[\s\S]*?minmax\(0, 55fr\)[\s\S]*?minmax\(210px, 20fr\)[\s\S]*?minmax\(275px, 25fr\);/,
   );
   assert.match(
     sharedTerminalCss,
