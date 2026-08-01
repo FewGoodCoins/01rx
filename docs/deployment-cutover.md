@@ -31,7 +31,7 @@ Vercel domain assignments, not GitHub visibility.
    Production.
 5. Run `npm run generate:attribution-key` once. Store
    `O1RX_ATTRIBUTION_SIGNING_KEY`, its pinned
-   `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `SOLANA_RPC_URL` for
+   `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `HELIUS_URL` for
    Preview and Production. Add `ZERO_ONE_RESOLVED_API_KEY` for server-side
    decision-history reads; the existing `ONE_RESOLVED_API_KEY` spelling is also
    accepted as a compatibility alias. They must remain server-only and must

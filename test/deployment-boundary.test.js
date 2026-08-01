@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-test('production keeps NAV data relayed and trading credentials server-only in 01RX', () => {
+test('production keeps NAV data relayed and Solana decision services server-only in 01RX', () => {
   const relay = fs.readFileSync('api/[...path].js', 'utf8');
   const relayEntry = fs.readFileSync('api/relay.js', 'utf8');
   const trading = fs.readFileSync('api/_lib/dflow-spot-order.js', 'utf8');
@@ -14,8 +14,10 @@ test('production keeps NAV data relayed and trading credentials server-only in 0
   assert.doesNotMatch(relay, /DFLOW_API_KEY|HELIUS_RPC_URL|SOLANA_RPC/);
   assert.match(relayEntry, /beta\/trading/);
   assert.match(relayEntry, /tradingHandler/);
+  assert.match(relayEntry, /v1\/futarchy/);
+  assert.match(relayEntry, /futarchyHandler/);
   assert.match(trading, /env\.DFLOW_API_KEY/);
-  assert.match(trading, /env\.SOLANA_RPC_URL/);
+  assert.match(trading, /env\.HELIUS_URL/);
   assert.match(trading, /https:\/\/quote-api\.dflow\.net/);
   assert.match(trading, /verifySignedDflowResponse/);
   assert.match(trading, /SIGNED_TRANSACTION_CHANGED/);
@@ -25,7 +27,7 @@ test('production keeps NAV data relayed and trading credentials server-only in 0
   assert.match(attribution, /DECISION_ATTRIBUTION\.feeBps/);
   assert.match(envExample, /^NAVGATOR_API_ORIGIN=https:\/\/api\.navgator\.xyz$/m);
   assert.match(envExample, /^DFLOW_API_KEY=$/m);
-  assert.match(envExample, /^SOLANA_RPC_URL=$/m);
+  assert.match(envExample, /^HELIUS_URL=$/m);
   assert.match(envExample, /^ZERO_ONE_RESOLVED_API_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_PUBLIC_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_SIGNING_KEY=$/m);
@@ -51,7 +53,10 @@ test('browser trading code cannot call DFlow or read server credentials directly
   ].map(path => fs.readFileSync(path, 'utf8')).join('\n');
 
   assert.doesNotMatch(browserSources, /quote-api\.dflow\.net/);
-  assert.doesNotMatch(browserSources, /DFLOW_API_KEY|HELIUS_RPC_URL|SOLANA_RPC_URL/);
+  assert.doesNotMatch(
+    browserSources,
+    /DFLOW_API_KEY|HELIUS_URL|HELIUS_RPC_URL|SOLANA_RPC_URL/,
+  );
   assert.match(browserSources, /trading\.spotOrder/);
   assert.match(browserSources, /trading\.spotSubmit/);
   assert.match(browserSources, /trading\.decisionAttest/);

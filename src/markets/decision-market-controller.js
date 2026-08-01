@@ -5647,13 +5647,11 @@ export function mountFutardTerminal({
                   data-ft-role="decision-support-${support}"
                   aria-pressed="${supportFilter === support}"
                   aria-label="Show ${supportSummary[support].count} trades supporting ${support.toUpperCase()}, ${supportSummary[support].volumeLabel} loaded volume"
+                  title="${support === 'pass'
+                    ? 'Volume supporting PASS: BUY PASS and SELL FAIL'
+                    : 'Volume supporting FAIL: BUY FAIL and SELL PASS'}"
                 >
-                  <span>${support.toUpperCase()}</span>
-                  <small>
-                    <b data-ft-role="decision-support-${support}-volume">${escapeHtml(supportSummary[support].volumeLabel)}</b>
-                    <i aria-hidden="true">·</i>
-                    <b data-ft-role="decision-support-${support}-count">${supportSummary[support].count} TX</b>
-                  </small>
+                  <b>${support.toUpperCase()}</b>
                 </button>
               `).join('')}
               <span class="ft-sr-only" data-ft-role="proposal-recent-volume">${escapeHtml(recentVolumeLabel)}</span>

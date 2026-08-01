@@ -9488,14 +9488,14 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 .ft-decision-transaction-summary {
   display: flex;
   min-width: 0;
-  height: 30px;
+  height: 28px;
   margin: 0;
   flex: 0 0 auto;
   align-items: stretch;
-  border: 1px solid #333330;
+  gap: 5px;
   color: #8d8c86;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1;
 }
 
@@ -9517,78 +9517,64 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 }
 
 .ft-decision-transaction-summary > button {
-  display: flex;
-  min-width: 0;
-  padding: 3px 5px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 3px;
-  border: 0;
-  background: transparent;
-  color: #8d8c86;
+  min-width: 58px;
+  padding: 0 8px;
+  border: 1px solid currentcolor;
+  border-radius: 2px;
   cursor: pointer;
   font: inherit;
+  font-weight: 800;
   line-height: 1;
 }
 
-.ft-decision-transaction-summary > button + button {
-  border-left: 1px solid #333330;
-}
-
-.ft-decision-transaction-summary > button:hover,
-.ft-decision-transaction-summary > button:focus-visible,
-.ft-decision-transaction-summary > button.ft-is-active {
-  background: #1a1a19;
-}
-
-.ft-ownership-transactions-header .ft-decision-transaction-summary > button > span {
-  display: block;
-  min-width: 0;
-  height: auto;
-  border: 0;
-  color: #77766f;
-  font-size: 7px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.ft-ownership-transactions-header .ft-decision-transaction-summary small {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 3px;
-  color: #d3d2ce;
-  font-size: 8px;
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.ft-decision-transaction-summary small b {
-  font-weight: 700;
-}
-
-.ft-decision-transaction-summary small i {
-  color: #555550;
-  font-style: normal;
-}
-
-.ft-ownership-transactions-header .ft-decision-support-pass > span,
-.ft-decision-support-pass.ft-is-active small {
+.ft-decision-support-pass {
+  background: #15352b;
   color: #58dcb0;
 }
 
-.ft-ownership-transactions-header .ft-decision-support-fail > span,
-.ft-decision-support-fail.ft-is-active small {
+.ft-decision-support-fail {
+  background: #3b1c21;
   color: #ff737e;
+}
+
+.ft-decision-support-pass:hover,
+.ft-decision-support-pass:focus-visible,
+.ft-decision-support-pass.ft-is-active {
+  background: #58dcb0;
+  color: #07130f;
+}
+
+.ft-decision-support-fail:hover,
+.ft-decision-support-fail:focus-visible,
+.ft-decision-support-fail.ft-is-active {
+  background: #ff737e;
+  color: #19080b;
+}
+
+.ft-decision-transaction-summary b {
+  font-weight: 700;
 }
 
 .ft-decision-transaction-trade {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
+}
+
+.ft-decision-transactions .ft-ownership-transactions-columns,
+.ft-decision-transactions .ft-ownership-transaction-row {
+  grid-template-columns:
+    minmax(52px, 0.8fr)
+    minmax(58px, 0.9fr)
+    minmax(68px, 1.15fr)
+    30px;
+}
+
+.ft-ownership-transaction-row > .ft-decision-transaction-trade {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .ft-decision-transaction-side {
@@ -11140,15 +11126,10 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
 }
 
 .ft-decision-transaction-summary {
-  height: 30px;
+  height: 28px;
   font-size: 9px;
 }
 
-.ft-ownership-transactions-header .ft-decision-transaction-summary > button > span {
-  font-size: 8px;
-}
-
-.ft-ownership-transactions-header .ft-decision-transaction-summary small,
 .ft-decision-transaction-side {
   font-size: 9px;
 }

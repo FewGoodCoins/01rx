@@ -1,4 +1,5 @@
 export {
   default,
-  relayApiRequest,
-} from '../[...path].js';
+  createFutarchyHandler,
+  futarchyHandler,
+} from '../_lib/futarchy-handler.js';

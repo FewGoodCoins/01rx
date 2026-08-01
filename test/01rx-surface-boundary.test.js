@@ -100,6 +100,33 @@ test('proposal recent transactions header aligns with the chart toolbar', () => 
   );
 });
 
+test('market sidebar and execution controls continue the terminal header rails', () => {
+  assert.match(
+    sharedTerminalCss,
+    /html\[data-workspace="markets"\] \.tp-market-toolbar\s*\{[\s\S]*?height: 44px;[\s\S]*?flex: 0 0 44px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?height: 42px;[\s\S]*?flex: 0 0 42px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-market-chart-header-region,[\s\S]*?\.ft-chart-market-header > \*\s*\{[\s\S]*?height: 44px;[\s\S]*?min-height: 44px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-decision-ticket \.ft-outcome-tabs,[\s\S]*?\.ft-decision-ticket \.ft-outcome-tabs button\s*\{[\s\S]*?height: 42px;[\s\S]*?min-height: 42px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /html\[data-workspace="markets"\] \.tp-market-tool-button\s*\{[\s\S]*?width: 34px;[\s\S]*?height: 34px;[\s\S]*?flex: 0 0 34px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: absolute;[\s\S]*?height: 32px;[\s\S]*?margin: 0;/,
+  );
+});
+
 test('recent transaction rows use an open tape without divider lines', () => {
   assert.match(
     frameCss,
@@ -132,6 +159,25 @@ test('recent transaction rows use an open tape without divider lines', () => {
   assert.match(
     frameCss,
     /\.ft-ownership-transaction-row \{\s*min-height: 40px;[\s\S]*?font-size: 10px;/,
+  );
+});
+
+test('decision support filters stay compact and full trade labels remain visible', () => {
+  assert.match(
+    frameCss,
+    /\.ft-decision-support-pass\s*\{[\s\S]*?background: #15352b;[\s\S]*?color: #58dcb0;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-decision-support-fail\s*\{[\s\S]*?background: #3b1c21;[\s\S]*?color: #ff737e;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-decision-transactions \.ft-ownership-transactions-columns,[\s\S]*?minmax\(68px, 1\.15fr\)/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-ownership-transaction-row > \.ft-decision-transaction-trade\s*\{[\s\S]*?overflow: visible;[\s\S]*?white-space: nowrap;/,
   );
 });
 
@@ -269,7 +315,7 @@ test('spot and decision routes share one authoritative desktop terminal geometry
 test('desktop account activity stays inside the viewport and scrolls its body', () => {
   assert.match(
     sharedTerminalCss,
-    /\.ft-proposal-focus \.ft-chart-market-header > \*\s*\{\s*min-height: 44px;/,
+    /\.ft-proposal-focus \.ft-chart-market-header > \*\s*\{[\s\S]*?height: 44px;[\s\S]*?min-height: 44px;/,
   );
   assert.match(
     sharedTerminalCss,

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import tradingHandler from './api/beta/trading.js';
+import futarchyHandler from './api/_lib/futarchy-handler.js';
 
 const root = import.meta.dirname;
 
@@ -17,11 +18,28 @@ function localTradingApi() {
   };
 }
 
+function localFutarchyApi() {
+  return {
+    name: '01rx-local-futarchy-api',
+    configureServer(server) {
+      for (const route of ['/api/v1/futarchy', '/api/beta/futarchy']) {
+        server.middlewares.use(route, async (request, response) => {
+          const mountedUrl = String(request.url || '');
+          request.url = `${route}${mountedUrl === '/' ? '' : mountedUrl}`;
+          await futarchyHandler(request, response);
+        });
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, '');
   [
     'DFLOW_API_KEY',
     'DFLOW_TRADE_API_URL',
+    'HELIUS_URL',
+    'HELIUS_RPC_URL',
     'NAVGATOR_API_ORIGIN',
     'O1RX_ATTRIBUTION_PUBLIC_KEY',
     'O1RX_ATTRIBUTION_SIGNING_KEY',
@@ -34,7 +52,7 @@ export default defineConfig(({ mode }) => {
   ).replace(/\/+$/, '');
 
   return {
-    plugins: [localTradingApi()],
+    plugins: [localTradingApi(), localFutarchyApi()],
     publicDir: path.join(root, 'public'),
     resolve: {
       alias: [
