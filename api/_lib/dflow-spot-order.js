@@ -86,7 +86,9 @@ export function resolveDflowUrl(env = process.env) {
 }
 
 export function resolveRpcUrl(env = process.env) {
-  const configured = String(env.SOLANA_RPC_URL || env.HELIUS_RPC_URL || '').trim();
+  const configured = String(
+    env.HELIUS_URL || env.SOLANA_RPC_URL || env.HELIUS_RPC_URL || '',
+  ).trim();
   if (configured) {
     let url;
     try {

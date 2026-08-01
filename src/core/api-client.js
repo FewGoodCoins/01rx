@@ -99,17 +99,14 @@ export function resolveFutarchyApiBases(browserWindow, baseUrl) {
   const fallback = baseUrl || resolveApiBase(runtime);
   const embedded = runtime.NAVGATOR?.config || {};
   const configured = runtime.NAVGATOR_CONFIG || {};
-  const localPreviewOrigin = /^(localhost|127\.0\.0\.1)$/.test(runtime.location.hostname || '')
-    && fallback === runtime.location.origin.replace(/\/+$/, '')
-    && runtime.location.port !== '3000';
-  // The Vite shell can run without the private/local API process. Keep public
-  // proposal research useful in that mode by reading the stable contract from
-  // production, while beta execution continues to target the local API and
-  // therefore fails closed unless that service is intentionally running.
+  // The Vite shell can run without the separate legacy API process. Stable and
+  // beta GETs use its reviewed same-origin proxy, while beta trading POSTs are
+  // intercepted by Vite's local guarded handler and still fail closed when
+  // server-only credentials are unavailable.
   const readFallback = fallback === LOCAL_API_BASE
     ? PRODUCTION_API_BASE
     : fallback;
-  const executionFallback = localPreviewOrigin ? LOCAL_API_BASE : fallback;
+  const executionFallback = fallback;
   return {
     readBaseUrl: configuredApiOrigin(
       configured.futarchyReadApiBase || embedded.futarchyReadApiBase,

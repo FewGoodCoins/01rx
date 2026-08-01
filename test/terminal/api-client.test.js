@@ -95,7 +95,7 @@ test('API base resolution removes a stale same-origin local override', async () 
   assert.equal(storage.getItem('navgatorApiBase'), null);
 });
 
-test('Vite preview keeps public reads on its same-origin API relay', async () => {
+test('Vite preview keeps public reads and guarded trading on its same-origin handlers', async () => {
   const { resolveApiBase, resolveFutarchyApiBases } = await importCore('api-client.js');
   const runtime = createRuntime('http://127.0.0.1:4173/?view=markets');
   const baseUrl = resolveApiBase(runtime);
@@ -103,7 +103,7 @@ test('Vite preview keeps public reads on its same-origin API relay', async () =>
   assert.equal(baseUrl, 'http://127.0.0.1:4173');
   assert.deepEqual(resolveFutarchyApiBases(runtime, baseUrl), {
     readBaseUrl: 'http://127.0.0.1:4173',
-    executionBaseUrl: 'http://127.0.0.1:3001',
+    executionBaseUrl: 'http://127.0.0.1:4173',
   });
 
   const productionOverrideStorage = createStorage({

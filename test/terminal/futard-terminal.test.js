@@ -1363,10 +1363,12 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   );
   assert.equal(byRole(root, 'proposal-recent-volume').textContent, '$50.00');
   assert.equal(byRole(root, 'proposal-recent-count').textContent, '4');
-  assert.equal(byRole(root, 'decision-support-pass-volume').textContent, '$40.00');
-  assert.equal(byRole(root, 'decision-support-pass-count').textContent, '2 TX');
-  assert.equal(byRole(root, 'decision-support-fail-volume').textContent, '$10.00');
-  assert.equal(byRole(root, 'decision-support-fail-count').textContent, '2 TX');
+  assert.equal(recentTransactions.querySelector('[data-ft-role="decision-support-pass-volume"]'), null);
+  assert.equal(recentTransactions.querySelector('[data-ft-role="decision-support-fail-volume"]'), null);
+  assert.equal(recentTransactions.querySelector('[data-ft-role="decision-support-pass-count"]'), null);
+  assert.equal(recentTransactions.querySelector('[data-ft-role="decision-support-fail-count"]'), null);
+  assert.equal(byRole(root, 'decision-support-pass').textContent.trim(), 'PASS');
+  assert.equal(byRole(root, 'decision-support-fail').textContent.trim(), 'FAIL');
 
   byRole(root, 'decision-support-pass').click();
   assert.deepEqual(
