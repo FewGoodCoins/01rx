@@ -29,6 +29,7 @@ const CHART_INTERACTION_EVENTS = Object.freeze([
   'touchmove',
   'dblclick',
 ]);
+const MAX_BOUNDARY_TIMELINE_POINTS = 2_048;
 
 export const PROPOSAL_HISTORY_GUIDE_LINE_STYLE = LineStyle.SparseDotted;
 export const PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE = false;
@@ -288,6 +289,63 @@ export function interpolateChartTimeCoordinate(time, plottedTimes, coordinateFor
   return leftCoordinate + (rightCoordinate - leftCoordinate) * position;
 }
 
+export function proposalChartBoundaryEvents(preTwap, windowEndedAt) {
+  const seen = new Set();
+  return [
+    {
+      kind: 'twap-start',
+      label: 'TWAP Open',
+      time: unixTime(preTwap),
+    },
+    {
+      kind: 'twap-end',
+      label: 'TWAP Close',
+      time: unixTime(windowEndedAt),
+    },
+  ].filter((event) => {
+    if (!Number.isFinite(event.time) || seen.has(event.time)) return false;
+    seen.add(event.time);
+    return true;
+  });
+}
+
+export function proposalChartBoundaryTimeline(events, plottedTimes, interval = '1h') {
+  const boundaries = (Array.isArray(events) ? events : [])
+    .map(event => Number(event?.time))
+    .filter(Number.isFinite);
+  if (!boundaries.length) return [];
+  const observed = (Array.isArray(plottedTimes) ? plottedTimes : [])
+    .map(Number)
+    .filter(Number.isFinite);
+  const times = [...observed, ...boundaries];
+  const first = Math.min(...times);
+  const last = Math.max(...times);
+  const intervalSeconds = historyIntervalSeconds(interval);
+  const estimatedPoints = Math.max(1, Math.ceil((last - first) / intervalSeconds));
+  const stride = intervalSeconds * Math.max(
+    1,
+    Math.ceil(estimatedPoints / MAX_BOUNDARY_TIMELINE_POINTS),
+  );
+  const timeline = new Set(boundaries);
+  timeline.add(first);
+  timeline.add(last);
+  for (let time = first; time <= last; time += stride) timeline.add(time);
+  return [...timeline].sort((left, right) => left - right);
+}
+
+export function proposalChartObservedRange(plottedTimes, interval = '1h') {
+  const times = Array.from(new Set(Array.isArray(plottedTimes) ? plottedTimes : []))
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((left, right) => left - right);
+  if (!times.length) return null;
+  if (times.length === 1) {
+    const padding = historyIntervalSeconds(interval);
+    return { from: times[0] - padding, to: times[0] + padding };
+  }
+  return { from: times[0], to: times[times.length - 1] };
+}
+
 export function proposalLaunchSeriesMarker(anchor) {
   const timeMs = proposalChartPointTime(anchor);
   const price = finiteValue(anchor?.underlyingPrice);
@@ -377,6 +435,19 @@ export function createProposalHistoryChart({
   let watermark = null;
   let launchAnchorMarkers = null;
   let currentRange = range;
+  const eventDefinitions = proposalChartBoundaryEvents(
+    history.preTwap,
+    windowEndedAt,
+  );
+  const boundaryTimeline = proposalChartBoundaryTimeline(
+    eventDefinitions,
+    plottedTimes,
+    history.interval,
+  );
+  const observedRange = proposalChartObservedRange(
+    plottedTimes,
+    history.interval,
+  );
 
   try {
     chart = createChart(container, {
@@ -478,6 +549,19 @@ export function createProposalHistoryChart({
   });
   mountTradingViewAttribution(container, { runtime });
 
+  // Keep future TWAP boundaries on the time axis without adding or extending
+  // any price series. Live price updates remain ordered against observed data.
+  if (eventDefinitions.length) {
+    const boundaryTimeSeries = chart.addSeries(LineSeries, {
+      lineVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+      autoscaleInfoProvider: () => null,
+    });
+    boundaryTimeSeries.setData(boundaryTimeline.map(time => ({ time })));
+  }
+
   PROPOSAL_HISTORY_SERIES.forEach((definition) => {
     const data = proposalChartData(points, definition.field, history.interval);
     const valueCount = data.filter(point => Number.isFinite(point.value)).length;
@@ -527,7 +611,6 @@ export function createProposalHistoryChart({
     }],
   });
 
-  const preTwapTimestamp = unixTime(history.preTwap);
   const launchAnchor = points.find(point => point.protocolLaunchAnchor === true);
   const launchMarker = proposalLaunchSeriesMarker(launchAnchor);
   if (launchMarker) {
@@ -559,24 +642,6 @@ export function createProposalHistoryChart({
     .forEach(({ field, key, endpoint }) => {
       setLiveEndpoint(field, key, endpoint);
     });
-  const twapEndTimestamp = unixTime(windowEndedAt);
-  const eventDefinitions = [
-    {
-      kind: 'twap-start',
-      label: 'TWAP Open',
-      time: preTwapTimestamp,
-    },
-    {
-      kind: 'twap-end',
-      label: 'TWAP Close',
-      time: twapEndTimestamp,
-    },
-  ].filter((event, index, events) => (
-    Number.isFinite(event.time)
-    && event.time >= firstTimestamp
-    && event.time <= lastTimestamp
-    && !events.slice(0, index).some(previous => previous.time === event.time)
-  ));
   const preTwapBoundary = eventDefinitions.find(event => event.kind === 'twap-start');
   const preTwapBand = preTwapBoundary
     ? runtime.document.createElement('span')
@@ -707,7 +772,11 @@ export function createProposalHistoryChart({
     currentRange = RANGE_SECONDS[nextRange] ? nextRange : 'all';
     const seconds = RANGE_SECONDS[nextRange];
     if (!seconds || !Number.isFinite(lastTimestamp)) {
-      chart.timeScale().fitContent();
+      if (observedRange) {
+        chart.timeScale().setVisibleRange(observedRange);
+      } else {
+        chart.timeScale().fitContent();
+      }
       scheduleRangePadding();
       return;
     }

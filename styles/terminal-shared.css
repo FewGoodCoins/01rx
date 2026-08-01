@@ -7,6 +7,27 @@
  */
 
 @media (min-width: 981px) {
+  /* Full desktop allocation: navigation is a fixed 250px, execution remains 25%
+     of the viewport, Trades is a compact fixed rail, and Chart gets the rest. */
+  html[data-workspace="markets"] {
+    --sidebar-width: 250px;
+  }
+
+  /* Keep the market rail scrollable without dedicating width to a visible
+     scrollbar. */
+  html[data-workspace="markets"] #tlp-all-list,
+  html[data-workspace="markets"] #tlp-wl-list {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html[data-workspace="markets"] #tlp-all-list::-webkit-scrollbar,
+  html[data-workspace="markets"] #tlp-wl-list::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   html:has(body.is-token-markets [data-ft-mode="token"].ft-proposal-focus),
   html:has(body.is-token-markets [data-ft-mode="token"].ft-proposal-focus) body {
     width: 100%;
@@ -41,7 +62,10 @@
     padding: 0;
   }
 
-  [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid {
+  [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid,
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid,
+  [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-terminal-grid,
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
     --ft-terminal-account-height: clamp(160px, 20dvh, 190px);
     --ft-terminal-chart-height: max(
       580px,
@@ -55,9 +79,9 @@
     );
     height: auto;
     grid-template-columns:
-      minmax(0, 55fr)
-      minmax(210px, 20fr)
-      minmax(275px, 25fr);
+      minmax(0, 1fr)
+      225px
+      minmax(0, 25vw);
     grid-template-rows:
       auto
       var(--ft-terminal-chart-height)
@@ -67,15 +91,15 @@
     overflow: visible;
   }
 
-  /* The sidebar and terminal share two continuous desktop rails: a 44px market
+  /* The sidebar and terminal share two continuous desktop rails: a 38px market
      summary row followed by a 42px controls row. */
   html[data-workspace="markets"] .tp-market-toolbar {
     position: relative;
     box-sizing: border-box;
-    height: 44px;
-    min-height: 44px;
-    padding: 0 8px;
-    flex: 0 0 44px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0 6px;
+    flex: 0 0 38px;
   }
 
   html[data-workspace="markets"] .tp-market-tool-row {
@@ -86,9 +110,9 @@
   html[data-workspace="markets"] .tp-market-tool-button {
     position: relative;
     z-index: 6;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
   }
 
   html[data-workspace="markets"] .tp-market-tool-button svg {
@@ -99,24 +123,24 @@
   html[data-workspace="markets"] .tp-market-close-button {
     position: relative;
     z-index: 6;
-    height: 42px;
+    height: 38px;
     flex: 0 0 auto;
   }
 
   html[data-workspace="markets"] .tp-market-search-field {
     position: absolute;
     z-index: 5;
-    top: 6px;
-    right: 70px;
-    left: 48px;
+    top: 5px;
+    right: 66px;
+    left: 42px;
     box-sizing: border-box;
-    height: 32px;
+    height: 28px;
     margin: 0;
   }
 
   html[data-workspace="markets"] .tp-market-column-menu,
   html[data-workspace="markets"] .tp-market-sort-menu {
-    top: 43px;
+    top: 39px;
   }
 
   html[data-workspace="markets"] .tp-market-tabs {
@@ -130,24 +154,24 @@
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-header,
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-header > * {
     box-sizing: border-box;
-    height: 44px;
-    min-height: 44px;
+    height: 38px;
+    min-height: 38px;
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-identity {
-    padding: 4px 10px;
-    gap: 8px;
+    padding: 2px 8px;
+    gap: 6px;
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-identity .ft-token-logo-large {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-metric {
-    padding-top: 4px;
-    padding-bottom: 4px;
-    gap: 2px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    gap: 1px;
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket .ft-outcome-tabs,
@@ -217,6 +241,15 @@
     height: 100%;
     min-height: 0;
     max-height: none;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-transactions .ft-ownership-transaction-row > .ft-ownership-transaction-price,
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-transactions .ft-ownership-transaction-row > .ft-ownership-transaction-size,
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-transactions .ft-ownership-transaction-row > :last-child {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column {
