@@ -874,24 +874,18 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   }));
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
-  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 5);
+  assert.deepEqual(
+    [...chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]')]
+      .map(control => control.dataset.ftSeriesField),
+    ['underlyingPrice', 'passPrice', 'failPrice'],
+  );
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 0);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]'), null);
   assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-trigger"]').length, 0);
   assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-menu"]').length, 0);
-  assert.equal(
-    chart.querySelector('[data-ft-readout-value="passTwap"]').textContent,
-    '—',
-  );
-  assert.equal(
-    chart.querySelector('[data-ft-series-field="passTwap"]').disabled,
-    true,
-  );
-  assert.equal(
-    chart.querySelector('[data-ft-series-field="failTwap"]').disabled,
-    true,
-  );
+  assert.equal(chart.querySelector('[data-ft-readout-value="passTwap"]'), null);
+  assert.equal(chart.querySelector('[data-ft-readout-value="failTwap"]'), null);
   assert.equal(chart.querySelector('[data-ft-series-field="decisionEdge"]'), null);
   assert.equal(chart.querySelector('[data-ft-readout-value="decisionEdge"]'), null);
   assert.equal(chart.querySelector('[aria-label="Hide annotations placeholder"]'), null);
@@ -2999,17 +2993,8 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.equal(failToggle.getAttribute('aria-pressed'), 'true');
   assert.deepEqual(activeChart.visibility.at(-1), ['failPrice', true]);
 
-  const passTwapToggle = root.querySelector('.ft-hourly-overlay-pass-twap');
-  assert.equal(passTwapToggle.textContent.includes('Pass TWAP'), true);
-  assert.equal(
-    passTwapToggle.querySelector('[data-ft-readout-value="passTwap"]').textContent,
-    '$0.4600',
-  );
-  assert.equal(passTwapToggle.getAttribute('aria-pressed'), 'false');
-  passTwapToggle.click();
-  assert.equal(passTwapToggle.getAttribute('aria-pressed'), 'true');
-  assert.deepEqual(activeChart.visibility.at(-1), ['passTwap', true]);
-  passTwapToggle.click();
+  assert.equal(root.querySelector('.ft-hourly-overlay-pass-twap'), null);
+  assert.equal(root.querySelector('.ft-hourly-overlay-fail-twap'), null);
 
   assert.equal(root.querySelector('[data-ft-role="hourly-series-trigger"]'), null);
   assert.equal(root.querySelector('[data-ft-role="hourly-series-menu"]'), null);

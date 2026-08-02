@@ -78,6 +78,25 @@ test('browser icon metadata uses only the compact cache-busted 01RX mark', () =>
   assert.equal(faviconAsset.readUInt32BE(20), 512);
 });
 
+test('decision and token chart readouts share one typography scale', () => {
+  assert.match(
+    tokenCss,
+    /body\.is-token #chart-ohlc-line \{[\s\S]*?font-family: 'JetBrains Mono', monospace !important;[\s\S]*?font-size: 11px !important;[\s\S]*?line-height: 1\.45 !important;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-readout \{[\s\S]*?font-family: 'JetBrains Mono', monospace;[\s\S]*?font-size: 11px;[\s\S]*?font-weight: 400;[\s\S]*?line-height: 1\.45;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-overlay-metric strong \{[\s\S]*?font-size: inherit;[\s\S]*?font-weight: inherit;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-overlay-values \{[\s\S]*?align-items: flex-start;[\s\S]*?flex-direction: column;[\s\S]*?flex-wrap: nowrap;[\s\S]*?gap: 0;/,
+  );
+});
+
 test('01RX adds functional NAV, Growth, and chart expansion controls plus a disabled TradingView placeholder', () => {
   assert.equal(
     (indexSource.match(/window\.toggleChartNavMenu = function/g) || []).length,

@@ -3663,7 +3663,10 @@ body.is-futard-terminal #token-switch-loader {
   flex-direction: column;
   gap: 2px;
   pointer-events: none;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
   text-shadow: 0 1px 2px var(--ft-panel-soft);
 }
 
@@ -3674,10 +3677,10 @@ body.is-futard-terminal #token-switch-loader {
   flex-wrap: wrap;
   gap: 0 7px;
   color: var(--ft-muted);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.45;
-  letter-spacing: 0.02em;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: normal;
 }
 
 .ft-hourly-readout-header span,
@@ -3689,11 +3692,12 @@ body.is-futard-terminal #token-switch-loader {
 .ft-hourly-overlay-values {
   display: flex;
   min-width: 0;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 2px 13px;
-  font-size: 11px;
-  line-height: 1.45;
+  align-items: flex-start;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .ft-hourly-overlay-metric {
@@ -3716,14 +3720,14 @@ body.is-futard-terminal #token-switch-loader {
 
 .ft-hourly-overlay-metric span {
   color: var(--ft-muted);
-  font-weight: 500;
+  font-weight: inherit;
   text-transform: capitalize;
 }
 
 .ft-hourly-overlay-metric strong {
   color: var(--ft-ink-strong);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .ft-hourly-overlay-metric.ft-is-active {

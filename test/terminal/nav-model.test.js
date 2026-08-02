@@ -132,6 +132,10 @@ test('missing core NAV inputs fail closed and preserve issue labels', async () =
   assert.deepEqual(plain(moduleSnapshot), plain(legacySnapshot));
   assert.equal(moduleSnapshot.status, 'unverified');
   assert.equal(navModel.navSnapshotBlocksNav(moduleSnapshot), true);
+  assert.equal(navModel.effectiveSupplyForNav(cfg), 0);
+  assert.equal(moduleSnapshot.supply.effective, 0);
+  assert.equal(moduleSnapshot.supply.onChain, 0);
+  assert.equal(moduleSnapshot.supply.circulating, 0);
   assert.deepEqual(moduleSnapshot.issues, [
     'missing_treasury_usdc',
     'missing_effective_supply',

@@ -996,16 +996,10 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
     Number.isFinite(latestPoint[field]) ? latestPoint[field] : null
   );
   const coverage = history.summary?.coverage || {};
-  const visibleCoverage = {
-    ...coverage,
-    passTwap: observations.filter(point => Number.isFinite(point.passTwap)).length,
-    failTwap: observations.filter(point => Number.isFinite(point.failTwap)).length,
-  };
+  const visibleCoverage = coverage;
   const visibility = isObject(options.visibility) ? options.visibility : {};
   const latestPass = latestValue('passPrice');
-  const latestPassTwap = latestValue('passTwap');
   const latestFail = latestValue('failPrice');
-  const latestFailTwap = latestValue('failTwap');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
   return `
     <div
@@ -1060,22 +1054,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               value: latestFail,
               count: visibleCoverage.fail || 0,
               visible: visibility.failPrice !== false,
-            })}
-            ${historyOverlayMetric({
-              className: 'ft-hourly-overlay-pass-twap',
-              field: 'passTwap',
-              label: 'Pass TWAP',
-              value: latestPassTwap,
-              count: visibleCoverage.passTwap || 0,
-              visible: visibility.passTwap !== false,
-            })}
-            ${historyOverlayMetric({
-              className: 'ft-hourly-overlay-fail-twap',
-              field: 'failTwap',
-              label: 'Fail TWAP',
-              value: latestFailTwap,
-              count: visibleCoverage.failTwap || 0,
-              visible: visibility.failTwap !== false,
             })}
           </div>
         </div>
