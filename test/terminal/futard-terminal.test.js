@@ -2426,6 +2426,62 @@ test('live proposal sidebar navigation switches tokens without reloading the doc
   cleanupMount(mounted);
 });
 
+test('token sidebar navigation keeps the shell mounted while token data refreshes', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=loyal&view=markets&tab=tokens',
+  });
+  const sidebar = window.document.createElement('aside');
+  sidebar.innerHTML = `
+    <a
+      class="tp-item"
+      data-key="meta"
+      href="/?token=meta&view=markets&tab=tokens"
+    >META</a>
+  `;
+  window.document.body.prepend(sidebar);
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const shell = byRole(root, 'terminal');
+  const tokenLink = sidebar.querySelector('.tp-item');
+  const selectionClick = new window.MouseEvent('click', {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+  });
+  assert.equal(tokenLink.dispatchEvent(selectionClick), false);
+  assert.equal(selectionClick.defaultPrevented, true);
+  assert.equal(
+    window.location.search,
+    '?token=meta&view=markets&tab=tokens',
+  );
+  assert.equal(root.dataset.ftTransition, 'partial');
+  assert.equal(root.getAttribute('aria-busy'), 'true');
+  assert.equal(shell.style.visibility, '');
+  assert.equal(shell.hasAttribute('aria-hidden'), false);
+  assert.ok(tokenLink.classList.contains('active'));
+  assert.equal(tokenLink.getAttribute('aria-current'), 'page');
+
+  await settleUntil(window, () => (
+    controller.getState().token === 'meta'
+    && controller.getState().workspaceTab === 'tokens'
+    && !root.hasAttribute('data-ft-transition')
+  ));
+  assert.equal(root.querySelector('[data-ft-role="terminal"]'), shell);
+  assert.equal(root.hasAttribute('aria-busy'), false);
+  assert.equal(controller.getState().token, 'meta');
+  assert.equal(controller.getState().workspaceTab, 'tokens');
+
+  cleanupMount(mounted);
+});
+
 test('past proposal navigation keeps the final chart shell mounted until delayed history is ready', async () => {
   let resolveHistory;
   const historyGate = new Promise((resolve) => {
@@ -2560,7 +2616,6 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     currentNav: {
       tokens: [{
         ...HOME_BOOTSTRAP.currentNav.tokens[0],
-        mint: WALLET_ADDRESS,
         nav: 0.222,
         navSource: '01resolved',
         spot: 0.2,
@@ -2590,10 +2645,7 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   );
   assert.equal(byRole(root, 'market-title').textContent, 'LOYAL');
   assert.equal(byRole(root, 'market-subtitle').textContent, 'Loyal');
-  assert.equal(byRole(root, 'copy-token-mint').dataset.ftAddress, WALLET_ADDRESS);
-  const placeholderLinks = root.querySelectorAll('.ft-token-identity-links button');
-  assert.equal(placeholderLinks.length, 4);
-  placeholderLinks.forEach(button => assert.equal(button.disabled, true));
+  assert.equal(root.querySelector('.ft-token-identity-meta'), null);
   const currentStrip = byRole(root, 'ownership-current-strip');
   assert.ok(currentStrip);
   assert.doesNotMatch(currentStrip.textContent, /Current 01Resolved snapshot/i);

@@ -158,7 +158,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /\.ft-market-chart-header-region\s*\{[\s\S]*?height: auto;[\s\S]*?min-height: 38px;/,
+    /\.ft-market-chart-header-region\s*\{[\s\S]*?--ft-market-title-width: 200px;[\s\S]*?height: auto;[\s\S]*?min-height: 38px;/,
   );
   assert.match(
     sharedTerminalCss,
@@ -178,11 +178,19 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-ownership-market\) \.ft-chart-market-identity\s*\{[\s\S]*?height: 80px;[\s\S]*?min-height: 80px;/,
+    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-ownership-market\) \.ft-chart-market-identity\s*\{[\s\S]*?height: 80px;[\s\S]*?min-height: 80px;[\s\S]*?border-right: 0;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-ownership-market\) \.ft-chart-market-identity::after\s*\{[\s\S]*?top: 20px;[\s\S]*?right: -1px;[\s\S]*?bottom: 20px;[\s\S]*?width: 1px;/,
   );
   assert.match(
     sharedTerminalCss,
     /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-ownership-market\) \.ft-chart-market-metric\[data-ft-chart-header-metric="price"\]\s*\{[\s\S]*?height: 80px;[\s\S]*?min-height: 80px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-chart-market-identity p strong\.ft-market-title-compact\s*\{\s*font-size: 16px;/,
   );
   assert.match(
     sharedTerminalCss,

@@ -19,7 +19,9 @@ function controllerOwnsLink(browserWindow, anchor) {
   const mode = workspace?.getState?.().mode;
   if (
     mode === 'token'
-    && anchor.matches?.('.tp-decision-item[data-ft-proposal-id]')
+    && anchor.matches?.(
+      '.tp-decision-item[data-ft-proposal-id], a.tp-item[data-key]',
+    )
   ) return true;
   return Boolean(
     workspace

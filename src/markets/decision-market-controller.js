@@ -2133,6 +2133,17 @@ export function shouldHandleSidebarProposalClick(event, anchor, hostMode = 'toke
   return !target || target === '_self';
 }
 
+export function shouldHandleSidebarTokenClick(event, anchor, hostMode = 'token') {
+  if (
+    !shouldHandleSidebarProposalClick(event, anchor, hostMode)
+    || !anchor.matches?.('a.tp-item[data-key]')
+  ) return false;
+  const nestedAction = event.target?.closest?.(
+    '.wl-star, .wl-drag-handle, [data-market-navigation-ignore]',
+  );
+  return !nestedAction || nestedAction === anchor || !anchor.contains?.(nestedAction);
+}
+
 export function mountFutardTerminal({
   window: runtime = globalThis.window,
   root,
@@ -2350,11 +2361,13 @@ export function mountFutardTerminal({
     shell.removeAttribute('aria-hidden');
   }
 
-  function beginWorkspaceTransition() {
+  function beginWorkspaceTransition(options = {}) {
     const transitionId = ++workspaceTransitionId;
-    root.dataset.ftTransition = 'pending';
+    root.dataset.ftTransition = options.preserveShell === true
+      ? 'partial'
+      : 'pending';
     root.setAttribute('aria-busy', 'true');
-    concealWorkspaceShell();
+    if (options.preserveShell !== true) concealWorkspaceShell();
     return transitionId;
   }
 
@@ -2590,6 +2603,18 @@ export function mountFutardTerminal({
       view: 'markets',
     });
     if (safeBase58(proposalId)) params.set('proposal', proposalId);
+    return `/?${params.toString()}`;
+  }
+
+  function tokenTradingUrl(tokenKey) {
+    if (typeof routes.tokenTradingUrl === 'function') {
+      return routes.tokenTradingUrl(tokenKey);
+    }
+    const params = new runtime.URLSearchParams({
+      token: normalizeKey(tokenKey),
+      view: 'markets',
+      tab: 'tokens',
+    });
     return `/?${params.toString()}`;
   }
 
@@ -3062,7 +3087,7 @@ export function mountFutardTerminal({
       : 'muted';
     const watchlist = runtime.NAVGATOR?.shell?.watchlist;
     const watched = watchlist?.has?.(asset.token) === true;
-    const mintAddress = safeBase58(asset.mint);
+    const compactTitle = String(asset.ticker || '').trim().length > 7;
     const snapshotTime = formatHistoryOverlayTimestamp(asset.snapshotTime);
     const changeTone = Number.isFinite(asset.change24h)
       ? asset.change24h > 0
@@ -3090,41 +3115,8 @@ export function mountFutardTerminal({
           </button>
           ${renderLogo(asset, 'large')}
           <div class="ft-market-title-copy">
-            <p><strong data-ft-role="market-title">${escapeHtml(asset.ticker)}</strong></p>
+            <p><strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(asset.ticker)}</strong></p>
             <small data-ft-role="market-subtitle">${escapeHtml(asset.name)}</small>
-            <div class="ft-token-identity-meta">
-              <div class="ft-token-mint-line">
-                <span title="${mintAddress ? escapeHtml(mintAddress) : 'Token address unavailable'}">${mintAddress
-                  ? escapeHtml(shortenAddress(mintAddress, 4))
-                  : 'Mint address'}</span>
-                ${mintAddress ? `
-                  <button
-                    type="button"
-                    data-ft-action="copy-address"
-                    data-ft-address="${escapeHtml(mintAddress)}"
-                    data-ft-role="copy-token-mint"
-                    aria-label="Copy ${escapeHtml(asset.ticker)} token address"
-                    title="Copy token address"
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.25" y="2.25" width="8.5" height="9.5" rx="1.4"/><path d="M10.75 13.75h-7a1.5 1.5 0 0 1-1.5-1.5v-7"/></svg>
-                  </button>
-                ` : ''}
-              </div>
-              <div class="ft-token-identity-links" aria-label="Token links coming soon">
-                <button type="button" disabled aria-label="Token information coming soon" title="Token information coming soon">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.1v4M8 4.65h.01"/></svg>
-                </button>
-                <button type="button" disabled aria-label="X link coming soon" title="X link coming soon">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 2.5 10 11M13 2.5l-10 11"/></svg>
-                </button>
-                <button type="button" disabled aria-label="Community link coming soon" title="Community link coming soon">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 4.1A11.2 11.2 0 0 1 8 3c1.8 0 3.4.4 4.9 1.1.7 1.8.9 3.7.6 5.8-1 .8-2 1.3-3.1 1.6l-.8-1.1c.6-.2 1.1-.5 1.6-.8-2 .9-4.4.9-6.4 0 .5.3 1 .6 1.6.8l-.8 1.1c-1.1-.3-2.1-.8-3.1-1.6-.3-2.1-.1-4 .6-5.8Z"/><circle cx="5.7" cy="7.3" r=".65" fill="currentColor" stroke="none"/><circle cx="10.3" cy="7.3" r=".65" fill="currentColor" stroke="none"/></svg>
-                </button>
-                <button type="button" disabled aria-label="Website link coming soon" title="Website link coming soon">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M1.9 8h12.2M8 1.75c1.7 1.7 2.6 3.8 2.6 6.25S9.7 12.55 8 14.25M8 1.75C6.3 3.45 5.4 5.55 5.4 8s.9 4.55 2.6 6.25"/></svg>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
         ${metric({
@@ -3201,6 +3193,7 @@ export function mountFutardTerminal({
     const proposalNumber = market.proposal.number == null
       ? 'Proposal'
       : `Proposal #${Math.round(market.proposal.number)}`;
+    const compactTitle = String(market.ticker || '').trim().length > 7;
     const metric = ({
       key,
       label,
@@ -3240,7 +3233,7 @@ export function mountFutardTerminal({
           ` : ''}
           ${renderLogo(market, 'large')}
           <div>
-            <p><strong data-ft-role="market-title">${escapeHtml(market.ticker)}</strong></p>
+            <p><strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(market.ticker)}</strong></p>
             <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber)}</small>
           </div>
         </div>
@@ -8544,11 +8537,70 @@ export function mountFutardTerminal({
     }
   }
 
+  function syncSidebarTokenSelection(token) {
+    runtime.document.querySelectorAll?.('a.tp-item[data-key]').forEach((anchor) => {
+      const anchorToken = routes.normalizeTokenKey?.(anchor.dataset.key)
+        || normalizeKey(anchor.dataset.key);
+      const selected = anchorToken === token;
+      anchor.classList.toggle('active', selected);
+      if (selected) anchor.setAttribute('aria-current', 'page');
+      else anchor.removeAttribute('aria-current');
+    });
+  }
+
+  async function selectSidebarToken(anchor) {
+    const token = routes.normalizeTokenKey?.(anchor?.dataset?.key)
+      || normalizeKey(anchor?.dataset?.key);
+    if (!token) return;
+
+    const alreadySelected = token === state.tokenFilter
+      && state.workspaceTab === 'tokens';
+    syncSidebarTokenSelection(token);
+    if (alreadySelected) return;
+
+    const destination = tokenTradingUrl(token);
+    state.workspaceTab = 'tokens';
+    state.proposalFocus = false;
+    state.selectedId = '';
+    state.requestedProposalId = '';
+    state.proposalDetailsOpen = false;
+    state.routeNotice = '';
+    invalidateOwnershipQuote();
+    try {
+      runtime.history?.pushState?.(null, '', destination);
+      syncCanonicalUrl(destination);
+      runtime.document.title = `${token.toUpperCase()} Spot Market — 01RX`;
+    } catch (_) {
+      // Token selection remains functional when history access is restricted.
+    }
+
+    if (token === state.tokenFilter) {
+      render();
+      return;
+    }
+    await setToken(token, {
+      preserveShell: true,
+      workspaceTab: 'tokens',
+    });
+  }
+
   function handleDocumentClick(event) {
-    if (state.execution.building || state.execution.submitting) return;
+    const sidebarToken = event.target?.closest?.('a.tp-item[data-key]');
     const sidebarProposal = event.target?.closest?.(
       '.tp-decision-item[data-ft-proposal-id]',
     );
+    if (state.execution.building || state.execution.submitting) {
+      if (sidebarToken || sidebarProposal) event.preventDefault();
+      return;
+    }
+    if (
+      sidebarToken
+      && shouldHandleSidebarTokenClick(event, sidebarToken, state.hostMode)
+    ) {
+      event.preventDefault();
+      void selectSidebarToken(sidebarToken);
+      return;
+    }
     if (
       sidebarProposal
       && shouldHandleSidebarProposalClick(event, sidebarProposal, state.hostMode)
@@ -9053,6 +9105,11 @@ export function mountFutardTerminal({
   async function setToken(nextToken, options = {}) {
     const normalized = routes.normalizeTokenKey?.(nextToken) || normalizeKey(nextToken);
     const requestedProposalId = safeBase58(options.proposalId);
+    const requestedWorkspaceTab = options.workspaceTab === 'tokens'
+      ? 'tokens'
+      : requestedProposalId
+        ? 'decisions'
+        : '';
     if (
       state.destroyed
       || state.hostMode !== 'token'
@@ -9060,7 +9117,9 @@ export function mountFutardTerminal({
       || normalized === state.tokenFilter
     ) return state.markets;
 
-    const transitionId = beginWorkspaceTransition();
+    const transitionId = beginWorkspaceTransition({
+      preserveShell: options.preserveShell === true,
+    });
     state.abortController?.abort();
     state.paginationAbortController?.abort();
     state.positionAbortController?.abort();
@@ -9081,9 +9140,11 @@ export function mountFutardTerminal({
     state.proposalDetailsOpen = false;
     state.selectedId = requestedProposalId;
     state.requestedProposalId = requestedProposalId;
+    if (requestedWorkspaceTab) state.workspaceTab = requestedWorkspaceTab;
     if (requestedProposalId) {
       state.proposalFocus = true;
-      state.workspaceTab = 'decisions';
+    } else if (requestedWorkspaceTab === 'tokens') {
+      state.proposalFocus = false;
     }
     state.routeNotice = '';
     state.markets = [];
