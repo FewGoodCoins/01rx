@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "build:likelihood-dataset": "node scripts/build-futarchy-likelihood-dataset.mjs",
     "check:ci": "npm run check && npm run check:supply-chain",
     "check:supply-chain": "npm audit --audit-level=high && npm audit signatures",
     "generate:attribution-key": "node scripts/generate-attribution-key.mjs",
