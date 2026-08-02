@@ -136,6 +136,7 @@
   }
 
   [data-ft-mode="token"].ft-proposal-focus .ft-market-chart-header-region {
+    --ft-market-title-width: 200px;
     box-sizing: border-box;
     height: auto;
     min-height: 38px;
@@ -164,7 +165,7 @@
   [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-header {
     position: relative;
     z-index: 2;
-    grid-template: 38px / minmax(190px, 1.6fr) repeat(6, minmax(74px, 0.75fr));
+    grid-template: 38px / var(--ft-market-title-width) repeat(6, minmax(74px, 1fr));
     overflow: visible;
   }
 
@@ -176,9 +177,20 @@
     min-height: 80px;
     padding: 8px 12px;
     gap: 10px;
-    border-right: 1px solid #343636;
+    border-right: 0;
     border-bottom: 1px solid #343636;
     background: #101010;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-identity::after {
+    position: absolute;
+    top: 20px;
+    right: -1px;
+    bottom: 20px;
+    width: 1px;
+    background: #343636;
+    content: "";
+    pointer-events: none;
   }
 
   [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-identity .ft-token-logo-large {
@@ -199,6 +211,11 @@
 
   [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-identity p strong {
     font-size: 20px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-identity p strong.ft-market-title-compact {
+    font-size: 16px;
+    letter-spacing: -0.025em;
   }
 
   [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-identity small {
@@ -247,75 +264,6 @@
     gap: 2px;
   }
 
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-identity-meta {
-    display: flex;
-    min-width: 0;
-    width: 100%;
-    margin: 0;
-    flex: 0 0 auto;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-  }
-
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-mint-line {
-    display: flex;
-    max-width: 100%;
-    align-items: center;
-    gap: 4px;
-    color: #aaa9a4;
-    font-family: var(--ft-mono, "Roboto Mono", monospace);
-    font-size: 10px;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-mint-line button,
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-identity-links button {
-    box-sizing: border-box;
-    display: grid;
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    padding: 0;
-    place-items: center;
-    border: 0;
-    background: transparent;
-    color: #82827d;
-  }
-
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-mint-line button {
-    cursor: pointer;
-  }
-
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-mint-line button:hover,
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-mint-line button:focus-visible,
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-identity-links button:not(:disabled):hover,
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-identity-links button:not(:disabled):focus-visible {
-    color: #e4e4df;
-  }
-
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market :is(
-    .ft-token-mint-line button,
-    .ft-token-identity-links button
-  ) svg {
-    width: 14px;
-    height: 14px;
-    overflow: visible;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.35;
-  }
-
-  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-identity-links {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-metric {
     padding-top: 2px;
     padding-bottom: 2px;
@@ -330,7 +278,7 @@
     height: 42px;
     min-height: 42px;
     padding: 0;
-    grid-template: 42px / minmax(190px, 1.6fr) repeat(6, minmax(74px, 0.75fr));
+    grid-template: 42px / var(--ft-market-title-width) repeat(6, minmax(74px, 1fr));
     align-items: center;
     gap: 0;
     overflow: hidden;
@@ -347,7 +295,7 @@
     height: 42px;
     min-height: 42px;
     padding: 0;
-    grid-template: 42px / minmax(190px, 1.6fr) repeat(6, minmax(74px, 0.75fr));
+    grid-template: 42px / var(--ft-market-title-width) repeat(6, minmax(74px, 1fr));
     align-items: center;
     gap: 0;
     overflow: hidden;
@@ -490,8 +438,8 @@
   }
 
   @media (max-width: 1180px) {
-    [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-token-identity-meta {
-      display: none;
+    [data-ft-mode="token"].ft-proposal-focus .ft-market-chart-header-region {
+      --ft-market-title-width: 190px;
     }
 
     [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-inputs {

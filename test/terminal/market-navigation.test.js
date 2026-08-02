@@ -27,6 +27,7 @@ test('market navigation guard covers native market links but leaves SPA proposal
       Markets
       <span id="watchlist-star" class="wl-star">Watchlist</span>
     </a>
+    <a id="sidebar-token" class="tp-item" data-key="meta" href="/?token=meta&view=markets&tab=tokens">META</a>
     <a id="external" href="https://example.com/?view=markets">External</a>
     <a id="decision" class="tp-decision-item" data-ft-proposal-id="proposal" href="/?token=loyal&view=markets&proposal=proposal">Decision</a>
   `, {
@@ -35,6 +36,7 @@ test('market navigation guard covers native market links but leaves SPA proposal
   const { window } = dom;
   const market = window.document.getElementById('market');
   const watchlistStar = window.document.getElementById('watchlist-star');
+  const sidebarToken = window.document.getElementById('sidebar-token');
   const external = window.document.getElementById('external');
   const decision = window.document.getElementById('decision');
 
@@ -63,6 +65,10 @@ test('market navigation guard covers native market links but leaves SPA proposal
   };
   assert.equal(
     shouldGuardMarketNavigation(primaryClick(), decision, window),
+    false,
+  );
+  assert.equal(
+    shouldGuardMarketNavigation(primaryClick(), sidebarToken, window),
     false,
   );
   assert.equal(
