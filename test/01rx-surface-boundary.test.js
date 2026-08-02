@@ -398,7 +398,19 @@ test('decision chart plot starts without the exposed toolbar divider', () => {
 test('decision chart uses TWAP background context without vertical boundary lines', () => {
   assert.match(
     frameCss,
-    /\.ft-hourly-pre-twap-band\s*\{[\s\S]*?background: color-mix\(in srgb, var\(--ft-accent\) 5%, transparent\);/,
+    /\.ft-hourly-pre-twap-band,\s*\.ft-hourly-post-twap-band\s*\{[\s\S]*?right: var\(--ft-chart-right-scale-width, 0px\);[\s\S]*?background: color-mix\(in srgb, var\(--ft-accent\) 5%, transparent\);/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-post-twap-band\s*\{[\s\S]*?scaleX\(var\(--ft-post-twap-scale, 0\)\);[\s\S]*?transform-origin: right center;/,
+  );
+  assert.match(
+    proposalChartSource,
+    /postTwapBoundary[\s\S]*?ft-hourly-post-twap-band[\s\S]*?dataset\.ftChartBand = 'post-twap'/,
+  );
+  assert.match(
+    proposalChartSource,
+    /const displayRange = proposalChartDisplayRange\(\s*plottedTimes,\s*eventDefinitions,/,
   );
   assert.doesNotMatch(frameCss, /\.ft-hourly-event-line\s*\{/);
   assert.doesNotMatch(proposalChartSource, /ft-hourly-event-line|data\.ftChartEvent/);

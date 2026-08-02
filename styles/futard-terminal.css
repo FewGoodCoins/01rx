@@ -4357,17 +4357,27 @@ body.is-futard-terminal #token-switch-loader {
   height: 21px;
 }
 
-.ft-hourly-pre-twap-band {
+.ft-hourly-pre-twap-band,
+.ft-hourly-post-twap-band {
   position: absolute;
   z-index: 2;
   top: 0;
-  right: 0;
+  right: var(--ft-chart-right-scale-width, 0px);
   bottom: 26px;
   left: 0;
   background: color-mix(in srgb, var(--ft-accent) 5%, transparent);
   pointer-events: none;
+}
+
+.ft-hourly-pre-twap-band {
   transform: scaleX(var(--ft-pre-twap-scale, 0));
   transform-origin: left center;
+  will-change: transform;
+}
+
+.ft-hourly-post-twap-band {
+  transform: scaleX(var(--ft-post-twap-scale, 0));
+  transform-origin: right center;
   will-change: transform;
 }
 

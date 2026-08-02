@@ -1020,6 +1020,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     proposalChartBoundaryEvents,
     proposalChartBoundaryTimeline,
     proposalChartData,
+    proposalChartDisplayRange,
     proposalChartEndpoint,
     proposalChartLiveEndpoints,
     proposalChartLineType,
@@ -1176,6 +1177,20 @@ test('TradingView chart adapter splits null values and missing hours into honest
     {
       from: Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
       to: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+    },
+  );
+  assert.deepEqual(
+    proposalChartDisplayRange(
+      [Date.parse('2026-06-16T10:00:00.000Z') / 1_000],
+      proposalChartBoundaryEvents(
+        '2026-06-16T11:00:00.000Z',
+        '2026-06-16T15:00:00.000Z',
+      ),
+      '1h',
+    ),
+    {
+      from: Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
+      to: Date.parse('2026-06-16T17:00:00.000Z') / 1_000,
     },
   );
   assert.deepEqual(
