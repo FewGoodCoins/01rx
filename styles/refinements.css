@@ -724,7 +724,8 @@ html[data-workspace="markets"] .tp-market-toolbar {
   margin: 0;
   padding: 0 12px;
   border: 1px solid #77776f;
-  border-radius: 8px;
+  border-radius: 12px;
+  overflow: hidden;
   background: #101010;
   color: #8d8d89;
 }
@@ -920,13 +921,14 @@ html[data-workspace="markets"] .tp-unified-section-columns {
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 html[data-workspace="markets"] .tp-unified-section-columns span {
   text-align: right;
 }
 
-html[data-workspace="markets"] .tp-token-secondary-sort {
+html[data-workspace="markets"] .tp-sidebar-metric-sort {
   display: inline-flex;
   min-width: 0;
   padding: 0;
@@ -941,14 +943,33 @@ html[data-workspace="markets"] .tp-token-secondary-sort {
   letter-spacing: inherit;
 }
 
-html[data-workspace="markets"] .tp-token-secondary-sort:hover,
-html[data-workspace="markets"] .tp-token-secondary-sort.active {
+html[data-workspace="markets"] .tp-sidebar-metric-sort:hover,
+html[data-workspace="markets"] .tp-sidebar-metric-sort.active {
   color: #f2f2ef;
 }
 
-html[data-workspace="markets"] .tp-token-secondary-sort:disabled {
+html[data-workspace="markets"] .tp-sidebar-metric-sort:active {
+  transform: none !important;
+}
+
+html[data-workspace="markets"] .tp-sidebar-metric-sort:disabled {
   color: inherit;
   cursor: default;
+}
+
+html[data-workspace="markets"] .tp-sidebar-sort-direction {
+  display: inline-block;
+  width: 9px;
+  flex: 0 0 9px;
+  color: currentColor;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  text-align: center;
+}
+
+html[data-workspace="markets"] .tp-sidebar-sort-direction[hidden] {
+  display: none;
 }
 
 html[data-workspace="markets"] .tp-unified-section-columns-market {

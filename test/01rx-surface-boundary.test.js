@@ -143,7 +143,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: relative;[\s\S]*?height: 28px;[\s\S]*?flex: 1 1 auto;[\s\S]*?margin: 0;/,
+    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: relative;[\s\S]*?width: calc\(100% - 28px\);[\s\S]*?height: 32px;[\s\S]*?flex: 0 1 calc\(100% - 28px\);[\s\S]*?margin: 0 14px;/,
   );
   assert.match(
     indexSource,
@@ -151,7 +151,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     refinementCss,
-    /\.tp-market-search-field\s*\{[\s\S]*?padding: 0 12px;[\s\S]*?border: 1px solid #77776f;[\s\S]*?border-radius: 8px;/,
+    /\.tp-market-search-field\s*\{[\s\S]*?padding: 0 12px;[\s\S]*?border: 1px solid #77776f;[\s\S]*?border-radius: 12px;[\s\S]*?overflow: hidden;/,
   );
   assert.doesNotMatch(indexSource, /tp-market-search-button|tp-market-sort-button|tp-market-sort-menu/);
   assert.doesNotMatch(indexSource, /tp-market-close-button|Close asset browser/);
@@ -414,7 +414,11 @@ test('market sidebar uses one market section with a leading live indicator', () 
   assert.doesNotMatch(indexSource, /class="tp-(?:decision|token)-columns"|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
   assert.match(
     indexSource,
-    /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?<span aria-hidden="true">Price<\/span>[\s\S]*?id="tp-token-secondary-sort"[\s\S]*?onclick="sortMarketSidebarBySecondaryMetric\(event\)"[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
+    /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?id="tp-token-price-sort"[\s\S]*?onclick="sortMarketSidebarByPrice\(event\)"[\s\S]*?id="tp-token-price-sort-direction"[\s\S]*?>Price<\/span>[\s\S]*?id="tp-token-secondary-sort"[\s\S]*?onclick="sortMarketSidebarBySecondaryMetric\(event\)"[\s\S]*?id="tp-token-secondary-sort-direction"[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-unified-section-heading\s*\{[\s\S]*?height: 30px;[\s\S]*?min-height: 30px;[\s\S]*?flex: 0 0 30px;/,
   );
   assert.match(refinementCss, /\.tp-all-section\.is-collapsed\s*\{[\s\S]*?flex: 0 0 30px;/);
   assert.match(refinementCss, /\.is-collapsed \.tp-unified-section-columns\s*\{\s*display: none;/);
@@ -441,16 +445,35 @@ test('market sidebar uses one market section with a leading live indicator', () 
   );
 });
 
-test('the visible token metric toggles high and low sorting', () => {
+test('token and market metric headers show the active sort direction', () => {
   assert.match(
     appCoreSource,
-    /function sortMarketSidebarBySecondaryMetric\(event\)\s*\{[\s\S]*?_marketTokenSecondarySortConfig\[_marketTokenSecondaryMetric\][\s\S]*?_marketTokenSortKey === config\.key[\s\S]*?_marketSidebarSortAscending = !_marketSidebarSortAscending;[\s\S]*?_marketTokenSortKey = config\.key;[\s\S]*?_marketSidebarSortAscending = false;[\s\S]*?applyMarketSidebarSearch\(\);/,
+    /function _sortMarketSidebarTokens\(key, event\)\s*\{[\s\S]*?_marketTokenSortKey === key[\s\S]*?_marketSidebarSortAscending = !_marketSidebarSortAscending;[\s\S]*?_marketTokenSortKey = key;[\s\S]*?_marketSidebarSortAscending = false;[\s\S]*?applyMarketSidebarSearch\(\);/,
   );
-  assert.doesNotMatch(indexSource, /tp-token-secondary-sort-direction/);
+  assert.match(appCoreSource, /function sortMarketSidebarByPrice\(event\)\s*\{\s*_sortMarketSidebarTokens\('price', event\);/);
+  assert.match(appCoreSource, /direction\.textContent = ascending \? '↑' : '↓';/);
+  assert.match(appCoreSource, /function sortMarketSidebarDecision\(key, event\)[\s\S]*?_marketDecisionSortKey === key[\s\S]*?_marketDecisionSortAscending = !_marketDecisionSortAscending;[\s\S]*?applyMarketSidebarSearch\(\);/);
+  assert.match(decisionMarketControllerSource, /data-sort-threshold="\$\{Number\.isFinite\(thresholdPct\)[\s\S]*?data-sort-signal="\$\{Number\.isFinite\(signalPct\)/);
+  assert.match(indexSource, /id="tp-token-price-sort-direction"[^>]*hidden>↓<\/span>/);
+  assert.match(indexSource, /id="tp-token-secondary-sort-direction"[^>]*hidden>↓<\/span>/);
+  assert.match(indexSource, /id="tp-market-threshold-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('threshold', event\)"[\s\S]*?id="tp-market-threshold-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Threshold<\/span>/);
+  assert.match(indexSource, /id="tp-market-signal-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('signal', event\)"[\s\S]*?id="tp-market-signal-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Signal<\/span>/);
   assert.match(appCoreSource, /var _marketTokenSecondaryMetric = 'change24h';/);
   assert.match(
     refinementCss,
-    /\.tp-token-secondary-sort\s*\{[\s\S]*?cursor: pointer;/,
+    /\.tp-sidebar-metric-sort\s*\{[\s\S]*?cursor: pointer;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-unified-section-columns\s*\{[\s\S]*?font-size: 9px;[\s\S]*?text-transform: none;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-sidebar-metric-sort:active\s*\{\s*transform: none !important;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-sidebar-sort-direction\s*\{[\s\S]*?font-size: 12px;[\s\S]*?text-align: center;/,
   );
   [tokenPageSource, landingSource].forEach((source) => {
     assert.match(source, /data-sort-change-1h=/);

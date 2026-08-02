@@ -114,9 +114,10 @@
     right: auto;
     left: auto;
     box-sizing: border-box;
-    height: 28px;
-    flex: 1 1 auto;
-    margin: 0;
+    width: calc(100% - 28px);
+    height: 32px;
+    flex: 0 1 calc(100% - 28px);
+    margin: 0 14px;
   }
 
   html[data-workspace="markets"] .tp-market-tabs {

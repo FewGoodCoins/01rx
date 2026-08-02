@@ -2084,6 +2084,8 @@ test('market sidebar uses a leading pulse instead of a separate live status colu
   );
   assert.equal(liveDot.style.animationDelay, '');
   assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+\+1\.5%[\s\S]+\+1\.63%/);
+  assert.equal(Number(liveDecision.dataset.sortThreshold), 1.5);
+  assert.ok(Number.isFinite(Number(liveDecision.dataset.sortSignal)));
   assert.equal(
     liveDecision.querySelector('.tp-decision-threshold').title,
     'Required PASS versus FAIL TWAP threshold',

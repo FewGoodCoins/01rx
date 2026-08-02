@@ -185,8 +185,40 @@ function toggleSectionArrow(arrowEl) {
 var _marketTokenSecondarySortConfig = {
   change24h: { key: 'change', label: '24-hour change' }
 };
+var _marketTokenSortConfig = {
+  price: {
+    buttonId: 'tp-token-price-sort',
+    directionId: 'tp-token-price-sort-direction',
+    label: 'price',
+    descendingLabel: 'highest prices first',
+    ascendingLabel: 'lowest prices first'
+  },
+  change: {
+    buttonId: 'tp-token-secondary-sort',
+    directionId: 'tp-token-secondary-sort-direction',
+    label: '24-hour change',
+    descendingLabel: 'highest gains first',
+    ascendingLabel: 'largest losses first'
+  }
+};
+var _marketDecisionSortConfig = {
+  threshold: {
+    buttonId: 'tp-market-threshold-sort',
+    directionId: 'tp-market-threshold-sort-direction',
+    label: 'threshold',
+    descendingLabel: 'highest thresholds first',
+    ascendingLabel: 'lowest thresholds first'
+  },
+  signal: {
+    buttonId: 'tp-market-signal-sort',
+    directionId: 'tp-market-signal-sort-direction',
+    label: 'signal',
+    descendingLabel: 'highest signals first',
+    ascendingLabel: 'lowest signals first'
+  }
+};
 var _marketTokenSecondaryMetric = 'change24h';
-var _marketTokenSortKeys = ['asset', 'change'];
+var _marketTokenSortKeys = ['asset', 'price', 'change'];
 var _marketTokenSortKey = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-token-sort');
@@ -196,6 +228,16 @@ var _marketTokenSortKey = (function() {
   }
 })();
 var _marketSidebarSortAscending = false;
+var _marketDecisionSortKeys = ['asset', 'threshold', 'signal'];
+var _marketDecisionSortKey = (function() {
+  try {
+    var saved = localStorage.getItem('01rx-market-decision-sort');
+    return _marketDecisionSortKeys.indexOf(saved) >= 0 ? saved : 'asset';
+  } catch (e) {
+    return 'asset';
+  }
+})();
+var _marketDecisionSortAscending = false;
 var _marketSidebarTab = 'all';
 
 function getMarketTokenSecondaryMetric() {
@@ -218,40 +260,86 @@ function setMarketSidebarTab(nextTab) {
   applyMarketSidebarSearch();
 }
 
-function _syncMarketSortMenu() {
-  var secondaryButton = document.getElementById('tp-token-secondary-sort');
-  var secondaryConfig = _marketTokenSecondarySortConfig[_marketTokenSecondaryMetric];
-  var secondaryIsActive = !!secondaryConfig && _marketTokenSortKey === secondaryConfig.key;
-  if (secondaryButton && secondaryConfig) {
-    var nextDirection = secondaryIsActive && !_marketSidebarSortAscending
-      ? 'largest losses first'
-      : 'highest gains first';
-    secondaryButton.classList.toggle('active', secondaryIsActive);
-    secondaryButton.setAttribute('aria-pressed', String(secondaryIsActive));
-    secondaryButton.dataset.sortDirection = secondaryIsActive
-      ? (_marketSidebarSortAscending ? 'ascending' : 'descending')
+function _syncMarketSortGroup(configByKey, activeKey, ascending, subject) {
+  Object.keys(configByKey).forEach(function(key) {
+    var config = configByKey[key];
+    var button = document.getElementById(config.buttonId);
+    var direction = document.getElementById(config.directionId);
+    var isActive = activeKey === key;
+    if (!button) return;
+    var nextDirection = isActive && !ascending
+      ? config.ascendingLabel
+      : config.descendingLabel;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+    button.dataset.sortDirection = isActive
+      ? (ascending ? 'ascending' : 'descending')
       : 'none';
-    secondaryButton.setAttribute(
-      'aria-label',
-      'Sort tokens by ' + secondaryConfig.label + ', ' + nextDirection
-    );
-  }
+    button.setAttribute('aria-label', 'Sort ' + subject + ' by ' + config.label + ', ' + nextDirection);
+    if (direction) {
+      direction.hidden = !isActive;
+      direction.textContent = ascending ? '↑' : '↓';
+    }
+  });
 }
 
-function sortMarketSidebarBySecondaryMetric(event) {
+function _syncMarketSortMenu() {
+  _syncMarketSortGroup(
+    _marketTokenSortConfig,
+    _marketTokenSortKey,
+    _marketSidebarSortAscending,
+    'tokens'
+  );
+  _syncMarketSortGroup(
+    _marketDecisionSortConfig,
+    _marketDecisionSortKey,
+    _marketDecisionSortAscending,
+    'markets'
+  );
+}
+
+function _sortMarketSidebarTokens(key, event) {
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
-  var config = _marketTokenSecondarySortConfig[_marketTokenSecondaryMetric];
-  if (!config) return;
-  if (_marketTokenSortKey === config.key) {
+  if (!_marketTokenSortConfig[key]) return;
+  if (_marketTokenSortKey === key) {
     _marketSidebarSortAscending = !_marketSidebarSortAscending;
   } else {
-    _marketTokenSortKey = config.key;
+    _marketTokenSortKey = key;
     _marketSidebarSortAscending = false;
     try {
       localStorage.setItem('navgator-market-token-sort', _marketTokenSortKey);
+    } catch (e) {}
+  }
+  _syncMarketSortMenu();
+  applyMarketSidebarSearch();
+}
+
+function sortMarketSidebarByPrice(event) {
+  _sortMarketSidebarTokens('price', event);
+}
+
+function sortMarketSidebarBySecondaryMetric(event) {
+  var config = _marketTokenSecondarySortConfig[_marketTokenSecondaryMetric];
+  if (!config) return;
+  _sortMarketSidebarTokens(config.key, event);
+}
+
+function sortMarketSidebarDecision(key, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (!_marketDecisionSortConfig[key]) return;
+  if (_marketDecisionSortKey === key) {
+    _marketDecisionSortAscending = !_marketDecisionSortAscending;
+  } else {
+    _marketDecisionSortKey = key;
+    _marketDecisionSortAscending = false;
+    try {
+      localStorage.setItem('01rx-market-decision-sort', _marketDecisionSortKey);
     } catch (e) {}
   }
   _syncMarketSortMenu();
@@ -314,6 +402,13 @@ function _orderMarketSidebarList(list, tab, query) {
         _marketSidebarSortAscending
       );
       if (sortComparison !== 0) return sortComparison;
+    } else if (tab === 'decisions') {
+      var decisionSortComparison = _compareMarketSortValues(
+        _marketSortValue(a, _marketDecisionSortKey),
+        _marketSortValue(b, _marketDecisionSortKey),
+        _marketDecisionSortAscending
+      );
+      if (decisionSortComparison !== 0) return decisionSortComparison;
     }
     return Number(a.getAttribute('data-market-search-order'))
       - Number(b.getAttribute('data-market-search-order'));

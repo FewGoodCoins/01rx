@@ -495,9 +495,31 @@ window.toggleChartFeatureMenu = function(trigger, event) {
           <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span id="tp-decision-markets-title">Markets</span>
         </button>
-        <span class="tp-unified-section-columns tp-unified-section-columns-market" aria-hidden="true">
-          <span>Threshold</span>
-          <span>Signal</span>
+        <span class="tp-unified-section-columns tp-unified-section-columns-market">
+          <button
+            class="tp-sidebar-metric-sort"
+            id="tp-market-threshold-sort"
+            type="button"
+            aria-label="Sort markets by threshold, highest thresholds first"
+            aria-pressed="false"
+            data-sort-direction="none"
+            onclick="sortMarketSidebarDecision('threshold', event)"
+          >
+            <span class="tp-sidebar-sort-direction" id="tp-market-threshold-sort-direction" aria-hidden="true" hidden>↓</span>
+            <span>Threshold</span>
+          </button>
+          <button
+            class="tp-sidebar-metric-sort"
+            id="tp-market-signal-sort"
+            type="button"
+            aria-label="Sort markets by signal, highest signals first"
+            aria-pressed="false"
+            data-sort-direction="none"
+            onclick="sortMarketSidebarDecision('signal', event)"
+          >
+            <span class="tp-sidebar-sort-direction" id="tp-market-signal-sort-direction" aria-hidden="true" hidden>↓</span>
+            <span>Signal</span>
+          </button>
         </span>
         <span class="tp-unified-section-count" id="tp-live-decision-count">0 markets live</span>
       </div>
@@ -518,9 +540,20 @@ window.toggleChartFeatureMenu = function(trigger, event) {
           <span id="tp-token-section-title">Tokens</span>
         </button>
         <span class="tp-unified-section-columns tp-unified-section-columns-token">
-          <span aria-hidden="true">Price</span>
           <button
-            class="tp-token-secondary-sort"
+            class="tp-sidebar-metric-sort"
+            id="tp-token-price-sort"
+            type="button"
+            aria-label="Sort tokens by price, highest prices first"
+            aria-pressed="false"
+            data-sort-direction="none"
+            onclick="sortMarketSidebarByPrice(event)"
+          >
+            <span class="tp-sidebar-sort-direction" id="tp-token-price-sort-direction" aria-hidden="true" hidden>↓</span>
+            <span>Price</span>
+          </button>
+          <button
+            class="tp-sidebar-metric-sort tp-token-secondary-sort"
             id="tp-token-secondary-sort"
             type="button"
             aria-label="Sort tokens by 24-hour change, highest gains first"
@@ -528,6 +561,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
             data-sort-direction="none"
             onclick="sortMarketSidebarBySecondaryMetric(event)"
           >
+            <span class="tp-sidebar-sort-direction" id="tp-token-secondary-sort-direction" aria-hidden="true" hidden>↓</span>
             <span id="tp-token-secondary-label">24h</span>
           </button>
         </span>
