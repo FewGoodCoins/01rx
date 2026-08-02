@@ -16,6 +16,10 @@ const refinementCss = fs.readFileSync(
   new URL('../styles/refinements.css', import.meta.url),
   'utf8',
 );
+const geometryCss = fs.readFileSync(
+  new URL('../styles/geometry.css', import.meta.url),
+  'utf8',
+);
 const proposalChartSource = fs.readFileSync(
   new URL('../src/markets/proposal-history-chart.js', import.meta.url),
   'utf8',
@@ -152,6 +156,10 @@ test('market sidebar and execution controls continue the terminal header rails',
   assert.match(
     refinementCss,
     /\.tp-market-search-field\s*\{[\s\S]*?padding: 0 12px;[\s\S]*?border: 1px solid #77776f;[\s\S]*?border-radius: 12px;[\s\S]*?overflow: hidden;/,
+  );
+  assert.match(
+    geometryCss,
+    /#navgator-app#navgator-app \.tp-market-search-field\s*\{\s*border-radius: 12px !important;/,
   );
   assert.doesNotMatch(indexSource, /tp-market-search-button|tp-market-sort-button|tp-market-sort-menu/);
   assert.doesNotMatch(indexSource, /tp-market-close-button|Close asset browser/);
@@ -318,15 +326,45 @@ test('decision charts render without a token or PASS/FAIL backdrop', () => {
 test('decision charts reserve a compact lower pane for TWAP window progress', () => {
   assert.match(
     frameCss,
-    /\.ft-twap-window-pane\s*\{[\s\S]*?height: 50px;[\s\S]*?border-top: 1px solid #292929;/,
+    /\.ft-twap-window-pane\s*\{[\s\S]*?height: 42px;[\s\S]*?grid-template-columns: max-content minmax\(0, 1fr\) max-content;/,
   );
   assert.match(
     frameCss,
-    /\.ft-twap-window-fill\s*\{[\s\S]*?width: var\(--ft-twap-progress, 0%\);[\s\S]*?background: var\(--ft-positive\);/,
+    /\.ft-twap-window-fill\s*\{[\s\S]*?width: var\(--ft-twap-progress, 0%\);[\s\S]*?background: #fff;/,
   );
   assert.match(
     frameCss,
-    /\.ft-hourly-plot-shell\.ft-has-twap-progress \.ft-hourly-live\s*\{\s*height: calc\(100% - 50px\);/,
+    /\.ft-twap-window-percent\s*\{[\s\S]*?color: #fff;/,
+  );
+  assert.doesNotMatch(decisionMarketControllerSource, /ft-twap-window-marker/);
+  assert.doesNotMatch(frameCss, /\.ft-twap-window-marker\s*\{/);
+  assert.doesNotMatch(decisionMarketControllerSource, /ft-twap-window-bounds/);
+  assert.match(
+    decisionMarketControllerSource,
+    /class="ft-twap-window-title">TWAP window<\/span>[\s\S]*?class="ft-twap-window-track"[\s\S]*?class="ft-twap-window-percent"/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-twap-window-pane\s*\{[\s\S]*?padding: 0 calc\(12px \+ var\(--ft-chart-right-scale-width, 52px\)\) 0 12px;/,
+  );
+  assert.match(
+    proposalChartSource,
+    /chart\.priceScale\('right'\)\.width\?\.\(\)/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-plot-shell\.ft-has-twap-progress \.ft-hourly-live\s*\{\s*height: calc\(100% - 42px\);/,
+  );
+});
+
+test('decision chart plot starts without the exposed toolbar divider', () => {
+  assert.match(
+    frameCss,
+    /\.ft-hourly-toolbar\s*\{[\s\S]*?border-bottom: 0;/,
+  );
+  assert.match(
+    frameCss,
+    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-hourly-live\s*\{[\s\S]*?border-top: 1px solid #292929;/,
   );
 });
 
@@ -522,11 +560,12 @@ test('desktop spot ticket grows to expose every control without internal scrolli
   );
   assert.match(
     sharedTerminalCss,
-    /:has\(\[data-ft-mode="token"\]\.ft-proposal-focus\) \.app-content\s*\{\s*overflow-y: auto !important;/,
+    /:has\(\[data-ft-mode="token"\]\.ft-proposal-focus\) \.app-content\s*\{\s*overflow-y: hidden !important;/,
   );
+  assert.doesNotMatch(sharedTerminalCss, /overflow-y: auto !important;/);
   assert.match(
     sharedTerminalCss,
-    /\.ft-proposal-focus \.ft-terminal-grid,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: max\(\s*580px,[\s\S]*?overflow: visible;/,
+    /\.ft-proposal-focus \.ft-terminal-grid,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,[\s\S]*?overflow: visible;/,
   );
 });
 
@@ -564,6 +603,10 @@ test('spot and decision routes share one authoritative desktop terminal geometry
   );
   assert.match(
     sharedTerminalCss,
+    /--ft-terminal-account-height: clamp\(180px, 22dvh, 210px\);[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,/,
+  );
+  assert.match(
+    sharedTerminalCss,
     /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-account-row\s*\{[\s\S]*?display: block;[\s\S]*?grid-row: 3;/,
   );
   assert.equal((sharedTerminalCss.match(/grid-template-columns:/g) || []).length, 1);
@@ -581,5 +624,24 @@ test('desktop account activity stays inside the viewport and scrolls its body', 
   assert.match(
     sharedTerminalCss,
     /\.ft-proposal-focus \.ft-ownership-account-panel\s*\{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior-y: contain;/,
+  );
+});
+
+test('market workspace uses one canonical structural background', () => {
+  assert.match(
+    refinementCss,
+    /html\[data-workspace="markets"\]\s*\{[\s\S]*?--market-surface: #101010;/,
+  );
+  assert.match(
+    refinementCss,
+    /\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-bg: #101010;[\s\S]*?--ft-bg-raised: #101010;[\s\S]*?--ft-panel: #101010;[\s\S]*?--ft-panel-soft: #101010;[\s\S]*?--ft-panel-strong: #101010;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-terminal-grid,[\s\S]*?\.ft-twap-window-pane[\s\S]*?background: var\(--market-surface, #101010\) !important;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.tp-market-toolbar,[\s\S]*?#tlp-all-list[\s\S]*?background: var\(--market-surface, #101010\) !important;/,
   );
 });

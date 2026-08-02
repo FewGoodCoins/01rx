@@ -744,6 +744,13 @@ export function createProposalHistoryChart({
   });
   function positionEvents() {
     const width = container.clientWidth;
+    const rightScaleWidth = Number(chart.priceScale('right').width?.());
+    if (Number.isFinite(rightScaleWidth) && rightScaleWidth >= 0) {
+      chartRoot.style.setProperty(
+        '--ft-chart-right-scale-width',
+        `${rightScaleWidth}px`,
+      );
+    }
     if (preTwapBand) {
       const coordinate = interpolateChartTimeCoordinate(
         preTwapBoundary.time,
