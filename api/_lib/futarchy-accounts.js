@@ -259,7 +259,12 @@ export async function loadValidatedMarketSnapshot(connection, input, options = {
   const expectedQuoteMint = requireAddress(input.quoteMint || USDC_MINT, 'Configured quote mint');
   const response = await connection.getMultipleAccountsInfoAndContext(
     [dao, proposal, expectedBaseMint, expectedQuoteMint],
-    { commitment: 'confirmed' },
+    {
+      commitment: 'confirmed',
+      ...(Number.isSafeInteger(options.minContextSlot) && options.minContextSlot > 0
+        ? { minContextSlot: options.minContextSlot }
+        : {}),
+    },
   );
   const slot = response?.context?.slot;
   if (!Number.isSafeInteger(slot) || slot < 1 || response?.value?.length !== 4) {
@@ -344,6 +349,82 @@ export async function loadValidatedMarketSnapshot(connection, input, options = {
       proposalState.timestampEnqueued + proposalState.durationInSeconds,
     ),
   };
+}
+
+async function loadProgramAccountAtContext(
+  connection,
+  address,
+  label,
+  minimumLength,
+  discriminator,
+  minContextSlot,
+) {
+  const response = await connection.getAccountInfoAndContext(address, {
+    commitment: 'confirmed',
+    ...(Number.isSafeInteger(minContextSlot) && minContextSlot > 0
+      ? { minContextSlot }
+      : {}),
+  });
+  const slot = response?.context?.slot;
+  if (!Number.isSafeInteger(slot) || slot < 1) {
+    throw serviceError(`Solana returned no context for ${label}`, 'RPC_UNAVAILABLE');
+  }
+  const buffer = requireProgramAccount(
+    response?.value,
+    label,
+    minimumLength,
+    discriminator,
+  );
+  return { buffer, slot };
+}
+
+/**
+ * Discover a live market's DAO and mints from the program-owned proposal and
+ * DAO accounts, then run the normal full-snapshot validation again. The final
+ * read binds all four accounts at one confirmed context, so discovery never
+ * weakens the existing owner, discriminator, mint, or proposal checks.
+ */
+export async function loadValidatedMarketSnapshotFromProposal(
+  connection,
+  input,
+  options = {},
+) {
+  const proposalAddress = requireAddress(input?.proposalAddress, 'Proposal address');
+  const proposalRead = await loadProgramAccountAtContext(
+    connection,
+    proposalAddress,
+    'Proposal account',
+    PROPOSAL_ACCOUNT_MIN_LENGTH,
+    PROPOSAL_ACCOUNT_DISCRIMINATOR,
+  );
+  const proposal = decodeProposalAccount(proposalRead.buffer);
+  const daoAddress = requireAddress(proposal.daoAddress, 'Proposal DAO address');
+  const daoRead = await loadProgramAccountAtContext(
+    connection,
+    daoAddress,
+    'DAO account',
+    DAO_ACCOUNT_LENGTH,
+    DAO_ACCOUNT_DISCRIMINATOR,
+    proposalRead.slot,
+  );
+  const dao = decodeDaoAccount(
+    daoRead.buffer,
+    Math.floor((options.nowMs || Date.now()) / 1_000),
+  );
+
+  if (dao.baseMint !== dao.ammBaseMint || dao.quoteMint !== dao.ammQuoteMint) {
+    throw serviceError('DAO base and quote mints do not match its active AMM');
+  }
+
+  return loadValidatedMarketSnapshot(connection, {
+    daoAddress: proposal.daoAddress,
+    proposalAddress: proposalAddress.toBase58(),
+    baseMint: dao.baseMint,
+    quoteMint: dao.quoteMint,
+  }, {
+    ...options,
+    minContextSlot: Math.max(proposalRead.slot, daoRead.slot),
+  });
 }
 
 export { serviceError as futarchyAccountError };

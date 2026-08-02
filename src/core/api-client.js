@@ -3,7 +3,7 @@ import { normalizeDegradedServices, unwrapApiEnvelope } from './api-normalizatio
 
 export const API_FETCH_TIMEOUT_MS = 12000;
 
-const PRODUCTION_API_BASE = 'https://navgator.xyz';
+const PRODUCTION_API_BASE = 'https://01rx.vercel.app';
 const LOCAL_API_BASE = 'http://127.0.0.1:3001';
 const DEGRADED_SERVICE_TTL_MS = 5 * 60 * 1000;
 
@@ -18,7 +18,9 @@ export function resolveApiBase(browserWindow) {
   try {
     const params = new runtime.URLSearchParams(runtime.location.search || '');
     const isLocalHost = /^(localhost|127\.0\.0\.1)$/.test(runtime.location.hostname || '');
-    if (!isLocalHost) prod = runtime.location.origin.replace(/\/+$/, '');
+    const retiredHost = runtime.location.hostname === 'navgator.xyz'
+      || runtime.location.hostname.endsWith('.navgator.xyz');
+    if (!isLocalHost && !retiredHost) prod = runtime.location.origin.replace(/\/+$/, '');
     const canOverride = params.has('dev') || isLocalHost;
     const explicit = params.get('api') || params.get('apiBase') || '';
     const stored = runtime.localStorage.getItem('navgator_api_base') || runtime.localStorage.getItem('navgatorApiBase') || '';
@@ -27,26 +29,31 @@ export function resolveApiBase(browserWindow) {
     if (override) {
       const parsed = new runtime.URL(override, runtime.location.href);
       if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        const base = parsed.origin.replace(/\/+$/, '');
-        const localOrigin = runtime.location.origin.replace(/\/+$/, '');
-        const vitePreview = isLocalHost
-          && runtime.location.port !== '3000'
-          && !params.has('localApi');
-        const redundantStoredOverride = !explicit
-          && isLocalHost
-          && (
-            base === localOrigin
-            || (vitePreview && base === PRODUCTION_API_BASE)
-          );
-        if (redundantStoredOverride) {
+        if (parsed.hostname === 'navgator.xyz' || parsed.hostname.endsWith('.navgator.xyz')) {
           runtime.localStorage.removeItem('navgator_api_base');
           runtime.localStorage.removeItem('navgatorApiBase');
         } else {
-          if (explicit) {
-            runtime.localStorage.setItem('navgator_api_base', base);
-            runtime.localStorage.setItem('navgatorApiBase', base);
+          const base = parsed.origin.replace(/\/+$/, '');
+          const localOrigin = runtime.location.origin.replace(/\/+$/, '');
+          const vitePreview = isLocalHost
+            && runtime.location.port !== '3000'
+            && !params.has('localApi');
+          const redundantStoredOverride = !explicit
+            && isLocalHost
+            && (
+              base === localOrigin
+              || (vitePreview && base === PRODUCTION_API_BASE)
+            );
+          if (redundantStoredOverride) {
+            runtime.localStorage.removeItem('navgator_api_base');
+            runtime.localStorage.removeItem('navgatorApiBase');
+          } else {
+            if (explicit) {
+              runtime.localStorage.setItem('navgator_api_base', base);
+              runtime.localStorage.setItem('navgatorApiBase', base);
+            }
+            return base;
           }
-          return base;
         }
       }
     }
@@ -55,9 +62,9 @@ export function resolveApiBase(browserWindow) {
       if (runtime.location.port === '3000' || params.has('localApi')) {
         return LOCAL_API_BASE;
       }
-      // Vite previews expose a reviewed same-origin /api relay. Keeping reads
-      // on the preview origin avoids browser CORS/network failures while the
-      // relay continues to target VITE_NAVGATOR_API_BASE server-side.
+      // Vite previews expose reviewed same-origin 01RX handlers. Unsupported
+      // data returns an explicit 01Resolved coverage gap instead of falling
+      // back to a retired provider.
       return runtime.location.origin.replace(/\/+$/, '');
     }
     return prod;
@@ -75,6 +82,8 @@ function configuredApiOrigin(value, runtime, fallback) {
       || (local && parsed.protocol === 'http:');
     if (
       !allowedProtocol
+      || parsed.hostname === 'navgator.xyz'
+      || parsed.hostname.endsWith('.navgator.xyz')
       || parsed.username
       || parsed.password
       || parsed.search
@@ -90,13 +99,17 @@ function configuredApiOrigin(value, runtime, fallback) {
 }
 
 /**
- * Stable futarchy reads can graduate to the canonical 01Resolved API
- * independently of NAVgator's beta transaction relay. Both remain same-origin
- * unless trusted deployment configuration explicitly supplies HTTPS origins.
+ * Stable futarchy reads and guarded transaction routes remain on 01RX's
+ * same-origin API unless trusted deployment configuration explicitly supplies
+ * another non-NAVgator HTTPS origin.
  */
 export function resolveFutarchyApiBases(browserWindow, baseUrl) {
   const runtime = browserWindow || globalThis.window;
-  const fallback = baseUrl || resolveApiBase(runtime);
+  const fallback = configuredApiOrigin(
+    baseUrl || resolveApiBase(runtime),
+    runtime,
+    PRODUCTION_API_BASE,
+  );
   const embedded = runtime.NAVGATOR?.config || {};
   const configured = runtime.NAVGATOR_CONFIG || {};
   // The Vite shell can run without the separate legacy API process. Stable and

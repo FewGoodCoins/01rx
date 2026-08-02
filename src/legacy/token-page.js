@@ -2239,10 +2239,12 @@ function _deriveCandlesForTF(tf) {
 }
 
 async function _ensureFull5mCandles(_fetchTokenKey, nowTs, requestOptions) {
+  // 01Resolved does not yet publish ownership-token OHLCV.
+  return [];
   if (_5mFullLoaded && _allCandles['5m'] && _allCandles['5m'].length > 0) return _allCandles['5m'];
   if (_5mFullPromise) return _5mFullPromise;
   _5mFullLoading = true;
-  var fullUrl = API_BASE + '/api/ohlcv?token=' + encodeURIComponent(_fetchTokenKey) + '&tf=5m&time_to=' + nowTs;
+  var fullUrl = '';
   _5mFullPromise = _apiJson(fullUrl, requestOptions).then(function(fullJson) {
     if (_fetchTokenKey !== tokenKey) return [];
     if (!fullJson.data || !fullJson.data.items) return [];
@@ -2274,6 +2276,8 @@ function fetchCandlesForTF(tf, requestOptions) {
   return p;
 }
 async function _fetchCandlesImpl(tf, requestOptions) {
+  // Keep history empty until 01Resolved publishes an official OHLCV contract.
+  return [];
   if (!tokenKey) return [];
   var _fetchTokenKey = tokenKey; // capture to detect stale responses
   var now = new Date();
@@ -2290,7 +2294,7 @@ async function _fetchCandlesImpl(tf, requestOptions) {
     var lookbackDays = _fetchTokenKey === 'meta' ? 1100 : 730;
     var lookbackMs = (apiTf === '5m' || apiTf === '1m') ? 7 * 24 * 60 * 60 * 1000 : lookbackDays * 24 * 60 * 60 * 1000;
     var lookbackStart = new Date(now.getTime() - lookbackMs);
-    var url = API_BASE + '/api/ohlcv?token=' + encodeURIComponent(_fetchTokenKey) + '&tf=' + encodeURIComponent(apiTf) + '&time_from=' + Math.floor(lookbackStart.getTime() / 1000) + '&time_to=' + nowTs;
+    var url = '';
     var json = await _apiJson(url, requestOptions);
     if (_fetchTokenKey !== tokenKey) return [];
     candles = (json.data && json.data.items) ? _processRawCandles(json.data.items) : [];
@@ -4445,28 +4449,7 @@ function _navHistoryResponseCanActivate(requestedTf, actualTf, chartTf) {
 }
 
 function _navHistoryUrl(tf, key) {
-  var historyToken = key || tokenKey;
-  var normalizedHistoryToken = String(historyToken || '').toLowerCase();
-  var isMetaDaoHistory = normalizedHistoryToken === 'meta' || normalizedHistoryToken === 'metadao';
-  var isFafHistory = normalizedHistoryToken === 'faf';
-  var isRawrHistory = normalizedHistoryToken === 'rawr' || normalizedHistoryToken === 'jurassic' || normalizedHistoryToken === 'jurassic-finance';
-  var isArealHistory = normalizedHistoryToken === 'arl' || normalizedHistoryToken === 'areal' || normalizedHistoryToken === 'arealfinance' || normalizedHistoryToken === 'areal-finance';
-  var isRangerHistory = normalizedHistoryToken === 'rngr' || normalizedHistoryToken === 'ranger';
-  var historyDays = isMetaDaoHistory ? 1100 : 730;
-  var resolution = _normalizeHistoryResolution(tf || '1D') || '1D';
-  var url = API_BASE + '/api/historic-nav?token=' + encodeURIComponent(historyToken) + '&days=' + historyDays + '&resolution=' + encodeURIComponent(resolution);
-  if (isMetaDaoHistory) url += '&cache=0&clientVersion=20260703-meta-daily-nav-v1';
-  if (isFafHistory) url += '&cache=0&clientVersion=20260627-faf-active-nav-v2';
-  if (isRawrHistory) url += '&cache=0&clientVersion=20260709-rawr-tge-raise-v4';
-  if (isArealHistory) url += '&cache=0&clientVersion=20260706-arl-hover-v1';
-  // Ranger's liquidation terminal is a finalized claim-basis observation.
-  // Bypass any compact history cached before that terminal row was corrected,
-  // otherwise the browser can render the superseded interpolation to zero.
-  if (isRangerHistory) url += '&cache=0&clientVersion=20260718-rngr-liquidation-terminal-v2';
-  if (_navHistoryNeedsDetailedRows(historyToken)) {
-    return url + '&detail=1&events=summary';
-  }
-  return url + '&view=chart&events=summary';
+  return '';
 }
 
 function _navHistoryNeedsDetailedRows(key) {
@@ -4866,6 +4849,15 @@ function _historicSupplyDisplayValue(value, divisor) {
 }
 
 async function fetchNavHistory(tf, _prefetchedJson, _forceRefresh, requestOptions) {
+  // 01Resolved currently publishes only the current NAV snapshot.
+  _navHistory = [];
+  _navHistoryByTF = {};
+  _treasuryHistoryByTF = {};
+  _displayMovements = [];
+  _displayMovementsByTF = {};
+  _showHistoricNav = false;
+  _freshness.history = null;
+  return [];
   var chartTf = _fallbackTF(tf || _chartTF || '1D');
   var navTf = _getRecommendedNavResolution(chartTf);
   if (_navHistoryByTF[navTf] && !_forceRefresh) {
@@ -6295,7 +6287,7 @@ async function fetchOHLCV(requestOptions) {
 }
 
 function _tokenBootstrapUrl(key) {
-  return API_BASE + '/api/token-bootstrap?token=' + encodeURIComponent(key) + '&cacheOnly=1&clientVersion=20260705-launch-hourly-nav-v1';
+  return '';
 }
 
 function _currentNavUrl(key, opts) {
@@ -6397,8 +6389,7 @@ function _resolveEmbedCurrentNav(baseCurrentPromise, embedCurrentPromise, expect
 }
 
 function _prefetchTokenBootstrap(key, requestOptions) {
-  if (!key) return Promise.resolve(null);
-  return _apiJson(_tokenBootstrapUrl(key), requestOptions).catch(function() { return null; });
+  return Promise.resolve(null);
 }
 
 function _firstUsefulResult(promises, isUseful) {
@@ -6440,17 +6431,7 @@ function _bootstrapCurrentOrFetch(_bootstrapP, key, requestOptions) {
 }
 
 function _bootstrapHistoryOrFetch(bootstrapP, key, tf, requestOptions) {
-  if (!key) return Promise.resolve(null);
-  var requestedTf = _normalizeHistoryResolution(tf || '1D') || '1D';
-  var directP = _apiJson(_navHistoryUrl(requestedTf, key), requestOptions).catch(function() { return null; });
-  if (!bootstrapP) return directP;
-  var bootstrapHistoryP = bootstrapP.then(function(payload) {
-    var history = payload && payload.history ? payload.history : null;
-    return _bootstrapHistoryLooksFull(payload, history, requestedTf) ? history : null;
-  }).catch(function() { return null; });
-  return _firstUsefulResult([bootstrapHistoryP, directP], function(history) {
-    return _bootstrapHistoryPointCount(history) > 0;
-  });
+  return Promise.resolve(null);
 }
 
 function _candlesFromBootstrapOhlcv(ohlcv, tf, expectedTokenKey) {
@@ -6469,17 +6450,7 @@ function _candlesFromBootstrapOhlcv(ohlcv, tf, expectedTokenKey) {
 }
 
 function _bootstrapOhlcvOrFetch(bootstrapP, key, tf, requestOptions) {
-  if (!key) return Promise.resolve(null);
-  var directP = fetchCandlesForTF(tf || '1D', requestOptions).then(function(candles) {
-    return candles && candles.length > 0 ? candles : null;
-  }).catch(function() { return null; });
-  if (!bootstrapP) return directP;
-  var bootstrapOhlcvP = bootstrapP.then(function(payload) {
-    return _candlesFromBootstrapOhlcv(payload && payload.ohlcv, tf || '1D', key);
-  }).catch(function() { return null; });
-  return _firstUsefulResult([bootstrapOhlcvP, directP], function(candles) {
-    return Array.isArray(candles) && candles.length > 0;
-  });
+  return Promise.resolve([]);
 }
 
 function _bootstrapHistoryPointCount(history) {
@@ -6607,7 +6578,10 @@ function _clearChartDataUnavailableNotice() {
     notice.remove();
   });
   document.querySelectorAll('#lw-chart-container + div').forEach(function(notice) {
-    if (notice.textContent.indexOf('Chart data unavailable') !== -1) notice.remove();
+    if (
+      notice.textContent.indexOf('Chart data unavailable') !== -1
+      || notice.textContent.indexOf('Historical chart data') !== -1
+    ) notice.remove();
   });
 }
 
@@ -6618,8 +6592,8 @@ function _showChartDataUnavailableNotice() {
   if (!container || !container.parentNode) return null;
   var notice = document.createElement('div');
   notice.setAttribute('data-chart-data-unavailable', 'true');
-  notice.style.cssText = 'text-align:center;font-size:12px;color:var(--orange);font-family:Inter,sans-serif;padding:6px 0';
-  notice.textContent = '⚠ Chart data unavailable — retrying price data automatically.';
+  notice.style.cssText = 'text-align:center;font-size:12px;color:var(--muted);font-family:Inter,sans-serif;padding:6px 0';
+  notice.textContent = '01Resolved currently provides current price and NAV only. Historical chart data is not available yet.';
   container.parentNode.insertBefore(notice, container.nextSibling);
   return notice;
 }
@@ -6634,6 +6608,8 @@ function _cancelChartDataRecovery() {
 }
 
 function _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad) {
+  _showChartDataUnavailableNotice();
+  return;
   if (!expectedTokenKey || typeof isCurrentLoad !== 'function') return;
   if (_chartDataRecoveryToken && _chartDataRecoveryToken !== expectedTokenKey) {
     _cancelChartDataRecovery();
@@ -21828,7 +21804,7 @@ async function _loadTokenImplementation(key, loadContext) {
     _updateNavHistToggle();
     renderNAVStats(chartData, fastNavPerToken);
     _revealTokenShell();
-    if (!ohlcv) {
+    if (!ohlcv || ohlcv.length === 0) {
       _scheduleChartDataRecovery(loadKey, isCurrentLoad);
     } else {
       _clearChartDataUnavailableNotice();
@@ -22110,7 +22086,7 @@ async function _loadInitialTokenImplementation(initialTokenKey, loadContext) {
     if (_sl) _sl.classList.remove('active');
     _updateNavHistToggle();
     renderNAVStats(chartData, fastNavPerToken);
-    if (!ohlcv) {
+    if (!ohlcv || ohlcv.length === 0) {
       _scheduleChartDataRecovery(_mainTokenKey, _mainTokenStillCurrent);
     } else {
       _clearChartDataUnavailableNotice();

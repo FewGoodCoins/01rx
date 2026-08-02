@@ -4317,7 +4317,7 @@ test('compact ARL history preserves the documented launch NAV marker', () => {
   ]);
 });
 
-test('Futardio history requests detail rows for stored proposal vault correction', () => {
+test('historic NAV URLs stay disabled for every ownership token', () => {
   const sandbox = loadHelpers(`
     result = {
       futardio: _navHistoryUrl('1D', 'futardio'),
@@ -4342,41 +4342,15 @@ test('Futardio history requests detail rows for stored proposal vault correction
     tokenKey: 'futardio',
   });
 
-  assert.equal(
-    sandbox.result.futardio,
-    'https://api.test/api/historic-nav?token=futardio&days=730&resolution=1D&detail=1&events=summary'
-  );
-  assert.equal(
-    sandbox.result.solo,
-    'https://api.test/api/historic-nav?token=solo&days=730&resolution=1D&detail=1&events=summary'
-  );
-  assert.equal(
-    sandbox.result.rawr,
-    'https://api.test/api/historic-nav?token=rawr&days=730&resolution=1D&cache=0&clientVersion=20260709-rawr-tge-raise-v4&detail=1&events=summary'
-  );
-  assert.equal(
-    sandbox.result.faf,
-    'https://api.test/api/historic-nav?token=faf&days=730&resolution=1D&cache=0&clientVersion=20260627-faf-active-nav-v2&detail=1&events=summary'
-  );
-  assert.equal(
-    sandbox.result.avici,
-    'https://api.test/api/historic-nav?token=avici&days=730&resolution=1D&detail=1&events=summary'
-  );
-  ['p2p', 'umbra', 'omfg', 'loyal', 'pays', 'gsim', 'super', 'zkfg'].forEach(function(key) {
-    assert.equal(
-      sandbox.result[key],
-      'https://api.test/api/historic-nav?token=' + key + '&days=730&resolution=1D&detail=1&events=summary'
-    );
+  Object.entries(sandbox.result).forEach(function(entry) {
+    if (entry[0] === 'needsCorrection' || entry[0] === 'doesNotNeedCorrection') return;
+    assert.equal(entry[1], '');
   });
-  assert.equal(
-    sandbox.result.arl,
-    'https://api.test/api/historic-nav?token=arl&days=730&resolution=1D&cache=0&clientVersion=20260706-arl-hover-v1&detail=1&events=summary'
-  );
   assert.equal(sandbox.result.needsCorrection, true);
   assert.equal(sandbox.result.doesNotNeedCorrection, false);
 });
 
-test('split treasury configs request detailed history rows for active token', () => {
+test('split treasury configs cannot reactivate the retired history endpoint', () => {
   const sandbox = loadHelpers(`
     function urlFor(cfg) {
       tokenKey = 'custom';
@@ -4395,17 +4369,11 @@ test('split treasury configs request detailed history rows for active token', ()
     tokenKey: 'custom',
   });
 
-  assert.equal(
-    sandbox.result.fut,
-    'https://api.test/api/historic-nav?token=custom&days=730&resolution=1D&detail=1&events=summary'
-  );
+  assert.equal(sandbox.result.fut, '');
   assert.equal(sandbox.result.met, sandbox.result.fut);
   assert.equal(sandbox.result.buyback, sandbox.result.fut);
   assert.equal(sandbox.result.multiDao, sandbox.result.fut);
-  assert.equal(
-    sandbox.result.plain,
-    'https://api.test/api/historic-nav?token=custom&days=730&resolution=1D&view=chart&events=summary'
-  );
+  assert.equal(sandbox.result.plain, '');
 });
 
 test('FAF compact treasury-only rows are classified as FutAMM, not DAO treasury', () => {
@@ -6982,7 +6950,7 @@ test('chart loading state never paints the retired SVG chart preview', () => {
   assert.match(loadingState, /createElement\('span'\)/);
 });
 
-test('missing initial price history retries with bounded backoff and clears the warning', () => {
+test('missing 01Resolved price history shows current-only state without retrying another provider', () => {
   const sandbox = loadHelpers(`
     ${extractFunction('_chartDataRecoveryDelay')}
     result = [0, 1, 2, 3, 9].map(_chartDataRecoveryDelay);
@@ -6995,10 +6963,9 @@ test('missing initial price history retries with bounded backoff and clears the 
     30000,
     30000,
   ]);
-  assert.match(
-    source,
-    /fetchCandlesForTF\(tfKey, \{ timeoutMs: API_FETCH_TIMEOUT_MS \}\)/,
-  );
+  const recovery = extractFunction('_scheduleChartDataRecovery');
+  assert.ok(recovery.indexOf('return;') < recovery.indexOf('fetchCandlesForTF'));
+  assert.match(source, /01Resolved currently provides current price and NAV only/);
   assert.match(source, /_scheduleChartDataRecovery\(loadKey, isCurrentLoad\)/);
   assert.match(
     source,

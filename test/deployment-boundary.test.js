@@ -91,7 +91,7 @@ test('production keeps current NAV and Solana decision services server-only in 0
   const viteConfig = fs.readFileSync('vite.config.js', 'utf8');
   const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
 
-  assert.match(relay, /process\.env\.NAVGATOR_API_ORIGIN/);
+  assert.doesNotMatch(relay, /NAVGATOR_API_ORIGIN|navgator\.xyz/);
   assert.doesNotMatch(relay, /DFLOW_API_KEY|HELIUS_RPC_URL|SOLANA_RPC/);
   assert.match(relayEntry, /beta\/trading/);
   assert.match(relayEntry, /tradingHandler/);
@@ -111,7 +111,7 @@ test('production keeps current NAV and Solana decision services server-only in 0
   assert.match(attribution, /env\.O1RX_ATTRIBUTION_PUBLIC_KEY/);
   assert.match(attribution, /transaction\.partialSign\(authority\)/);
   assert.match(attribution, /DECISION_ATTRIBUTION\.feeBps/);
-  assert.match(envExample, /^NAVGATOR_API_ORIGIN=https:\/\/api\.navgator\.xyz$/m);
+  assert.doesNotMatch(envExample, /NAVGATOR_API_ORIGIN|VITE_NAVGATOR_API_BASE/);
   assert.match(envExample, /^DFLOW_API_KEY=$/m);
   assert.match(envExample, /^HELIUS_URL=$/m);
   assert.match(envExample, /^ZERO_ONE_RESOLVED_API_KEY=$/m);
@@ -122,6 +122,8 @@ test('production keeps current NAV and Solana decision services server-only in 0
   assert.match(viteConfig, /'RESOLVED_01_API_KEY'/);
   assert.match(viteConfig, /method === 'GET' \|\| method === 'HEAD'/);
   assert.match(viteConfig, /publicReadOrigin: hasLocalZeroOneAccess \? '' : LOCAL_PUBLIC_API_ORIGIN/);
+  assert.match(viteConfig, /localDataGapApi\(\)/);
+  assert.doesNotMatch(viteConfig, /VITE_NAVGATOR_API_BASE|NAVGATOR_API_ORIGIN|navgator\.xyz/);
   assert.doesNotMatch(
     envExample,
     /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION|VITE_ZERO_ONE_RESOLVED/,
@@ -151,6 +153,31 @@ test('browser trading code cannot call DFlow or read server credentials directly
   assert.match(browserSources, /trading\.spotOrder/);
   assert.match(browserSources, /trading\.spotSubmit/);
   assert.match(browserSources, /trading\.decisionAttest/);
+});
+
+test('chart data boundaries are 01Resolved-only and expose unsupported history as a gap', () => {
+  const browserCharts = [
+    'src/chart/data-client.js',
+    'src/charting/advanced-charts.js',
+    'src/legacy/token-page.js',
+    'src/markets/decision-market-controller.js',
+  ].map(path => fs.readFileSync(path, 'utf8')).join('\n');
+  const futarchy = fs.readFileSync('api/_lib/futarchy-service.js', 'utf8');
+  const relay = fs.readFileSync('api/[...path].js', 'utf8');
+
+  assert.doesNotMatch(
+    browserCharts,
+    /navgator\.xyz|NAVGATOR_API_ORIGIN|VITE_NAVGATOR_API_BASE|\/api\/ohlcv|\/api\/historic-nav|\/api\/token-bootstrap/,
+  );
+  assert.doesNotMatch(
+    futarchy,
+    /navgator\.xyz|NAVGATOR_API_ORIGIN|loadFutarchyTwapHistory|loadTwapHistory/,
+  );
+  assert.doesNotMatch(
+    browserCharts,
+    /data\/proposal-history|updateProposalChartLivePoint/,
+  );
+  assert.match(relay, /DATA_NOT_AVAILABLE_FROM_01RESOLVED/);
 });
 
 test('pull requests run a least-privilege Node 24 release gate', () => {

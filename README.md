@@ -4,12 +4,16 @@
 markets. This repository owns the product shell, market navigation, chart
 experience, wallet connection, transaction review, and trading UI.
 
-01Resolved is the canonical source for current NAV through 01RX's server-only
-`/api/current-nav` adapter. NAVgator remains the temporary source for historic
-NAV, token configuration, and other unmigrated data. 01RX also owns guarded
-DFlow ownership-token routing, Solana account validation, transaction
-simulation, and submission in its server-only API. Browser code uses
-`@01resolved/api-client`; API credentials never enter the browser.
+01Resolved is the canonical indexed-data source through 01RX's server-only API:
+current ownership-token snapshots, decision indexes, proposal price history,
+and observed decision trades. Live decision accounts are independently
+validated from Solana. 01RX also owns guarded DFlow ownership-token routing,
+transaction simulation, and submission in its server-only API. Browser code
+uses `@01resolved/api-client`; API credentials never enter the browser.
+
+01Resolved does not currently expose ownership-token OHLCV or historic NAV to
+01RX. Those chart series intentionally show as unavailable. 01RX does not
+synthesize them or fall back to another provider.
 
 The migrated application includes:
 
@@ -39,9 +43,9 @@ routes remain available, for example:
 /?view=markets&archive=1
 ```
 
-Local historic NAV and other unmigrated `/api` requests proxy to
-`VITE_NAVGATOR_API_BASE`. The Vite server handles `/api/current-nav` and
-`/api/beta/trading` on the same boundaries as Vercel. Without a local
+The Vite server handles `/api/current-nav`, futarchy reads, and
+`/api/beta/trading` on the same boundaries as Vercel. Unsupported legacy data
+routes return an explicit `DATA_NOT_AVAILABLE_FROM_01RESOLVED` response. Without a local
 `ZERO_ONE_RESOLVED_API_KEY`, current NAV reads use the deployed 01RX public
 endpoint so the credential still never enters the browser. Local development
 uses DFlow's development quote endpoint by default. To exercise the production
@@ -50,14 +54,12 @@ endpoint locally, add `DFLOW_API_KEY`, `HELIUS_URL`, and
 
 ## Production boundary
 
-Production current NAV is handled locally by the 01RX serverless API and calls
-01Resolved with the server-only key. Historic NAV and other unmigrated reads
-continue through the relay using `NAVGATOR_API_ORIGIN`. Ownership trading also
-stays in 01RX and uses the server-only DFlow and Solana configuration. In the
-01RX Vercel project set:
+Production indexed data is handled locally by the 01RX serverless API and calls
+01Resolved with the server-only key. Ownership and decision trading stay in
+01RX and use the server-only DFlow and Solana configuration. In the 01RX Vercel
+project set:
 
 ```text
-NAVGATOR_API_ORIGIN=https://api.navgator.xyz
 DFLOW_API_KEY=...
 HELIUS_URL=https://...
 ZERO_ONE_RESOLVED_API_KEY=...
@@ -65,13 +67,11 @@ O1RX_ATTRIBUTION_PUBLIC_KEY=...
 O1RX_ATTRIBUTION_SIGNING_KEY=...
 ```
 
-Proposal identity and governance indexing remain owned by NAVgator. When its
-validated proposal-history response has no indexed chart, the same-origin relay
-uses the server-only 01Resolved key to request the official 15-minute price
-chart. If that chart is empty, observed proposal-order prices may be returned as
-an explicitly partial fallback; missing underlying or outcome observations are
-never synthesized. Existing deployments using `ONE_RESOLVED_API_KEY` remain
-supported as an alias for the canonical key name above.
+Proposal identity, governance indexing, the official 15-minute price chart,
+and the observed-order fallback all come directly from 01Resolved. Missing
+underlying, outcome, or TWAP observations remain gaps. Existing deployments
+using `ONE_RESOLVED_API_KEY` remain supported as an alias for the canonical key
+name above.
 
 Generate the stable attribution authority once with
 `npm run generate:attribution-key`. Store its signing key only in Vercel and

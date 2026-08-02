@@ -1,3 +1,5 @@
+import { loadZeroOneCurrentNav } from './zero-one-current-nav.js';
+
 const MAINNET_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 // Execution uses a deliberately small, code-owned allowlist. A token appearing
@@ -55,77 +57,27 @@ function registryError(message) {
   return error;
 }
 
-function registryOrigin(env) {
-  const configured = String(
-    env.NAVGATOR_API_ORIGIN
-    || (!env.VERCEL_ENV && env.VITE_NAVGATOR_API_BASE)
-    || (!env.VERCEL_ENV && 'https://navgator.xyz')
-    || '',
-  ).trim();
-  let url;
-  try {
-    url = new URL(configured);
-  } catch {
-    throw registryError('Ownership token status is temporarily unavailable');
-  }
-  if (
-    url.protocol !== 'https:'
-    || url.username
-    || url.password
-    || url.search
-    || url.hash
-    || (url.pathname !== '/' && url.pathname !== '')
-  ) {
-    throw registryError('Ownership token status is temporarily unavailable');
-  }
-  return url.origin;
-}
-
-async function readRegistryResponse(response) {
-  const declaredLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declaredLength) && declaredLength > 128 * 1024) {
-    throw registryError('Ownership token status is temporarily unavailable');
-  }
-  const text = await response.text();
-  if (Buffer.byteLength(text) > 128 * 1024) {
-    throw registryError('Ownership token status is temporarily unavailable');
-  }
-  let payload;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    throw registryError('Ownership token status is temporarily unavailable');
-  }
-  if (!response.ok || payload?.ok !== true || !Array.isArray(payload.data)) {
-    throw registryError('Ownership token status is temporarily unavailable');
-  }
-  return payload.data;
-}
-
 export async function getTradableOwnershipTokens(options = {}) {
   const env = options.env || process.env;
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const now = options.now?.() ?? Date.now();
-  const origin = registryOrigin(env);
   if (
     !options.fresh
-    && registryCache?.origin === origin
     && registryCache.expiresAt > now
   ) {
     return registryCache.tokens;
   }
 
-  let rows;
+  let rows = [];
   try {
-    const response = await fetchImpl(new URL('/api/list-tokens', origin), {
-      headers: {
-        accept: 'application/json',
-        'user-agent': '01rx-ownership-trading/1.0',
-      },
-      method: 'GET',
-      signal: AbortSignal.timeout(REGISTRY_TIMEOUT_MS),
+    const loadCurrentProjects = options.loadCurrentProjects || loadZeroOneCurrentNav;
+    const snapshot = await loadCurrentProjects({
+      env,
+      fetchImpl,
+      now: () => now,
+      timeoutMs: REGISTRY_TIMEOUT_MS,
     });
-    rows = await readRegistryResponse(response);
+    rows = Array.isArray(snapshot?.tokens) ? snapshot.tokens : [];
   } catch (error) {
     if (error?.code === 'TRADING_TOKEN_REGISTRY_UNAVAILABLE') throw error;
     throw registryError('Ownership token status is temporarily unavailable');
@@ -133,17 +85,9 @@ export async function getTradableOwnershipTokens(options = {}) {
 
   const active = {};
   rows.forEach((row) => {
-    const key = normalizeOwnershipTokenKey(row?.key);
+    const key = normalizeOwnershipTokenKey(row?.key || row?.token);
     const allowed = ACTIVE_OWNERSHIP_TOKENS[key];
-    if (
-      !allowed
-      || row?.status !== 'active'
-      || row?.live !== true
-      || row?.listed !== true
-      || row?.retired === true
-    ) {
-      return;
-    }
+    if (!allowed || row?.source?.provider !== '01Resolved') return;
     active[key] = allowed;
   });
   if (!Object.keys(active).length) {
@@ -152,7 +96,6 @@ export async function getTradableOwnershipTokens(options = {}) {
   const tokens = Object.freeze(active);
   registryCache = {
     expiresAt: now + REGISTRY_CACHE_MS,
-    origin,
     tokens,
   };
   return tokens;

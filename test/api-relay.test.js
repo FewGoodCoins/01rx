@@ -132,7 +132,7 @@ test('API relay policy allowlists shipped paths, methods, and cache classes', ()
   );
 });
 
-test('API relay forwards NAVgator POST payloads without browser credentials', async () => {
+test('API relay forwards configured-upstream POST payloads without browser credentials', async () => {
   const calls = [];
   const request = {
     method: 'POST',
@@ -210,7 +210,7 @@ test('API relay forwards the restored wildcard path without its internal routing
   assert.equal(response.headers['cache-control'], PUBLIC_LIVE_CACHE);
 });
 
-test('API relay upgrades empty proposal history server-side without retaining the upstream ETag', async () => {
+test('API relay never replaces an explicit upstream response with a second data provider', async () => {
   const proposal = '8sysa3XPrvKPmUA4qoZCn9h4vp7Mb45Ynezg542nui8Q';
   const response = responseRecorder();
   await relayApiRequest({
@@ -225,7 +225,7 @@ test('API relay upgrades empty proposal history server-side without retaining th
         ok: true,
         data: {
           proposalId: proposal,
-          source: { provider: 'NAVgator checked-in legacy history' },
+          source: { provider: 'configured upstream history' },
           degraded: { active: false, services: [], issues: [] },
           series: [],
         },
@@ -237,24 +237,12 @@ test('API relay upgrades empty proposal history server-side without retaining th
         },
       });
     },
-    async zeroOneFetchImpl() {
-      return new Response(JSON.stringify({
-        data: {
-          prices: [{
-            timestamp: '2026-07-31T19:17:00.000Z',
-            spotPrice: '0.041',
-            approvedPrice: '0.044',
-            rejectedPrice: '0.038',
-          }],
-        },
-      }), { status: 200 });
-    },
   });
 
   const payload = JSON.parse(response.body.toString());
-  assert.equal(payload.data.source.provider, '01Resolved');
-  assert.equal(payload.data.series.length, 1);
-  assert.equal(response.headers.etag, undefined);
+  assert.equal(payload.data.source.provider, 'configured upstream history');
+  assert.equal(payload.data.series.length, 0);
+  assert.equal(response.headers.etag, 'upstream-empty-history');
   assert.equal(response.headers['cache-control'], PUBLIC_HISTORY_CACHE);
 });
 
@@ -303,7 +291,7 @@ test('API relay denies unknown paths, unknown views, and route-method mismatches
   assert.equal(fetchCalls, 0);
 });
 
-test('API relay overrides upstream cache policy for public, private, degraded, and failed reads', async () => {
+test('API relay overrides upstream cache policy for public, private, and failed reads', async () => {
   const cases = [
     {
       url: '/api/current-nav?token=solo',
@@ -316,11 +304,6 @@ test('API relay overrides upstream cache policy for public, private, degraded, a
     {
       url: '/api/beta/futarchy?view=positions&owner=wallet&proposal=proposal',
       expected: PRIVATE_NO_STORE,
-    },
-    {
-      url: '/api/current-nav?token=solo',
-      expected: PRIVATE_NO_STORE,
-      headers: { 'x-navgator-degraded': 'true' },
     },
     {
       url: '/api/current-nav?token=solo',
@@ -351,7 +334,8 @@ test('API relay overrides upstream cache policy for public, private, degraded, a
     if ((item.status || 200) >= 500) {
       assert.deepEqual(JSON.parse(response.body.toString()), {
         ok: false,
-        error: 'NAVgator API is temporarily unavailable',
+        code: 'UPSTREAM_UNAVAILABLE',
+        error: '01RX upstream is temporarily unavailable',
       });
       assert.doesNotMatch(response.body.toString(), /upstream-tag/);
     }
@@ -407,7 +391,7 @@ test('API relay rejects oversized request and response bodies before forwarding 
     },
   });
   assert.equal(oversizedResponse.statusCode, 502);
-  assert.equal(oversizedResponse.body.error, 'NAVgator API response is too large');
+  assert.equal(oversizedResponse.body.error, '01RX upstream response is too large');
   assert.equal(oversizedResponse.headers['cache-control'], PRIVATE_NO_STORE);
   assert.equal(fetchCalls, 1);
 });
@@ -441,7 +425,7 @@ test('API relay rejects redirects and timeouts without exposing upstream details
     },
   });
   assert.equal(redirectResponse.statusCode, 502);
-  assert.equal(redirectResponse.body.error, 'NAVgator API is temporarily unavailable');
+  assert.equal(redirectResponse.body.error, '01RX upstream is temporarily unavailable');
   assert.equal(redirectResponse.headers.location, undefined);
 
   const timeoutResponse = responseRecorder();
@@ -455,7 +439,7 @@ test('API relay rejects redirects and timeouts without exposing upstream details
     },
   });
   assert.equal(timeoutResponse.statusCode, 504);
-  assert.equal(timeoutResponse.body.error, 'NAVgator API timed out');
+  assert.equal(timeoutResponse.body.error, '01RX upstream timed out');
   assert.equal(timeoutResponse.headers['cache-control'], PRIVATE_NO_STORE);
 });
 
@@ -464,4 +448,18 @@ test('API relay rejects methods outside the public read and execution contract',
   await relayApiRequest({ method: 'DELETE', url: '/api/token' }, response);
   assert.equal(response.statusCode, 405);
   assert.equal(response.headers.allow, 'GET, HEAD, OPTIONS, POST');
+});
+
+test('API relay exposes an explicit 01Resolved coverage gap without an upstream origin', async () => {
+  const response = responseRecorder();
+  await relayApiRequest({ method: 'GET', url: '/api/historic-nav?token=solo' }, response);
+
+  assert.equal(response.statusCode, 503);
+  assert.deepEqual(response.body, {
+    ok: false,
+    code: 'DATA_NOT_AVAILABLE_FROM_01RESOLVED',
+    error: 'This data is not available from 01Resolved yet',
+    missingPath: '/api/historic-nav',
+  });
+  assert.equal(response.headers['cache-control'], PRIVATE_NO_STORE);
 });

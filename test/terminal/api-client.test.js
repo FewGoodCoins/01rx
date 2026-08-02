@@ -118,13 +118,13 @@ test('Vite preview keeps public reads and guarded trading on its same-origin han
   assert.equal(productionOverrideStorage.getItem('navgatorApiBase'), null);
 });
 
-test('futarchy API origins default safely and accept trusted split-host configuration', async () => {
+test('futarchy API origins reject retired providers and accept trusted split-host configuration', async () => {
   const { resolveFutarchyApiBases } = await importCore('api-client.js');
   const runtime = createRuntime('https://navgator.xyz/terminal');
 
   assert.deepEqual(resolveFutarchyApiBases(runtime, 'https://navgator.xyz'), {
-    readBaseUrl: 'https://navgator.xyz',
-    executionBaseUrl: 'https://navgator.xyz',
+    readBaseUrl: 'https://01rx.vercel.app',
+    executionBaseUrl: 'https://01rx.vercel.app',
   });
 
   runtime.NAVGATOR_CONFIG = {
@@ -141,8 +141,8 @@ test('futarchy API origins default safely and accept trusted split-host configur
     futarchyExecutionApiBase: 'https://user:secret@example.com',
   };
   assert.deepEqual(resolveFutarchyApiBases(runtime, 'https://navgator.xyz'), {
-    readBaseUrl: 'https://navgator.xyz',
-    executionBaseUrl: 'https://navgator.xyz',
+    readBaseUrl: 'https://01rx.vercel.app',
+    executionBaseUrl: 'https://01rx.vercel.app',
   });
 });
 
@@ -153,7 +153,7 @@ test('local preview uses production governance reads while execution stays local
 
   assert.equal(baseUrl, 'http://127.0.0.1:3001');
   assert.deepEqual(resolveFutarchyApiBases(runtime, baseUrl), {
-    readBaseUrl: 'https://navgator.xyz',
+    readBaseUrl: 'https://01rx.vercel.app',
     executionBaseUrl: 'http://127.0.0.1:3001',
   });
 
@@ -422,9 +422,9 @@ test('browser installation exposes the module client and legacy facade delegates
 
   const bridge = installBrowserApi(runtime);
   assert.equal(runtime.NAVGATOR.api, bridge);
-  assert.equal(bridge.baseUrl, 'https://navgator.xyz');
-  assert.equal(bridge.futarchyReadBaseUrl, 'https://navgator.xyz');
-  assert.equal(bridge.futarchyExecutionBaseUrl, 'https://navgator.xyz');
+  assert.equal(bridge.baseUrl, 'https://01rx.vercel.app');
+  assert.equal(bridge.futarchyReadBaseUrl, 'https://01rx.vercel.app');
+  assert.equal(bridge.futarchyExecutionBaseUrl, 'https://01rx.vercel.app');
   assert.equal(bridge.defaultTimeoutMs, 12000);
   assert.equal(typeof bridge.fetch, 'function');
   assert.equal(typeof bridge.json, 'function');
@@ -433,7 +433,7 @@ test('browser installation exposes the module client and legacy facade delegates
   assert.equal(typeof runtime.NAVGATOR.client.trading.decisionAttest, 'function');
   assert.equal(
     runtime.NAVGATOR.client.futarchy.solanaRpcUrl(),
-    'https://navgator.xyz/api/beta/futarchy?view=solana-rpc',
+    'https://01rx.vercel.app/api/beta/futarchy?view=solana-rpc',
   );
 
   const facade = fs.readFileSync('src/legacy/app-core.js', 'utf8');

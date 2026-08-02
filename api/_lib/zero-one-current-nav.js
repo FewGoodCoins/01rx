@@ -1,4 +1,4 @@
-import { resolveZeroOneResolvedApiKey } from './zero-one-proposal-history.js';
+import { resolveZeroOneResolvedApiKey } from './zero-one-api-key.js';
 
 const ZERO_ONE_RESOLVED_ORIGIN = 'https://api.01resolved.com';
 const CURRENT_NAV_PATH = '/v1/global-dashboard/projects';

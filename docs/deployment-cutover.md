@@ -1,14 +1,11 @@
-# 01RX production cutover
-
-The production domain must not move until the frontend and canonical backend
-have separate hostnames. Otherwise the 01RX `/api` relay would call its own
-origin recursively after `navgator.xyz` changes projects.
+# 01RX production deployment
 
 ## Target topology
 
 ```text
-navgator.xyz       01RX Vercel project (product + guarded ownership execution)
-api.navgator.xyz   NAVgator Vercel project (canonical data + futarchy API)
+fewgoodcoins.xyz       01RX Vercel project (product + guarded execution)
+api.01resolved.com     01Resolved indexed data (server-to-server only)
+Solana mainnet RPC     validated live accounts and transaction safety
 ```
 
 The repositories stay private. The public website and API are controlled by
@@ -16,20 +13,8 @@ Vercel domain assignments, not GitHub visibility.
 
 ## Cutover order
 
-1. Add `api.navgator.xyz` to the existing NAVgator Vercel project.
-2. Confirm these endpoints return their actual JSON responses without Vercel
-   authentication:
-
-   ```text
-   GET  https://api.navgator.xyz/api/health
-   GET  https://api.navgator.xyz/api/historic-nav?token=solo&days=1&resolution=1D
-   GET  https://api.navgator.xyz/api/v1/futarchy?view=proposals&limit=1
-   ```
-
-3. Create the 01RX Vercel project from `FewGoodCoins/01rx`.
-4. Set `NAVGATOR_API_ORIGIN=https://api.navgator.xyz` for Preview and
-   Production.
-5. Run `npm run generate:attribution-key` once. Store
+1. Create the 01RX Vercel project from `FewGoodCoins/01rx`.
+2. Run `npm run generate:attribution-key` once. Store
    `O1RX_ATTRIBUTION_SIGNING_KEY`, its pinned
    `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `HELIUS_URL` for
    Preview and Production. Add `ZERO_ONE_RESOLVED_API_KEY` for server-side
@@ -38,14 +23,14 @@ Vercel domain assignments, not GitHub visibility.
    They must remain server-only and must
    never use a `VITE_*` prefix. Keep the attribution key stable so all 01RX
    decision volume remains queryable through one public authority.
-6. Deploy a preview and verify `/api/current-nav?token=solo` reports
+3. Deploy a preview and verify `/api/current-nav?token=solo` reports
    `source.provider: "01Resolved"`, then verify token data, active decisions,
    public history, wallet discovery, and an ownerless DFlow display quote
    through `/api/beta/trading?view=spot-order`.
-7. Move `navgator.xyz` and `www.navgator.xyz` from the NAVgator project to the
-   01RX project.
-8. Verify the same checks through `https://navgator.xyz/api/...`, then confirm
-   the homepage and direct token/decision links.
+4. Verify unsupported routes such as `/api/historic-nav` return
+   `DATA_NOT_AVAILABLE_FROM_01RESOLVED` and never contact a fallback provider.
+5. Assign `fewgoodcoins.xyz` and `www.fewgoodcoins.xyz` to the 01RX project,
+   then confirm the homepage and direct token/decision links.
 
 Do not verify attribution by signing a production trade during deployment.
 Exercise `decision-attest` with a fixture transaction in automated checks, and
@@ -55,9 +40,9 @@ transaction as the MetaDAO conditional swap.
 
 ## Rollback
 
-Move `navgator.xyz` and `www.navgator.xyz` back to the existing NAVgator
-project. Do not remove `api.navgator.xyz`; it is a stable backend boundary and
-keeps rollback independent from browser releases.
+Move `fewgoodcoins.xyz` and `www.fewgoodcoins.xyz` back to the previous 01RX
+deployment. Do not add a fallback data origin during rollback; missing
+01Resolved coverage must remain explicit.
 
 ## Mainnet safety
 

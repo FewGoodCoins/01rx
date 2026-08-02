@@ -504,59 +504,39 @@ test('lookup-table loader validates owner, active state, and quote context', asy
   );
 });
 
-test('execution allowlist is intersected with current canonical token status', async () => {
+test('execution allowlist is intersected with the current 01Resolved project index', async () => {
   const calls = [];
   const tokens = await getTradableOwnershipTokens({
-    env: {
-      NAVGATOR_API_ORIGIN: 'https://api.navgator.example',
-      VERCEL_ENV: 'preview',
-    },
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
     fresh: true,
-    async fetchImpl(url, options) {
-      calls.push([String(url), options]);
-      return new Response(JSON.stringify({
-        data: [
+    async loadCurrentProjects(options) {
+      calls.push(options);
+      return {
+        tokens: [
           {
             key: 'solo',
-            listed: true,
-            live: true,
-            retired: false,
-            status: 'active',
+            source: { provider: '01Resolved' },
           },
           {
             key: 'rngr',
-            listed: false,
-            live: false,
-            retired: true,
-            status: 'inactive',
+            source: { provider: '01Resolved' },
           },
           {
             key: 'unknown',
-            listed: true,
-            live: true,
-            retired: false,
-            status: 'active',
+            source: { provider: '01Resolved' },
           },
         ],
-        ok: true,
-      }), {
-        headers: { 'content-type': 'application/json' },
-        status: 200,
-      });
+      };
     },
   });
 
   assert.deepEqual(Object.keys(tokens), ['solo']);
-  assert.equal(
-    calls[0][0],
-    'https://api.navgator.example/api/list-tokens',
-  );
-  assert.equal(calls[0][1].headers.authorization, undefined);
+  assert.equal(calls[0].env.ZERO_ONE_RESOLVED_API_KEY, 'server-key');
   await assert.rejects(
     getTradableOwnershipTokens({
-      env: { VERCEL_ENV: 'production' },
+      env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
       fresh: true,
-      fetchImpl: async () => {
+      loadCurrentProjects: async () => {
         throw new Error('must not be called');
       },
     }),

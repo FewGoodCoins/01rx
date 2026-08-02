@@ -9,7 +9,7 @@ async function loadModel() {
   )).href);
 }
 
-test('proposal chart adds a shared spot launch anchor without rewriting observations', async () => {
+test('proposal chart uses only indexed observations without a synthetic launch anchor', async () => {
   const { proposalChartPointTime, proposalChartPoints } = await loadModel();
   const history = {
     series: [
@@ -34,19 +34,16 @@ test('proposal chart adds a shared spot launch anchor without rewriting observat
     launchedAt: '2026-07-23T00:20:00.000Z',
   });
 
-  assert.equal(points.length, 3);
-  assert.equal(points[0].protocolLaunchAnchor, true);
-  assert.equal(points[0].chartTimestamp, '2026-07-23T00:20:00.000Z');
+  assert.equal(points.length, 2);
+  assert.equal(points[0].protocolLaunchAnchor, undefined);
+  assert.equal(points[0].chartTimestamp, '2026-07-23T00:45:00.000Z');
   assert.equal(points[0].underlyingPrice, 0.13);
-  assert.equal(points[0].passPrice, 0.13);
-  assert.equal(points[0].failPrice, 0.13);
-  assert.equal(points[1].chartTimestamp, '2026-07-23T00:45:00.000Z');
-  assert.equal(points[1].passPrice, 0.134);
-  assert.equal(points[1].failPrice, 0.127);
+  assert.equal(points[0].passPrice, 0.134);
+  assert.equal(points[0].failPrice, 0.127);
   assert.equal(history.series[0].passPrice, 0.134);
   assert.equal(history.series[0].failPrice, 0.127);
   assert.equal(
-    proposalChartPointTime(points[1]),
+    proposalChartPointTime(points[0]),
     Date.parse('2026-07-23T00:45:00.000Z'),
   );
 });

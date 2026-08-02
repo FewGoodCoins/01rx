@@ -1604,7 +1604,7 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   cleanupMount(mounted);
 });
 
-test('live PASS and FAIL prices refresh without remounting the chart or refetching history', async () => {
+test('live trade surfaces refresh without mutating the 01Resolved chart series', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   let activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
   let marketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
@@ -1643,21 +1643,11 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
   const marketDataRequestsBefore = requests.filter(url => (
     /view=market-data/.test(url)
   )).length;
-  assert.deepEqual(livePoints.at(-1), {
-    timestamp: ACTIVE_MARKETS.markets[0].source.asOf,
-    underlyingPrice: 0.1291,
-    passPrice: 0.1337,
-    passTwap: 0.1319,
-    failPrice: 0.1279,
-    failTwap: 0.1279,
-    decisionEdge: ((0.1319 / 0.1279) - 1) * 100,
-  });
-  assert.equal(
-    byRole(root, 'proposal-chart-header')
-      .querySelector('[data-ft-chart-header-metric="fail"] strong')
-      .textContent,
-    '$0.1279',
-  );
+  assert.deepEqual(livePoints, []);
+  const indexedPassPrice = byRole(root, 'proposal-chart-header')
+    .querySelector('[data-ft-chart-header-metric="pass"] strong').textContent;
+  const indexedFailPrice = byRole(root, 'proposal-chart-header')
+    .querySelector('[data-ft-chart-header-metric="fail"] strong').textContent;
 
   activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
   activeMarkets.asOf = '2026-07-24T12:00:07.000Z';
@@ -1701,28 +1691,20 @@ test('live PASS and FAIL prices refresh without remounting the chart or refetchi
     byRole(root, 'proposal-chart-header')
       .querySelector('[data-ft-chart-header-metric="pass"] strong')
       .textContent,
-    '$0.1555',
+    indexedPassPrice,
   );
   assert.equal(
     byRole(root, 'proposal-chart-header')
       .querySelector('[data-ft-chart-header-metric="fail"] strong')
       .textContent,
-    '$0.1111',
+    indexedFailPrice,
   );
   const passSignal = byRole(root, 'proposal-chart-header')
     .querySelector('[data-ft-chart-header-metric="pass-signal"]');
   assert.equal(passSignal.querySelector('strong').textContent, '-0.4%');
   assert.equal(passSignal.dataset.tone, 'negative');
   assert.match(passSignal.title, /Current failing margin/);
-  assert.deepEqual(livePoints.at(-1), {
-    timestamp: '2026-07-24T12:00:07.000Z',
-    underlyingPrice: 0.1305,
-    passPrice: 0.1555,
-    passTwap: 0.1455,
-    failPrice: 0.1111,
-    failTwap: 0.1211,
-    decisionEdge: ((0.1455 / 0.1211) - 1) * 100,
-  });
+  assert.deepEqual(livePoints, []);
   cleanupMount(mounted);
 });
 
@@ -2718,10 +2700,8 @@ test('proposal history retries hourly while an older public API rejects 15-minut
   cleanupMount(mounted);
 });
 
-test('proposal history uses retained verified observations when live and hourly feeds are empty', async () => {
+test('proposal history remains empty when 01Resolved live and hourly feeds are empty', async () => {
   const retainedRequests = [];
-  let resolveHourlyHistory;
-  let hourlyHistorySettled = false;
   const { mountFutardTerminal } = await loadTerminalModule();
   const terminal = makeWindow({
     proposalHistoryResponder(url) {
@@ -2729,19 +2709,14 @@ test('proposal history uses retained verified observations when live and hourly 
       if (params.get('interval') === '15m') {
         throw Object.assign(new Error('interval must be 1h'), { status: 400 });
       }
-      return new Promise((resolve) => {
-        resolveHourlyHistory = () => {
-          hourlyHistorySettled = true;
-          resolve({
-            ok: true,
-            data: {
-              ...hourlyHistory(PROPOSAL_ID, 'LOYAL', 0.13, { empty: true }),
-              interval: '1h',
-              requestedInterval: '1h',
-            },
-          });
-        };
-      });
+      return {
+        ok: true,
+        data: {
+          ...hourlyHistory(PROPOSAL_ID, 'LOYAL', 0.13, { empty: true }),
+          interval: '1h',
+          requestedInterval: '1h',
+        },
+      };
     },
   });
   const sharedJson = terminal.window.NAVGATOR.api.json;
@@ -2750,26 +2725,7 @@ test('proposal history uses retained verified observations when live and hourly 
       return sharedJson(url, requestOptions);
     }
     retainedRequests.push(String(url));
-    return {
-      proposalId: PROPOSAL_ID,
-      interval: '1h',
-      preTwap: '2026-07-24T01:00:00.000Z',
-      availability: 'complete',
-      source: {
-        provider: 'NAVgator retained 01Resolved history',
-        sourceInterval: '15m',
-        interval: '1h',
-        aggregation: 'last_non_null_observation_per_utc_hour',
-      },
-      series: [[
-        '2026-07-24T01:00:00.000Z',
-        0.1293,
-        0.132,
-        0.1278,
-        0.131,
-        0.128,
-      ]],
-    };
+    throw new Error('Retained history must not be requested');
   };
   const controller = mountFutardTerminal({
     window: terminal.window,
@@ -2778,29 +2734,16 @@ test('proposal history uses retained verified observations when live and hourly 
   const mounted = trackMount(controller, terminal.window);
   await controller.ready;
   await settleUntil(terminal.window, () => (
-    retainedRequests.length > 0
-    && typeof resolveHourlyHistory === 'function'
-    && byRole(terminal.root, 'proposal-history-chart')
+    /No 01Resolved market history is indexed/i.test(
+      byRole(terminal.root, 'proposal-history')?.textContent || '',
+    )
   ));
 
-  assert.deepEqual(retainedRequests, [
-    `/data/proposal-history/${PROPOSAL_ID}.json`,
-  ]);
-  assert.equal(hourlyHistorySettled, false);
-  assert.equal(
-    byRole(terminal.root, 'proposal-history').querySelector('svg[viewBox="0 0 1000 1000"]'),
-    null,
-  );
-  assert.equal(
-    byRole(terminal.root, 'proposal-history-chart').querySelector('.ft-hourly-values'),
-    null,
-  );
-  assert.doesNotMatch(
+  assert.deepEqual(retainedRequests, []);
+  assert.match(
     byRole(terminal.root, 'proposal-history').textContent,
-    /temporarily unavailable|No market history is indexed/i,
+    /No 01Resolved market history is indexed/i,
   );
-  resolveHourlyHistory();
-  await settle(terminal.window);
 
   cleanupMount(mounted);
 });
@@ -3211,7 +3154,7 @@ test('proposal browser presents compact live and resolved markets without exposi
   assert.equal(byRole(root, 'proposal-history-chart'), null);
   assert.match(
     byRole(root, 'proposal-history').textContent,
-    /No market history is indexed/i,
+    /No 01Resolved market history is indexed/i,
   );
 
   search.value = '';
