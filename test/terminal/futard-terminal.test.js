@@ -2560,6 +2560,7 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     currentNav: {
       tokens: [{
         ...HOME_BOOTSTRAP.currentNav.tokens[0],
+        mint: WALLET_ADDRESS,
         nav: 0.222,
         navSource: '01resolved',
         spot: 0.2,
@@ -2587,6 +2588,17 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
       .textContent,
     '$0.2000',
   );
+  assert.equal(byRole(root, 'market-title').textContent, 'LOYAL');
+  assert.equal(byRole(root, 'market-subtitle').textContent, 'Loyal');
+  assert.equal(byRole(root, 'copy-token-mint').dataset.ftAddress, WALLET_ADDRESS);
+  const placeholderLinks = root.querySelectorAll('.ft-token-identity-links button');
+  assert.equal(placeholderLinks.length, 4);
+  placeholderLinks.forEach(button => assert.equal(button.disabled, true));
+  const currentStrip = byRole(root, 'ownership-current-strip');
+  assert.ok(currentStrip);
+  assert.doesNotMatch(currentStrip.textContent, /Current 01Resolved snapshot/i);
+  assert.doesNotMatch(currentStrip.textContent, /Price\s+\$0\.2000|NAV\s+\$0\.2220/);
+  assert.match(currentStrip.textContent, /Source\s+01Resolved/);
 
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
   assert.equal(

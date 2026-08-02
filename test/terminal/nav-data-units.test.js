@@ -6951,29 +6951,21 @@ test('chart loading state never paints the retired SVG chart preview', () => {
 });
 
 test('missing 01Resolved price history shows current-only state without retrying another provider', () => {
-  const sandbox = loadHelpers(`
-    ${extractFunction('_chartDataRecoveryDelay')}
-    result = [0, 1, 2, 3, 9].map(_chartDataRecoveryDelay);
-  `);
-
-  assert.deepEqual(JSON.parse(JSON.stringify(sandbox.result)), [
-    1000,
-    3000,
-    10000,
-    30000,
-    30000,
-  ]);
   const recovery = extractFunction('_scheduleChartDataRecovery');
-  assert.ok(recovery.indexOf('return;') < recovery.indexOf('fetchCandlesForTF'));
-  assert.match(source, /01Resolved currently provides current price and NAV only/);
+  const refresh = extractFunction('_refreshActiveChartFromCaches');
+
+  assert.doesNotMatch(source, /01Resolved currently provides current price and NAV only/);
+  assert.doesNotMatch(recovery, /fetchCandlesForTF|setTimeout|_chartDataRecoveryDelay/);
+  assert.match(recovery, /_clearChartDataUnavailableNotice\(\);/);
+  assert.match(recovery, /_refreshActiveChartFromCaches\(\);/);
+  assert.match(refresh, /var candles = _resolveChartCandlesForTF\(tfKey\) \|\| \[\];/);
+  assert.match(refresh, /var currentNav = _navPerTokenForFastChart\(\);/);
+  assert.match(refresh, /setChartData\(candles, currentNav\);/);
+  assert.match(refresh, /_updateChartOverlayDefault\(\);/);
   assert.match(source, /_scheduleChartDataRecovery\(loadKey, isCurrentLoad\)/);
   assert.match(
     source,
     /_scheduleChartDataRecovery\(_mainTokenKey, _mainTokenStillCurrent\)/,
-  );
-  assert.match(
-    source,
-    /_clearChartDataUnavailableNotice\(\);\s+_chartDataRecoveryAttempt = 0;/,
   );
 });
 

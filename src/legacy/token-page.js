@@ -6553,24 +6553,13 @@ function _navPerTokenForFastChart() {
 function _refreshActiveChartFromCaches() {
   if (!_lwChart || !tokenKey) return;
   var tfKey = _fallbackTF(_chartTF || '1D');
-  var candles = _resolveChartCandlesForTF(tfKey);
-  if (!candles || candles.length === 0) return;
+  var candles = _resolveChartCandlesForTF(tfKey) || [];
+  var currentNav = _navPerTokenForFastChart();
   _activateNavHistoryForTF(tfKey);
-  setChartData(candles, _navPerToken);
-  renderNAVStats(candles, _navPerToken);
+  setChartData(candles, currentNav);
+  renderNAVStats(candles, currentNav);
+  _updateChartOverlayDefault();
   _requestOverlayUpdate();
-}
-
-var _chartDataRecoveryTimer = null;
-var _chartDataRecoveryAttempt = 0;
-var _chartDataRecoveryToken = '';
-var _chartDataRecoveryInFlight = false;
-var _chartDataRecoveryGeneration = 0;
-
-function _chartDataRecoveryDelay(attempt) {
-  var delays = [1000, 3000, 10000, 30000];
-  var index = Math.max(0, Math.min(delays.length - 1, Number(attempt) || 0));
-  return delays[index];
 }
 
 function _clearChartDataUnavailableNotice() {
@@ -6585,78 +6574,16 @@ function _clearChartDataUnavailableNotice() {
   });
 }
 
-function _showChartDataUnavailableNotice() {
-  var existing = document.querySelector('[data-chart-data-unavailable="true"]');
-  if (existing) return existing;
-  var container = document.getElementById('lw-chart-container');
-  if (!container || !container.parentNode) return null;
-  var notice = document.createElement('div');
-  notice.setAttribute('data-chart-data-unavailable', 'true');
-  notice.style.cssText = 'text-align:center;font-size:12px;color:var(--muted);font-family:Inter,sans-serif;padding:6px 0';
-  notice.textContent = '01Resolved currently provides current price and NAV only. Historical chart data is not available yet.';
-  container.parentNode.insertBefore(notice, container.nextSibling);
-  return notice;
-}
-
 function _cancelChartDataRecovery() {
-  if (_chartDataRecoveryTimer) clearTimeout(_chartDataRecoveryTimer);
-  _chartDataRecoveryGeneration += 1;
-  _chartDataRecoveryTimer = null;
-  _chartDataRecoveryAttempt = 0;
-  _chartDataRecoveryToken = '';
-  _chartDataRecoveryInFlight = false;
+  _clearChartDataUnavailableNotice();
 }
 
 function _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad) {
-  _showChartDataUnavailableNotice();
-  return;
   if (!expectedTokenKey || typeof isCurrentLoad !== 'function') return;
-  if (_chartDataRecoveryToken && _chartDataRecoveryToken !== expectedTokenKey) {
-    _cancelChartDataRecovery();
-  }
-  _chartDataRecoveryToken = expectedTokenKey;
-  if (_chartDataRecoveryTimer || _chartDataRecoveryInFlight) return;
-  _showChartDataUnavailableNotice();
-  var delay = _chartDataRecoveryDelay(_chartDataRecoveryAttempt);
-  var recoveryGeneration = _chartDataRecoveryGeneration;
-  _chartDataRecoveryTimer = setTimeout(function() {
-    if (recoveryGeneration !== _chartDataRecoveryGeneration) return;
-    _chartDataRecoveryTimer = null;
-    if (!isCurrentLoad() || tokenKey !== expectedTokenKey) {
-      _cancelChartDataRecovery();
-      return;
-    }
-    _chartDataRecoveryInFlight = true;
-    var tfKey = _fallbackTF(_chartTF || '1D');
-    fetchCandlesForTF(tfKey, { timeoutMs: API_FETCH_TIMEOUT_MS }).then(function(candles) {
-      if (recoveryGeneration !== _chartDataRecoveryGeneration) return;
-      _chartDataRecoveryInFlight = false;
-      if (!isCurrentLoad() || tokenKey !== expectedTokenKey) {
-        _cancelChartDataRecovery();
-        return;
-      }
-      if (!candles || candles.length === 0) {
-        _chartDataRecoveryAttempt += 1;
-        _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad);
-        return;
-      }
-      _clearChartDataUnavailableNotice();
-      _chartDataRecoveryAttempt = 0;
-      _chartDataRecoveryToken = '';
-      setChartOverlayControlsReady(true);
-      _refreshActiveChartFromCaches();
-      _applyLayers();
-    }).catch(function() {
-      if (recoveryGeneration !== _chartDataRecoveryGeneration) return;
-      _chartDataRecoveryInFlight = false;
-      if (!isCurrentLoad() || tokenKey !== expectedTokenKey) {
-        _cancelChartDataRecovery();
-        return;
-      }
-      _chartDataRecoveryAttempt += 1;
-      _scheduleChartDataRecovery(expectedTokenKey, isCurrentLoad);
-    });
-  }, delay);
+  if (!isCurrentLoad() || tokenKey !== expectedTokenKey) return;
+  _clearChartDataUnavailableNotice();
+  _refreshActiveChartFromCaches();
+  _applyLayers();
 }
 
 function _refreshActiveChartAfterNavHistoryLoad(chartTf) {

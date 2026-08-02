@@ -2756,6 +2756,7 @@ export function mountFutardTerminal({
       nav.contract_address,
       nav.config?.mint,
       nav.config?.mintAddress,
+      relatedMarket.baseMint,
       relatedMarket.mint,
     );
     return {
@@ -2774,6 +2775,13 @@ export function mountFutardTerminal({
         nav.volume24hUsd,
         nav.volume24h,
         nav.daoVolume24h,
+      ),
+      snapshotTime: firstText(
+        nav.snapshotTime,
+        nav.navVerifiedAt,
+        nav.navSnapshot?.timestamp,
+        nav.source?.observedAt,
+        nav.navSnapshot?.source?.observedAt,
       ),
       liquidityUsd: firstNumber(nav.liquidityUsd, relatedMarket.liquidityUsd),
       recentTransactions: normalizeOwnershipRecentTransactions(nav),
@@ -3052,13 +3060,17 @@ export function mountFutardTerminal({
           ? 'positive'
           : 'neutral'
       : 'muted';
-    const identityMeta = asset.mint
-      ? asset.mint.length > 14
-        ? `${asset.mint.slice(0, 6)}…${asset.mint.slice(-4)}`
-        : asset.mint
-      : '';
     const watchlist = runtime.NAVGATOR?.shell?.watchlist;
     const watched = watchlist?.has?.(asset.token) === true;
+    const mintAddress = safeBase58(asset.mint);
+    const snapshotTime = formatHistoryOverlayTimestamp(asset.snapshotTime);
+    const changeTone = Number.isFinite(asset.change24h)
+      ? asset.change24h > 0
+        ? 'positive'
+        : asset.change24h < 0
+          ? 'negative'
+          : 'neutral'
+      : 'muted';
 
     return `
       <header class="ft-chart-market-header ft-ownership-chart-header" data-ft-role="ownership-chart-header">
@@ -3077,11 +3089,42 @@ export function mountFutardTerminal({
             </svg>
           </button>
           ${renderLogo(asset, 'large')}
-          <div>
-            <p><strong>${escapeHtml(asset.ticker)}</strong></p>
-            ${identityMeta
-              ? `<small title="${escapeHtml(asset.mint)}">${escapeHtml(identityMeta)}</small>`
-              : ''}
+          <div class="ft-market-title-copy">
+            <p><strong data-ft-role="market-title">${escapeHtml(asset.ticker)}</strong></p>
+            <small data-ft-role="market-subtitle">${escapeHtml(asset.name)}</small>
+            <div class="ft-token-identity-meta">
+              <div class="ft-token-mint-line">
+                <span title="${mintAddress ? escapeHtml(mintAddress) : 'Token address unavailable'}">${mintAddress
+                  ? escapeHtml(shortenAddress(mintAddress, 4))
+                  : 'Mint address'}</span>
+                ${mintAddress ? `
+                  <button
+                    type="button"
+                    data-ft-action="copy-address"
+                    data-ft-address="${escapeHtml(mintAddress)}"
+                    data-ft-role="copy-token-mint"
+                    aria-label="Copy ${escapeHtml(asset.ticker)} token address"
+                    title="Copy token address"
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.25" y="2.25" width="8.5" height="9.5" rx="1.4"/><path d="M10.75 13.75h-7a1.5 1.5 0 0 1-1.5-1.5v-7"/></svg>
+                  </button>
+                ` : ''}
+              </div>
+              <div class="ft-token-identity-links" aria-label="Token links coming soon">
+                <button type="button" disabled aria-label="Token information coming soon" title="Token information coming soon">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.1v4M8 4.65h.01"/></svg>
+                </button>
+                <button type="button" disabled aria-label="X link coming soon" title="X link coming soon">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 2.5 10 11M13 2.5l-10 11"/></svg>
+                </button>
+                <button type="button" disabled aria-label="Community link coming soon" title="Community link coming soon">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 4.1A11.2 11.2 0 0 1 8 3c1.8 0 3.4.4 4.9 1.1.7 1.8.9 3.7.6 5.8-1 .8-2 1.3-3.1 1.6l-.8-1.1c.6-.2 1.1-.5 1.6-.8-2 .9-4.4.9-6.4 0 .5.3 1 .6 1.6.8l-.8 1.1c-1.1-.3-2.1-.8-3.1-1.6-.3-2.1-.1-4 .6-5.8Z"/><circle cx="5.7" cy="7.3" r=".65" fill="currentColor" stroke="none"/><circle cx="10.3" cy="7.3" r=".65" fill="currentColor" stroke="none"/></svg>
+                </button>
+                <button type="button" disabled aria-label="Website link coming soon" title="Website link coming soon">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M1.9 8h12.2M8 1.75c1.7 1.7 2.6 3.8 2.6 6.25S9.7 12.55 8 14.25M8 1.75C6.3 3.45 5.4 5.55 5.4 8s.9 4.55 2.6 6.25"/></svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         ${metric({
@@ -3120,6 +3163,26 @@ export function mountFutardTerminal({
           value: formatCompactMoney(asset.liquidityUsd),
         })}
       </header>
+      <section
+        class="ft-ownership-current-strip"
+        data-ft-role="ownership-current-strip"
+        aria-label="Current 01Resolved token snapshot"
+      >
+        <div class="ft-ownership-current-market">
+          <span>
+            24h
+            <b data-tone="${escapeHtml(changeTone)}">${escapeHtml(formatPercent(asset.change24h))}</b>
+          </span>
+          <span>
+            Volume
+            <b>${escapeHtml(formatCompactMoney(asset.volume24h))}</b>
+          </span>
+        </div>
+        <div class="ft-ownership-current-source">
+          <span>Source <b>01Resolved</b></span>
+          <span>Snapshot <b>${escapeHtml(snapshotTime)}</b></span>
+        </div>
+      </section>
     `;
   }
 
@@ -3177,8 +3240,8 @@ export function mountFutardTerminal({
           ` : ''}
           ${renderLogo(market, 'large')}
           <div>
-            <p><strong>${escapeHtml(market.ticker)}</strong></p>
-            <small>${escapeHtml(proposalNumber)}</small>
+            <p><strong data-ft-role="market-title">${escapeHtml(market.ticker)}</strong></p>
+            <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber)}</small>
           </div>
         </div>
         ${metric({
