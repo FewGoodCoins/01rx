@@ -84,6 +84,15 @@ export interface ProposalMarketData {
   readonly cluster?: string;
   readonly books: Readonly<Record<string, unknown>>;
   readonly recentTrades?: readonly Record<string, unknown>[];
+  readonly pagination?: {
+    readonly page?: number;
+    readonly limit?: number;
+    readonly returned?: number;
+    readonly indexed?: number;
+    readonly total?: number | null;
+    readonly nextCursor?: string | null;
+    readonly complete?: boolean;
+  };
   readonly openOrders?: readonly Record<string, unknown>[];
   readonly degraded?: DegradedState;
 }

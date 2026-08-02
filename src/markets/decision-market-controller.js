@@ -363,6 +363,71 @@ function decisionTradeSupport(transaction) {
   return '';
 }
 
+function decisionTradeIdentity(transaction) {
+  return [
+    transaction?.signature || '',
+    transaction?.branch || '',
+    transaction?.side || '',
+    transaction?.price ?? '',
+    transaction?.baseAmount ?? '',
+    transaction?.quoteAmount ?? '',
+    transaction?.blockTime || '',
+  ].join('|');
+}
+
+function mergeDecisionTrades(existing, incoming) {
+  const trades = new Map();
+  [...(existing || []), ...(incoming || [])].forEach((trade) => {
+    const identity = decisionTradeIdentity(trade);
+    if (identity && !trades.has(identity)) trades.set(identity, trade);
+  });
+  return [...trades.values()].sort((left, right) => {
+    const timeDifference = new Date(right.blockTime || 0).getTime()
+      - new Date(left.blockTime || 0).getTime();
+    return Number.isFinite(timeDifference) && timeDifference !== 0
+      ? timeDifference
+      : decisionTradeIdentity(left).localeCompare(decisionTradeIdentity(right));
+  });
+}
+
+function decisionTradeRowMarkup(transaction, showSizeInUsd) {
+  const rowContent = `
+    <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${formatChartPrice(transaction.price)}</span>
+    <span class="ft-ownership-transaction-size" data-ft-role="transaction-size">${showSizeInUsd
+      ? formatTransactionSizeUsd(decisionTradeVolumeUsd(transaction))
+      : Number.isFinite(transaction.baseAmount)
+        ? formatTokenAmount(transaction.baseAmount, 4)
+        : '—'}</span>
+    <span
+      class="ft-decision-transaction-trade"
+      title="${transaction.side === 'buy' ? 'Bought' : 'Sold'} ${escapeHtml(transaction.branch.toUpperCase())}"
+    >
+      <strong
+        class="ft-decision-transaction-side"
+        data-side="${escapeHtml(transaction.side)}"
+      >${transaction.side === 'buy' ? 'BUY' : 'SELL'}</strong>
+      <span
+        class="ft-decision-transaction-branch"
+        data-branch="${escapeHtml(transaction.branch)}"
+      >${escapeHtml(transaction.branch.toUpperCase())}</span>
+    </span>
+    <span>${transaction.blockTime
+      ? escapeHtml(formatRelativeTime(transaction.blockTime).replace(/\s+ago$/i, ''))
+      : '—'}</span>
+  `;
+  return transaction.signature
+    ? `
+      <a
+        class="ft-ownership-transaction-row"
+        href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
+        target="_blank"
+        rel="noreferrer"
+        title="Open transaction on Solscan"
+      >${rowContent}</a>
+    `
+    : `<div class="ft-ownership-transaction-row" title="01Resolved did not publish a transaction signature for this trade">${rowContent}</div>`;
+}
+
 function ownershipTradeVolumeUsd(transaction) {
   const indexedVolume = nonNegativeNumber(transaction?.valueUsd);
   if (Number.isFinite(indexedVolume)) return indexedVolume;
@@ -1712,21 +1777,20 @@ function normalizeProposalMarketData(raw) {
         : '';
       const price = nonNegativeNumber(row.price);
       const signature = safeSignature(row.signature);
-      if (!branch || !side || !venue || !(price > 0) || !signature) return null;
+      if (!branch || !side || !venue) return null;
       return {
         branch,
         side,
         venue,
-        price,
+        price: Number.isFinite(price) && price > 0 ? price : null,
         baseAmount: nonNegativeNumber(row.baseAmount),
         quoteAmount: nonNegativeNumber(row.quoteAmount),
         volumeUsd: nonNegativeNumber(row.volumeUsd),
         blockTime: isoTimestamp(row.blockTime),
-        signature,
+        signature: signature || '',
       };
     })
-    .filter(Boolean)
-    .slice(0, 40);
+    .filter(Boolean);
   const openOrders = (Array.isArray(payload.openOrders) ? payload.openOrders : [])
     .map((row) => {
       if (!isObject(row)) return null;
@@ -1757,6 +1821,26 @@ function normalizeProposalMarketData(raw) {
       fail: normalizeBook(books.fail, 'fail'),
     },
     recentTrades,
+    pagination: isObject(payload.pagination)
+      ? {
+        page: firstNumber(payload.pagination.page),
+        limit: firstNumber(payload.pagination.limit),
+        returned: firstNumber(payload.pagination.returned, recentTrades.length),
+        indexed: firstNumber(payload.pagination.indexed, recentTrades.length),
+        total: firstNumber(payload.pagination.total),
+        nextCursor: firstText(payload.pagination.nextCursor),
+        complete: payload.pagination.complete === true
+          || !firstText(payload.pagination.nextCursor),
+      }
+      : {
+        page: 1,
+        limit: recentTrades.length,
+        returned: recentTrades.length,
+        indexed: recentTrades.length,
+        total: recentTrades.length,
+        nextCursor: '',
+        complete: true,
+      },
     openOrders,
     source: isObject(payload.source) ? payload.source : {},
     degraded: isObject(payload.degraded)
@@ -5633,6 +5717,7 @@ export function mountFutardTerminal({
     if (state.hostMode === 'token' && market) {
       const entry = state.marketDataByProposal.get(market.id);
       const transactions = entry?.data?.recentTrades || [];
+      const tradePagination = entry?.data?.pagination || {};
       const showTransactionSizesInUsd = state.transactionSizeUnit === 'usd';
       const sizeUnit = showTransactionSizesInUsd ? 'USD' : market.ticker;
       const transactionVolumes = transactions
@@ -5725,46 +5810,33 @@ export function mountFutardTerminal({
             <span>Age</span>
           </div>
           <div class="ft-ownership-transactions-list">
-            ${visibleTransactions.length ? visibleTransactions.map((transaction) => `
-              <a
-                class="ft-ownership-transaction-row"
-                href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
-                target="_blank"
-                rel="noreferrer"
-                title="Open transaction on Solscan"
-              >
-                <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${formatChartPrice(transaction.price)}</span>
-                <span class="ft-ownership-transaction-size" data-ft-role="transaction-size">${showTransactionSizesInUsd
-                  ? formatTransactionSizeUsd(decisionTradeVolumeUsd(transaction))
-                  : Number.isFinite(transaction.baseAmount)
-                    ? formatTokenAmount(transaction.baseAmount, 4)
-                    : '—'}</span>
-                <span
-                  class="ft-decision-transaction-trade"
-                  title="${transaction.side === 'buy' ? 'Bought' : 'Sold'} ${escapeHtml(transaction.branch.toUpperCase())}"
-                >
-                  <strong
-                    class="ft-decision-transaction-side"
-                    data-side="${escapeHtml(transaction.side)}"
-                  >${transaction.side === 'buy' ? 'BUY' : 'SELL'}</strong>
-                  <span
-                    class="ft-decision-transaction-branch"
-                    data-branch="${escapeHtml(transaction.branch)}"
-                  >${escapeHtml(transaction.branch.toUpperCase())}</span>
-                </span>
-                <span>${transaction.blockTime
-                  ? escapeHtml(formatRelativeTime(transaction.blockTime).replace(/\s+ago$/i, ''))
-                  : '—'}</span>
-              </a>
-            `).join('') : `
+            ${visibleTransactions.length
+              ? visibleTransactions.map(transaction => (
+                decisionTradeRowMarkup(transaction, showTransactionSizesInUsd)
+              )).join('')
+              : `
               <div class="ft-ownership-transactions-empty">
                 ${transactions.length && supportFilter !== 'all'
                   ? `No loaded trades supporting ${supportFilter.toUpperCase()}`
                   : entry?.loading
-                  ? 'Loading recent indexed transactions'
-                  : entry?.error || 'No recent indexed transactions'}
+                  ? 'Loading complete trade history'
+                  : entry?.error || 'No indexed transactions'}
               </div>
             `}
+            ${entry?.loading && transactions.length ? `
+              <div class="ft-trade-history-status" data-ft-role="trade-history-status" aria-live="polite">
+                Loading all trades · ${transactions.length}${Number.isFinite(tradePagination.total)
+                  ? ` of ${tradePagination.total}`
+                  : ''}
+              </div>
+            ` : entry?.error && transactions.length ? `
+              <button
+                class="ft-trade-history-status ft-trade-history-retry"
+                type="button"
+                data-ft-action="retry-market-data"
+                data-ft-role="trade-history-status"
+              >History incomplete · retry</button>
+            ` : ''}
           </div>
         </section>
       `;
@@ -6214,36 +6286,89 @@ export function mountFutardTerminal({
       }
     }
 
+    const refreshFirstPageOnly = options.preserveChart
+      && existing?.data?.pagination?.complete === true;
+    let accumulatedTrades = refreshFirstPageOnly
+      ? existing.data.recentTrades || []
+      : [];
+    let indexedLoaded = refreshFirstPageOnly
+      ? firstNumber(
+        existing.data.pagination.indexedLoaded,
+        existing.data.pagination.total,
+        existing.data.recentTrades?.length,
+      ) || 0
+      : 0;
+    let latestData = null;
+    let pagesLoaded = 0;
     try {
-      const query = {
-        proposal: market.id,
-        limit: 30,
-      };
-      if (owner) query.owner = owner;
-      const payload = await client.futarchy.marketData(query, {
-        signal: state.marketDataAbortController?.signal,
-      });
-      if (state.destroyed || requestId !== state.marketDataRequestId) return null;
-      const data = normalizeProposalMarketData(payload);
-      state.marketDataByProposal.set(market.id, {
-        loading: false,
-        error: '',
-        data,
-        owner,
-      });
-      return data;
+      const visitedCursors = new Set();
+      let cursor = '';
+      do {
+        if (visitedCursors.has(cursor)) {
+          throw new Error('Trade history returned a repeated page cursor');
+        }
+        visitedCursors.add(cursor);
+        const query = {
+          proposal: market.id,
+          limit: 100,
+        };
+        if (cursor) query.cursor = cursor;
+        if (owner) query.owner = owner;
+        const payload = await client.futarchy.marketData(query, {
+          signal: state.marketDataAbortController?.signal,
+        });
+        if (state.destroyed || requestId !== state.marketDataRequestId) return null;
+        const pageData = normalizeProposalMarketData(payload);
+        pagesLoaded += 1;
+        indexedLoaded = refreshFirstPageOnly
+          ? Math.max(indexedLoaded, pageData.pagination.indexed || 0)
+          : indexedLoaded + (pageData.pagination.indexed || 0);
+        accumulatedTrades = mergeDecisionTrades(
+          accumulatedTrades,
+          pageData.recentTrades,
+        );
+        const nextCursor = refreshFirstPageOnly
+          ? ''
+          : pageData.pagination.nextCursor;
+        const complete = refreshFirstPageOnly || !nextCursor;
+        latestData = {
+          ...pageData,
+          recentTrades: accumulatedTrades,
+          pagination: {
+            ...pageData.pagination,
+            loaded: accumulatedTrades.length,
+            indexedLoaded,
+            pagesLoaded,
+            nextCursor,
+            complete,
+          },
+        };
+        state.marketDataByProposal.set(market.id, {
+          loading: !complete,
+          error: '',
+          data: latestData,
+          owner,
+        });
+        if (selectedMarket()?.id === market.id) renderPositions();
+        cursor = nextCursor;
+      } while (cursor);
+      return latestData;
     } catch (error) {
       if (
         state.destroyed
         || requestId !== state.marketDataRequestId
         || error?.name === 'AbortError'
       ) return null;
+      const fallbackData = latestData || existing?.data || null;
+      if (fallbackData?.pagination) fallbackData.pagination.complete = false;
       state.marketDataByProposal.set(market.id, {
         loading: false,
-        error: error?.status === 404
-          ? 'No verified PASS/FAIL order books were found for this proposal.'
-          : 'Live order books are temporarily unavailable.',
-        data: existing?.data || null,
+        error: latestData
+          ? 'The complete trade history could not be loaded. Retry to fetch the missing pages.'
+          : error?.status === 404
+            ? 'No verified PASS/FAIL order books were found for this proposal.'
+            : 'Live order books are temporarily unavailable.',
+        data: fallbackData,
         owner,
       });
       return null;
@@ -6254,6 +6379,7 @@ export function mountFutardTerminal({
         if (selectedMarket()?.id === market.id) {
           if (options.preserveChart) {
             renderLivePriceSurfaces(selectedMarket());
+            renderPositions();
           } else {
             renderMarketStage();
             renderTradeTicket();

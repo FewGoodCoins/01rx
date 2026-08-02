@@ -111,6 +111,34 @@ test('01RX futarchy handler validates methods, query fields, and required inputs
   }
 });
 
+test('01RX futarchy handler forwards the reviewed market-data cursor', async () => {
+  const calls = [];
+  const handler = createFutarchyHandler({
+    service: serviceFixture({
+      async marketData(query) {
+        calls.push(query);
+        return { proposalId: query.proposal, recentTrades: [], pagination: {} };
+      },
+    }),
+    now: () => 1,
+    rpcRelay: async payload => payload,
+  });
+  const response = responseRecorder();
+  await handler({
+    method: 'GET',
+    url: '/api/beta/futarchy?view=market-data&proposal=proposal&limit=100&cursor=next-page',
+    headers: {},
+  }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [{
+    view: 'market-data',
+    proposal: 'proposal',
+    limit: '100',
+    cursor: 'next-page',
+  }]);
+});
+
 test('01RX futarchy handler keeps RPC POST bodies local and private', async () => {
   const calls = [];
   const handler = createFutarchyHandler({

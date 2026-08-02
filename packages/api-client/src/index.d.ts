@@ -46,7 +46,12 @@ export interface FutarchyClient {
     cursor?: string;
   }, options?: ClientCallOptions): Promise<ProposalArchiveData>;
   proposalHistory(query: { proposal: string; interval?: string }, options?: ClientCallOptions): Promise<ProposalHistoryData>;
-  marketData(query: { proposal: string; owner?: string; limit?: number }, options?: ClientCallOptions): Promise<ProposalMarketData>;
+  marketData(query: {
+    proposal: string;
+    owner?: string;
+    limit?: number;
+    cursor?: string;
+  }, options?: ClientCallOptions): Promise<ProposalMarketData>;
   programIntegrity(options?: ClientCallOptions): Promise<ProgramIntegrityData>;
   positions(query: { owner: string; proposal: string }, options?: ClientCallOptions): Promise<PositionsData>;
   recurringConfig(options?: ClientCallOptions): Promise<RecurringConfigData>;

@@ -1632,6 +1632,149 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   cleanupMount(mounted);
 });
 
+test('proposal transaction feed loads every page, deduplicates boundaries, and keeps unsigned rows visible', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const unsignedTrade = {
+    branch: 'pass',
+    side: 'buy',
+    venue: 'futarchy_amm',
+    price: 0.125,
+    baseAmount: 100,
+    volumeUsd: 12.5,
+    blockTime: '2026-07-24T11:59:30.000Z',
+    signature: null,
+  };
+  const signedTrade = {
+    branch: 'fail',
+    side: 'sell',
+    venue: 'futarchy_amm',
+    price: 0.2,
+    baseAmount: 125,
+    volumeUsd: 27.5,
+    blockTime: '2026-07-24T11:56:30.000Z',
+    signature: base58.encode(Buffer.alloc(64, 18)),
+  };
+  const { requests, root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+    marketWalletSlot: true,
+    proposalMarketDataResponder(url) {
+      const cursor = new URL(url).searchParams.get('cursor');
+      return {
+        ok: true,
+        data: {
+          ...PROPOSAL_MARKET_DATA,
+          recentTrades: cursor
+            ? [unsignedTrade, signedTrade]
+            : [unsignedTrade],
+          pagination: cursor
+            ? {
+              page: 2,
+              limit: 100,
+              returned: 2,
+              indexed: 2,
+              total: 2,
+              nextCursor: null,
+              complete: true,
+            }
+            : {
+              page: 1,
+              limit: 100,
+              returned: 1,
+              indexed: 1,
+              total: 2,
+              nextCursor: 'page-two',
+              complete: false,
+            },
+        },
+      };
+    },
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settleUntil(window, () => (
+    byRole(root, 'proposal-recent-transactions')
+      ?.querySelectorAll('.ft-ownership-transaction-row').length === 2
+  ));
+
+  const marketDataRequests = requests.filter(url => /view=market-data/.test(url));
+  assert.equal(marketDataRequests.length, 2);
+  assert.match(marketDataRequests[0], /limit=100/);
+  assert.match(marketDataRequests[1], /cursor=page-two/);
+  assert.equal(byRole(root, 'proposal-recent-count').textContent, '2');
+  assert.equal(byRole(root, 'trade-history-status'), null);
+  const rows = byRole(root, 'proposal-recent-transactions')
+    .querySelectorAll('.ft-ownership-transaction-row');
+  assert.equal(rows[0].tagName, 'DIV');
+  assert.match(rows[0].title, /did not publish a transaction signature/);
+  assert.equal(rows[1].tagName, 'A');
+  assert.match(rows[1].href, /solscan\.io\/tx\//);
+
+  cleanupMount(mounted);
+});
+
+test('proposal transaction feed identifies an interrupted history as incomplete', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+    proposalMarketDataResponder(url) {
+      if (new URL(url).searchParams.has('cursor')) {
+        throw new Error('second page unavailable');
+      }
+      return {
+        ok: true,
+        data: {
+          ...PROPOSAL_MARKET_DATA,
+          recentTrades: [{
+            branch: 'pass',
+            side: 'buy',
+            venue: 'futarchy_amm',
+            price: 0.125,
+            baseAmount: 100,
+            volumeUsd: 12.5,
+            blockTime: '2026-07-24T11:59:30.000Z',
+            signature: base58.encode(Buffer.alloc(64, 19)),
+          }],
+          pagination: {
+            page: 1,
+            limit: 100,
+            returned: 1,
+            indexed: 1,
+            total: 2,
+            nextCursor: 'page-two',
+            complete: false,
+          },
+        },
+      };
+    },
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  await settleUntil(window, () => (
+    byRole(root, 'trade-history-status')?.textContent.includes('History incomplete')
+  ));
+
+  assert.equal(
+    byRole(root, 'proposal-recent-transactions')
+      .querySelectorAll('.ft-ownership-transaction-row').length,
+    1,
+  );
+  assert.equal(byRole(root, 'trade-history-status').dataset.ftAction, 'retry-market-data');
+
+  cleanupMount(mounted);
+});
+
 test('live trade surfaces refresh without mutating the 01Resolved chart series', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   let activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));

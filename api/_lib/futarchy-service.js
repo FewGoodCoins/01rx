@@ -328,6 +328,51 @@ function encodePageCursor(page) {
   return Buffer.from(JSON.stringify({ v: 1, page }), 'utf8').toString('base64url');
 }
 
+function orderPageMeta(payload, page, limit, indexed) {
+  const total = finiteNumber(
+    payload?.meta?.totalItems
+    ?? payload?.meta?.total
+    ?? payload?.pagination?.total,
+  );
+  const totalPages = finiteNumber(
+    payload?.meta?.totalPages
+    ?? payload?.pagination?.totalPages,
+  );
+  const hasNextPage = Number.isSafeInteger(totalPages) && totalPages > 0
+    ? page < totalPages
+    : indexed >= limit;
+  return {
+    page,
+    limit,
+    indexed,
+    total: Number.isSafeInteger(total) && total >= 0 ? total : null,
+    nextCursor: hasNextPage ? encodePageCursor(page + 1) : null,
+    complete: !hasNextPage,
+  };
+}
+
+function normalizeObservedTrade(row) {
+  const branch = ['pass', 'fail'].includes(String(row?.marketType).toLowerCase())
+    ? String(row.marketType).toLowerCase()
+    : '';
+  const side = ['buy', 'sell'].includes(String(row?.direction).toLowerCase())
+    ? String(row.direction).toLowerCase()
+    : '';
+  if (!branch || !side) return null;
+  const price = finiteNumber(row?.price);
+  return {
+    branch,
+    side,
+    venue: 'futarchy_amm',
+    price: Number.isFinite(price) && price > 0 ? price : null,
+    baseAmount: finiteNumber(row?.size),
+    quoteAmount: finiteNumber(row?.value),
+    volumeUsd: finiteNumber(row?.value),
+    blockTime: isoTimestamp(row?.timeStamp || row?.timestamp),
+    signature: safeSignature(row?.txHash) || null,
+  };
+}
+
 function aggregateHistoryRows(rows, interval) {
   const width = INTERVAL_MS[interval];
   const buckets = new Map();
@@ -609,38 +654,21 @@ export function createFutarchyService(options = {}) {
   async function marketData(input = {}) {
     const proposalId = safeAddress(input.proposal);
     if (!proposalId) throw futarchyServiceError('proposal is invalid', 'BAD_REQUEST', 400);
-    const limit = parsePositiveInteger(input.limit, 30, 100, 'limit');
+    const limit = parsePositiveInteger(input.limit, 100, 100, 'limit');
+    const page = decodePageCursor(input.cursor);
     const active = await activeMarkets();
     const market = active.markets.find(candidate => candidate.proposal.id === proposalId);
     if (!market) throw futarchyServiceError('Active proposal was not found', 'NOT_FOUND', 404);
     const payload = await fetchZeroOne(
-      `/v1/proposal/${encodeURIComponent(proposalId)}/orders?limit=${limit}&page=1`,
+      `/v1/proposal/${encodeURIComponent(proposalId)}/orders?limit=${limit}&page=${page}`,
       dependencies,
     );
-    const recentTrades = (Array.isArray(payload?.data) ? payload.data : [])
-      .map((row) => {
-        const branch = ['pass', 'fail'].includes(String(row?.marketType).toLowerCase())
-          ? String(row.marketType).toLowerCase()
-          : '';
-        const side = ['buy', 'sell'].includes(String(row?.direction).toLowerCase())
-          ? String(row.direction).toLowerCase()
-          : '';
-        const signature = safeSignature(row?.txHash);
-        const price = finiteNumber(row?.price);
-        if (!branch || !side || !signature || !(price > 0)) return null;
-        return {
-          branch,
-          side,
-          venue: 'futarchy_amm',
-          price,
-          baseAmount: finiteNumber(row?.size),
-          quoteAmount: finiteNumber(row?.value),
-          volumeUsd: finiteNumber(row?.value),
-          blockTime: isoTimestamp(row?.timeStamp || row?.timestamp),
-          signature,
-        };
-      })
-      .filter(Boolean);
+    const indexedRows = Array.isArray(payload?.data) ? payload.data : [];
+    const recentTrades = indexedRows.map(normalizeObservedTrade).filter(Boolean);
+    const pagination = {
+      ...orderPageMeta(payload, page, limit, indexedRows.length),
+      returned: recentTrades.length,
+    };
     return {
       proposalId,
       asOf: new Date(dependencies.now()).toISOString(),
@@ -671,6 +699,7 @@ export function createFutarchyService(options = {}) {
         },
       },
       recentTrades,
+      pagination,
       openOrders: [],
       source: { provider: '01Resolved observed proposal trades' },
       degraded: { active: false, services: [], issues: [] },
@@ -776,5 +805,7 @@ export const _test = Object.freeze({
   aggregateHistoryRows,
   normalizeArchiveRow,
   normalizeArchiveStatus,
+  normalizeObservedTrade,
+  orderPageMeta,
   tokenFromProjectSlug,
 });

@@ -11311,6 +11311,29 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
   display: none;
 }
 
+.ft-trade-history-status {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  padding: 8px 10px;
+  border: 0;
+  background: #000;
+  color: #85857f;
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  line-height: 14px;
+  text-align: left;
+}
+
+.ft-trade-history-retry {
+  cursor: pointer;
+}
+
+.ft-trade-history-retry:hover,
+.ft-trade-history-retry:focus-visible {
+  color: #fff;
+}
+
 .ft-transaction-size-heading {
   display: inline-flex;
   min-width: 0;
