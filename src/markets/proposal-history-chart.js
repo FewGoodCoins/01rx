@@ -442,6 +442,31 @@ export function proposalChartObservedRange(plottedTimes, interval = '1h') {
   return { from: times[0], to: times[times.length - 1] };
 }
 
+export function proposalChartDisplayRange(plottedTimes, events, interval = '1h') {
+  const boundaries = (Array.isArray(events) ? events : [])
+    .map(event => Number(event?.time))
+    .filter(Number.isFinite);
+  const range = proposalChartObservedRange(
+    [...(Array.isArray(plottedTimes) ? plottedTimes : []), ...boundaries],
+    interval,
+  );
+  if (!range) return null;
+  const twapEnd = (Array.isArray(events) ? events : [])
+    .find(event => event?.kind === 'twap-end');
+  const twapEndTime = Number(twapEnd?.time);
+  if (!Number.isFinite(twapEndTime) || range.to > twapEndTime) return range;
+  const intervalSeconds = historyIntervalSeconds(interval);
+  const visibleSpan = Math.max(intervalSeconds, range.to - range.from);
+  const postWindowPadding = Math.min(
+    24 * 60 * 60,
+    Math.max(intervalSeconds * 2, visibleSpan * 0.08),
+  );
+  return {
+    from: range.from,
+    to: range.to + postWindowPadding,
+  };
+}
+
 export function proposalChartMaximumLogicalWidth(pointCount, boundaryPointCount = 0) {
   const contentWidth = Math.max(
     1,
@@ -554,12 +579,15 @@ export function createProposalHistoryChart({
     history.preTwap,
     windowEndedAt,
   );
-  const boundaryTimeline = proposalChartBoundaryTimeline(
-    eventDefinitions,
+  const displayRange = proposalChartDisplayRange(
     plottedTimes,
+    eventDefinitions,
     history.interval,
   );
-  const observedRange = proposalChartObservedRange(
+  const boundaryTimeline = proposalChartBoundaryTimeline(
+    Number.isFinite(displayRange?.to)
+      ? [...eventDefinitions, { kind: 'display-end', time: displayRange.to }]
+      : eventDefinitions,
     plottedTimes,
     history.interval,
   );
@@ -762,7 +790,11 @@ export function createProposalHistoryChart({
       setLiveEndpoint(field, key, endpoint);
     });
   const preTwapBoundary = eventDefinitions.find(event => event.kind === 'twap-start');
+  const postTwapBoundary = eventDefinitions.find(event => event.kind === 'twap-end');
   const preTwapBand = preTwapBoundary
+    ? runtime.document.createElement('span')
+    : null;
+  const postTwapBand = postTwapBoundary
     ? runtime.document.createElement('span')
     : null;
   if (preTwapBand) {
@@ -771,15 +803,25 @@ export function createProposalHistoryChart({
     preTwapBand.setAttribute('aria-hidden', 'true');
     container.appendChild(preTwapBand);
   }
+  if (postTwapBand) {
+    postTwapBand.className = 'ft-hourly-post-twap-band';
+    postTwapBand.dataset.ftChartBand = 'post-twap';
+    postTwapBand.setAttribute('aria-hidden', 'true');
+    container.appendChild(postTwapBand);
+  }
   function positionEvents() {
     const width = container.clientWidth;
     const rightScaleWidth = Number(chart.priceScale('right').width?.());
-    if (Number.isFinite(rightScaleWidth) && rightScaleWidth >= 0) {
+    const resolvedRightScaleWidth = Number.isFinite(rightScaleWidth) && rightScaleWidth >= 0
+      ? rightScaleWidth
+      : 0;
+    if (resolvedRightScaleWidth > 0) {
       chartRoot.style.setProperty(
         '--ft-chart-right-scale-width',
-        `${rightScaleWidth}px`,
+        `${resolvedRightScaleWidth}px`,
       );
     }
+    const plotWidth = Math.max(1, width - resolvedRightScaleWidth);
     if (preTwapBand) {
       const coordinate = interpolateChartTimeCoordinate(
         preTwapBoundary.time,
@@ -787,12 +829,27 @@ export function createProposalHistoryChart({
         time => chart.timeScale().timeToCoordinate(time),
       );
       const visibleWidth = Number.isFinite(coordinate)
-        ? Math.min(width, Math.max(0, coordinate))
+        ? Math.min(plotWidth, Math.max(0, coordinate))
         : 0;
       preTwapBand.hidden = visibleWidth <= 0;
       preTwapBand.style.setProperty(
         '--ft-pre-twap-scale',
-        String(visibleWidth / Math.max(1, width)),
+        String(visibleWidth / plotWidth),
+      );
+    }
+    if (postTwapBand) {
+      const coordinate = interpolateChartTimeCoordinate(
+        postTwapBoundary.time,
+        plottedTimes,
+        time => chart.timeScale().timeToCoordinate(time),
+      );
+      const visibleWidth = Number.isFinite(coordinate)
+        ? Math.min(plotWidth, Math.max(0, plotWidth - coordinate))
+        : 0;
+      postTwapBand.hidden = visibleWidth <= 0;
+      postTwapBand.style.setProperty(
+        '--ft-post-twap-scale',
+        String(visibleWidth / plotWidth),
       );
     }
     liveEndpointDots.forEach(({ element, endpoint }, field) => {
@@ -858,8 +915,8 @@ export function createProposalHistoryChart({
     currentRange = RANGE_SECONDS[nextRange] ? nextRange : 'all';
     const seconds = RANGE_SECONDS[nextRange];
     if (!seconds || !Number.isFinite(lastTimestamp)) {
-      if (observedRange) {
-        chart.timeScale().setVisibleRange(observedRange);
+      if (displayRange) {
+        chart.timeScale().setVisibleRange(displayRange);
       } else {
         chart.timeScale().fitContent();
       }

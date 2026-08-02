@@ -1020,6 +1020,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     proposalChartBoundaryEvents,
     proposalChartBoundaryTimeline,
     proposalChartData,
+    proposalChartDisplayRange,
     proposalChartEndpoint,
     proposalChartLiveEndpoints,
     proposalChartLineType,
@@ -1176,6 +1177,20 @@ test('TradingView chart adapter splits null values and missing hours into honest
     {
       from: Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
       to: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+    },
+  );
+  assert.deepEqual(
+    proposalChartDisplayRange(
+      [Date.parse('2026-06-16T10:00:00.000Z') / 1_000],
+      proposalChartBoundaryEvents(
+        '2026-06-16T11:00:00.000Z',
+        '2026-06-16T15:00:00.000Z',
+      ),
+      '1h',
+    ),
+    {
+      from: Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
+      to: Date.parse('2026-06-16T17:00:00.000Z') / 1_000,
     },
   );
   assert.deepEqual(
@@ -1361,7 +1376,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.ok(decisionPressure.closest('[data-ft-role="proposal-history"], .ft-market-chart-header-region'));
   assert.equal(tradeTicket.contains(decisionPressure), false);
   assert.equal(decisionPressure.dataset.ftAvailable, 'true');
-  assert.match(byRole(root, 'remaining-spread').textContent, /PASS (?:must|may) average/i);
+  assert.match(byRole(root, 'remaining-spread').textContent, /PASS avg ≥ \$0\.1298/i);
   assert.match(byRole(root, 'pressure-equivalent-pass').textContent, /If FAIL averages \$0\.1279 through expiry/i);
   assert.match(byRole(root, 'pressure-inputs').textContent, /PASS TWAP/i);
   assert.match(byRole(root, 'pressure-inputs').textContent, /FAIL TWAP/i);

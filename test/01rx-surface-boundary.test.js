@@ -170,6 +170,10 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
+    /\.ft-proposal-focus\.ft-live-market \.ft-decision-pressure\s*\{[\s\S]*?height: 42px;[\s\S]*?min-height: 42px;[\s\S]*?overflow: hidden;/,
+  );
+  assert.match(
+    sharedTerminalCss,
     /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: relative;[\s\S]*?width: calc\(100% - 28px\);[\s\S]*?height: 32px;[\s\S]*?flex: 0 1 calc\(100% - 28px\);[\s\S]*?margin: 0 14px;[\s\S]*?transform: translateY\(7px\);/,
   );
   assert.match(
@@ -394,7 +398,19 @@ test('decision chart plot starts without the exposed toolbar divider', () => {
 test('decision chart uses TWAP background context without vertical boundary lines', () => {
   assert.match(
     frameCss,
-    /\.ft-hourly-pre-twap-band\s*\{[\s\S]*?background: color-mix\(in srgb, var\(--ft-accent\) 5%, transparent\);/,
+    /\.ft-hourly-pre-twap-band,\s*\.ft-hourly-post-twap-band\s*\{[\s\S]*?right: var\(--ft-chart-right-scale-width, 0px\);[\s\S]*?background: color-mix\(in srgb, var\(--ft-accent\) 5%, transparent\);/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-post-twap-band\s*\{[\s\S]*?scaleX\(var\(--ft-post-twap-scale, 0\)\);[\s\S]*?transform-origin: right center;/,
+  );
+  assert.match(
+    proposalChartSource,
+    /postTwapBoundary[\s\S]*?ft-hourly-post-twap-band[\s\S]*?dataset\.ftChartBand = 'post-twap'/,
+  );
+  assert.match(
+    proposalChartSource,
+    /const displayRange = proposalChartDisplayRange\(\s*plottedTimes,\s*eventDefinitions,/,
   );
   assert.doesNotMatch(frameCss, /\.ft-hourly-event-line\s*\{/);
   assert.doesNotMatch(proposalChartSource, /ft-hourly-event-line|data\.ftChartEvent/);
@@ -638,7 +654,7 @@ test('spot and decision routes share one authoritative desktop terminal geometry
   );
   assert.match(
     sharedTerminalCss,
-    /\.ft-proposal-focus\.ft-live-market \.ft-terminal-grid\s*\{\s*--ft-terminal-analysis-height: 78px;/,
+    /\.ft-proposal-focus\.ft-live-market \.ft-terminal-grid\s*\{\s*--ft-terminal-analysis-height: 42px;/,
   );
   assert.match(
     sharedTerminalCss,
