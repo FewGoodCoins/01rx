@@ -992,6 +992,95 @@ function historyOverlayMetric({
   `;
 }
 
+function renderProposalDetailsControl(proposal, open = false) {
+  if (!isObject(proposal)) return '';
+  return `
+    <button
+      class="ft-proposal-details-trigger${open ? ' ft-is-active' : ''}"
+      type="button"
+      data-ft-action="toggle-proposal-details"
+      aria-controls="ft-proposal-details-panel"
+      aria-expanded="${String(open)}"
+    >
+      Proposal
+    </button>
+  `;
+}
+
+function renderProposalDetailsPanel(proposal, open = false) {
+  if (!isObject(proposal)) return '';
+  const proposalNumber = Number.isFinite(proposal.number)
+    ? `Proposal #${Math.round(proposal.number)}`
+    : 'Proposal';
+  const title = firstText(proposal.title, proposalNumber);
+  const description = firstText(proposal.description);
+  const status = firstText(proposal.statusLabel, proposal.status, 'Unknown');
+  const sourceUrl = safeProposalSourceUrl(proposal.sourceUrl || proposal.url);
+  const proposer = safeBase58(proposal.proposer);
+  return `
+    <aside
+      class="ft-proposal-details-panel"
+      id="ft-proposal-details-panel"
+      data-ft-role="proposal-details"
+      aria-label="Proposal details"
+      ${open ? '' : 'hidden'}
+    >
+      <header>
+        <div>
+          <small>${escapeHtml(proposalNumber)}</small>
+          <h2>${escapeHtml(title)}</h2>
+        </div>
+        <button
+          class="ft-proposal-details-close"
+          type="button"
+          data-ft-action="toggle-proposal-details"
+          aria-label="Close proposal details"
+          title="Close proposal details"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
+            <path d="m5 5 10 10M15 5 5 15"/>
+          </svg>
+        </button>
+      </header>
+      <p class="ft-proposal-details-description">${escapeHtml(
+        description || 'No proposal description is available from 01Resolved yet.',
+      )}</p>
+      <dl>
+        <div>
+          <dt>Status</dt>
+          <dd>${escapeHtml(status)}</dd>
+        </div>
+        <div>
+          <dt>Sponsor</dt>
+          <dd>${proposal.isTeamSponsored === true ? 'Team-sponsored' : 'Community'}</dd>
+        </div>
+        <div>
+          <dt>Opened</dt>
+          <dd>${escapeHtml(formatDateTime(proposal.createdAt))}</dd>
+        </div>
+        <div>
+          <dt>Closes</dt>
+          <dd>${escapeHtml(formatDateTime(proposal.endsAt))}</dd>
+        </div>
+        <div>
+          <dt>Proposer</dt>
+          <dd title="${escapeHtml(proposer)}">${escapeHtml(shortenAddress(proposer))}</dd>
+        </div>
+        <div>
+          <dt>Proposal ID</dt>
+          <dd title="${escapeHtml(proposal.id)}">${escapeHtml(shortenAddress(proposal.id))}</dd>
+        </div>
+      </dl>
+      ${sourceUrl ? `
+        <a class="ft-proposal-details-source" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">
+          View proposal source
+          <span aria-hidden="true">↗</span>
+        </a>
+      ` : ''}
+    </aside>
+  `;
+}
+
 function renderChartExpansionControl() {
   return `
     <div
@@ -1093,6 +1182,8 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const latestPass = latestValue('passPrice');
   const latestFail = latestValue('failPrice');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
+  const proposal = isObject(options.proposal) ? options.proposal : null;
+  const proposalDetailsOpen = options.proposalDetailsOpen === true;
   return `
     <div
       class="ft-hourly-chart ft-hourly-chart-pending"
@@ -1101,6 +1192,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
       aria-busy="true"
     >
       <div class="ft-hourly-toolbar">
+        ${renderProposalDetailsControl(proposal, proposalDetailsOpen)}
         ${renderChartExpansionControl()}
       </div>
       <div class="ft-hourly-plot-shell${twapWindow ? ' ft-has-twap-progress' : ''}">
@@ -1167,7 +1259,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           <span class="ft-loader" aria-hidden="true"></span>
           <div>
             <strong>Preparing proposal chart</strong>
-            <p>Applying indexed prices, TWAP, and market-boundary data.</p>
+            <p>Applying indexed prices and TWAP window context.</p>
           </div>
         </div>
         <div
@@ -1175,8 +1267,9 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           data-ft-role="proposal-history-tradingview"
           data-ft-chart-engine="tradingview-lightweight"
           role="img"
-          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
+          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A subtle background change separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The chart retains the complete indexed window without drawing a boundary line.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
         ></div>
+        ${renderProposalDetailsPanel(proposal, proposalDetailsOpen)}
         ${twapWindow}
       </div>
     </div>
@@ -2116,6 +2209,7 @@ export function mountFutardTerminal({
       failPrice: true,
       failTwap: false,
     },
+    proposalDetailsOpen: false,
     pollTimer: null,
     pricePollTimer: null,
     clockTimer: null,
@@ -2168,6 +2262,7 @@ export function mountFutardTerminal({
       intervalSeconds: 3_600,
       totalCycles: 4,
     },
+    proposalTradeMarket: 'pass',
     ownershipOrder: {
       side: 'buy',
       type: 'market',
@@ -2512,6 +2607,18 @@ export function mountFutardTerminal({
       && Boolean(state.tokenFilter);
   }
 
+  function isProposalSpotWorkspace() {
+    return state.hostMode === 'token'
+      && state.workspaceTab === 'decisions'
+      && state.proposalTradeMarket === 'spot'
+      && Boolean(state.tokenFilter)
+      && Boolean(selectedMarket());
+  }
+
+  function isSpotOrderWorkspace() {
+    return isOwnershipWorkspace() || isProposalSpotWorkspace();
+  }
+
   function normalizeOwnershipRecentTransactions(nav) {
     const source = [
       nav.recentTrades,
@@ -2704,7 +2811,7 @@ export function mountFutardTerminal({
   async function loadOwnershipQuote() {
     if (
       state.destroyed
-      || !isOwnershipWorkspace()
+      || !isSpotOrderWorkspace()
       || state.ownershipOrder.type !== 'market'
       || !(firstNumber(state.ownershipOrder.amount) > 0)
     ) {
@@ -2774,7 +2881,7 @@ export function mountFutardTerminal({
     state.ownershipOrder.quote = null;
     state.ownershipOrder.quoteError = '';
     state.ownershipOrder.quoteLoading = (
-      isOwnershipWorkspace()
+      isSpotOrderWorkspace()
       && state.ownershipOrder.type === 'market'
       && firstNumber(state.ownershipOrder.amount) > 0
     );
@@ -3187,6 +3294,8 @@ export function mountFutardTerminal({
           visibility: state.historySeriesVisibility,
           launchedAt: market.proposal.createdAt,
           windowEndedAt: market.proposal.endsAt,
+          proposal: market.proposal,
+          proposalDetailsOpen: state.proposalDetailsOpen,
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">
@@ -4232,21 +4341,6 @@ export function mountFutardTerminal({
     const book = selectedOrderBook(market);
     const amount = firstNumber(state.order.amount);
     const amountValid = Number.isFinite(amount) && amount > 0;
-    const selectedMint = outcome === 'pass'
-      ? market?.proposal?.passBaseMint
-      : market?.proposal?.failBaseMint;
-    const passPosition = positionForMint(market?.proposal?.passBaseMint);
-    const failPosition = positionForMint(market?.proposal?.failBaseMint);
-    const selectedPosition = outcome === 'pass' ? passPosition : failPosition;
-    const currentPosition = selectedPosition?.available
-      ? firstNumber(selectedPosition.amountString, selectedPosition.amount)
-      : null;
-    const passAmount = passPosition?.available
-      ? firstNumber(passPosition.amountString, passPosition.amount)
-      : null;
-    const failAmount = failPosition?.available
-      ? firstNumber(failPosition.amountString, failPosition.amount)
-      : null;
     const estimate = executionEstimate(
       market,
       outcome,
@@ -4259,29 +4353,6 @@ export function mountFutardTerminal({
       suggestedLimitPrice(market),
       branch.price,
     );
-    const tokenDelta = !amountValid
-      ? 0
-      : side === 'buy'
-        ? state.order.type === 'limit'
-          ? amount
-          : firstNumber(estimate?.output, 0)
-        : -amount;
-    const positionAfter = Number.isFinite(currentPosition)
-      ? currentPosition + tokenDelta
-      : tokenDelta;
-    const quoteOutput = !amountValid
-      ? 0
-      : side === 'sell'
-        ? state.order.type === 'limit'
-          ? amount * firstNumber(limitPrice, 0)
-          : firstNumber(estimate?.output, 0)
-        : 0;
-    const passAfter = outcome === 'pass'
-      ? positionAfter
-      : firstNumber(passAmount, 0);
-    const failAfter = outcome === 'fail'
-      ? positionAfter
-      : firstNumber(failAmount, 0);
     const formatPosition = (value) => {
       if (!Number.isFinite(value)) return '—';
       const absolute = Math.abs(value);
@@ -4297,21 +4368,99 @@ export function mountFutardTerminal({
         minimumFractionDigits: 2,
       })}`;
     };
-    const selectedBranchValue = side === 'sell'
-      ? formatPrice(quoteOutput)
-      : `${formatPosition(positionAfter)} ${market?.ticker || 'TOKEN'}`;
+    const conditionalMint = (branchKey, asset) => market?.proposal?.[
+      `${branchKey}${asset === 'base' ? 'Base' : 'Quote'}Mint`
+    ];
+    const selectedOutputAsset = side === 'buy' ? 'base' : 'quote';
+    const selectedPosition = positionForMint(
+      conditionalMint(outcome, selectedOutputAsset),
+    );
+    const positionAmount = (position) => (
+      position?.available
+        ? firstNumber(position.amountString, position.amount)
+        : null
+    );
+    const currentPosition = positionAmount(selectedPosition);
+    const selectedDelta = !amountValid
+      ? 0
+      : state.order.type === 'limit'
+        ? side === 'buy'
+          ? amount
+          : Number.isFinite(limitPrice)
+            ? amount * limitPrice
+            : null
+        : firstNumber(estimate?.output);
+    // A market/recurring prediction first splits the underlying input into
+    // equal PASS and FAIL claims, then swaps only the chosen branch. The
+    // opposite branch therefore keeps the full input claim. Manifest limit
+    // orders split only a funding shortfall, which is not known until review.
+    const addPreviewDelta = (current, delta) => {
+      if (!Number.isFinite(delta)) return current;
+      if (Number.isFinite(current)) return current + delta;
+      return delta > 0 ? delta : null;
+    };
+    const positionAfter = amountValid && !Number.isFinite(selectedDelta)
+      ? null
+      : addPreviewDelta(currentPosition, selectedDelta);
+    const formatQuoteAmount = (value) => {
+      if (!Number.isFinite(value) || value < 0) return '—';
+      return `$${value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: value > 0 && value < 1 ? 4 : 2,
+      })}`;
+    };
+    const formatOutcomeValue = (value, asset) => asset === 'quote'
+      ? `${formatQuoteAmount(value)} USDC`
+      : `${formatPosition(value)} ${market?.ticker || 'TOKEN'}`;
+    const formatSignedOutcomeValue = (value, asset, sign) => (
+      Number.isFinite(value)
+        ? `${sign}${formatOutcomeValue(value, asset)}`
+        : formatOutcomeValue(value, asset)
+    );
+    const inputAsset = side === 'buy' ? 'quote' : 'base';
+    const selectedTradeValue = formatSignedOutcomeValue(
+      amountValid ? selectedDelta : Number.NaN,
+      selectedOutputAsset,
+      '+',
+    );
+    const selectedTradeDetail = state.order.type === 'limit'
+      ? 'Funding finalized at review'
+      : formatSignedOutcomeValue(
+        amountValid ? amount : Number.NaN,
+        inputAsset,
+        '−',
+      );
+    const complementaryBranchValue = state.order.type === 'limit'
+      ? 'Calculated at review'
+      : formatSignedOutcomeValue(
+        amountValid ? amount : Number.NaN,
+        side === 'buy' ? 'quote' : 'base',
+        '+',
+      );
+    const complementaryBranchDetail = state.order.type === 'limit'
+      ? 'Complementary claim finalized at review'
+      : formatOutcomeValue(
+        amountValid ? 0 : Number.NaN,
+        selectedOutputAsset,
+      );
     const passValue = outcome === 'pass'
-      ? selectedBranchValue
-      : `${formatPosition(passAfter)} ${market?.ticker || 'TOKEN'}`;
+      ? selectedTradeValue
+      : complementaryBranchValue;
     const failValue = outcome === 'fail'
-      ? selectedBranchValue
-      : `${formatPosition(failAfter)} ${market?.ticker || 'TOKEN'}`;
+      ? selectedTradeValue
+      : complementaryBranchValue;
+    const passDetail = outcome === 'pass'
+      ? selectedTradeDetail
+      : complementaryBranchDetail;
+    const failDetail = outcome === 'fail'
+      ? selectedTradeDetail
+      : complementaryBranchDetail;
     const inputMint = state.order.type === 'limit'
       ? side === 'buy'
         ? outcome === 'pass'
           ? market?.proposal?.passQuoteMint
           : market?.proposal?.failQuoteMint
-        : selectedMint
+        : conditionalMint(outcome, 'base')
       : side === 'buy'
         ? market?.quoteMint
         : market?.baseMint;
@@ -4324,18 +4473,184 @@ export function mountFutardTerminal({
       amountValid,
       averagePrice: formatPrice(limitPrice),
       buyPrice: formatPrice(firstNumber(book?.bestAsk, branch.price)),
+      failDetail,
       failValue,
       held: Number.isFinite(held) ? formatTokenAmount(held, 4) : '0.0000',
       heldSymbol: side === 'buy' ? 'USDC' : market?.ticker || 'TOKEN',
       instruction: `If ${outcome}, I would like to…`,
+      passDetail,
       passValue,
       positionAfter: formatPosition(positionAfter),
-      positionBefore: Number.isFinite(currentPosition)
-        ? formatPosition(currentPosition)
-        : '0.00',
+      positionBefore: formatPosition(currentPosition),
+      positionLabel: `Your "${outcome}" ${selectedOutputAsset === 'quote' ? 'USDC' : 'token'} position`,
+      positionSymbol: selectedOutputAsset === 'quote'
+        ? 'USDC'
+        : market?.ticker || 'TOKEN',
       sellPrice: formatPrice(firstNumber(book?.bestBid, branch.price)),
       ticker: market?.ticker || 'TOKEN',
     };
+  }
+
+  function renderProposalSpotTicket(market) {
+    const asset = ownershipTokenSnapshot();
+    const isBuy = state.ownershipOrder.side !== 'sell';
+    const inputSymbol = isBuy ? 'USDC' : asset.ticker;
+    const outputSymbol = isBuy ? asset.ticker : 'USDC';
+    const amount = firstNumber(state.ownershipOrder.amount);
+    const output = ownershipOrderOutput(asset);
+    const routedQuote = state.ownershipOrder.quote?.quote || null;
+    const averagePrice = Number.isFinite(amount)
+      && amount > 0
+      && Number.isFinite(output)
+      && output > 0
+      ? isBuy
+        ? amount / output
+        : output / amount
+      : firstNumber(asset.spot, market?.spot?.price);
+    const minimumOutput = firstNumber(routedQuote?.minimumAmountOut);
+    const referencePrice = formatPrice(firstNumber(asset.spot, market?.spot?.price));
+    const outputLabel = Number.isFinite(output)
+      ? formatTokenAmount(output, 6)
+      : '0';
+    const minimumOutputLabel = Number.isFinite(minimumOutput)
+      ? formatTokenAmount(minimumOutput, 6)
+      : '—';
+    const routeLabel = routedQuote?.route?.length
+      ? routedQuote.route.map(leg => leg.venue).join(' → ')
+      : 'DFlow';
+    let cta = '';
+    if (!state.wallet.address) {
+      cta = '<button class="ft-primary-button ft-connect-trade-button" type="button" data-ft-action="connect-wallet">Connect wallet to trade</button>';
+    } else if (!state.wallet.canSignTransaction) {
+      cta = '<button class="ft-primary-button" type="button" disabled>Wallet cannot return a reviewed signature</button>';
+    } else if (!(Number.isFinite(amount) && amount > 0)) {
+      cta = '<button class="ft-primary-button" type="button" disabled>Enter amount</button>';
+    } else if (state.ownershipOrder.quoteLoading) {
+      cta = '<button class="ft-primary-button" type="button" disabled aria-busy="true">Finding best route…</button>';
+    } else if (!state.ownershipOrder.quote?.transaction) {
+      cta = '<button class="ft-primary-button" type="button" disabled>Route unavailable</button>';
+    } else {
+      cta = `
+        <button
+          class="ft-primary-button"
+          type="button"
+          data-ft-action="review-ownership-trade"
+          data-ft-role="trade-submit"
+          ${state.execution.building || state.execution.submitting ? 'disabled' : ''}
+        >${state.execution.building
+          ? 'Preparing review…'
+          : `Review ${isBuy ? 'Buy' : 'Sell'} Spot`}</button>
+      `;
+    }
+
+    regions.tradeTicket.innerHTML = `
+      <section class="ft-ticket ft-execution-ticket ft-decision-ticket ft-proposal-spot-ticket ft-order-outcome-spot">
+        <div class="ft-decision-ticket-scroll" data-ft-role="decision-ticket-scroll">
+          ${renderProposalTradeMarketTabs()}
+
+          <p class="ft-decision-intent">Trade ${escapeHtml(asset.ticker)} at the current spot market.</p>
+
+          <div class="ft-decision-side-quotes" role="group" aria-label="Select spot trade direction">
+            <button
+              type="button"
+              data-ft-action="select-ownership-side"
+              data-ft-side="buy"
+              aria-pressed="${String(isBuy)}"
+              class="ft-decision-side-quote ft-decision-buy${isBuy ? ' ft-is-selected' : ''}"
+            ><strong>Buy</strong><span>${escapeHtml(referencePrice)}</span></button>
+            <button
+              type="button"
+              data-ft-action="select-ownership-side"
+              data-ft-side="sell"
+              aria-pressed="${String(!isBuy)}"
+              class="ft-decision-side-quote ft-decision-sell${!isBuy ? ' ft-is-selected' : ''}"
+            ><strong>Sell</strong><span>${escapeHtml(referencePrice)}</span></button>
+          </div>
+
+          <label class="ft-amount-field ft-decision-amount-field">
+            <span class="ft-amount-input-wrap">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                inputmode="decimal"
+                placeholder="0.00"
+                value="${escapeHtml(state.ownershipOrder.amount)}"
+                data-ft-role="ownership-amount"
+                aria-label="Spot trade amount in ${escapeHtml(inputSymbol)}"
+              >
+              <span class="ft-decision-held">
+                <small>${escapeHtml(inputSymbol)} held</small>
+                <strong>0.0000</strong>
+              </span>
+            </span>
+          </label>
+
+          <div class="ft-decision-presets" aria-label="Quick spot trade amounts">
+            ${[
+              ['500', '500'],
+              ['1000', '1K'],
+              ['2500', '2.5K'],
+            ].map(([value, label]) => `
+              <button type="button" data-ft-action="ownership-amount-preset" data-ft-amount="${value}">${label}</button>
+            `).join('')}
+            <button class="ft-decision-max" type="button" data-ft-action="ownership-amount-preset" data-ft-amount="max">Max</button>
+          </div>
+
+          <div class="ft-decision-average">
+            <span>Average price</span>
+            <strong>${escapeHtml(formatPrice(averagePrice))}</strong>
+          </div>
+
+          <div class="ft-decision-position">
+            <span>Estimated receive</span>
+            <strong>
+              <span data-ft-role="ownership-receive-amount">${escapeHtml(outputLabel)}</span>
+              ${escapeHtml(outputSymbol)}
+            </strong>
+          </div>
+
+          <div class="ft-decision-payoff ft-proposal-spot-summary" aria-label="Spot route estimate">
+            <div class="ft-proposal-spot-pay">
+              <span>PAY</span>
+              <strong>${Number.isFinite(amount) ? escapeHtml(formatTokenAmount(amount, 6)) : '0'} ${escapeHtml(inputSymbol)}</strong>
+            </div>
+            <div class="ft-proposal-spot-receive">
+              <span>MIN RECEIVE</span>
+              <strong>${escapeHtml(minimumOutputLabel)} ${escapeHtml(outputSymbol)}</strong>
+            </div>
+          </div>
+
+          ${state.ownershipOrder.quoteError
+            ? `<p class="ft-ticket-error">${escapeHtml(state.ownershipOrder.quoteError)}</p>`
+            : ''}
+          ${renderTicketTransactionStatus(market)}
+
+          <details class="ft-decision-advanced">
+            <summary>Market order · ${(state.ownershipOrder.slippageBps / 100).toFixed(1)}% max slippage</summary>
+            <div class="ft-segmented ft-order-type-tabs" role="group" aria-label="Spot order type">
+              <button type="button" aria-pressed="true" class="ft-segment-active">MARKET</button>
+              <button type="button" aria-pressed="false" disabled>LIMIT</button>
+            </div>
+            <label class="ft-slippage-field">
+              <span>
+                <span class="ft-ticket-label">Max slippage</span>
+                <small>Minimum output enforced by the reviewed route</small>
+              </span>
+              <select data-ft-role="ownership-slippage" aria-label="Spot maximum slippage">
+                <option value="50"${state.ownershipOrder.slippageBps === 50 ? ' selected' : ''}>0.5%</option>
+                <option value="100"${state.ownershipOrder.slippageBps === 100 ? ' selected' : ''}>1.0%</option>
+                <option value="200"${state.ownershipOrder.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
+              </select>
+            </label>
+            <p>Route: ${escapeHtml(routeLabel)}. 01RX verifies and simulates the exact spot transaction before wallet approval.</p>
+          </details>
+        </div>
+        <div class="ft-decision-action" data-ft-role="trade-action">
+          ${cta}
+        </div>
+      </section>
+    `;
   }
 
   function decisionPressureScenario(market) {
@@ -4550,22 +4865,7 @@ export function mountFutardTerminal({
     regions.tradeTicket.innerHTML = `
       <section class="ft-ticket ft-execution-ticket ft-decision-ticket ft-order-outcome-${escapeHtml(state.order.outcome)}">
         <div class="ft-decision-ticket-scroll" data-ft-role="decision-ticket-scroll">
-        <div class="ft-segmented ft-outcome-tabs" role="group" aria-label="Select outcome">
-          <button
-            type="button"
-            data-ft-action="select-outcome"
-            data-ft-outcome="pass"
-            aria-pressed="${state.order.outcome === 'pass'}"
-            class="${state.order.outcome === 'pass' ? 'ft-segment-active ft-segment-pass' : ''}"
-          >If "Pass"</button>
-          <button
-            type="button"
-            data-ft-action="select-outcome"
-            data-ft-outcome="fail"
-            aria-pressed="${state.order.outcome === 'fail'}"
-            class="${state.order.outcome === 'fail' ? 'ft-segment-active ft-segment-fail' : ''}"
-          >If "Fail"</button>
-        </div>
+        ${renderProposalTradeMarketTabs()}
 
         <p class="ft-decision-intent" data-ft-role="decision-intent">${escapeHtml(preview.instruction)}</p>
 
@@ -4649,24 +4949,26 @@ export function mountFutardTerminal({
         </div>
 
         <div class="ft-decision-position">
-          <span>Your "${escapeHtml(state.order.outcome)}" position</span>
+          <span>${escapeHtml(preview.positionLabel)}</span>
           <strong>
             <span data-ft-role="position-before">${escapeHtml(preview.positionBefore)}</span>
-            ${escapeHtml(preview.ticker)}
+            ${escapeHtml(preview.positionSymbol)}
             <i aria-hidden="true">→</i>
             <span data-ft-role="position-after">${escapeHtml(preview.positionAfter)}</span>
-            ${escapeHtml(preview.ticker)}
+            ${escapeHtml(preview.positionSymbol)}
           </strong>
         </div>
 
-        <div class="ft-decision-payoff" aria-label="Estimated post-trade conditional positions">
+        <div class="ft-decision-payoff" aria-label="Estimated trade result at proposal resolution">
           <div class="ft-decision-payoff-fail">
-            <span>FAIL</span>
+            <span>IF FAIL</span>
             <strong data-ft-role="fail-payoff">${escapeHtml(preview.failValue)}</strong>
+            <small data-ft-role="fail-payoff-detail">${escapeHtml(preview.failDetail)}</small>
           </div>
           <div class="ft-decision-payoff-pass">
-            <span>PASS</span>
+            <span>IF PASS</span>
             <strong data-ft-role="pass-payoff">${escapeHtml(preview.passValue)}</strong>
+            <small data-ft-role="pass-payoff-detail">${escapeHtml(preview.passDetail)}</small>
           </div>
         </div>
 
@@ -4768,10 +5070,12 @@ export function mountFutardTerminal({
       'average-price': preview.averagePrice,
       'buy-price': preview.buyPrice,
       'decision-intent': preview.instruction,
+      'fail-payoff-detail': preview.failDetail,
       'fail-payoff': preview.failValue,
       'held-balance': preview.held,
       'held-symbol': preview.heldSymbol,
       'pass-payoff': preview.passValue,
+      'pass-payoff-detail': preview.passDetail,
       'position-after': preview.positionAfter,
       'position-before': preview.positionBefore,
       'sell-price': preview.sellPrice,
@@ -4890,6 +5194,54 @@ export function mountFutardTerminal({
       'ft-execution-locked',
       state.execution.building || state.execution.submitting,
     );
+  }
+
+  function renderProposalTradeMarketTabs() {
+    if (state.hostMode !== 'token' || state.workspaceTab !== 'decisions') {
+      return `
+        <div class="ft-segmented ft-outcome-tabs" role="group" aria-label="Select outcome">
+          ${['pass', 'fail'].map(outcome => `
+            <button
+              type="button"
+              data-ft-action="select-outcome"
+              data-ft-outcome="${outcome}"
+              aria-pressed="${String(state.order.outcome === outcome)}"
+              class="${state.order.outcome === outcome
+                ? `ft-segment-active ft-segment-${outcome}`
+                : ''}"
+            >If "${outcome === 'pass' ? 'Pass' : 'Fail'}"</button>
+          `).join('')}
+        </div>
+      `;
+    }
+    const activeMarket = state.proposalTradeMarket === 'spot'
+      ? 'spot'
+      : state.order.outcome === 'fail'
+        ? 'fail'
+        : 'pass';
+    return `
+      <div class="ft-segmented ft-outcome-tabs ft-proposal-trade-tabs" role="tablist" aria-label="Select proposal market">
+        ${[
+          ['pass', 'If "Pass"'],
+          ['spot', 'Spot'],
+          ['fail', 'If "Fail"'],
+        ].map(([marketKey, label]) => `
+          <button
+            type="button"
+            role="tab"
+            data-ft-action="${marketKey === 'spot' ? 'select-proposal-trade-market' : 'select-outcome'}"
+            data-ft-trade-market="${marketKey}"
+            ${marketKey === 'spot' ? '' : `data-ft-outcome="${marketKey}"`}
+            aria-selected="${String(activeMarket === marketKey)}"
+            class="${activeMarket === marketKey
+              ? `ft-is-active ft-is-${marketKey}${marketKey === 'spot'
+                ? ''
+                : ` ft-segment-active ft-segment-${marketKey}`}`
+              : ''}"
+          >${label}</button>
+        `).join('')}
+      </div>
+    `;
   }
 
   function renderTradeTicket() {
@@ -5090,6 +5442,10 @@ export function mountFutardTerminal({
           <p>Compare PASS and FAIL outcomes before opening the official execution venue.</p>
         </section>
       `;
+      return;
+    }
+    if (state.proposalTradeMarket === 'spot' && state.hostMode === 'token') {
+      renderProposalSpotTicket(market);
       return;
     }
     if (market.proposal.statusGroup !== 'live') {
@@ -6629,6 +6985,9 @@ export function mountFutardTerminal({
     state.marketDataRequestId += 1;
     state.marketDataAbortController?.abort();
     state.selectedId = next.id;
+    state.proposalDetailsOpen = false;
+    state.proposalTradeMarket = 'pass';
+    invalidateOwnershipQuote();
     state.wallet.positions = [];
     state.wallet.positionsError = '';
     state.wallet.redemption = null;
@@ -6841,7 +7200,7 @@ export function mountFutardTerminal({
     renderTradeTicket();
     renderPositions();
     renderModal();
-    if (isOwnershipWorkspace() && firstNumber(state.ownershipOrder.amount) > 0) {
+    if (isSpotOrderWorkspace() && firstNumber(state.ownershipOrder.amount) > 0) {
       scheduleOwnershipQuote(0);
     }
     if (address) {
@@ -6890,7 +7249,7 @@ export function mountFutardTerminal({
         loadProposalMarketData(selectedMarket(), { force: true }),
         refreshTransactionStatuses(),
       ]);
-      if (isOwnershipWorkspace() && firstNumber(state.ownershipOrder.amount) > 0) {
+      if (isSpotOrderWorkspace() && firstNumber(state.ownershipOrder.amount) > 0) {
         scheduleOwnershipQuote(0);
       }
     } catch (error) {
@@ -6978,7 +7337,7 @@ export function mountFutardTerminal({
     };
     invalidateOwnershipQuote();
     render();
-    if (isOwnershipWorkspace() && firstNumber(state.ownershipOrder.amount) > 0) {
+    if (isSpotOrderWorkspace() && firstNumber(state.ownershipOrder.amount) > 0) {
       scheduleOwnershipQuote(0);
     }
     loadProposalMarketData(selectedMarket(), { force: true });
@@ -7206,7 +7565,7 @@ export function mountFutardTerminal({
   }
 
   async function reviewOwnershipTrade() {
-    if (!isOwnershipWorkspace()) return;
+    if (!isSpotOrderWorkspace()) return;
     if (!state.wallet.address) {
       connectWallet();
       return;
@@ -8073,6 +8432,21 @@ export function mountFutardTerminal({
     });
   }
 
+  function setProposalDetailsOpen(open, options = {}) {
+    state.proposalDetailsOpen = open === true;
+    root.querySelectorAll('[data-ft-action="toggle-proposal-details"]')
+      .forEach((control) => {
+        if (!control.classList.contains('ft-proposal-details-trigger')) return;
+        control.setAttribute('aria-expanded', String(state.proposalDetailsOpen));
+        control.classList.toggle('ft-is-active', state.proposalDetailsOpen);
+      });
+    const panel = root.querySelector('[data-ft-role="proposal-details"]');
+    if (panel) panel.hidden = !state.proposalDetailsOpen;
+    if (!state.proposalDetailsOpen && options.restoreFocus === true) {
+      root.querySelector('.ft-proposal-details-trigger')?.focus();
+    }
+  }
+
   async function selectSidebarProposal(anchor) {
     const proposalId = safeBase58(anchor?.dataset?.ftProposalId);
     const market = state.sidebarMarkets.find(candidate => candidate.id === proposalId);
@@ -8168,6 +8542,11 @@ export function mountFutardTerminal({
     } else if (action === 'toggle-chart-expansion') {
       event.preventDefault();
       toggleChartExpansion(target);
+    } else if (action === 'toggle-proposal-details') {
+      event.preventDefault();
+      setProposalDetailsOpen(!state.proposalDetailsOpen, {
+        restoreFocus: target.classList.contains('ft-proposal-details-close'),
+      });
     } else if (action === 'select-proposal') {
       if (state.hostMode === 'discovery') event.preventDefault();
       selectProposal(target.dataset.ftProposalId, { focus: true });
@@ -8265,6 +8644,24 @@ export function mountFutardTerminal({
         state.bookTab = book;
         renderMarketStage();
       }
+    } else if (action === 'select-proposal-trade-market') {
+      const tradeMarket = target.dataset.ftTradeMarket;
+      if (!['spot', 'pass', 'fail'].includes(tradeMarket)) return;
+      state.execution.error = '';
+      if (tradeMarket === 'spot') {
+        state.proposalTradeMarket = 'spot';
+        renderTradeTicket();
+        if (firstNumber(state.ownershipOrder.amount) > 0) {
+          scheduleOwnershipQuote(0);
+        }
+      } else {
+        state.proposalTradeMarket = tradeMarket;
+        state.order.outcome = tradeMarket;
+        state.order.price = '';
+        invalidateOwnershipQuote();
+        renderMarketStage();
+        renderTradeTicket();
+      }
     } else if (action === 'select-pressure-assumption') {
       const assumption = target.dataset.ftPressureAssumption;
       if (['spot', 'twap', 'custom'].includes(assumption)) {
@@ -8286,6 +8683,7 @@ export function mountFutardTerminal({
     } else if (action === 'select-outcome') {
       const outcome = target.dataset.ftOutcome;
       if (outcome === 'pass' || outcome === 'fail') {
+        state.proposalTradeMarket = outcome;
         state.order.outcome = outcome;
         state.order.price = '';
         state.execution.error = '';
@@ -8508,13 +8906,20 @@ export function mountFutardTerminal({
     if (
       (state.execution.building || state.execution.submitting)
       && event.target.matches(
-        '[data-ft-role="slippage"], [data-ft-role="recurring-interval"], [data-ft-role="recurring-cycles"]',
+        '[data-ft-role="slippage"], [data-ft-role="ownership-slippage"], [data-ft-role="recurring-interval"], [data-ft-role="recurring-cycles"]',
       )
     ) return;
     if (event.target.matches('[data-ft-role="slippage"]')) {
       const next = firstNumber(event.target.value);
       if ([50, 100, 200].includes(next)) {
         state.order.slippageBps = next;
+        renderTradeTicket();
+      }
+    } else if (event.target.matches('[data-ft-role="ownership-slippage"]')) {
+      const next = firstNumber(event.target.value);
+      if ([50, 100, 200].includes(next)) {
+        state.ownershipOrder.slippageBps = next;
+        scheduleOwnershipQuote(0);
         renderTradeTicket();
       }
     } else if (event.target.matches('[data-ft-role="recurring-interval"]')) {
@@ -8548,6 +8953,9 @@ export function mountFutardTerminal({
       state.execution.plan = null;
       state.execution.simulation = null;
       renderModal();
+    } else if (event.key === 'Escape' && state.proposalDetailsOpen) {
+      event.preventDefault();
+      setProposalDetailsOpen(false, { restoreFocus: true });
     } else if (commandSearch || slashSearch) {
       event.preventDefault();
       regions.search?.focus();
@@ -8605,6 +9013,8 @@ export function mountFutardTerminal({
     state.recurringRequestId += 1;
     invalidateOwnershipQuote();
     state.tokenFilter = normalized;
+    state.proposalTradeMarket = 'pass';
+    state.proposalDetailsOpen = false;
     state.selectedId = requestedProposalId;
     state.requestedProposalId = requestedProposalId;
     if (requestedProposalId) {

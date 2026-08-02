@@ -771,14 +771,6 @@ export function createProposalHistoryChart({
     preTwapBand.setAttribute('aria-hidden', 'true');
     container.appendChild(preTwapBand);
   }
-  const eventElements = eventDefinitions.map((event) => {
-    const line = runtime.document.createElement('span');
-    line.className = `ft-hourly-event-line ft-hourly-event-${event.kind}`;
-    line.dataset.ftChartEvent = event.kind;
-    line.setAttribute('aria-hidden', 'true');
-    container.appendChild(line);
-    return { ...event, element: line };
-  });
   function positionEvents() {
     const width = container.clientWidth;
     const rightScaleWidth = Number(chart.priceScale('right').width?.());
@@ -803,26 +795,6 @@ export function createProposalHistoryChart({
         String(visibleWidth / Math.max(1, width)),
       );
     }
-    const positioned = eventElements.map(event => ({
-      ...event,
-      coordinate: interpolateChartTimeCoordinate(
-        event.time,
-        plottedTimes,
-        time => chart.timeScale().timeToCoordinate(time),
-      ),
-    })).filter(event => (
-      Number.isFinite(event.coordinate)
-      && event.coordinate >= 0
-      && event.coordinate <= width
-    ));
-    eventElements.forEach((event) => {
-      event.element.hidden = !positioned.some(positionedEvent => (
-        positionedEvent.element === event.element
-      ));
-    });
-    positioned.forEach((event) => {
-      event.element.style.setProperty('--ft-event-x', `${event.coordinate}px`);
-    });
     liveEndpointDots.forEach(({ element, endpoint }, field) => {
       const series = seriesByField.get(field)?.[0];
       if (!series || seriesVisibility.get(field) === false) {
@@ -1075,7 +1047,6 @@ export function createProposalHistoryChart({
           container.removeEventListener(eventName, interactionHandler);
         });
       }
-      eventElements.forEach(event => event.element.remove());
       liveEndpointDots.forEach(({ element }) => element.remove());
       launchAnchorMarkers?.detach();
       delete container.dataset.ftLaunchAnchorRenderer;

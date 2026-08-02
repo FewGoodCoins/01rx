@@ -3653,6 +3653,161 @@ body.is-futard-terminal #token-switch-loader {
   overflow: visible;
 }
 
+.ft-proposal-details-trigger {
+  display: inline-flex;
+  min-width: 92px;
+  height: 42px;
+  padding: 0 15px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-right: 1px solid #292929;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ft-muted);
+  cursor: pointer;
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ft-proposal-details-trigger:hover,
+.ft-proposal-details-trigger:focus-visible,
+.ft-proposal-details-trigger.ft-is-active {
+  background: #1b1b1b;
+  color: var(--ft-ink-strong);
+}
+
+.ft-proposal-details-trigger:focus-visible,
+.ft-proposal-details-close:focus-visible,
+.ft-proposal-details-source:focus-visible {
+  outline: 1px solid var(--ft-focus);
+  outline-offset: -2px;
+}
+
+.ft-proposal-details-panel {
+  position: absolute;
+  z-index: 14;
+  top: 0;
+  bottom: 0;
+  left: 42px;
+  width: min(520px, calc(100% - 42px));
+  padding: 24px;
+  overflow: auto;
+  border-right: 1px solid #343636;
+  background: color-mix(in srgb, #101010 97%, transparent);
+  color: var(--ft-ink);
+  box-shadow: 20px 0 40px rgba(0, 0, 0, 0.24);
+}
+
+.ft-proposal-details-panel[hidden] {
+  display: none;
+}
+
+.ft-proposal-details-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.ft-proposal-details-panel > header > div {
+  min-width: 0;
+}
+
+.ft-proposal-details-panel small,
+.ft-proposal-details-panel dt {
+  color: var(--ft-muted);
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.ft-proposal-details-panel h2 {
+  margin: 7px 0 0;
+  color: var(--ft-ink-strong);
+  font-size: 19px;
+  font-weight: 560;
+  line-height: 1.3;
+}
+
+.ft-proposal-details-close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #343636;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ft-muted);
+  cursor: pointer;
+}
+
+.ft-proposal-details-close:hover {
+  color: var(--ft-ink-strong);
+}
+
+.ft-proposal-details-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ft-proposal-details-description {
+  max-width: 68ch;
+  margin: 24px 0;
+  color: var(--ft-ink);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+.ft-proposal-details-panel dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid #292929;
+  border-left: 1px solid #292929;
+}
+
+.ft-proposal-details-panel dl > div {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #292929;
+  border-bottom: 1px solid #292929;
+}
+
+.ft-proposal-details-panel dt,
+.ft-proposal-details-panel dd {
+  margin: 0;
+}
+
+.ft-proposal-details-panel dd {
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--ft-ink-strong);
+  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ft-proposal-details-source {
+  display: inline-flex;
+  margin-top: 20px;
+  align-items: center;
+  gap: 7px;
+  color: var(--ft-ink-strong);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.ft-proposal-details-source:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .ft-hourly-readout {
   position: absolute;
   z-index: 6;
@@ -4213,19 +4368,6 @@ body.is-futard-terminal #token-switch-loader {
   pointer-events: none;
   transform: scaleX(var(--ft-pre-twap-scale, 0));
   transform-origin: left center;
-  will-change: transform;
-}
-
-.ft-hourly-event-line {
-  position: absolute;
-  z-index: 4;
-  top: 0;
-  bottom: 26px;
-  left: 0;
-  width: 0;
-  border-left: 1px dashed color-mix(in srgb, #ffffff 82%, transparent);
-  pointer-events: none;
-  transform: translate3d(var(--ft-event-x, 0px), 0, 0);
   will-change: transform;
 }
 
@@ -6906,6 +7048,58 @@ body.is-token-markets .token-markets-root {
   background: #111111;
 }
 
+.ft-proposal-trade-tabs {
+  display: grid;
+  min-height: 52px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 0;
+  border-bottom: 1px solid #474747;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ft-proposal-trade-tabs button {
+  position: relative;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: #696969;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ft-proposal-trade-tabs button:hover,
+.ft-proposal-trade-tabs button:focus-visible,
+.ft-proposal-trade-tabs button.ft-is-active {
+  color: #f1f1f1;
+}
+
+.ft-proposal-trade-tabs button.ft-is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #f1f1f1;
+  content: '';
+}
+
+.ft-proposal-trade-tabs button.ft-is-pass::after {
+  background: var(--ft-decision-green, #18c795);
+}
+
+.ft-proposal-trade-tabs button.ft-is-fail::after {
+  background: var(--ft-decision-red, #ff2e3f);
+}
+
+.ft-decision-ticket .ft-proposal-trade-tabs {
+  margin: 0 -14px;
+}
+
 .ft-decision-ticket .ft-outcome-tabs {
   min-height: 64px;
   margin: 0 -14px;
@@ -7331,10 +7525,11 @@ body.is-token-markets .token-markets-root {
 .ft-decision-payoff > div {
   display: flex;
   min-width: 0;
-  padding: 0 13px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 7px;
+  padding: 7px 13px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .ft-decision-payoff > div + div {
@@ -7349,10 +7544,23 @@ body.is-token-markets .token-markets-root {
 }
 
 .ft-decision-payoff strong {
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   font-size: 13px;
   font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ft-decision-payoff small {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: #8f8f8f;
+  font-size: 10px;
+  font-weight: 480;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -7396,6 +7604,26 @@ body.is-token-markets .token-markets-root {
   border-color: #f2f2ef;
   background: #f2f2ef;
   color: #101010;
+}
+
+.ft-decision-ticket.ft-order-outcome-spot .ft-primary-button:not(:disabled) {
+  border-color: #f2f2ef;
+  background: #f2f2ef;
+  color: #101010;
+}
+
+.ft-decision-ticket.ft-order-outcome-spot .ft-primary-button:disabled {
+  border-color: #3b3b3b;
+  background: #292929;
+  color: #8a8a8a;
+}
+
+.ft-proposal-spot-summary .ft-proposal-spot-pay strong {
+  color: #f2f2ef;
+}
+
+.ft-proposal-spot-summary .ft-proposal-spot-receive strong {
+  color: var(--ft-decision-green);
 }
 
 .ft-decision-advanced {
