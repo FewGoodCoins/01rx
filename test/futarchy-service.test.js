@@ -73,12 +73,11 @@ test('futarchy source normalizers bind known project aliases and lifecycle state
   assert.equal(_test.normalizeArchiveRow({ publicKey: 'invalid', projectSlug: 'umbra' }), null);
 });
 
-test('active markets join 01Resolved identity, NAV configuration, and validated chain state', async () => {
+test('active markets join 01Resolved identity with proposal-discovered validated chain state', async () => {
   const calls = [];
   const service = createFutarchyService({
     env: {
       ZERO_ONE_RESOLVED_API_KEY: 'server-key',
-      NAVGATOR_API_ORIGIN: 'https://nav.example',
     },
     connection: {},
     now: () => Date.parse('2026-07-31T22:00:00Z'),
@@ -92,18 +91,11 @@ test('active markets join 01Resolved identity, NAV configuration, and validated 
           proposalTitle: 'Active proposal',
         }] });
       }
-      return jsonResponse({ ok: true, data: {
-        name: 'Futardio Cult',
-        ticker: 'FUTARDIO',
-        config: { futAmm: DAO, mint: BASE, logo: '/logo.png' },
-      } });
+      throw new Error(`Unexpected request: ${url}`);
     },
     async loadMarketSnapshot(_connection, input) {
       assert.deepEqual(input, {
-        daoAddress: DAO,
         proposalAddress: PROPOSAL,
-        baseMint: BASE,
-        quoteMint: USDC,
       });
       return snapshot();
     },
@@ -116,8 +108,8 @@ test('active markets join 01Resolved identity, NAV configuration, and validated 
   assert.equal(first.markets[0].tradable, true);
   assert.equal(first.markets[0].proposal.passBaseMint, snapshot().proposal.passBaseMint);
   assert.equal(second, first);
-  assert.equal(calls.length, 2);
-  assert.ok(calls.includes('https://nav.example/api/tokens-config?token=futardio'));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].startsWith('https://api.01resolved.com/'), true);
   assert.equal(calls.some(url => url.includes('/api/current-nav')), false);
 });
 
@@ -125,14 +117,13 @@ test('active markets fail closed when every indexed market fails account validat
   const service = createFutarchyService({
     env: {
       ZERO_ONE_RESOLVED_API_KEY: 'server-key',
-      NAVGATOR_API_ORIGIN: 'https://nav.example',
     },
     connection: {},
     async fetchImpl(url) {
       if (String(url).startsWith('https://api.01resolved.com/')) {
         return jsonResponse({ data: [{ organizationSlug: 'futardio-cult', proposalPublicKey: PROPOSAL }] });
       }
-      return jsonResponse({ data: { config: { futAmm: DAO, mint: BASE } } });
+      throw new Error(`Unexpected request: ${url}`);
     },
     async loadMarketSnapshot() {
       throw new Error('owner mismatch');
@@ -169,12 +160,11 @@ test('proposal history aggregates official 15-minute chart observations', async 
   });
 });
 
-test('proposal history fills missing post-open TWAPs from exact on-chain events', async () => {
+test('proposal history leaves missing TWAPs empty instead of using a second provider', async () => {
   const backfillCalls = [];
   const service = createFutarchyService({
     env: {
       ZERO_ONE_RESOLVED_API_KEY: 'server-key',
-      NAVGATOR_API_ORIGIN: 'https://nav.example',
       HELIUS_RPC_URL: 'https://mainnet.helius-rpc.com/?api-key=server-secret',
     },
     connection: {},
@@ -197,19 +187,7 @@ test('proposal history fills missing post-open TWAPs from exact on-chain events'
           }],
         } });
       }
-      if (value.startsWith('https://api.01resolved.com/')) {
-        return jsonResponse({ data: [{
-          organizationName: 'Futardio Cult',
-          organizationSlug: 'futardio-cult',
-          proposalPublicKey: PROPOSAL,
-          proposalTitle: 'Active proposal',
-        }] });
-      }
-      return jsonResponse({ ok: true, data: {
-        name: 'Futardio Cult',
-        ticker: 'FUTARDIO',
-        config: { futAmm: DAO, mint: BASE, logo: '/logo.png' },
-      } });
+      throw new Error(`Unexpected request: ${url}`);
     },
     async loadMarketSnapshot() { return snapshot(); },
     async loadTwapHistory(options) {
@@ -229,19 +207,17 @@ test('proposal history fills missing post-open TWAPs from exact on-chain events'
   });
 
   const result = await service.proposalHistory({ proposal: PROPOSAL, interval: '15m' });
-  assert.equal(backfillCalls.length, 1);
-  assert.equal(backfillCalls[0].daoAddress, DAO);
-  assert.equal(backfillCalls[0].rpcUrl.includes('server-secret'), true);
+  assert.equal(backfillCalls.length, 0);
   assert.deepEqual(result.series.map(row => [
     row.passTwap,
     row.failTwap,
   ]), [
-    [1.04, 0.96],
-    [1.05, 0.95],
+    [null, null],
+    [null, null],
   ]);
-  assert.equal(result.summary.coverage.passTwap, 2);
+  assert.equal(result.summary.coverage.passTwap, 0);
   assert.equal(result.source.provider, '01Resolved');
-  assert.equal(result.source.twapProvider, 'Solana Futarchy SpotSwapEvent history');
+  assert.equal(result.source.twapProvider, undefined);
   assert.equal(result.degraded.active, false);
 });
 
@@ -272,13 +248,13 @@ test('positions preserve exact atomic balances and ignore unrelated parsed accou
     },
   };
   const backed = createFutarchyService({
-    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key', NAVGATOR_API_ORIGIN: 'https://nav.example' },
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
     connection,
     async fetchImpl(url) {
       if (String(url).startsWith('https://api.01resolved.com/')) {
         return jsonResponse({ data: [{ organizationSlug: 'futardio-cult', proposalPublicKey: PROPOSAL }] });
       }
-      return jsonResponse({ data: { ticker: 'FUTARDIO', config: { futAmm: DAO, mint: BASE } } });
+      throw new Error(`Unexpected request: ${url}`);
     },
     async loadMarketSnapshot() { return active; },
   });

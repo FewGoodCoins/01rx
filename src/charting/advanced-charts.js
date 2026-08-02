@@ -426,41 +426,12 @@ export function create01rxAdvancedChartsDatafeed({
 } = {}) {
   const normalizedToken = normalizeTokenKey(tokenKey);
   const normalizedTicker = normalizeTicker(ticker, normalizedToken);
-  const api = runtime?.NAVGATOR?.api;
   const syntheticSeries = new Map();
   const subscriptions = new Map();
 
-  async function loadRemoteBars(symbolInfo, resolution, periodParams = {}) {
-    const identity = symbolKindFromInfo(symbolInfo, normalizedToken);
-    const timeframe = timeframeForTradingViewResolution(resolution);
-    if (!timeframe || !api?.json || !api.baseUrl) return [];
-    const seconds = resolutionSeconds(resolution);
-    const to = Number(periodParams.to) || Math.floor(Date.now() / 1_000) + seconds;
-    const countBack = Math.max(2, Number(periodParams.countBack) || 300);
-    const requestedFrom = Number(periodParams.from) || (to - countBack * seconds);
-    const from = Math.min(requestedFrom, to - countBack * seconds);
-
-    if (identity.kind === 'price') {
-      const url = new runtime.URL('/api/ohlcv', api.baseUrl);
-      url.searchParams.set('token', identity.tokenKey);
-      url.searchParams.set('tf', timeframe);
-      url.searchParams.set('time_from', String(Math.max(0, Math.floor(from))));
-      url.searchParams.set('time_to', String(Math.ceil(to)));
-      return normalizeOhlcvResponse(await api.json(url.href, { timeoutMs: 12_000 }));
-    }
-
-    if (identity.kind === 'nav') {
-      const days = Math.min(
-        3_650,
-        Math.max(7, Math.ceil((to - from) / 86_400) + 2),
-      );
-      const url = new runtime.URL('/api/historic-nav', api.baseUrl);
-      url.searchParams.set('token', identity.tokenKey);
-      url.searchParams.set('days', String(days));
-      url.searchParams.set('resolution', timeframe);
-      return normalizeNavResponse(await api.json(url.href, { timeoutMs: 12_000 }), 'nav');
-    }
-
+  async function loadRemoteBars() {
+    // The current 01Resolved contract is a point-in-time snapshot. Advanced
+    // Charts must report noData until 01Resolved publishes historic bars.
     return [];
   }
 

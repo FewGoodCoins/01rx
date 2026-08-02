@@ -5,15 +5,12 @@ import {
   loadAndValidateDecisionExecutionSafety,
 } from '../../src/markets/solana-program-policy.js';
 import {
-  USDC_MINT,
-  loadValidatedMarketSnapshot,
+  loadValidatedMarketSnapshotFromProposal,
   normalizeAddress,
 } from './futarchy-accounts.js';
-import { loadFutarchyTwapHistory } from './futarchy-twap-history.js';
-import { resolveZeroOneResolvedApiKey } from './zero-one-proposal-history.js';
+import { resolveZeroOneResolvedApiKey } from './zero-one-api-key.js';
 
 const ZERO_ONE_ORIGIN = 'https://api.01resolved.com';
-const DEFAULT_NAV_ORIGIN = 'https://navgator.xyz';
 const DEFAULT_RPC_URL = 'https://api.mainnet-beta.solana.com';
 const MAX_UPSTREAM_BYTES = 8 * 1024 * 1024;
 const SOURCE_TIMEOUT_MS = 10_000;
@@ -49,25 +46,6 @@ export function futarchyServiceError(
   return error;
 }
 
-function normalizeHttpsOrigin(value, fallback = '') {
-  const raw = String(value || fallback || '').trim();
-  try {
-    const url = new URL(raw);
-    const local = /^(?:127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname);
-    if (
-      (url.protocol !== 'https:' && !(local && url.protocol === 'http:'))
-      || url.username
-      || url.password
-      || url.search
-      || url.hash
-      || (url.pathname !== '/' && url.pathname !== '')
-    ) return '';
-    return url.origin;
-  } catch {
-    return '';
-  }
-}
-
 export function resolveFutarchyRpcUrl(env = process.env) {
   const raw = String(
     env.HELIUS_URL
@@ -90,10 +68,6 @@ export function resolveFutarchyRpcUrl(env = process.env) {
   } catch {
     return '';
   }
-}
-
-function resolveNavOrigin(env = process.env) {
-  return normalizeHttpsOrigin(env.NAVGATOR_API_ORIGIN, DEFAULT_NAV_ORIGIN);
 }
 
 function safeToken(value) {
@@ -195,15 +169,6 @@ async function fetchZeroOne(path, dependencies) {
   return fetchJson(new URL(path, ZERO_ONE_ORIGIN), zeroOneOptions(dependencies));
 }
 
-async function fetchNav(path, dependencies) {
-  const origin = resolveNavOrigin(dependencies.env);
-  if (!origin) throw futarchyServiceError('NAV data origin is not configured');
-  return fetchJson(new URL(path, origin), {
-    fetchImpl: dependencies.fetchImpl,
-    label: 'NAV data source',
-  });
-}
-
 function unwrapData(payload) {
   return payload?.ok === true && payload.data != null ? payload.data : payload?.data ?? payload;
 }
@@ -220,6 +185,7 @@ function activeIndexRows(payload) {
         token,
         projectSlug,
         projectName: String(row?.organizationName || row?.project || token).slice(0, 160),
+        ticker: String(row?.tokenSymbol || row?.ticker || token).toUpperCase().slice(0, 32),
         logo: String(row?.organizationImageUrl || row?.proposalImageUrl || '').slice(0, 2_048),
         proposalId,
         title: String(row?.proposalTitle || row?.proposal || `${token.toUpperCase()} proposal`).slice(0, 2_000),
@@ -230,39 +196,12 @@ function activeIndexRows(payload) {
     .filter(Boolean);
 }
 
-async function loadTokenConfiguration(token, dependencies) {
-  const payload = unwrapData(await fetchNav(
-    `/api/tokens-config?token=${encodeURIComponent(token)}`,
-    dependencies,
-  ));
-  const config = payload?.config && typeof payload.config === 'object'
-    ? payload.config
-    : (payload && typeof payload === 'object' ? payload : {});
-  const daoAddress = safeAddress(config.futAmm || config.daoAddress);
-  const baseMint = safeAddress(config.mint);
-  if (!daoAddress || !baseMint) {
-    throw futarchyServiceError(
-      `Configured DAO or mint is unavailable for ${token}`,
-      'TOKEN_CONFIG_UNAVAILABLE',
-    );
-  }
+function presentActiveMarket(indexed, snapshot) {
   return {
-    token,
-    daoAddress,
-    baseMint,
-    quoteMint: safeAddress(config.usdcMint) || USDC_MINT,
-    ticker: String(config.ticker || token).toUpperCase().slice(0, 32),
-    name: String(config.name || token).slice(0, 160),
-    logo: String(config.logo || '').slice(0, 2_048),
-  };
-}
-
-function presentActiveMarket(indexed, config, snapshot) {
-  return {
-    token: config.token,
-    ticker: config.ticker,
-    name: config.name || indexed.projectName,
-    logo: config.logo || indexed.logo,
+    token: indexed.token,
+    ticker: indexed.ticker,
+    name: indexed.projectName,
+    logo: indexed.logo,
     daoAddress: snapshot.daoAddress,
     baseMint: snapshot.baseMint,
     quoteMint: snapshot.quoteMint,
@@ -416,41 +355,6 @@ function historyCoverage(series) {
   };
 }
 
-function postTwapCoverage(series, preTwap) {
-  const start = new Date(preTwap || '').getTime();
-  if (!Number.isFinite(start)) return { passTwap: 0, failTwap: 0 };
-  return (Array.isArray(series) ? series : []).reduce((coverage, row) => {
-    const observed = new Date(row?.observedAt || row?.timestamp || '').getTime();
-    if (!Number.isFinite(observed) || observed < start) return coverage;
-    if (Number.isFinite(row.passTwap)) coverage.passTwap += 1;
-    if (Number.isFinite(row.failTwap)) coverage.failTwap += 1;
-    return coverage;
-  }, { passTwap: 0, failTwap: 0 });
-}
-
-function mergeTwapHistory(series, twapRows) {
-  const rows = new Map((Array.isArray(series) ? series : []).map(row => [row.timestamp, row]));
-  for (const twap of Array.isArray(twapRows) ? twapRows : []) {
-    if (!isoTimestamp(twap?.timestamp)) continue;
-    const current = rows.get(twap.timestamp) || {
-      timestamp: twap.timestamp,
-      observedAt: twap.observedAt || twap.timestamp,
-      underlyingPrice: null,
-      passPrice: null,
-      failPrice: null,
-      passTwap: null,
-      failTwap: null,
-      sampleCount: 0,
-    };
-    rows.set(twap.timestamp, {
-      ...current,
-      passTwap: Number.isFinite(twap.passTwap) ? twap.passTwap : current.passTwap,
-      failTwap: Number.isFinite(twap.failTwap) ? twap.failTwap : current.failTwap,
-    });
-  }
-  return [...rows.values()].sort((left, right) => left.timestamp.localeCompare(right.timestamp));
-}
-
 function rawToAmountString(raw, decimals) {
   const digits = raw.toString().padStart(decimals + 1, '0');
   if (!decimals) return digits;
@@ -506,9 +410,7 @@ export function createFutarchyService(options = {}) {
     fetchImpl: options.fetchImpl || fetch,
     now: options.now || (() => Date.now()),
     connection: options.connection || null,
-    logger: options.logger || console,
-    loadMarketSnapshot: options.loadMarketSnapshot || loadValidatedMarketSnapshot,
-    loadTwapHistory: options.loadTwapHistory || loadFutarchyTwapHistory,
+    loadMarketSnapshot: options.loadMarketSnapshot || loadValidatedMarketSnapshotFromProposal,
     validatePrograms: options.validatePrograms || loadAndValidateDecisionExecutionSafety,
   };
   let connection = dependencies.connection;
@@ -537,14 +439,10 @@ export function createFutarchyService(options = {}) {
       );
       const indexed = activeIndexRows(payload);
       const settled = await Promise.allSettled(indexed.map(async (row) => {
-        const config = await loadTokenConfiguration(row.token, dependencies);
         const snapshot = await dependencies.loadMarketSnapshot(getConnection(), {
-          daoAddress: config.daoAddress,
           proposalAddress: row.proposalId,
-          baseMint: config.baseMint,
-          quoteMint: config.quoteMint,
         }, { nowMs });
-        return presentActiveMarket(row, config, snapshot);
+        return presentActiveMarket(row, snapshot);
       }));
       const markets = settled
         .filter(result => result.status === 'fulfilled')
@@ -573,6 +471,7 @@ export function createFutarchyService(options = {}) {
         markets,
         source: {
           proposalIndex: '01Resolved',
+          marketIdentity: 'validated Solana proposal and DAO accounts',
           marketState: 'solana.rpc.getMultipleAccounts',
         },
         degraded: {
@@ -649,7 +548,7 @@ export function createFutarchyService(options = {}) {
       rows = Array.isArray(orders?.data) ? orders.data : [];
       source = 'orders';
     }
-    let series = aggregateHistoryRows(rows, interval);
+    const series = aggregateHistoryRows(rows, interval);
     const preTwap = isoTimestamp(chart?.data?.preTwap);
     const degraded = {
       active: source === 'orders',
@@ -658,57 +557,6 @@ export function createFutarchyService(options = {}) {
         ? [{ code: 'ORDER_PRICE_HISTORY_USED', message: 'Observed trades are shown because the price chart is empty.' }]
         : [],
     };
-    let twapProvider = null;
-    const configuredRpc = String(
-      dependencies.env.HELIUS_URL
-      || dependencies.env.HELIUS_RPC_URL
-      || dependencies.env.SOLANA_RPC_URL
-      || '',
-    ).trim();
-    const indexedTwapCoverage = postTwapCoverage(series, preTwap);
-    if (
-      configuredRpc
-      && preTwap
-      && (indexedTwapCoverage.passTwap < 2 || indexedTwapCoverage.failTwap < 2)
-    ) {
-      try {
-        const active = await activeMarkets();
-        const market = active.markets.find(candidate => candidate.proposal.id === proposalId);
-        if (market) {
-          const endedAt = new Date(market.proposal.endsAt || '').getTime();
-          const to = new Date(Math.min(
-            dependencies.now(),
-            Number.isFinite(endedAt) ? endedAt : dependencies.now(),
-          )).toISOString();
-          const twapRows = await dependencies.loadTwapHistory({
-            rpcUrl: resolveFutarchyRpcUrl(dependencies.env),
-            daoAddress: market.daoAddress,
-            from: preTwap,
-            to,
-            interval,
-            baseDecimals: market.baseDecimals,
-            quoteDecimals: market.quoteDecimals,
-            fetchImpl: dependencies.fetchImpl,
-            signal: AbortSignal.timeout(9_000),
-          });
-          if (twapRows.length) {
-            series = mergeTwapHistory(series, twapRows);
-            twapProvider = 'Solana Futarchy SpotSwapEvent history';
-          }
-        }
-      } catch (error) {
-        degraded.active = true;
-        degraded.services.push('solana-futarchy-twap-history');
-        degraded.issues.push({
-          code: 'SOLANA_TWAP_HISTORY_UNAVAILABLE',
-          message: 'Historical on-chain TWAP observations are temporarily unavailable.',
-        });
-        dependencies.logger?.warn?.(
-          '[01rx/futarchy-history] exact TWAP backfill unavailable:',
-          error?.message || error,
-        );
-      }
-    }
     const coverage = historyCoverage(series);
     const complete = coverage.underlying > 0 && coverage.pass > 0 && coverage.fail > 0;
     return {
@@ -732,7 +580,6 @@ export function createFutarchyService(options = {}) {
         sourceInterval: source === 'price-chart' ? '15m' : 'event',
         interval,
         requestedInterval: interval,
-        ...(twapProvider ? { twapProvider } : {}),
       },
       degraded,
     };
@@ -906,10 +753,7 @@ export function createFutarchyService(options = {}) {
 
 export const _test = Object.freeze({
   aggregateHistoryRows,
-  mergeTwapHistory,
   normalizeArchiveRow,
   normalizeArchiveStatus,
-  postTwapCoverage,
-  resolveNavOrigin,
   tokenFromProjectSlug,
 });

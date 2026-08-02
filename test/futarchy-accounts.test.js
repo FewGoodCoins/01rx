@@ -8,6 +8,7 @@ import {
   FUTARCHY_PROGRAM_ID,
   PROPOSAL_ACCOUNT_DISCRIMINATOR,
   loadValidatedMarketSnapshot,
+  loadValidatedMarketSnapshotFromProposal,
 } from '../api/_lib/futarchy-accounts.js';
 
 const DAO = new PublicKey('CkEUCAooQi64UFhPFS5MWpZw6LQqjsDQBj3Z5uiXS1eN');
@@ -163,4 +164,49 @@ test('validated market snapshot rejects a spoofed DAO owner', async () => {
     }, { nowMs }),
     error => error?.code === 'SOURCE_MISMATCH' && /owner, size, or discriminator/.test(error.message),
   );
+});
+
+test('proposal discovery derives DAO and mints without an external token registry', async () => {
+  const nowMs = Date.parse('2026-07-31T22:00:00Z');
+  let discoveryCall = 0;
+  const connection = {
+    async getAccountInfoAndContext(address, config) {
+      discoveryCall += 1;
+      if (discoveryCall === 1) {
+        assert.equal(address.toBase58(), PROPOSAL.toBase58());
+        assert.deepEqual(config, { commitment: 'confirmed' });
+        return { context: { slot: 443 }, value: proposalAccount(nowMs / 1_000) };
+      }
+      assert.equal(address.toBase58(), DAO.toBase58());
+      assert.deepEqual(config, { commitment: 'confirmed', minContextSlot: 443 });
+      return { context: { slot: 444 }, value: daoAccount(nowMs / 1_000) };
+    },
+    async getMultipleAccountsInfoAndContext(addresses, config) {
+      assert.deepEqual(addresses.map(value => value.toBase58()), [
+        DAO.toBase58(),
+        PROPOSAL.toBase58(),
+        BASE.toBase58(),
+        USDC.toBase58(),
+      ]);
+      assert.deepEqual(config, { commitment: 'confirmed', minContextSlot: 444 });
+      return {
+        context: { slot: 445 },
+        value: [
+          daoAccount(nowMs / 1_000),
+          proposalAccount(nowMs / 1_000),
+          mintAccount(),
+          mintAccount(),
+        ],
+      };
+    },
+  };
+
+  const result = await loadValidatedMarketSnapshotFromProposal(connection, {
+    proposalAddress: PROPOSAL.toBase58(),
+  }, { nowMs });
+
+  assert.equal(result.slot, 445);
+  assert.equal(result.daoAddress, DAO.toBase58());
+  assert.equal(result.baseMint, BASE.toBase58());
+  assert.equal(result.quoteMint, USDC.toBase58());
 });

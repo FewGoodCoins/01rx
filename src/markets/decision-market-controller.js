@@ -20,9 +20,6 @@ const HISTORY_INTERVAL_MS = Object.freeze({
   '15m': 15 * 60 * 1_000,
   '1h': 60 * 60 * 1_000,
 });
-const RETAINED_PROPOSAL_HISTORY_IDS = new Set([
-  '98zXsz1RtvYw4zHrxaZDdGBU3BgqfsX9XJbXBLSJUBST',
-]);
 const activeMounts = new WeakMap();
 let instanceCount = 0;
 let solanaTradingModulePromise = null;
@@ -2777,7 +2774,6 @@ export function mountFutardTerminal({
         showHourlyChartMountError(chartRoot);
         return;
       }
-      updateProposalChartLivePoint(market);
       chartRoot?.classList.remove('ft-hourly-chart-pending', 'ft-hourly-chart-failed');
       if (chartRoot) {
         chartRoot.dataset.ftChartState = 'ready';
@@ -2889,16 +2885,12 @@ export function mountFutardTerminal({
     const latest = Array.isArray(history?.series) && history.series.length
       ? history.series[history.series.length - 1]
       : {};
-    const live = market.proposal.statusGroup === 'live';
-    const price = live
-      ? firstNumber(market.spot.price, market.nav.spot, latest.underlyingPrice)
-      : firstNumber(latest.underlyingPrice, market.spot.price, market.nav.spot);
-    const passPrice = live
-      ? firstNumber(market.pass.price, latest.passPrice)
-      : firstNumber(latest.passPrice, market.pass.price);
-    const failPrice = live
-      ? firstNumber(market.fail.price, latest.failPrice)
-      : firstNumber(latest.failPrice, market.fail.price);
+    // Chart prices and their header values share one source: the latest
+    // 01Resolved history observation. Live Solana account state remains
+    // available to the trade ticket, but is not mixed into the chart surface.
+    const price = firstNumber(latest.underlyingPrice);
+    const passPrice = firstNumber(latest.passPrice);
+    const failPrice = firstNumber(latest.failPrice);
     const displayStatus = proposalDisplayStatus(market.proposal);
     const signal = proposalHeaderSignal(market);
     const proposalNumber = market.proposal.number == null
@@ -3027,8 +3019,8 @@ export function mountFutardTerminal({
           <div class="ft-hourly-empty">
             <span aria-hidden="true">∅</span>
             <div>
-              <strong>No market history is indexed for this proposal</strong>
-              <p>The governance record remains available. No underlying, PROP PASS, or PROP FAIL values are synthesized.</p>
+              <strong>No 01Resolved market history is indexed for this proposal</strong>
+              <p>The governance record remains available. No underlying, PROP PASS, or PROP FAIL values are synthesized or loaded from another provider.</p>
             </div>
           </div>
         </section>
@@ -3061,7 +3053,7 @@ export function mountFutardTerminal({
             )).join(' · ')}. Missing values remain gaps.
           </p>
         ` : ''}
-        ${pointCount === 1 ? `<p class="ft-hourly-coverage-note">One retained ${escapeHtml(cadenceLabel)} observation is shown as a point, not a trend.</p>` : ''}
+        ${pointCount === 1 ? `<p class="ft-hourly-coverage-note">One indexed ${escapeHtml(cadenceLabel)} observation is shown as a point, not a trend.</p>` : ''}
       </section>
     `;
   }
@@ -3682,22 +3674,6 @@ export function mountFutardTerminal({
     `;
   }
 
-  function updateProposalChartLivePoint(market) {
-    if (!market || market.proposal.statusGroup !== 'live') return false;
-    return state.historyChart?.updateLivePoint?.({
-      timestamp: firstText(market.source?.asOf, market.marketAsOf, state.asOf),
-      underlyingPrice: firstNumber(market.spot.price, market.nav.spot),
-      passPrice: market.pass.price,
-      passTwap: market.pass.twapPrice,
-      failPrice: market.fail.price,
-      failTwap: market.fail.twapPrice,
-      decisionEdge: proposalDecisionEdge(
-        market.pass.twapPrice,
-        market.fail.twapPrice,
-      ),
-    }) === true;
-  }
-
   function renderLivePriceSurfaces(market, options = {}) {
     if (
       state.destroyed
@@ -3707,9 +3683,6 @@ export function mountFutardTerminal({
 
     const signal = proposalHeaderSignal(market);
     const metricValues = {
-      price: { value: formatChartCurrency(firstNumber(market.spot.price, market.nav.spot)) },
-      pass: { value: formatChartCurrency(market.pass.price) },
-      fail: { value: formatChartCurrency(market.fail.price) },
       [signal.key]: {
         value: signal.value,
         tone: signal.tone,
@@ -3723,8 +3696,6 @@ export function mountFutardTerminal({
       if (metric && update.tone) metric.dataset.tone = update.tone;
       if (metric && update.description) metric.title = update.description;
     });
-    updateProposalChartLivePoint(market);
-
     if (options.renderBooks !== false) renderLiveMarketStage(market);
     renderTradeTicket();
   }
@@ -6070,43 +6041,6 @@ export function mountFutardTerminal({
     }, 3_000);
   }
 
-  async function loadRetainedProposalHistory(proposalId, requestOptions = {}) {
-    const safeProposalId = safeBase58(proposalId);
-    if (!safeProposalId || typeof api.json !== 'function') return null;
-    try {
-      const retained = await api.json(
-        `/data/proposal-history/${encodeURIComponent(safeProposalId)}.json`,
-        {
-          cancelSignal: requestOptions.signal,
-        },
-      );
-      const compactSeries = Array.isArray(retained?.series) ? retained.series : [];
-      const payload = {
-        ...retained,
-        requestedInterval: '15m',
-        series: compactSeries.map(row => ({
-          timestamp: row?.[0],
-          observedAt: row?.[0],
-          underlyingPrice: row?.[1],
-          passPrice: row?.[2],
-          failPrice: row?.[3],
-          passTwap: row?.[4],
-          failTwap: row?.[5],
-          sampleCount: 1,
-        })),
-        source: {
-          ...(isObject(retained?.source) ? retained.source : {}),
-          requestedInterval: '15m',
-        },
-      };
-      const normalized = normalizeProposalHistoryPayload(payload);
-      return normalized.series.length ? normalized : null;
-    } catch (error) {
-      if (error?.name === 'AbortError') throw error;
-      return null;
-    }
-  }
-
   async function loadProposalHistory(market = selectedMarket(), options = {}) {
     if (state.destroyed || !market?.id) return null;
     const existing = state.historyByProposal.get(market.id);
@@ -6140,7 +6074,6 @@ export function mountFutardTerminal({
       renderPositions();
     }
 
-    let retainedPreview = null;
     try {
       const requestOptions = {
         signal: state.historyAbortController?.signal,
@@ -6166,32 +6099,12 @@ export function mountFutardTerminal({
         error => ({ payload: null, error }),
       );
 
-      if (RETAINED_PROPOSAL_HISTORY_IDS.has(market.id)) {
-        retainedPreview = await loadRetainedProposalHistory(market.id, requestOptions);
-        if (
-          retainedPreview
-          && !state.destroyed
-          && requestId === state.historyRequestId
-        ) {
-          state.historyByProposal.set(market.id, {
-            loading: true,
-            error: '',
-            data: retainedPreview,
-          });
-          if (selectedMarket()?.id === market.id) {
-            renderMarketStage();
-            renderPositions();
-          }
-        }
-      }
       const liveResult = await livePayloadPromise;
       if (liveResult.error) throw liveResult.error;
       if (state.destroyed || requestId !== state.historyRequestId) return null;
-      let data = normalizeProposalHistoryPayload(liveResult.payload);
-      if (!data.series.length) {
-        data = retainedPreview
-          || await loadRetainedProposalHistory(market.id, requestOptions)
-          || data;
+      const data = normalizeProposalHistoryPayload(liveResult.payload);
+      if (!/^01Resolved(?:\b|\s)/.test(data.source.provider)) {
+        throw new Error('Proposal history did not identify 01Resolved as its source.');
       }
       if (state.destroyed || requestId !== state.historyRequestId) return null;
       state.historyByProposal.set(market.id, {
@@ -6206,24 +6119,12 @@ export function mountFutardTerminal({
         || requestId !== state.historyRequestId
         || error?.name === 'AbortError'
       ) return null;
-      const retained = retainedPreview || await loadRetainedProposalHistory(
-        market.id,
-        { signal: state.historyAbortController?.signal },
-      );
       if (state.destroyed || requestId !== state.historyRequestId) return null;
-      if (retained) {
-        state.historyByProposal.set(market.id, {
-          loading: false,
-          error: '',
-          data: retained,
-        });
-        return retained;
-      }
       state.historyByProposal.set(market.id, {
         loading: false,
         error: error?.status === 404
           ? 'This proposal is not available in the public market-history index.'
-          : 'The public price-history feed is temporarily unavailable.',
+          : 'The 01Resolved price-history feed is temporarily unavailable.',
         data: null,
       });
       return null;

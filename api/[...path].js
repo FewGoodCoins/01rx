@@ -1,4 +1,3 @@
-import { enhanceProposalHistoryResponse } from './_lib/zero-one-proposal-history.js';
 import {
   PRIVATE_NO_STORE,
   methodAllowed,
@@ -19,8 +18,6 @@ const RESPONSE_HEADERS = new Set([
   'x-01r-contract',
   'x-01r-contract-release',
   'x-01r-surface',
-  'x-navgator-degraded',
-  'x-navgator-degraded-services',
   'x-ratelimit-limit',
   'x-ratelimit-remaining',
   'x-ratelimit-reset',
@@ -49,7 +46,13 @@ export function normalizeUpstreamOrigin(value) {
 
 export function upstreamApiUrl(requestUrl, upstreamOrigin) {
   const origin = normalizeUpstreamOrigin(upstreamOrigin);
-  if (!origin) throw new TypeError('NAVGATOR_API_ORIGIN must be an HTTPS origin');
+  if (!origin) {
+    throw relayError(
+      'This route has no 01Resolved data contract',
+      503,
+      'DATA_NOT_AVAILABLE_FROM_01RESOLVED',
+    );
+  }
   const incoming = new URL(String(requestUrl || '/'), 'https://01rx.invalid');
   if (!incoming.pathname.startsWith('/api/')) {
     throw new TypeError('Only /api routes can be relayed');
@@ -172,7 +175,6 @@ function responseCacheControl(policyValue, upstream) {
   if (
     upstream.status < 200
     || upstream.status >= 300
-    || /^(?:1|true|yes)$/i.test(upstream.headers.get('x-navgator-degraded') || '')
   ) return PRIVATE_NO_STORE;
   return policyValue.cacheControl;
 }
@@ -204,11 +206,7 @@ export async function relayApiRequest(request, response, options = {}) {
     return;
   }
 
-  const upstreamOrigin = (
-    options.upstreamOrigin
-    || process.env.NAVGATOR_API_ORIGIN
-    || 'https://navgator.xyz'
-  );
+  const upstreamOrigin = options.upstreamOrigin || '';
   const fetchImpl = options.fetchImpl || fetch;
   const timeoutMs = Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0
     ? Math.min(options.timeoutMs, UPSTREAM_TIMEOUT_MS)
@@ -255,7 +253,8 @@ export async function relayApiRequest(request, response, options = {}) {
       response.setHeader('Content-Type', 'application/json; charset=utf-8');
       response.end(Buffer.from(JSON.stringify({
         ok: false,
-        error: 'NAVgator API is temporarily unavailable',
+        code: 'UPSTREAM_UNAVAILABLE',
+        error: '01RX upstream is temporarily unavailable',
       })));
       return;
     }
@@ -263,17 +262,7 @@ export async function relayApiRequest(request, response, options = {}) {
       upstream,
       routePolicy.maxResponseBytes,
     );
-    const enhancedBody = method === 'GET'
-      ? await enhanceProposalHistoryResponse({
-        body: upstreamBody,
-        env: options.env || process.env,
-        fetchImpl: options.zeroOneFetchImpl || fetchImpl,
-        logger: options.logger || console,
-        requestUrl: url,
-      })
-      : null;
-    if (enhancedBody) response.removeHeader?.('etag');
-    response.end(enhancedBody || upstreamBody);
+    response.end(upstreamBody);
   } catch (error) {
     const timedOut = timeoutSignal.aborted
       || error?.name === 'AbortError'
@@ -283,13 +272,19 @@ export async function relayApiRequest(request, response, options = {}) {
     response.setHeader('Cache-Control', PRIVATE_NO_STORE);
     response.status(status).json({
       ok: false,
-      error: status === 413
-        ? 'Request body is too large'
-        : timedOut
-          ? 'NAVgator API timed out'
-          : error?.code === 'UPSTREAM_RESPONSE_TOO_LARGE'
-            ? 'NAVgator API response is too large'
-            : 'NAVgator API is temporarily unavailable',
+      code: error?.code || 'UPSTREAM_UNAVAILABLE',
+      error: error?.code === 'DATA_NOT_AVAILABLE_FROM_01RESOLVED'
+        ? 'This data is not available from 01Resolved yet'
+        : status === 413
+          ? 'Request body is too large'
+          : timedOut
+            ? '01RX upstream timed out'
+            : error?.code === 'UPSTREAM_RESPONSE_TOO_LARGE'
+              ? '01RX upstream response is too large'
+              : '01RX upstream is temporarily unavailable',
+      ...(error?.code === 'DATA_NOT_AVAILABLE_FROM_01RESOLVED'
+        ? { missingPath: new URL(restoredUrl, 'https://01rx.invalid').pathname }
+        : {}),
     });
   }
 }

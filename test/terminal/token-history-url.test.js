@@ -29,18 +29,16 @@ function loadNavHistoryUrl() {
   return sandbox._navHistoryUrl;
 }
 
-test('Ranger history bypasses compact responses cached before the liquidation terminal correction', () => {
+test('historic NAV URL remains disabled for Ranger', () => {
   const navHistoryUrl = loadNavHistoryUrl();
 
   const url = navHistoryUrl('1D', 'rngr');
 
-  assert.match(url, /[?&]cache=0(?:&|$)/);
-  assert.match(url, /[?&]clientVersion=20260718-rngr-liquidation-terminal-v2(?:&|$)/);
-  assert.match(url, /[?&]view=chart(?:&|$)/);
+  assert.equal(url, '');
 });
 
-test('Ranger alias uses the same corrected liquidation history contract', () => {
+test('historic NAV URL remains disabled for the Ranger alias', () => {
   const navHistoryUrl = loadNavHistoryUrl();
 
-  assert.match(navHistoryUrl('1D', 'ranger'), /clientVersion=20260718-rngr-liquidation-terminal-v2/);
+  assert.equal(navHistoryUrl('1D', 'ranger'), '');
 });

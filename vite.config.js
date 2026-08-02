@@ -88,6 +88,20 @@ export function localFutarchyApi(options = {}) {
   };
 }
 
+export function localDataGapApi(options = {}) {
+  const relay = options.relay || relayApiRequest;
+  return {
+    name: '01rx-local-data-gap-api',
+    configureServer(server) {
+      server.middlewares.use('/api', async (request, response) => {
+        const mountedUrl = String(request.url || '');
+        request.url = `/api${mountedUrl === '/' ? '' : mountedUrl}`;
+        await relay(request, localResponseAdapter(response));
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, '');
   [
@@ -95,7 +109,6 @@ export default defineConfig(({ mode }) => {
     'DFLOW_TRADE_API_URL',
     'HELIUS_URL',
     'HELIUS_RPC_URL',
-    'NAVGATOR_API_ORIGIN',
     'O1RX_ATTRIBUTION_PUBLIC_KEY',
     'O1RX_ATTRIBUTION_SIGNING_KEY',
     'ONE_RESOLVED_API_KEY',
@@ -105,9 +118,6 @@ export default defineConfig(({ mode }) => {
   ].forEach((name) => {
     if (env[name]) process.env[name] = env[name];
   });
-  const apiTarget = String(
-    env.VITE_NAVGATOR_API_BASE || 'https://navgator.xyz',
-  ).replace(/\/+$/, '');
   const hasLocalZeroOneAccess = Boolean(
     env.ZERO_ONE_RESOLVED_API_KEY
     || env.ONE_RESOLVED_API_KEY
@@ -123,6 +133,7 @@ export default defineConfig(({ mode }) => {
       localFutarchyApi({
         publicReadOrigin: hasLocalZeroOneAccess ? '' : LOCAL_PUBLIC_API_ORIGIN,
       }),
+      localDataGapApi(),
     ],
     publicDir: path.join(root, 'public'),
     resolve: {
@@ -136,10 +147,6 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '127.0.0.1',
       proxy: {
-        '/api': {
-          target: apiTarget,
-          changeOrigin: true,
-        },
         // Local-only access to TradingView's official playground. Production
         // still requires an approved private Advanced Charts artifact.
         '/__tradingview': {
