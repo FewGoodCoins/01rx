@@ -822,6 +822,7 @@ test.afterEach(() => {
 test('15-minute history normalization preserves missing series and chart gaps', async () => {
   const {
     normalizeProposalHistoryPayload,
+    proposalTwapWindowProgress,
     proposalHistoryPhase,
     renderHourlyPriceChart,
   } = await loadTerminalModule();
@@ -869,10 +870,11 @@ test('15-minute history normalization preserves missing series and chart gaps', 
 
   const dom = new JSDOM(renderHourlyPriceChart(history, 'META', {
     windowEndedAt: '2026-06-16T11:30:00.000Z',
+    now: Date.parse('2026-06-16T11:15:00.000Z'),
   }));
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
-  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 12);
+  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 10);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 0);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]'), null);
@@ -884,7 +886,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   );
   assert.equal(
     chart.querySelectorAll('[data-ft-role="hourly-series-menu"] [role="menuitemcheckbox"]').length,
-    6,
+    5,
   );
   assert.equal(
     chart.querySelector('[data-ft-readout-value="passTwap"]').textContent,
@@ -898,10 +900,8 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     chart.querySelector('[data-ft-series-field="failTwap"]').disabled,
     true,
   );
-  assert.equal(
-    chart.querySelector('[data-ft-series-field="decisionEdge"]').disabled,
-    true,
-  );
+  assert.equal(chart.querySelector('[data-ft-series-field="decisionEdge"]'), null);
+  assert.equal(chart.querySelector('[data-ft-readout-value="decisionEdge"]'), null);
   assert.equal(chart.querySelector('[aria-label="Hide annotations placeholder"]'), null);
   assert.equal(chart.querySelector('[aria-label="TradingView undo placeholder"]'), null);
   assert.equal(chart.querySelector('[aria-label="TradingView redo placeholder"]'), null);
@@ -928,6 +928,44 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(chart.querySelector('.ft-hourly-plot-shell svg[viewBox="0 0 1000 1000"]'), null);
   assert.equal(chart.querySelector('[data-ft-chart-anchor="shared-launch-reserve"]'), null);
   assert.equal(chart.querySelector('.ft-hourly-chart-foot'), null);
+  const twapProgress = chart.querySelector('[data-ft-role="twap-window-progress"]');
+  assert.ok(twapProgress);
+  assert.equal(twapProgress.dataset.ftTwapState, 'active');
+  assert.equal(
+    twapProgress.querySelector('[data-ft-role="twap-window-percent"]').textContent,
+    '50% through',
+  );
+  assert.equal(
+    twapProgress.querySelector('[data-ft-role="twap-window-track"]')
+      .getAttribute('aria-valuenow'),
+    '50',
+  );
+  assert.equal(
+    chart.querySelector('.ft-hourly-plot-shell').classList.contains('ft-has-twap-progress'),
+    true,
+  );
+  assert.deepEqual(
+    proposalTwapWindowProgress(
+      '2026-06-16T11:00:00.000Z',
+      '2026-06-16T12:00:00.000Z',
+      Date.parse('2026-06-16T11:39:00.000Z'),
+    ),
+    {
+      openedAt: Date.parse('2026-06-16T11:00:00.000Z'),
+      closedAt: Date.parse('2026-06-16T12:00:00.000Z'),
+      progress: 0.65,
+      percent: 65,
+      state: 'active',
+    },
+  );
+  assert.equal(
+    proposalTwapWindowProgress(
+      '2026-06-16T11:00:00.000Z',
+      '2026-06-16T11:00:00.000Z',
+      Date.parse('2026-06-16T11:00:00.000Z'),
+    ),
+    null,
+  );
   assert.equal(chart.querySelector('.ft-hourly-values'), null);
   assert.equal(chart.querySelector('[data-ft-role="pre-twap-definition"]'), null);
   assert.equal(chart.querySelectorAll('[data-ft-chart-boundary]').length, 0);
@@ -1078,12 +1116,10 @@ test('TradingView chart adapter splits null values and missing hours into honest
     [
       {
         kind: 'twap-start',
-        label: 'TWAP Open',
         time: Date.parse('2026-06-17T10:00:00.000Z') / 1_000,
       },
       {
         kind: 'twap-end',
-        label: 'TWAP Close',
         time: Date.parse('2026-06-18T10:00:00.000Z') / 1_000,
       },
     ],
@@ -1396,6 +1432,11 @@ test('proposal-first terminal renders validated market state and a safe trade in
   const buyButton = actionWithText(root, 'select-side', /buy/i);
   assert.ok(passButton);
   assert.ok(buyButton);
+  assert.equal(
+    byRole(root, 'trade-ticket').querySelector('[data-ft-action="connect-wallet"]')
+      .classList.contains('ft-connect-trade-button'),
+    true,
+  );
   passButton.click();
   buyButton.click();
   const amount = byRole(root, 'amount');
@@ -1406,6 +1447,11 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.match(
     byRole(root, 'trade-ticket').querySelector('.ft-execution-ticket').className,
     /ft-order-outcome-fail/,
+  );
+  assert.equal(
+    byRole(root, 'trade-ticket').querySelector('[data-ft-action="connect-wallet"]')
+      .classList.contains('ft-connect-trade-button'),
+    true,
   );
   actionWithText(root, 'select-activity', /trade history/i).click();
   assert.equal(
@@ -2044,14 +2090,14 @@ test('market sidebar uses a leading pulse instead of a separate live status colu
     /^-\d{1,3}ms$/,
   );
   assert.equal(liveDot.style.animationDelay, '');
-  assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+\$0\.1337[\s\S]+\$0\.1279/);
+  assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+\+1\.5%[\s\S]+\+1\.63%/);
   assert.equal(
-    liveDecision.querySelector('.tp-decision-pass-price').dataset.result,
-    'pass',
+    liveDecision.querySelector('.tp-decision-threshold').title,
+    'Required PASS versus FAIL TWAP threshold',
   );
   assert.equal(
-    liveDecision.querySelector('.tp-decision-fail-price').dataset.result,
-    'fail',
+    liveDecision.querySelector('.tp-decision-signal').dataset.direction,
+    'up',
   );
   assert.doesNotMatch(liveDecision.textContent, /Live|Awaiting/);
   assert.equal(window.document.querySelector('.tp-decision-state'), null);
@@ -2996,7 +3042,9 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.equal(activeChart.options.ticker, 'LOYAL');
   assert.equal(activeChart.options.history.series.length, 16);
   assert.equal(activeChart.options.isLive, true);
-  assert.equal(activeChart.options.thresholdPct, 1.5);
+  assert.equal(activeChart.options.thresholdPct, undefined);
+  assert.equal(activeChart.options.visibility.passTwap, false);
+  assert.equal(activeChart.options.visibility.failTwap, false);
   assert.equal(
     byRole(root, 'proposal-history-chart')
       .classList.contains('ft-hourly-chart-pending'),
@@ -3019,9 +3067,10 @@ test('interactive history chart controls update and clean up an injected chart a
     passTwapToggle.querySelector('[data-ft-readout-value="passTwap"]').textContent,
     '$0.4600',
   );
-  passTwapToggle.click();
   assert.equal(passTwapToggle.getAttribute('aria-pressed'), 'false');
-  assert.deepEqual(activeChart.visibility.at(-1), ['passTwap', false]);
+  passTwapToggle.click();
+  assert.equal(passTwapToggle.getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(activeChart.visibility.at(-1), ['passTwap', true]);
   passTwapToggle.click();
 
   const priceTrigger = root.querySelector(
@@ -3044,7 +3093,12 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.deepEqual(
     Array.from(twapMenu.querySelectorAll('[data-ft-series-field]'))
       .map(option => option.textContent.trim().replace('✓', '').trim()),
-    ['Pass edge vs threshold', 'Pass TWAP', 'Fail TWAP'],
+    ['Pass TWAP', 'Fail TWAP'],
+  );
+  assert.deepEqual(
+    Array.from(twapMenu.querySelectorAll('[data-ft-series-field]'))
+      .map(option => option.getAttribute('aria-checked')),
+    ['false', 'false'],
   );
   const passSeriesOption = priceMenu.querySelector(
     '[data-ft-series-field="passPrice"]',
@@ -3066,13 +3120,6 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.equal(priceMenu.hidden, true);
   assert.equal(twapTrigger.getAttribute('aria-expanded'), 'true');
   assert.equal(twapMenu.hidden, false);
-  const decisionEdgeOption = twapMenu.querySelector(
-    '[data-ft-series-field="decisionEdge"]',
-  );
-  decisionEdgeOption.click();
-  assert.equal(decisionEdgeOption.getAttribute('aria-checked'), 'false');
-  assert.deepEqual(activeChart.visibility.at(-1), ['decisionEdge', false]);
-  decisionEdgeOption.click();
   twapTrigger.click();
   assert.equal(twapTrigger.getAttribute('aria-expanded'), 'false');
   assert.equal(twapMenu.hidden, true);

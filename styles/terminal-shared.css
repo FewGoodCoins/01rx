@@ -7,10 +7,10 @@
  */
 
 @media (min-width: 981px) {
-  /* Full desktop allocation: navigation is a fixed 250px, execution remains 25%
+  /* Full desktop allocation: navigation is a fixed 275px, execution remains 25%
      of the viewport, Trades is a compact fixed rail, and Chart gets the rest. */
   html[data-workspace="markets"] {
-    --sidebar-width: 250px;
+    --sidebar-width: 275px;
   }
 
   /* Keep the market rail scrollable without dedicating width to a visible

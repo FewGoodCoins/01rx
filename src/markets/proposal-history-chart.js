@@ -1,5 +1,4 @@
 import {
-  BaselineSeries,
   ColorType,
   CrosshairMode,
   LineSeries,
@@ -108,6 +107,13 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
   },
 ]);
 
+// Keep the decision-edge calculation in the shared history model while its
+// chart treatment is intentionally paused. Restoring it later should only
+// require changing this renderer-owned selection.
+const PROPOSAL_HISTORY_RENDERED_SERIES = Object.freeze(
+  PROPOSAL_HISTORY_SERIES.filter(definition => definition.field !== 'decisionEdge'),
+);
+
 function finiteValue(value, signed = false) {
   return Number.isFinite(value) && (signed || value >= 0) ? value : null;
 }
@@ -170,7 +176,7 @@ function formatOverlayTimestamp(value) {
 }
 
 function pricePrecision(points) {
-  const values = points.flatMap(point => PROPOSAL_HISTORY_SERIES
+  const values = points.flatMap(point => PROPOSAL_HISTORY_RENDERED_SERIES
     .filter(definition => definition.percent !== true)
     .map(definition => definitionValue(definition, point?.[definition.field]))
     .filter(Number.isFinite));
@@ -201,7 +207,7 @@ function chartTheme(runtime, themeRoot, theme) {
 function readoutElements(container) {
   return {
     time: container.querySelector('[data-ft-role="hourly-readout-time"]'),
-    values: new Map(PROPOSAL_HISTORY_SERIES.map(definition => [
+    values: new Map(PROPOSAL_HISTORY_RENDERED_SERIES.map(definition => [
       definition.field,
       container.querySelector(`[data-ft-readout-value="${definition.field}"]`),
     ])),
@@ -213,7 +219,7 @@ function updateReadout(elements, timestamp, values) {
     ? '—'
     : formatOverlayTimestamp(timestamp);
 
-  PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+  PROPOSAL_HISTORY_RENDERED_SERIES.forEach((definition) => {
     const target = elements.values.get(definition.field);
     if (target) {
       const value = definitionValue(definition, values[definition.field]);
@@ -350,12 +356,10 @@ export function proposalChartBoundaryEvents(preTwap, windowEndedAt) {
   return [
     {
       kind: 'twap-start',
-      label: 'TWAP Open',
       time: unixTime(preTwap),
     },
     {
       kind: 'twap-end',
-      label: 'TWAP Close',
       time: unixTime(windowEndedAt),
     },
   ].filter((event) => {
@@ -434,7 +438,7 @@ export function proposalLaunchSeriesMarker(anchor) {
 function latestValues(points) {
   const latestPoint = points[points.length - 1] || {};
   const result = {};
-  PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+  PROPOSAL_HISTORY_RENDERED_SERIES.forEach((definition) => {
     result[definition.field] = definitionValue(
       definition,
       latestPoint[definition.field],
@@ -445,7 +449,7 @@ function latestValues(points) {
 
 function crosshairValues(seriesByField, seriesData) {
   const values = {};
-  PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+  PROPOSAL_HISTORY_RENDERED_SERIES.forEach((definition) => {
     values[definition.field] = null;
     for (const series of seriesByField.get(definition.field) || []) {
       const data = seriesData.get(series);
@@ -474,7 +478,6 @@ export function createProposalHistoryChart({
   launchedAt = null,
   windowEndedAt = null,
   isLive = false,
-  thresholdPct = null,
 } = {}) {
   if (!runtime || !container || !Array.isArray(history?.series) || !history.series.length) {
     return null;
@@ -495,7 +498,7 @@ export function createProposalHistoryChart({
   let lastTimestamp = Math.floor(
     proposalChartPointTime(points[points.length - 1]) / 1_000,
   );
-  const plottedTimes = points.filter(point => PROPOSAL_HISTORY_SERIES.some(
+  const plottedTimes = points.filter(point => PROPOSAL_HISTORY_RENDERED_SERIES.some(
     definition => Number.isFinite(definitionValue(
       definition,
       point?.[definition.field],
@@ -509,7 +512,6 @@ export function createProposalHistoryChart({
   let resizeObserver = null;
   let interactionHandler = null;
   let launchAnchorMarkers = null;
-  let decisionThresholdLine = null;
   let currentRange = range;
   const twapStartTimestamp = unixTime(history.preTwap);
   const eventDefinitions = proposalChartBoundaryEvents(
@@ -567,7 +569,7 @@ export function createProposalHistoryChart({
       borderVisible: true,
       entireTextOnly: true,
       scaleMargins: { top: 0.16, bottom: 0.16 },
-      visible: visibility.decisionEdge !== false,
+      visible: false,
     },
     rightPriceScale: {
       autoScale: true,
@@ -644,7 +646,7 @@ export function createProposalHistoryChart({
     boundaryTimeSeries.setData(boundaryTimeline.map(time => ({ time })));
   }
 
-  PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+  PROPOSAL_HISTORY_RENDERED_SERIES.forEach((definition) => {
     const data = proposalChartData(points, definition.field, history.interval);
     const color = cssColor(
       runtime,
@@ -652,14 +654,7 @@ export function createProposalHistoryChart({
       definition.colorVariable,
       definition.fallbackColor,
     );
-    const negativeColor = cssColor(
-      runtime,
-      themeRoot,
-      definition.negativeColorVariable,
-      definition.negativeFallbackColor,
-    );
     const seriesVisible = visibility[definition.field] !== false;
-    const isDecisionEdge = definition.seriesType === 'baseline';
     const seriesOptions = {
       title: definition.label,
       lineStyle: definition.lineStyle,
@@ -689,40 +684,11 @@ export function createProposalHistoryChart({
       priceLineVisible: definition.priceLineVisible === true,
       priceLineStyle: PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
       priceLineWidth: 1,
-      ...(isDecisionEdge
-        ? {
-            baseValue: {
-              type: 'price',
-              price: Number.isFinite(thresholdPct) ? thresholdPct : 0,
-            },
-            relativeGradient: false,
-            topLineColor: color,
-            topFillColor1: 'rgba(66, 216, 155, 0)',
-            topFillColor2: 'rgba(66, 216, 155, 0)',
-            bottomLineColor: negativeColor,
-            bottomFillColor1: 'rgba(255, 111, 125, 0)',
-            bottomFillColor2: 'rgba(255, 111, 125, 0)',
-          }
-        : {
-            color,
-            priceLineColor: color,
-          }),
+      color,
+      priceLineColor: color,
     };
-    const line = chart.addSeries(
-      isDecisionEdge ? BaselineSeries : LineSeries,
-      seriesOptions,
-    );
+    const line = chart.addSeries(LineSeries, seriesOptions);
     line.setData(data);
-    if (isDecisionEdge && Number.isFinite(thresholdPct)) {
-      decisionThresholdLine = line.createPriceLine({
-        price: thresholdPct,
-        color: currentTheme.border,
-        lineWidth: 1,
-        lineStyle: PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
-        axisLabelVisible: true,
-        title: `Threshold ${thresholdPct >= 0 ? '+' : ''}${thresholdPct.toFixed(2)}%`,
-      });
-    }
     seriesByField.set(definition.field, [line]);
     seriesVisibility.set(definition.field, seriesVisible);
   });
@@ -773,9 +739,6 @@ export function createProposalHistoryChart({
     line.className = `ft-hourly-event-line ft-hourly-event-${event.kind}`;
     line.dataset.ftChartEvent = event.kind;
     line.setAttribute('aria-hidden', 'true');
-    const label = runtime.document.createElement('span');
-    label.textContent = event.label;
-    line.appendChild(label);
     container.appendChild(line);
     return { ...event, element: line };
   });
@@ -807,23 +770,14 @@ export function createProposalHistoryChart({
       Number.isFinite(event.coordinate)
       && event.coordinate >= 0
       && event.coordinate <= width
-    )).sort((left, right) => left.coordinate - right.coordinate);
+    ));
     eventElements.forEach((event) => {
       event.element.hidden = !positioned.some(positionedEvent => (
         positionedEvent.element === event.element
       ));
     });
-    positioned.forEach((event, index) => {
-      const previous = positioned[index - 1];
-      const stack = previous && Math.abs(event.coordinate - previous.coordinate) < 104
-        ? Number(previous.stack || 0) + 1
-        : 0;
-      event.stack = stack;
-      const coordinate = event.coordinate;
-      event.element.style.setProperty('--ft-event-x', `${coordinate}px`);
-      event.element.style.setProperty('--ft-event-offset', `${stack * 24}px`);
-      event.element.classList.toggle('ft-is-near-left', coordinate < 92);
-      event.element.classList.toggle('ft-is-near-right', coordinate > width - 92);
+    positioned.forEach((event) => {
+      event.element.style.setProperty('--ft-event-x', `${event.coordinate}px`);
     });
     liveEndpointDots.forEach(({ element, endpoint }, field) => {
       const series = seriesByField.get(field)?.[0];
@@ -931,9 +885,6 @@ export function createProposalHistoryChart({
     for (const series of seriesByField.get(field) || []) {
       series.applyOptions({ visible: visible !== false });
     }
-    if (field === 'decisionEdge') {
-      chart.priceScale('left').applyOptions({ visible: visible !== false });
-    }
     scheduleEventPosition();
   }
 
@@ -957,32 +908,17 @@ export function createProposalHistoryChart({
       rightPriceScale: { borderColor: currentTheme.border },
       timeScale: { borderColor: currentTheme.border },
     });
-    PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+    PROPOSAL_HISTORY_RENDERED_SERIES.forEach((definition) => {
       const color = cssColor(
         runtime,
         themeRoot,
         definition.colorVariable,
         definition.fallbackColor,
       );
-      const negativeColor = cssColor(
-        runtime,
-        themeRoot,
-        definition.negativeColorVariable,
-        definition.negativeFallbackColor,
-      );
       for (const series of seriesByField.get(definition.field) || []) {
-        series.applyOptions(definition.seriesType === 'baseline'
-          ? {
-              topLineColor: color,
-              bottomLineColor: negativeColor,
-            }
-          : {
-              color,
-              priceLineColor: color,
-            });
+        series.applyOptions({ color, priceLineColor: color });
       }
     });
-    decisionThresholdLine?.applyOptions({ color: currentTheme.border });
   }
 
   function updateLivePoint(point) {
@@ -990,7 +926,7 @@ export function createProposalHistoryChart({
     const normalized = normalizeProposalChartLivePoint(point, lastTimestamp);
     if (!normalized) return false;
 
-    PROPOSAL_HISTORY_SERIES.forEach((definition) => {
+    PROPOSAL_HISTORY_RENDERED_SERIES.forEach((definition) => {
       const value = normalized.values[definition.field];
       if (!Number.isFinite(value)) return;
       if (

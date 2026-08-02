@@ -182,7 +182,14 @@ function toggleSectionArrow(arrowEl) {
   labelEl.setAttribute('aria-expanded', !isCollapsed);
 }
 
-var _marketTokenSecondaryMetrics = ['change24h', 'change1h', 'nav'];
+var _marketTokenSecondaryMetrics = ['change24h', 'change1h', 'nav', 'marketCap', 'volume24h'];
+var _marketTokenSecondarySortConfig = {
+  change24h: { key: 'change', label: '24-hour change' },
+  change1h: { key: 'change-1h', label: '1-hour change' },
+  nav: { key: 'nav', label: 'NAV' },
+  marketCap: { key: 'market-cap', label: 'market cap' },
+  volume24h: { key: 'volume', label: '24-hour volume' }
+};
 var _marketTokenSecondaryMetric = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-secondary-column');
@@ -191,7 +198,7 @@ var _marketTokenSecondaryMetric = (function() {
     return 'change24h';
   }
 })();
-var _marketTokenSortKeys = ['asset', 'price', 'change', 'market-cap', 'volume'];
+var _marketTokenSortKeys = ['asset', 'price', 'change', 'change-1h', 'nav', 'market-cap', 'volume'];
 var _marketTokenSortKey = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-token-sort');
@@ -281,6 +288,7 @@ function setMarketTokenSecondaryMetric(nextMetric) {
   });
   closeMarketColumnMenu();
   _refreshMarketTokenList();
+  _syncMarketSortMenu();
 }
 
 function _syncMarketSortMenu() {
@@ -293,6 +301,34 @@ function _syncMarketSortMenu() {
   if (directionLabel) directionLabel.textContent = _marketSidebarSortAscending ? 'Low to high' : 'High to low';
   var directionIcon = document.getElementById('tp-market-sort-direction-icon');
   if (directionIcon) directionIcon.textContent = _marketSidebarSortAscending ? '↑' : '↓';
+  var secondaryButton = document.getElementById('tp-token-secondary-sort');
+  var secondaryDirection = document.getElementById('tp-token-secondary-sort-direction');
+  var secondaryConfig = _marketTokenSecondarySortConfig[_marketTokenSecondaryMetric];
+  var secondaryIsActive = !!secondaryConfig && _marketTokenSortKey === secondaryConfig.key;
+  if (secondaryButton && secondaryConfig) {
+    var nextDirection = secondaryIsActive && !_marketSidebarSortAscending
+      ? 'largest losses first'
+      : 'highest gains first';
+    if (_marketTokenSecondaryMetric !== 'change24h' && _marketTokenSecondaryMetric !== 'change1h') {
+      nextDirection = secondaryIsActive && !_marketSidebarSortAscending
+        ? 'lowest first'
+        : 'highest first';
+    }
+    secondaryButton.classList.toggle('active', secondaryIsActive);
+    secondaryButton.setAttribute('aria-pressed', String(secondaryIsActive));
+    secondaryButton.dataset.sortDirection = secondaryIsActive
+      ? (_marketSidebarSortAscending ? 'ascending' : 'descending')
+      : 'none';
+    secondaryButton.setAttribute(
+      'aria-label',
+      'Sort tokens by ' + secondaryConfig.label + ', ' + nextDirection
+    );
+  }
+  if (secondaryDirection) {
+    secondaryDirection.textContent = secondaryIsActive
+      ? (_marketSidebarSortAscending ? '↑' : '↓')
+      : '↕';
+  }
 }
 
 function closeMarketSortMenu() {
@@ -329,6 +365,27 @@ function toggleMarketSidebarSortDirection(event) {
   if (event) event.stopPropagation();
   _marketSidebarSortAscending = !_marketSidebarSortAscending;
   _syncMarketSortMenu();
+  applyMarketSidebarSearch();
+}
+
+function sortMarketSidebarBySecondaryMetric(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  var config = _marketTokenSecondarySortConfig[_marketTokenSecondaryMetric];
+  if (!config) return;
+  if (_marketTokenSortKey === config.key) {
+    _marketSidebarSortAscending = !_marketSidebarSortAscending;
+  } else {
+    _marketTokenSortKey = config.key;
+    _marketSidebarSortAscending = false;
+    try {
+      localStorage.setItem('navgator-market-token-sort', _marketTokenSortKey);
+    } catch (e) {}
+  }
+  _syncMarketSortMenu();
+  closeMarketSortMenu();
   applyMarketSidebarSearch();
 }
 
