@@ -3258,6 +3258,8 @@ export function mountFutardTerminal({
           data-ft-token="${escapeHtml(market.token || '')}"
           data-market-search-primary="${escapeHtml(ticker)}"
           data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
+          data-sort-threshold="${Number.isFinite(thresholdPct) ? escapeHtml(String(thresholdPct)) : ''}"
+          data-sort-signal="${Number.isFinite(signalPct) ? escapeHtml(String(signalPct)) : ''}"
           ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
         >
           <span class="tp-decision-live-dot" role="img" aria-label="Live market"></span>
