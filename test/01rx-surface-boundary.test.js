@@ -97,23 +97,10 @@ test('decision and token chart readouts share one typography scale', () => {
   );
 });
 
-test('01RX adds functional NAV, Growth, and chart expansion controls plus a disabled TradingView placeholder', () => {
-  assert.equal(
-    (indexSource.match(/window\.toggleChartNavMenu = function/g) || []).length,
-    1,
-  );
-  assert.match(indexSource, /id="chart-nav-trigger"/);
-  assert.match(indexSource, /id="btn-growth-chart-toolbar"/);
-  const placeholderButtons = [
-    ...indexSource.matchAll(
-      /<button class="chart-tv-placeholder-button[^"]*"[^>]*\sdisabled(?:\s|>)/g,
-    ),
-  ];
-  assert.equal(placeholderButtons.length, 1);
-  assert.doesNotMatch(
-    placeholderButtons.map(match => match[0]).join('\n'),
-    /onclick=|data-ft-action=/,
-  );
+test('01RX hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
+  assert.doesNotMatch(indexSource, /id="chart-nav-trigger"/);
+  assert.doesNotMatch(indexSource, /id="btn-growth-chart-toolbar"/);
+  assert.doesNotMatch(indexSource, /TradingView weekly timeframe placeholder/);
   assert.match(
     indexSource,
     /id="btn-fullscreen-toolbar"[\s\S]*?onclick="toggleChartFullscreen\(\)"/,
@@ -590,15 +577,7 @@ test('sidebar display customization remains removed', () => {
   assert.doesNotMatch(decisionMarketControllerSource, /getMarketDecisionColumns|decision-columns-change/);
 });
 
-test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the plot rail', () => {
-  assert.match(
-    frameCss,
-    /\.chart-tv-placeholder-controls-primary\s*\{\s*min-width: 42px;\s*flex: 0 0 42px;\s*order: -1;\s*\}/,
-  );
-  assert.match(
-    frameCss,
-    /\.chart-tv-placeholder-timeframe\s*\{\s*width: 42px;\s*min-width: 42px;/,
-  );
+test('spot chart keeps its expansion control aligned after temporary controls are removed', () => {
   assert.match(
     frameCss,
     /\.chart-tv-placeholder-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,

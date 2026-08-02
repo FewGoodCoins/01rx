@@ -35,7 +35,7 @@ function responseRecorder() {
 function project(overrides = {}) {
   return {
     organizationImageUrl: 'https://cdn.01resolved.com/solo.png',
-    organizationName: 'Solomon Labs',
+    organizationName: 'Solomon',
     organizationSlug: 'solomon-labs',
     tokenSymbol: 'SOLO',
     tokenUsdPrice: '0.628927',
@@ -92,6 +92,7 @@ test('01Resolved current NAV normalization preserves published values and source
 
   assert.equal(row.token, 'solo');
   assert.equal(row.ticker, 'SOLO');
+  assert.equal(row.name, 'Solomon Labs');
   assert.equal(row.spot, 0.628927);
   assert.equal(row.nav, 0.697689);
   assert.equal(row.treasuryUSDC, 5766232.78);
