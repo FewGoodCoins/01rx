@@ -996,6 +996,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     proposalChartData,
     proposalChartEndpoint,
     proposalChartLiveEndpoints,
+    proposalChartLineType,
     proposalChartMaximumLogicalWidth,
     proposalChartObservedRange,
     proposalLaunchSeriesMarker,
@@ -1054,6 +1055,20 @@ test('TradingView chart adapter splits null values and missing hours into honest
   assert.equal(
     PROPOSAL_HISTORY_SERIES.find(series => series.field === 'underlyingPrice').lineWidth,
     2,
+  );
+  assert.deepEqual(
+    ['underlyingPrice', 'passPrice', 'failPrice'].map(field => (
+      proposalChartLineType(
+        PROPOSAL_HISTORY_SERIES.find(series => series.field === field),
+      )
+    )),
+    [2, 2, 2],
+  );
+  assert.equal(
+    proposalChartLineType(
+      PROPOSAL_HISTORY_SERIES.find(series => series.field === 'passTwap'),
+    ),
+    0,
   );
   assert.equal(
     PROPOSAL_HISTORY_SERIES.find(series => series.field === 'passTwap').lineStyle,
