@@ -911,58 +911,11 @@ function historyOverlayMetric({
   `;
 }
 
-function historySeriesMenuOption({
-  field,
-  label,
-  count,
-  visible,
-}) {
-  const available = count > 0;
-  const active = visible && available;
+function renderChartExpansionControl() {
   return `
-    <button
-      class="ft-hourly-series-option${active ? ' ft-is-active' : ''}"
-      type="button"
-      role="menuitemcheckbox"
-      data-ft-action="toggle-hourly-series"
-      data-ft-series-field="${escapeHtml(field)}"
-      aria-checked="${active}"
-      ${available ? '' : 'disabled'}
-    >
-      <span>${escapeHtml(label)}</span>
-      <span class="ft-hourly-series-check" aria-hidden="true">✓</span>
-    </button>
-  `;
-}
-
-function renderTradingViewToolbarPreview() {
-  return `
-    <div
-      class="chart-tv-placeholder-controls chart-tv-placeholder-controls-primary"
-      aria-label="TradingView premium toolbar preview"
-    >
-      <button class="chart-tv-placeholder-button chart-tv-placeholder-timeframe chart-tv-placeholder-divider" type="button" disabled aria-label="TradingView weekly timeframe placeholder" title="TradingView weekly timeframe">
-        <span>W</span>
-      </button>
-    </div>
-    <div class="ft-hourly-growth-control" aria-label="Growth chart control">
-      <button
-        class="ft-hourly-style-cell ft-hourly-growth-button"
-        type="button"
-        disabled
-        aria-label="Growth data coming soon"
-        title="Growth data coming soon"
-      >
-        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M2.5 14.5h13"/>
-          <path d="m3.5 11 3-3 2.5 2 5-6"/>
-          <path d="M11.5 4h2.5v2.5"/>
-        </svg>
-      </button>
-    </div>
     <div
       class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
-      aria-label="TradingView premium view toolbar preview"
+      aria-label="Chart view controls"
     >
       <button
         class="chart-tv-placeholder-button"
@@ -992,24 +945,8 @@ function renderProposalChartStatusShell({
       data-ft-chart-state="${failed ? 'error' : 'loading'}"
       aria-busy="${failed ? 'false' : 'true'}"
     >
-      <div class="ft-hourly-toolbar" aria-hidden="true">
-        <div class="ft-hourly-series-control ft-hourly-series-control-labeled">
-          <button class="ft-hourly-style-cell ft-hourly-series-trigger-labeled" type="button" disabled tabindex="-1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 17L9 11L13 14L20 6"/>
-            </svg>
-            <span>Price</span>
-          </button>
-        </div>
-        <div class="ft-hourly-series-control ft-hourly-series-control-labeled">
-          <button class="ft-hourly-style-cell ft-hourly-series-trigger-labeled" type="button" disabled tabindex="-1">
-            <span class="ft-hourly-twap-glyph" aria-hidden="true">
-              <i></i><i></i>
-            </span>
-            <span>TWAP</span>
-          </button>
-        </div>
-        ${renderTradingViewToolbarPreview()}
+      <div class="ft-hourly-toolbar">
+        ${renderChartExpansionControl()}
       </div>
       <div class="ft-hourly-plot-shell">
         <div class="ft-chart-crosshair-rail" aria-hidden="true">
@@ -1088,101 +1025,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
       aria-busy="true"
     >
       <div class="ft-hourly-toolbar">
-        <div
-          class="ft-hourly-series-control ft-hourly-series-control-labeled"
-          data-ft-role="hourly-series-control"
-          data-ft-series-group="price"
-        >
-          <button
-            class="ft-hourly-style-cell ft-hourly-series-trigger-labeled"
-            type="button"
-            data-ft-action="toggle-hourly-series-menu"
-            data-ft-role="hourly-series-trigger"
-            data-ft-series-group="price"
-            aria-label="Choose price chart series"
-            aria-haspopup="menu"
-            aria-expanded="false"
-            title="Price chart series"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 17L9 11L13 14L20 6"/>
-            </svg>
-            <span>Price</span>
-          </button>
-          <div
-            class="ft-hourly-series-menu"
-            data-ft-role="hourly-series-menu"
-            data-ft-series-group="price"
-            role="menu"
-            aria-label="Price chart series"
-            hidden
-          >
-            <div class="ft-hourly-series-menu-label">Price series</div>
-            ${historySeriesMenuOption({
-              field: 'underlyingPrice',
-              label: 'Current price',
-              count: visibleCoverage.underlying || 0,
-              visible: visibility.underlyingPrice !== false,
-            })}
-            ${historySeriesMenuOption({
-              field: 'passPrice',
-              label: 'Pass price',
-              count: visibleCoverage.pass || 0,
-              visible: visibility.passPrice !== false,
-            })}
-            ${historySeriesMenuOption({
-              field: 'failPrice',
-              label: 'Fail price',
-              count: visibleCoverage.fail || 0,
-              visible: visibility.failPrice !== false,
-            })}
-          </div>
-        </div>
-        <div
-          class="ft-hourly-series-control ft-hourly-series-control-labeled"
-          data-ft-role="hourly-series-control"
-          data-ft-series-group="twap"
-        >
-          <button
-            class="ft-hourly-style-cell ft-hourly-series-trigger-labeled"
-            type="button"
-            data-ft-action="toggle-hourly-series-menu"
-            data-ft-role="hourly-series-trigger"
-            data-ft-series-group="twap"
-            aria-label="Choose TWAP chart series"
-            aria-haspopup="menu"
-            aria-expanded="false"
-            title="TWAP chart series"
-          >
-            <span class="ft-hourly-twap-glyph" aria-hidden="true">
-              <i></i><i></i>
-            </span>
-            <span>TWAP</span>
-          </button>
-          <div
-            class="ft-hourly-series-menu"
-            data-ft-role="hourly-series-menu"
-            data-ft-series-group="twap"
-            role="menu"
-            aria-label="TWAP chart series"
-            hidden
-          >
-            <div class="ft-hourly-series-menu-label">TWAP series</div>
-            ${historySeriesMenuOption({
-              field: 'passTwap',
-              label: 'Pass TWAP',
-              count: visibleCoverage.passTwap || 0,
-              visible: visibility.passTwap !== false,
-            })}
-            ${historySeriesMenuOption({
-              field: 'failTwap',
-              label: 'Fail TWAP',
-              count: visibleCoverage.failTwap || 0,
-              visible: visibility.failTwap !== false,
-            })}
-          </div>
-        </div>
-        ${renderTradingViewToolbarPreview()}
+        ${renderChartExpansionControl()}
       </div>
       <div class="ft-hourly-plot-shell${twapWindow ? ' ft-has-twap-progress' : ''}">
         <div class="ft-chart-crosshair-rail" role="toolbar" aria-label="Chart cursor tools">
@@ -7989,38 +7832,6 @@ export function mountFutardTerminal({
     }
   }
 
-  function setHourlySeriesMenuOpen(group, open, options = {}) {
-    const normalizedGroup = group === 'twap' ? 'twap' : 'price';
-    const menu = root.querySelector(
-      `[data-ft-role="hourly-series-menu"][data-ft-series-group="${normalizedGroup}"]`,
-    );
-    const trigger = root.querySelector(
-      `[data-ft-role="hourly-series-trigger"][data-ft-series-group="${normalizedGroup}"]`,
-    );
-    if (!menu || !trigger) return;
-    const shouldOpen = Boolean(open);
-    if (shouldOpen) {
-      root.querySelectorAll('[data-ft-role="hourly-series-menu"]').forEach((otherMenu) => {
-        if (otherMenu === menu) return;
-        otherMenu.hidden = true;
-        const otherGroup = otherMenu.dataset.ftSeriesGroup;
-        root.querySelector(
-          `[data-ft-role="hourly-series-trigger"][data-ft-series-group="${otherGroup}"]`,
-        )?.setAttribute('aria-expanded', 'false');
-      });
-    }
-    menu.hidden = !shouldOpen;
-    trigger.setAttribute('aria-expanded', String(shouldOpen));
-    if (shouldOpen && options.focusSelection) {
-      const selected = menu.querySelector(
-        '[role="menuitemcheckbox"][aria-checked="true"]:not([disabled])',
-      ) || menu.querySelector('[role="menuitemcheckbox"]:not([disabled])');
-      selected?.focus();
-    } else if (!shouldOpen && options.restoreFocus) {
-      trigger.focus();
-    }
-  }
-
   function hourlySeriesAvailability() {
     const history = state.historyByProposal.get(selectedMarket()?.id)?.data;
     const observations = proposalHistoryChartObservations(history);
@@ -8109,12 +7920,6 @@ export function mountFutardTerminal({
     if (rangeSelector && rangeMenu && !rangeMenu.hidden && !rangeSelector.contains(event.target)) {
       setHourlyRangeMenuOpen(false);
     }
-    root.querySelectorAll('[data-ft-role="hourly-series-control"]').forEach((control) => {
-      const seriesMenu = control.querySelector('[data-ft-role="hourly-series-menu"]');
-      if (seriesMenu && !seriesMenu.hidden && !control.contains(event.target)) {
-        setHourlySeriesMenuOpen(control.dataset.ftSeriesGroup, false);
-      }
-    });
   }
 
   function handleClick(event) {
@@ -8197,13 +8002,6 @@ export function mountFutardTerminal({
         }
       }
       setHourlySeriesVisible(field, nextVisible);
-    } else if (action === 'toggle-hourly-series-menu') {
-      event.preventDefault();
-      const group = target.dataset.ftSeriesGroup;
-      const menu = root.querySelector(
-        `[data-ft-role="hourly-series-menu"][data-ft-series-group="${group}"]`,
-      );
-      setHourlySeriesMenuOpen(group, menu?.hidden !== false, { focusSelection: true });
     } else if (action === 'hourly-chart-tool') {
       const tool = target.dataset.ftChartTool;
       if (tool === 'zoom-in') {
@@ -8512,43 +8310,6 @@ export function mountFutardTerminal({
   }
 
   function handleKeydown(event) {
-    const activeMenu = Array.from(
-      root.querySelectorAll('[data-ft-role="hourly-series-menu"]'),
-    ).find(menu => !menu.hidden) || null;
-    if (activeMenu) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setHourlySeriesMenuOpen(
-          activeMenu.dataset.ftSeriesGroup,
-          false,
-          { restoreFocus: true },
-        );
-        return;
-      }
-      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-        const options = Array.from(
-          activeMenu.querySelectorAll(
-            '[role="menuitemcheckbox"]:not([disabled])',
-          ),
-        );
-        if (options.length) {
-          event.preventDefault();
-          const currentIndex = options.indexOf(runtime.document.activeElement);
-          let nextIndex = 0;
-          if (event.key === 'Home') nextIndex = 0;
-          else if (event.key === 'End') nextIndex = options.length - 1;
-          else if (event.key === 'ArrowDown') {
-            nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % options.length;
-          } else {
-            nextIndex = currentIndex < 0
-              ? options.length - 1
-              : (currentIndex - 1 + options.length) % options.length;
-          }
-          options[nextIndex].focus();
-          return;
-        }
-      }
-    }
     const commandSearch = (event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'k';
     const slashSearch = event.key === '/' && !/input|textarea|select/i.test(event.target?.tagName || '');
     if (event.key === 'Escape' && (state.wallet.pickerOpen || state.execution.reviewOpen)) {

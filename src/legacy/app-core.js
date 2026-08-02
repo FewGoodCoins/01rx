@@ -182,23 +182,11 @@ function toggleSectionArrow(arrowEl) {
   labelEl.setAttribute('aria-expanded', !isCollapsed);
 }
 
-var _marketTokenSecondaryMetrics = ['change24h', 'change1h', 'nav', 'marketCap', 'volume24h'];
 var _marketTokenSecondarySortConfig = {
-  change24h: { key: 'change', label: '24-hour change' },
-  change1h: { key: 'change-1h', label: '1-hour change' },
-  nav: { key: 'nav', label: 'NAV' },
-  marketCap: { key: 'market-cap', label: 'market cap' },
-  volume24h: { key: 'volume', label: '24-hour volume' }
+  change24h: { key: 'change', label: '24-hour change' }
 };
-var _marketTokenSecondaryMetric = (function() {
-  try {
-    var saved = localStorage.getItem('navgator-market-secondary-column');
-    return _marketTokenSecondaryMetrics.indexOf(saved) >= 0 ? saved : 'change24h';
-  } catch (e) {
-    return 'change24h';
-  }
-})();
-var _marketTokenSortKeys = ['asset', 'price', 'change', 'change-1h', 'nav', 'market-cap', 'volume'];
+var _marketTokenSecondaryMetric = 'change24h';
+var _marketTokenSortKeys = ['asset', 'change'];
 var _marketTokenSortKey = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-token-sort');
@@ -218,43 +206,6 @@ function getMarketSidebarSortAscending() {
   return _marketSidebarSortAscending;
 }
 
-function closeMarketColumnMenu() {
-  var menu = document.getElementById('tp-market-column-menu');
-  var button = document.getElementById('tp-market-columns-button');
-  if (menu) menu.hidden = true;
-  if (button) button.setAttribute('aria-expanded', 'false');
-}
-
-function toggleMarketColumnMenu(event) {
-  if (event) event.stopPropagation();
-  var menu = document.getElementById('tp-market-column-menu');
-  var button = document.getElementById('tp-market-columns-button');
-  if (!menu || !button || button.disabled) return;
-  var willOpen = menu.hidden;
-  closeMarketSortMenu();
-  menu.hidden = !willOpen;
-  button.setAttribute('aria-expanded', String(willOpen));
-}
-
-function toggleMarketSidebarSearch(event) {
-  if (event) event.stopPropagation();
-  var field = document.getElementById('tp-market-search-field');
-  var button = document.getElementById('tp-market-search-button');
-  var input = document.getElementById('tlp-search');
-  if (!field || !button || !input) return;
-  var willOpen = field.hidden;
-  closeMarketColumnMenu();
-  closeMarketSortMenu();
-  field.hidden = !willOpen;
-  button.setAttribute('aria-expanded', String(willOpen));
-  if (willOpen) {
-    requestAnimationFrame(function() { input.focus(); });
-  } else if (input.value) {
-    input.value = '';
-    applyMarketSidebarSearch();
-  }
-}
-
 function setMarketSidebarTab(nextTab) {
   if (nextTab !== 'watchlist' && nextTab !== 'all' && nextTab !== 'markets' && nextTab !== 'tokens') return;
   _marketSidebarTab = nextTab;
@@ -267,53 +218,14 @@ function setMarketSidebarTab(nextTab) {
   applyMarketSidebarSearch();
 }
 
-function _refreshMarketTokenList() {
-  if (typeof renderTokenLeftPanel === 'function') {
-    renderTokenLeftPanel(window._cachedPriceMap || {});
-  } else if (window.NAVGATOR && typeof window.NAVGATOR.refreshMarketTokenSidebar === 'function') {
-    window.NAVGATOR.refreshMarketTokenSidebar();
-  }
-  var search = document.getElementById('tlp-search');
-  if (search && search.value) search.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function setMarketTokenSecondaryMetric(nextMetric) {
-  if (_marketTokenSecondaryMetrics.indexOf(nextMetric) < 0) return;
-  _marketTokenSecondaryMetric = nextMetric;
-  try {
-    localStorage.setItem('navgator-market-secondary-column', nextMetric);
-  } catch (e) {}
-  document.querySelectorAll('input[name="tp-token-secondary-column"]').forEach(function(input) {
-    input.checked = input.value === nextMetric;
-  });
-  closeMarketColumnMenu();
-  _refreshMarketTokenList();
-  _syncMarketSortMenu();
-}
-
 function _syncMarketSortMenu() {
-  document.querySelectorAll('[data-market-sort-key]').forEach(function(option) {
-    var isActive = option.dataset.marketSortKey === _marketTokenSortKey;
-    option.classList.toggle('active', isActive);
-    option.setAttribute('aria-checked', String(isActive));
-  });
-  var directionLabel = document.getElementById('tp-market-sort-direction-label');
-  if (directionLabel) directionLabel.textContent = _marketSidebarSortAscending ? 'Low to high' : 'High to low';
-  var directionIcon = document.getElementById('tp-market-sort-direction-icon');
-  if (directionIcon) directionIcon.textContent = _marketSidebarSortAscending ? '↑' : '↓';
   var secondaryButton = document.getElementById('tp-token-secondary-sort');
-  var secondaryDirection = document.getElementById('tp-token-secondary-sort-direction');
   var secondaryConfig = _marketTokenSecondarySortConfig[_marketTokenSecondaryMetric];
   var secondaryIsActive = !!secondaryConfig && _marketTokenSortKey === secondaryConfig.key;
   if (secondaryButton && secondaryConfig) {
     var nextDirection = secondaryIsActive && !_marketSidebarSortAscending
       ? 'largest losses first'
       : 'highest gains first';
-    if (_marketTokenSecondaryMetric !== 'change24h' && _marketTokenSecondaryMetric !== 'change1h') {
-      nextDirection = secondaryIsActive && !_marketSidebarSortAscending
-        ? 'lowest first'
-        : 'highest first';
-    }
     secondaryButton.classList.toggle('active', secondaryIsActive);
     secondaryButton.setAttribute('aria-pressed', String(secondaryIsActive));
     secondaryButton.dataset.sortDirection = secondaryIsActive
@@ -324,48 +236,6 @@ function _syncMarketSortMenu() {
       'Sort tokens by ' + secondaryConfig.label + ', ' + nextDirection
     );
   }
-  if (secondaryDirection) {
-    secondaryDirection.textContent = secondaryIsActive
-      ? (_marketSidebarSortAscending ? '↑' : '↓')
-      : '↕';
-  }
-}
-
-function closeMarketSortMenu() {
-  var menu = document.getElementById('tp-market-sort-menu');
-  var button = document.getElementById('tp-market-sort-button');
-  if (menu) menu.hidden = true;
-  if (button) button.setAttribute('aria-expanded', 'false');
-}
-
-function toggleMarketSortMenu(event) {
-  if (event) event.stopPropagation();
-  var menu = document.getElementById('tp-market-sort-menu');
-  var button = document.getElementById('tp-market-sort-button');
-  if (!menu || !button || button.disabled) return;
-  var willOpen = menu.hidden;
-  closeMarketColumnMenu();
-  _syncMarketSortMenu();
-  menu.hidden = !willOpen;
-  button.setAttribute('aria-expanded', String(willOpen));
-}
-
-function setMarketSidebarSort(nextKey) {
-  if (_marketTokenSortKeys.indexOf(nextKey) < 0) return;
-  _marketTokenSortKey = nextKey;
-  try {
-    localStorage.setItem('navgator-market-token-sort', nextKey);
-  } catch (e) {}
-  _syncMarketSortMenu();
-  closeMarketSortMenu();
-  applyMarketSidebarSearch();
-}
-
-function toggleMarketSidebarSortDirection(event) {
-  if (event) event.stopPropagation();
-  _marketSidebarSortAscending = !_marketSidebarSortAscending;
-  _syncMarketSortMenu();
-  applyMarketSidebarSearch();
 }
 
 function sortMarketSidebarBySecondaryMetric(event) {
@@ -385,12 +255,7 @@ function sortMarketSidebarBySecondaryMetric(event) {
     } catch (e) {}
   }
   _syncMarketSortMenu();
-  closeMarketSortMenu();
   applyMarketSidebarSearch();
-}
-
-function toggleMarketSidebarSort() {
-  toggleMarketSidebarSortDirection();
 }
 
 function _marketSearchScore(item, query) {
@@ -491,7 +356,10 @@ function _bindMarketSidebarSearch() {
   input.dataset.marketSearchBound = 'true';
   input.addEventListener('input', applyMarketSidebarSearch);
   input.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') toggleMarketSidebarSearch(event);
+    if (event.key === 'Escape' && input.value) {
+      input.value = '';
+      applyMarketSidebarSearch();
+    }
   });
   _syncMarketSortMenu();
   setMarketSidebarTab(_marketSidebarTab);
@@ -519,17 +387,6 @@ if (document.readyState === 'loading') {
 } else {
   _bindMarketSidebarSearch();
 }
-
-document.addEventListener('click', function(event) {
-  var menu = document.getElementById('tp-market-column-menu');
-  if (menu && !menu.hidden && !event.target.closest('.tp-market-column-menu') && !event.target.closest('#tp-market-columns-button')) {
-    closeMarketColumnMenu();
-  }
-  var sortMenu = document.getElementById('tp-market-sort-menu');
-  if (sortMenu && !sortMenu.hidden && !event.target.closest('.tp-market-sort-menu') && !event.target.closest('#tp-market-sort-button')) {
-    closeMarketSortMenu();
-  }
-});
 
 function setBreadcrumb(crumbs) {
   var bc = document.getElementById('nav-breadcrumb');

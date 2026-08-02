@@ -9557,6 +9557,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary {
   flex: 0 0 56px;
+  margin-left: auto;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-button {
