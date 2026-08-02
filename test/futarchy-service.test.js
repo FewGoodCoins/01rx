@@ -89,6 +89,7 @@ test('active markets join 01Resolved identity with proposal-discovered validated
           organizationSlug: 'futardio-cult',
           proposalPublicKey: PROPOSAL,
           proposalTitle: 'Active proposal',
+          passLikelihood: 0.64,
         }] });
       }
       throw new Error(`Unexpected request: ${url}`);
@@ -106,6 +107,7 @@ test('active markets join 01Resolved identity with proposal-discovered validated
   assert.equal(first.markets.length, 1);
   assert.equal(first.markets[0].token, 'futardio');
   assert.equal(first.markets[0].tradable, true);
+  assert.equal(first.markets[0].likelihoodPct, 64);
   assert.equal(first.markets[0].proposal.passBaseMint, snapshot().proposal.passBaseMint);
   assert.equal(second, first);
   assert.equal(calls.length, 1);

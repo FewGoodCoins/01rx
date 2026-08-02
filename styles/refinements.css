@@ -1322,7 +1322,7 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
   color: #e6e6e6;
 }
 
-.tp-decision-threshold {
+.tp-decision-likelihood {
   grid-column: 5;
 }
 

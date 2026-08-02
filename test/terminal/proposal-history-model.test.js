@@ -70,6 +70,7 @@ test('proposal chart omits a launch anchor when the first spot price is unavaila
 
 test('proposal TWAP and decision-edge observations begin at TWAP Open without mutating indexed history', async () => {
   const {
+    proposalConditionalSpotChangePct,
     proposalDecisionEdge,
     proposalHistoryChartObservations,
   } = await loadModel();
@@ -118,4 +119,14 @@ test('proposal TWAP and decision-edge observations begin at TWAP Open without mu
   assert.equal(proposalDecisionEdge(0.97, 1), -3.0000000000000027);
   assert.equal(proposalDecisionEdge(null, 1), null);
   assert.equal(proposalDecisionEdge(1, 0), null);
+  assert.equal(
+    proposalConditionalSpotChangePct(0.2336, 0.27929).toFixed(2),
+    '-16.36',
+  );
+  assert.equal(
+    proposalConditionalSpotChangePct(0.27973, 0.27929).toFixed(2),
+    '0.16',
+  );
+  assert.equal(proposalConditionalSpotChangePct(null, 0.27929), null);
+  assert.equal(proposalConditionalSpotChangePct(0.27973, 0), null);
 });

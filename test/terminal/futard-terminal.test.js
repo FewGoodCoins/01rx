@@ -71,6 +71,7 @@ const ACTIVE_MARKETS = {
       decision: {
         passing: true,
         marginPct: 1.63,
+        passLikelihood: 0.64,
         targetPassTwap: 0.1298185,
       },
       spot: {
@@ -1252,11 +1253,44 @@ test('chart default readout never mixes prices from different observations', asy
   const chart = dom.window.document;
   assert.equal(chart.querySelector('[data-ft-readout-value="passPrice"]').textContent, '—');
   assert.equal(chart.querySelector('[data-ft-readout-value="failPrice"]').textContent, '$8.000');
+  assert.equal(chart.querySelector('[data-ft-readout-spot-change="passPrice"]').textContent, '—');
+  assert.equal(chart.querySelector('[data-ft-readout-spot-change="failPrice"]').textContent, '-5.88%');
+  assert.equal(
+    chart.querySelector('[data-ft-readout-spot-change="failPrice"]')
+      .classList.contains('ft-is-negative'),
+    true,
+  );
   assert.equal(chart.querySelector('[data-ft-role="hourly-spread"]'), null);
   assert.match(chart.querySelector('[data-ft-role="hourly-readout-time"]').textContent, /6\/16\/26 · 11:00 UTC/);
   assert.equal(chart.querySelector('.ft-hourly-phase-definition'), null);
   assert.equal(chart.querySelector('[data-ft-role="pre-twap-definition"]'), null);
   assert.equal(chart.querySelector('.ft-hourly-phase-cell'), null);
+  dom.window.close();
+});
+
+test('proposal readout compares each conditional price with same-time spot', async () => {
+  const { renderHourlyPriceChart } = await loadTerminalModule();
+  const history = {
+    series: [{
+      timestamp: '2026-08-02T16:30:00.000Z',
+      underlyingPrice: 0.27929,
+      passPrice: 0.2336,
+      failPrice: 0.27973,
+    }],
+    summary: { coverage: { underlying: 1, pass: 1, fail: 1 } },
+    source: { provider: '01Resolved' },
+  };
+
+  const dom = new JSDOM(renderHourlyPriceChart(history, 'UMBRA'));
+  const chart = dom.window.document;
+  const passChange = chart.querySelector('[data-ft-readout-spot-change="passPrice"]');
+  const failChange = chart.querySelector('[data-ft-readout-spot-change="failPrice"]');
+  assert.match(passChange.parentElement.textContent, /vs spot/);
+  assert.match(failChange.parentElement.textContent, /vs spot/);
+  assert.equal(passChange.textContent.trim(), '-16.36%');
+  assert.equal(passChange.classList.contains('ft-is-negative'), true);
+  assert.equal(failChange.textContent.trim(), '+0.16%');
+  assert.equal(failChange.classList.contains('ft-is-positive'), true);
   dom.window.close();
 });
 
@@ -2059,12 +2093,12 @@ test('market sidebar uses a leading pulse instead of a separate live status colu
     /^-\d{1,3}ms$/,
   );
   assert.equal(liveDot.style.animationDelay, '');
-  assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+\+1\.5%[\s\S]+\+1\.63%/);
-  assert.equal(Number(liveDecision.dataset.sortThreshold), 1.5);
+  assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+64\.00%[\s\S]+\+1\.63%/);
+  assert.equal(Number(liveDecision.dataset.sortLikelihood), 64);
   assert.ok(Number.isFinite(Number(liveDecision.dataset.sortSignal)));
   assert.equal(
-    liveDecision.querySelector('.tp-decision-threshold').title,
-    'Required PASS versus FAIL TWAP threshold',
+    liveDecision.querySelector('.tp-decision-likelihood').title,
+    'Proposal pass likelihood published by 01Resolved',
   );
   assert.equal(
     liveDecision.querySelector('.tp-decision-signal').dataset.direction,
