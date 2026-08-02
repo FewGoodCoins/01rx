@@ -462,7 +462,7 @@ function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
   const windowProgress = proposalTwapWindowProgress(preTwap, windowEndedAt, now);
   if (!windowProgress) return '';
   const progressPercent = windowProgress.progress * 100;
-  const progressLabel = `${windowProgress.percent}% through`;
+  const progressLabel = `${windowProgress.percent}%`;
   return `
     <section
       class="ft-twap-window-pane"
@@ -471,12 +471,9 @@ function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
       data-ft-twap-closed-at="${windowProgress.closedAt}"
       data-ft-twap-state="${windowProgress.state}"
       style="--ft-twap-progress: ${progressPercent.toFixed(4)}%"
-      aria-label="TWAP window: ${progressLabel}"
+      aria-label="TWAP window: ${progressLabel} complete"
     >
-      <div class="ft-twap-window-heading">
-        <span>TWAP window</span>
-        <strong data-ft-role="twap-window-percent">${progressLabel}</strong>
-      </div>
+      <span class="ft-twap-window-title">TWAP window</span>
       <div
         class="ft-twap-window-track"
         data-ft-role="twap-window-track"
@@ -487,12 +484,8 @@ function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
         aria-valuenow="${windowProgress.percent}"
       >
         <span class="ft-twap-window-fill" aria-hidden="true"></span>
-        <i class="ft-twap-window-marker" aria-hidden="true"></i>
       </div>
-      <div class="ft-twap-window-bounds" aria-hidden="true">
-        <span>Open</span>
-        <span>Close</span>
-      </div>
+      <strong class="ft-twap-window-percent" data-ft-role="twap-window-percent">${progressLabel}</strong>
     </section>
   `;
 }
@@ -506,10 +499,10 @@ function updateTwapWindowProgress(root, now = Date.now()) {
     now,
   );
   if (!windowProgress) return;
-  const progressLabel = `${windowProgress.percent}% through`;
+  const progressLabel = `${windowProgress.percent}%`;
   pane.dataset.ftTwapState = windowProgress.state;
   pane.style.setProperty('--ft-twap-progress', `${windowProgress.progress * 100}%`);
-  pane.setAttribute('aria-label', `TWAP window: ${progressLabel}`);
+  pane.setAttribute('aria-label', `TWAP window: ${progressLabel} complete`);
   const percent = pane.querySelector('[data-ft-role="twap-window-percent"]');
   if (percent) percent.textContent = progressLabel;
   const track = pane.querySelector('[data-ft-role="twap-window-track"]');

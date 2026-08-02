@@ -69,6 +69,10 @@
   border-radius: 999px !important;
 }
 
+#navgator-app#navgator-app .tp-market-search-field {
+  border-radius: 12px !important;
+}
+
 #navgator-app#navgator-app .tp-lp-sublabel .tp-section-arrow,
 #navgator-app#navgator-app .ft-system-message::before {
   border-radius: 50% !important;

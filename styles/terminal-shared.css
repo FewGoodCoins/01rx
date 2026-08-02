@@ -66,9 +66,9 @@
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid,
   [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-terminal-grid,
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
-    --ft-terminal-account-height: clamp(160px, 20dvh, 190px);
+    --ft-terminal-account-height: clamp(180px, 22dvh, 210px);
     --ft-terminal-chart-height: max(
-      580px,
+      550px,
       calc(
         100dvh
         - var(--site-header-height)
@@ -278,21 +278,58 @@
     display: none;
   }
 
-  /* A complete execution ticket sets the minimum shared track height. On a
-     short viewport, scroll the surrounding workspace instead of clipping a
-     ticket or adding a nested ticket scrollbar. */
+  /* Keep the complete terminal on one browser page. Dense account content may
+     scroll inside its own panel, but the workspace itself never scrolls. */
   body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .app-content {
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
   }
+}
 
-  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .dashboard.active,
-  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .token-markets-root,
-  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-shell,
-  body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) [data-ft-mode="token"] .ft-main {
-    height: auto !important;
-    min-height: 100% !important;
-    overflow: visible !important;
-  }
+/* Use one continuous surface across the market terminal. Borders, text, and
+   selected controls provide hierarchy without alternating panel fills. */
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-terminal-grid,
+  .ft-market-chart-header-region,
+  .ft-chart-market-header,
+  .ft-market-chart,
+  .ft-terminal-chart-panel,
+  .ft-ownership-chart-panel,
+  .ft-ownership-chart-frame,
+  .ft-hourly-panel,
+  .ft-hourly-chart,
+  .ft-hourly-toolbar,
+  .ft-hourly-plot-shell,
+  .ft-hourly-live,
+  .ft-chart-crosshair-rail,
+  .ft-activity-row,
+  .ft-ownership-transactions,
+  .ft-ownership-transactions-header,
+  .ft-ownership-transactions-columns,
+  .ft-ownership-transactions-list,
+  .ft-ticket-column,
+  .ft-ticket,
+  .ft-decision-ticket,
+  .ft-archive-ticket,
+  .ft-ownership-ticket,
+  .ft-account-row,
+  .ft-ownership-account,
+  .ft-ownership-account-tabs,
+  .ft-ownership-account-panel,
+  .ft-twap-window-pane
+) {
+  background: var(--market-surface, #101010) !important;
+}
+
+html[data-workspace="markets"] :is(
+  .tp-market-toolbar,
+  .tp-market-tabs,
+  .tp-decisions-section,
+  .tp-all-section,
+  .tp-unified-section-heading,
+  #tlp-decisions-list,
+  #tlp-all-list
+) {
+  background: var(--market-surface, #101010) !important;
 }
 
 /* The chart toolbar has one geometry in both terminal modes. */

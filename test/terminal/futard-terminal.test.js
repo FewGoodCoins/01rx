@@ -925,7 +925,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(twapProgress.dataset.ftTwapState, 'active');
   assert.equal(
     twapProgress.querySelector('[data-ft-role="twap-window-percent"]').textContent,
-    '50% through',
+    '50%',
   );
   assert.equal(
     twapProgress.querySelector('[data-ft-role="twap-window-track"]')
