@@ -24,6 +24,10 @@ const appCoreSource = fs.readFileSync(
   new URL('../src/legacy/app-core.js', import.meta.url),
   'utf8',
 );
+const decisionMarketControllerSource = fs.readFileSync(
+  new URL('../src/markets/decision-market-controller.js', import.meta.url),
+  'utf8',
+);
 const tokenPageSource = fs.readFileSync(
   new URL('../src/legacy/token-page.js', import.meta.url),
   'utf8',
@@ -118,6 +122,10 @@ test('proposal recent transactions header aligns with the chart toolbar', () => 
 
 test('market sidebar and execution controls continue the terminal header rails', () => {
   assert.match(
+    refinementCss,
+    /html\[data-workspace="markets"\] \.tp-market-toolbar\s*\{[\s\S]*?border-bottom: 0;[\s\S]*?background: #101010;/,
+  );
+  assert.match(
     sharedTerminalCss,
     /html\[data-workspace="markets"\] \.tp-market-toolbar\s*\{[\s\S]*?height: 38px;[\s\S]*?flex: 0 0 38px;/,
   );
@@ -135,12 +143,18 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /html\[data-workspace="markets"\] \.tp-market-tool-button\s*\{[\s\S]*?width: 30px;[\s\S]*?height: 30px;[\s\S]*?flex: 0 0 30px;/,
+    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: relative;[\s\S]*?height: 28px;[\s\S]*?flex: 1 1 auto;[\s\S]*?margin: 0;/,
   );
   assert.match(
-    sharedTerminalCss,
-    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: absolute;[\s\S]*?height: 28px;[\s\S]*?margin: 0;/,
+    indexSource,
+    /<label class="tp-market-search-field" id="tp-market-search-field">\s*<input id="tlp-search" type="search"/,
   );
+  assert.match(
+    refinementCss,
+    /\.tp-market-search-field\s*\{[\s\S]*?padding: 0 12px;[\s\S]*?border: 1px solid #77776f;[\s\S]*?border-radius: 8px;/,
+  );
+  assert.doesNotMatch(indexSource, /tp-market-search-button|tp-market-sort-button|tp-market-sort-menu/);
+  assert.doesNotMatch(indexSource, /tp-market-close-button|Close asset browser/);
 });
 
 test('market sidebar titles use consistent full-size click targets', () => {
@@ -167,6 +181,14 @@ test('market sidebar titles use consistent full-size click targets', () => {
 });
 
 test('market sidebar underline slides between proportionally spaced tabs', () => {
+  assert.match(
+    refinementCss,
+    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?border-bottom: 0;/,
+  );
+  assert.match(
+    refinementCss,
+    /html\[data-workspace="markets"\] \.tp-unified-section-heading\s*\{[\s\S]*?border-top: 0;/,
+  );
   assert.match(
     refinementCss,
     /data-market-sidebar-tab="watchlist"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 18%;\s*--tp-market-tab-width: 29%;/,
@@ -389,7 +411,7 @@ test('market sidebar uses one market section with a leading live indicator', () 
   );
   assert.doesNotMatch(indexSource, /tlp-past-decisions|tp-past-decisions|tlp-decision-history-toggle-slot/);
   assert.doesNotMatch(indexSource, /<span>Status<\/span>/);
-  assert.doesNotMatch(indexSource, /tp-decision-columns|tp-token-columns|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
+  assert.doesNotMatch(indexSource, /class="tp-(?:decision|token)-columns"|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
   assert.match(
     indexSource,
     /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?<span aria-hidden="true">Price<\/span>[\s\S]*?id="tp-token-secondary-sort"[\s\S]*?onclick="sortMarketSidebarBySecondaryMetric\(event\)"[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
@@ -424,26 +446,24 @@ test('the visible token metric toggles high and low sorting', () => {
     appCoreSource,
     /function sortMarketSidebarBySecondaryMetric\(event\)\s*\{[\s\S]*?_marketTokenSecondarySortConfig\[_marketTokenSecondaryMetric\][\s\S]*?_marketTokenSortKey === config\.key[\s\S]*?_marketSidebarSortAscending = !_marketSidebarSortAscending;[\s\S]*?_marketTokenSortKey = config\.key;[\s\S]*?_marketSidebarSortAscending = false;[\s\S]*?applyMarketSidebarSearch\(\);/,
   );
-  assert.match(
-    appCoreSource,
-    /secondaryDirection\.textContent = secondaryIsActive[\s\S]*?_marketSidebarSortAscending \? '↑' : '↓'[\s\S]*?: '↕';/,
-  );
-  assert.match(appCoreSource, /change1h: \{ key: 'change-1h', label: '1-hour change' \}/);
-  assert.match(appCoreSource, /nav: \{ key: 'nav', label: 'NAV' \}/);
-  assert.match(appCoreSource, /marketCap: \{ key: 'market-cap', label: 'market cap' \}/);
-  assert.match(appCoreSource, /volume24h: \{ key: 'volume', label: '24-hour volume' \}/);
+  assert.doesNotMatch(indexSource, /tp-token-secondary-sort-direction/);
+  assert.match(appCoreSource, /var _marketTokenSecondaryMetric = 'change24h';/);
   assert.match(
     refinementCss,
     /\.tp-token-secondary-sort\s*\{[\s\S]*?cursor: pointer;/,
   );
-  assert.match(indexSource, /value="marketCap"[\s\S]*?>Market Cap<\/span>/);
-  assert.match(indexSource, /value="volume24h"[\s\S]*?>24h Volume<\/span>/);
   [tokenPageSource, landingSource].forEach((source) => {
     assert.match(source, /data-sort-change-1h=/);
     assert.match(source, /data-sort-nav=/);
     assert.match(source, /data-sort-market-cap=/);
     assert.match(source, /data-sort-volume=/);
   });
+});
+
+test('sidebar display customization remains removed', () => {
+  assert.doesNotMatch(indexSource, /tp-(?:market|decision)-column|tp-section-options-button/);
+  assert.doesNotMatch(appCoreSource, /toggleMarketColumnMenu|setMarketDecisionColumns|setMarketTokenSecondaryMetric/);
+  assert.doesNotMatch(decisionMarketControllerSource, /getMarketDecisionColumns|decision-columns-change/);
 });
 
 test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the plot rail', () => {
@@ -461,14 +481,14 @@ test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the pl
   );
 });
 
-test('decision chart toolbar wrappers match their labeled button widths', () => {
-  assert.match(
-    sharedTerminalCss,
-    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-archive-market\) \.ft-hourly-series-control-labeled\s*\{\s*width: 74px;\s*min-width: 74px;\s*flex: 0 0 74px;/,
+test('decision chart toolbar keeps only chart expansion', () => {
+  assert.doesNotMatch(
+    decisionMarketControllerSource,
+    /hourly-series-trigger|TradingView weekly timeframe placeholder|ft-hourly-growth-control/,
   );
   assert.match(
-    sharedTerminalCss,
-    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-archive-market\) \.ft-hourly-toolbar \.chart-tv-placeholder-controls-primary\s*\{\s*width: 50px;\s*min-width: 50px;\s*flex: 0 0 50px;/,
+    decisionMarketControllerSource,
+    /function renderChartExpansionControl\(\)[\s\S]*?data-ft-action="toggle-chart-expansion"/,
   );
 });
 

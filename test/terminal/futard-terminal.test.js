@@ -874,20 +874,12 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   }));
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
-  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 10);
+  assert.equal(chart.querySelectorAll('[data-ft-action="toggle-hourly-series"]').length, 5);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-range"]').length, 0);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(chart.querySelector('[data-ft-role="hourly-range-menu"]'), null);
-  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-trigger"]').length, 2);
-  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-menu"]').length, 2);
-  assert.equal(
-    chart.querySelector('[data-ft-series-group="price"] [data-ft-role="hourly-series-menu"]').hidden,
-    true,
-  );
-  assert.equal(
-    chart.querySelectorAll('[data-ft-role="hourly-series-menu"] [role="menuitemcheckbox"]').length,
-    5,
-  );
+  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-trigger"]').length, 0);
+  assert.equal(chart.querySelectorAll('[data-ft-role="hourly-series-menu"]').length, 0);
   assert.equal(
     chart.querySelector('[data-ft-readout-value="passTwap"]').textContent,
     '—',
@@ -1396,14 +1388,15 @@ test('proposal-first terminal renders validated market state and a safe trade in
     byRole(root, 'proposal-history-chart')
       .querySelectorAll('.chart-tv-placeholder-button'),
   );
-  assert.equal(proposalChartPlaceholders.length, 2);
-  assert.equal(proposalChartPlaceholders.filter(button => button.disabled).length, 1);
+  assert.equal(proposalChartPlaceholders.length, 1);
+  assert.equal(proposalChartPlaceholders.filter(button => button.disabled).length, 0);
   assert.equal(
     proposalChartPlaceholders.find(button => !button.disabled)?.dataset.ftAction,
     'toggle-chart-expansion',
   );
-  assert.ok(
+  assert.equal(
     byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-growth-control'),
+    null,
   );
   assert.ok(requests.some(url => (
     /view=proposal-history/.test(url)
@@ -3073,56 +3066,8 @@ test('interactive history chart controls update and clean up an injected chart a
   assert.deepEqual(activeChart.visibility.at(-1), ['passTwap', true]);
   passTwapToggle.click();
 
-  const priceTrigger = root.querySelector(
-    '[data-ft-role="hourly-series-trigger"][data-ft-series-group="price"]',
-  );
-  const priceMenu = root.querySelector(
-    '[data-ft-role="hourly-series-menu"][data-ft-series-group="price"]',
-  );
-  const twapTrigger = root.querySelector(
-    '[data-ft-role="hourly-series-trigger"][data-ft-series-group="twap"]',
-  );
-  const twapMenu = root.querySelector(
-    '[data-ft-role="hourly-series-menu"][data-ft-series-group="twap"]',
-  );
-  assert.deepEqual(
-    Array.from(priceMenu.querySelectorAll('[data-ft-series-field]'))
-      .map(option => option.textContent.trim().replace('✓', '').trim()),
-    ['Current price', 'Pass price', 'Fail price'],
-  );
-  assert.deepEqual(
-    Array.from(twapMenu.querySelectorAll('[data-ft-series-field]'))
-      .map(option => option.textContent.trim().replace('✓', '').trim()),
-    ['Pass TWAP', 'Fail TWAP'],
-  );
-  assert.deepEqual(
-    Array.from(twapMenu.querySelectorAll('[data-ft-series-field]'))
-      .map(option => option.getAttribute('aria-checked')),
-    ['false', 'false'],
-  );
-  const passSeriesOption = priceMenu.querySelector(
-    '[data-ft-series-field="passPrice"]',
-  );
-  priceTrigger.click();
-  assert.equal(priceTrigger.getAttribute('aria-expanded'), 'true');
-  assert.equal(priceMenu.hidden, false);
-  passSeriesOption.click();
-  assert.equal(passSeriesOption.getAttribute('aria-checked'), 'false');
-  assert.equal(
-    root.querySelector('.ft-hourly-overlay-pass').getAttribute('aria-pressed'),
-    'false',
-  );
-  assert.deepEqual(activeChart.visibility.at(-1), ['passPrice', false]);
-  passSeriesOption.click();
-  assert.equal(passSeriesOption.getAttribute('aria-checked'), 'true');
-  twapTrigger.click();
-  assert.equal(priceTrigger.getAttribute('aria-expanded'), 'false');
-  assert.equal(priceMenu.hidden, true);
-  assert.equal(twapTrigger.getAttribute('aria-expanded'), 'true');
-  assert.equal(twapMenu.hidden, false);
-  twapTrigger.click();
-  assert.equal(twapTrigger.getAttribute('aria-expanded'), 'false');
-  assert.equal(twapMenu.hidden, true);
+  assert.equal(root.querySelector('[data-ft-role="hourly-series-trigger"]'), null);
+  assert.equal(root.querySelector('[data-ft-role="hourly-series-menu"]'), null);
 
   assert.equal(root.querySelector('[data-ft-role="hourly-range-trigger"]'), null);
   assert.equal(root.querySelector('[data-ft-role="hourly-range-menu"]'), null);
