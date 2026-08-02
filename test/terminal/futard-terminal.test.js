@@ -67,6 +67,7 @@ const ACTIVE_MARKETS = {
         failBaseMint: MOCK_FAIL_BASE_MINT,
         failQuoteMint: MOCK_FAIL_QUOTE_MINT,
       },
+      twapStartedAt: '2026-07-24T10:00:00.000Z',
       thresholdBps: 150,
       decision: {
         passing: true,
@@ -1353,7 +1354,33 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.match(byRole(root, 'decision').textContent, /passing/i);
   assert.match(byRole(root, 'decision').textContent, /1\.50%|1\.5%/);
   assert.match(byRole(root, 'decision').textContent, /1\.63/);
-  assert.ok(byRole(root, 'trade-ticket'));
+  const decisionPressure = byRole(root, 'decision-pressure');
+  const tradeTicket = byRole(root, 'trade-ticket');
+  assert.ok(decisionPressure);
+  assert.ok(tradeTicket);
+  assert.ok(decisionPressure.closest('[data-ft-role="proposal-history"], .ft-market-chart-header-region'));
+  assert.equal(tradeTicket.contains(decisionPressure), false);
+  assert.equal(decisionPressure.dataset.ftAvailable, 'true');
+  assert.match(byRole(root, 'remaining-spread').textContent, /PASS (?:must|may) average/i);
+  assert.match(byRole(root, 'pressure-equivalent-pass').textContent, /If FAIL averages \$0\.1279 through expiry/i);
+  assert.match(byRole(root, 'pressure-inputs').textContent, /PASS TWAP/i);
+  assert.match(byRole(root, 'pressure-inputs').textContent, /FAIL TWAP/i);
+  assert.match(byRole(root, 'pressure-inputs').textContent, /Threshold/i);
+  assert.match(decisionPressure.textContent, /Scenario · not forecast/i);
+  const currentPressureAssumption = root.querySelector(
+    '[data-ft-action="select-pressure-assumption"][data-ft-pressure-assumption="spot"]',
+  );
+  assert.equal(currentPressureAssumption.getAttribute('aria-pressed'), 'true');
+  root.querySelector(
+    '[data-ft-action="select-pressure-assumption"][data-ft-pressure-assumption="custom"]',
+  ).click();
+  const customFailAverage = byRole(root, 'pressure-custom-fail-average');
+  assert.equal(customFailAverage.value, '0.1279');
+  customFailAverage.value = '0.14';
+  customFailAverage.dispatchEvent(new window.Event('input', { bubbles: true }));
+  customFailAverage.dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.match(byRole(root, 'pressure-equivalent-pass').textContent, /If FAIL averages \$0\.1400 through expiry/i);
+  assert.doesNotMatch(tradeTicket.textContent, /Required remaining spread/i);
   assert.ok(byRole(root, 'wallet-status'));
   assert.ok(byRole(root, 'positions'));
   assert.ok(byAction(root, 'connect-wallet'));

@@ -141,6 +141,7 @@ test('validated market snapshot binds index identity to exact on-chain owners an
   assert.equal(result.proposal.state, 'pending');
   assert.equal(result.proposal.daoAddress, DAO.toBase58());
   assert.equal(result.baseDecimals, 6);
+  assert.equal(result.twapStartedAt, '2026-07-31T21:43:19.000Z');
   assert.equal(result.thresholdBps, -300);
   assert.equal(result.pass.oraclePrice, 1.1);
   assert.equal(result.fail.oraclePrice, 0.9);
