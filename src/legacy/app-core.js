@@ -202,12 +202,12 @@ var _marketTokenSortConfig = {
   }
 };
 var _marketDecisionSortConfig = {
-  threshold: {
-    buttonId: 'tp-market-threshold-sort',
-    directionId: 'tp-market-threshold-sort-direction',
-    label: 'threshold',
-    descendingLabel: 'highest thresholds first',
-    ascendingLabel: 'lowest thresholds first'
+  likelihood: {
+    buttonId: 'tp-market-likelihood-sort',
+    directionId: 'tp-market-likelihood-sort-direction',
+    label: 'likelihood',
+    descendingLabel: 'highest likelihood first',
+    ascendingLabel: 'lowest likelihood first'
   },
   signal: {
     buttonId: 'tp-market-signal-sort',
@@ -228,7 +228,7 @@ var _marketTokenSortKey = (function() {
   }
 })();
 var _marketSidebarSortAscending = false;
-var _marketDecisionSortKeys = ['asset', 'threshold', 'signal'];
+var _marketDecisionSortKeys = ['asset', 'likelihood', 'signal'];
 var _marketDecisionSortKey = (function() {
   try {
     var saved = localStorage.getItem('01rx-market-decision-sort');

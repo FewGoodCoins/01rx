@@ -460,7 +460,7 @@ test('market sidebar uses one market section with a leading live indicator', () 
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Threshold<\/span>[\s\S]*?<span>Signal<\/span>[\s\S]*?id="tp-live-decision-count">0 markets live<\/span>[\s\S]*?id="tlp-all-panel"/,
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Likelihood<\/span>[\s\S]*?<span>Signal<\/span>[\s\S]*?id="tp-live-decision-count">0 markets live<\/span>[\s\S]*?id="tlp-all-panel"/,
   );
   assert.match(
     indexSource,
@@ -510,10 +510,10 @@ test('token and market metric headers show the active sort direction', () => {
   assert.match(appCoreSource, /function sortMarketSidebarByPrice\(event\)\s*\{\s*_sortMarketSidebarTokens\('price', event\);/);
   assert.match(appCoreSource, /direction\.textContent = ascending \? '↑' : '↓';/);
   assert.match(appCoreSource, /function sortMarketSidebarDecision\(key, event\)[\s\S]*?_marketDecisionSortKey === key[\s\S]*?_marketDecisionSortAscending = !_marketDecisionSortAscending;[\s\S]*?applyMarketSidebarSearch\(\);/);
-  assert.match(decisionMarketControllerSource, /data-sort-threshold="\$\{Number\.isFinite\(thresholdPct\)[\s\S]*?data-sort-signal="\$\{Number\.isFinite\(signalPct\)/);
+  assert.match(decisionMarketControllerSource, /data-sort-likelihood="\$\{Number\.isFinite\(likelihoodPct\)[\s\S]*?data-sort-signal="\$\{Number\.isFinite\(signalPct\)/);
   assert.match(indexSource, /id="tp-token-price-sort-direction"[^>]*hidden>↓<\/span>/);
   assert.match(indexSource, /id="tp-token-secondary-sort-direction"[^>]*hidden>↓<\/span>/);
-  assert.match(indexSource, /id="tp-market-threshold-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('threshold', event\)"[\s\S]*?id="tp-market-threshold-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Threshold<\/span>/);
+  assert.match(indexSource, /id="tp-market-likelihood-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('likelihood', event\)"[\s\S]*?id="tp-market-likelihood-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Likelihood<\/span>/);
   assert.match(indexSource, /id="tp-market-signal-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('signal', event\)"[\s\S]*?id="tp-market-signal-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Signal<\/span>/);
   assert.match(appCoreSource, /var _marketTokenSecondaryMetric = 'change24h';/);
   assert.match(

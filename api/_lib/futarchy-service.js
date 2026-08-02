@@ -97,6 +97,25 @@ function finiteNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function explicitLikelihoodPercent(row) {
+  const percent = [
+    row?.passLikelihoodPct,
+    row?.proposalPassLikelihoodPct,
+    row?.likelihoodPct,
+    row?.probabilityPct,
+  ].map(finiteNumber).find(value => Number.isFinite(value) && value >= 0 && value <= 100);
+  if (Number.isFinite(percent)) return percent;
+  const likelihood = [
+    row?.passLikelihood,
+    row?.proposalPassLikelihood,
+    row?.likelihood,
+    row?.passProbability,
+    row?.probability,
+  ].map(finiteNumber).find(value => Number.isFinite(value) && value >= 0 && value <= 100);
+  if (!Number.isFinite(likelihood)) return null;
+  return likelihood <= 1 ? likelihood * 100 : likelihood;
+}
+
 function isoTimestamp(value) {
   const time = new Date(value || '').getTime();
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
@@ -189,6 +208,7 @@ function activeIndexRows(payload) {
         logo: String(row?.organizationImageUrl || row?.proposalImageUrl || '').slice(0, 2_048),
         proposalId,
         title: String(row?.proposalTitle || row?.proposal || `${token.toUpperCase()} proposal`).slice(0, 2_000),
+        likelihoodPct: explicitLikelihoodPercent(row),
         createdAt: isoTimestamp(row?.proposalCreationDate || row?.startDate),
         endsAt: isoTimestamp(row?.proposalEndDate || row?.endDate),
       };
@@ -227,6 +247,7 @@ function presentActiveMarket(indexed, snapshot) {
       failQuoteMint: snapshot.proposal.failQuoteMint,
     },
     tradable: true,
+    likelihoodPct: indexed.likelihoodPct,
     thresholdBps: snapshot.thresholdBps,
     decision: snapshot.decision,
     spot: snapshot.spot,

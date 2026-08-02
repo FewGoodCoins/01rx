@@ -10,6 +10,7 @@ import { mountTradingViewAttribution } from '../chart/tradingview-attribution.js
 import {
   proposalChartPointTime,
   proposalChartPoints,
+  proposalConditionalSpotChangePct,
   proposalDecisionEdge,
 } from './proposal-history-model.js';
 
@@ -211,6 +212,10 @@ function readoutElements(container) {
       definition.field,
       container.querySelector(`[data-ft-readout-value="${definition.field}"]`),
     ])),
+    spotChanges: new Map(['passPrice', 'failPrice'].map(field => [
+      field,
+      container.querySelector(`[data-ft-readout-spot-change="${field}"]`),
+    ])),
   };
 }
 
@@ -226,6 +231,27 @@ function updateReadout(elements, timestamp, values) {
       target.textContent = definition.percent
         ? Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(2)}%` : '—'
         : Number.isFinite(value) ? `$${formatPrice(value)}` : '—';
+    }
+  });
+
+  const underlying = definitionValue(
+    PROPOSAL_HISTORY_SERIES.find(definition => definition.field === 'underlyingPrice'),
+    values.underlyingPrice,
+  );
+  ['passPrice', 'failPrice'].forEach((field) => {
+    const target = elements.spotChanges.get(field);
+    if (!target) return;
+    const change = proposalConditionalSpotChangePct(values[field], underlying);
+    target.textContent = Number.isFinite(change)
+      ? `${change > 0 ? '+' : ''}${change.toFixed(2)}%`
+      : '—';
+    target.classList.remove('ft-is-positive', 'ft-is-negative', 'ft-is-flat');
+    if (Number.isFinite(change)) {
+      target.classList.add(change > 0
+        ? 'ft-is-positive'
+        : change < 0
+          ? 'ft-is-negative'
+          : 'ft-is-flat');
     }
   });
 }

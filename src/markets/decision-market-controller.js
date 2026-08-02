@@ -2,6 +2,7 @@ import { create01ResolvedClient } from '@01resolved/api-client';
 import base58Module from 'bs58';
 import { DEFAULT_MARKET_SELECTION } from '../core/default-route.js';
 import {
+  proposalConditionalSpotChangePct,
   proposalDecisionEdge,
   proposalHistoryChartObservations,
 } from './proposal-history-model.js';
@@ -87,6 +88,14 @@ function firstText(...values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
+}
+
+function explicitLikelihoodPercent(percentValues, likelihoodValues) {
+  const percent = firstNumber(...percentValues);
+  if (Number.isFinite(percent) && percent >= 0 && percent <= 100) return percent;
+  const likelihood = firstNumber(...likelihoodValues);
+  if (!Number.isFinite(likelihood) || likelihood < 0 || likelihood > 100) return null;
+  return likelihood <= 1 ? likelihood * 100 : likelihood;
 }
 
 function boundedText(value, maxLength = 180) {
@@ -881,8 +890,17 @@ function historyOverlayMetric({
   count,
   visible,
   format = 'currency',
+  spotChangePct = null,
+  showSpotChange = false,
 }) {
   const available = count > 0;
+  const spotChangeClass = !Number.isFinite(spotChangePct)
+    ? ''
+    : spotChangePct > 0
+      ? ' ft-is-positive'
+      : spotChangePct < 0
+        ? ' ft-is-negative'
+        : ' ft-is-flat';
   return `
     <button
       class="ft-hourly-overlay-metric ${className}${visible && available ? ' ft-is-active' : ''}"
@@ -897,6 +915,13 @@ function historyOverlayMetric({
       <strong data-ft-readout-value="${escapeHtml(field)}">${format === 'percent'
         ? formatCompactPercent(value)
         : formatChartCurrency(value)}</strong>
+      ${showSpotChange ? `<small class="ft-hourly-spot-change">
+        <span>vs spot</span>
+        <b
+          class="ft-hourly-spot-change-value${spotChangeClass}"
+          data-ft-readout-spot-change="${escapeHtml(field)}"
+        >${formatPercent(spotChangePct)}</b>
+      </small>` : ''}
     </button>
   `;
 }
@@ -998,6 +1023,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const coverage = history.summary?.coverage || {};
   const visibleCoverage = coverage;
   const visibility = isObject(options.visibility) ? options.visibility : {};
+  const latestUnderlying = latestValue('underlyingPrice');
   const latestPass = latestValue('passPrice');
   const latestFail = latestValue('failPrice');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
@@ -1035,7 +1061,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               className: 'ft-hourly-overlay-price',
               field: 'underlyingPrice',
               label: 'Price',
-              value: latestValue('underlyingPrice'),
+              value: latestUnderlying,
               count: visibleCoverage.underlying || 0,
               visible: visibility.underlyingPrice !== false,
             })}
@@ -1046,6 +1072,11 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               value: latestPass,
               count: visibleCoverage.pass || 0,
               visible: visibility.passPrice !== false,
+              showSpotChange: true,
+              spotChangePct: proposalConditionalSpotChangePct(
+                latestPass,
+                latestUnderlying,
+              ),
             })}
             ${historyOverlayMetric({
               className: 'ft-hourly-overlay-fail',
@@ -1054,6 +1085,11 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               value: latestFail,
               count: visibleCoverage.fail || 0,
               visible: visibility.failPrice !== false,
+              showSpotChange: true,
+              spotChangePct: proposalConditionalSpotChangePct(
+                latestFail,
+                latestUnderlying,
+              ),
             })}
           </div>
         </div>
@@ -1201,6 +1237,27 @@ function normalizeMarket(raw, navMap, index, options = {}) {
     decision.thresholdPct,
     thresholdBps == null ? null : thresholdBps / 100,
   );
+  const likelihoodPct = explicitLikelihoodPercent([
+    marketSnapshot.passLikelihoodPct,
+    raw.passLikelihoodPct,
+    decision.passLikelihoodPct,
+    marketSnapshot.likelihoodPct,
+    raw.likelihoodPct,
+    decision.likelihoodPct,
+  ], [
+    marketSnapshot.passLikelihood,
+    raw.passLikelihood,
+    decision.passLikelihood,
+    marketSnapshot.likelihood,
+    raw.likelihood,
+    decision.likelihood,
+    marketSnapshot.passProbability,
+    raw.passProbability,
+    decision.passProbability,
+    marketSnapshot.probability,
+    raw.probability,
+    decision.probability,
+  ]);
   const outcome = normalizeProposalOutcome(
     typeof proposal.outcome === 'string' ? proposal.outcome : '',
     proposal.result,
@@ -1384,6 +1441,7 @@ function normalizeMarket(raw, navMap, index, options = {}) {
     },
     thresholdBps,
     thresholdPct,
+    likelihoodPct,
     decision: {
       passing,
       marginPct,
@@ -3203,7 +3261,7 @@ export function mountFutardTerminal({
         ? ''
         : ` #${Math.round(market.proposal.number)}`;
       const destination = tokenMarketsUrl(market.token, market.id);
-      const thresholdPct = firstNumber(market.thresholdPct);
+      const likelihoodPct = firstNumber(market.likelihoodPct);
       const signalPct = firstNumber(market.decision?.marginPct);
       const signalDirection = !Number.isFinite(signalPct)
         ? 'unavailable'
@@ -3221,7 +3279,7 @@ export function mountFutardTerminal({
           data-ft-token="${escapeHtml(market.token || '')}"
           data-market-search-primary="${escapeHtml(ticker)}"
           data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
-          data-sort-threshold="${Number.isFinite(thresholdPct) ? escapeHtml(String(thresholdPct)) : ''}"
+          data-sort-likelihood="${Number.isFinite(likelihoodPct) ? escapeHtml(String(likelihoodPct)) : ''}"
           data-sort-signal="${Number.isFinite(signalPct) ? escapeHtml(String(signalPct)) : ''}"
           ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
         >
@@ -3233,10 +3291,12 @@ export function mountFutardTerminal({
             </span>
           </span>
           <span
-            class="tp-decision-result tp-decision-threshold"
-            data-available="${Number.isFinite(thresholdPct)}"
-            title="Required PASS versus FAIL TWAP threshold"
-          >${escapeHtml(formatCompactPercent(thresholdPct))}</span>
+            class="tp-decision-result tp-decision-likelihood"
+            data-available="${Number.isFinite(likelihoodPct)}"
+            title="${Number.isFinite(likelihoodPct)
+              ? 'Proposal pass likelihood published by 01Resolved'
+              : '01Resolved does not currently publish proposal pass likelihood'}"
+          >${escapeHtml(formatPercent(likelihoodPct, { sign: false }))}</span>
           <span
             class="tp-decision-result tp-decision-signal"
             data-direction="${signalDirection}"

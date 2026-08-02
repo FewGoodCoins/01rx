@@ -22,6 +22,24 @@ export function proposalDecisionEdge(passTwap, failTwap) {
   return Number.isFinite(edge) ? edge : null;
 }
 
+export function proposalConditionalSpotChangePct(conditionalPrice, underlyingPrice) {
+  if (
+    conditionalPrice == null
+    || conditionalPrice === ''
+    || underlyingPrice == null
+    || underlyingPrice === ''
+  ) {
+    return null;
+  }
+  const conditional = Number(conditionalPrice);
+  const spot = Number(underlyingPrice);
+  if (!Number.isFinite(conditional) || !Number.isFinite(spot) || conditional < 0 || spot <= 0) {
+    return null;
+  }
+  const change = ((conditional / spot) - 1) * 100;
+  return Number.isFinite(change) ? change : null;
+}
+
 export function proposalHistoryChartObservations(history) {
   const series = Array.isArray(history?.series) ? history.series : [];
   const twapStart = timestampMs(history?.preTwap);

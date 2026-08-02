@@ -3730,6 +3730,32 @@ body.is-futard-terminal #token-switch-loader {
   font-weight: inherit;
 }
 
+.ft-hourly-spot-change {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--ft-muted);
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.ft-hourly-spot-change-value {
+  color: var(--ft-muted);
+  font: inherit;
+}
+
+.ft-hourly-spot-change-value.ft-is-positive {
+  color: var(--ft-positive);
+}
+
+.ft-hourly-spot-change-value.ft-is-negative {
+  color: var(--ft-negative);
+}
+
+.ft-hourly-spot-change-value.ft-is-flat {
+  color: var(--ft-muted);
+}
+
 .ft-hourly-overlay-metric.ft-is-active {
   opacity: 1;
 }
