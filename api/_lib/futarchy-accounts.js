@@ -435,4 +435,44 @@ export async function loadValidatedMarketSnapshotFromProposal(
   });
 }
 
+/**
+ * Read immutable proposal metadata without treating the DAO's current AMM or
+ * threshold configuration as historical evidence. Proposal accounts persist
+ * after resolution, while DAO-level settings may change between proposals.
+ * This makes the result safe for dataset identity/timing backfills, but it
+ * intentionally does not claim a historical threshold or liquidity snapshot.
+ */
+export async function loadValidatedProposalMetadataFromProposal(
+  connection,
+  input,
+  options = {},
+) {
+  const proposalAddress = requireAddress(input?.proposalAddress, 'Proposal address');
+  const proposalRead = await loadProgramAccountAtContext(
+    connection,
+    proposalAddress,
+    'Proposal account',
+    PROPOSAL_ACCOUNT_MIN_LENGTH,
+    PROPOSAL_ACCOUNT_DISCRIMINATOR,
+    options.minContextSlot,
+  );
+  const proposal = decodeProposalAccount(proposalRead.buffer);
+  const createdAt = isoFromSeconds(proposal.timestampEnqueued);
+  const endsAt = isoFromSeconds(
+    proposal.timestampEnqueued + proposal.durationInSeconds,
+  );
+  return {
+    proposalAddress: proposalAddress.toBase58(),
+    slot: proposalRead.slot,
+    asOf: new Date(options.nowMs || Date.now()).toISOString(),
+    createdAt,
+    endsAt,
+    proposal,
+    source: {
+      provider: 'solana.rpc.getAccountInfo',
+      slot: proposalRead.slot,
+    },
+  };
+}
+
 export { serviceError as futarchyAccountError };

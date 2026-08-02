@@ -7,6 +7,7 @@ import {
   DAO_ACCOUNT_LENGTH,
   FUTARCHY_PROGRAM_ID,
   PROPOSAL_ACCOUNT_DISCRIMINATOR,
+  loadValidatedProposalMetadataFromProposal,
   loadValidatedMarketSnapshot,
   loadValidatedMarketSnapshotFromProposal,
 } from '../api/_lib/futarchy-accounts.js';
@@ -68,13 +69,13 @@ function daoAccount(nowSeconds) {
   return { owner: FUTARCHY, executable: false, lamports: 1, data };
 }
 
-function proposalAccount(nowSeconds) {
+function proposalAccount(nowSeconds, stateTag = 1) {
   const data = Buffer.alloc(355);
   PROPOSAL_ACCOUNT_DISCRIMINATOR.copy(data, 0);
   data.writeUInt32LE(6, 8);
   KEYS[2].toBuffer().copy(data, 12);
   data.writeBigInt64LE(BigInt(nowSeconds - 1_000), 44);
-  data.writeUInt8(1, 52);
+  data.writeUInt8(stateTag, 52);
   let offset = 53;
   for (const key of [KEYS[0], KEYS[1], DAO]) {
     key.toBuffer().copy(data, offset);
@@ -210,4 +211,45 @@ test('proposal discovery derives DAO and mints without an external token registr
   assert.equal(result.daoAddress, DAO.toBase58());
   assert.equal(result.baseMint, BASE.toBase58());
   assert.equal(result.quoteMint, USDC.toBase58());
+});
+
+test('resolved proposal metadata is validated without reading current DAO configuration', async () => {
+  const nowMs = Date.parse('2026-07-31T22:00:00Z');
+  const account = proposalAccount(nowMs / 1_000, 2);
+  const calls = [];
+  const connection = {
+    async getAccountInfoAndContext(address, config) {
+      calls.push({ address: address.toBase58(), config });
+      return { context: { slot: 446 }, value: account };
+    },
+  };
+
+  const result = await loadValidatedProposalMetadataFromProposal(connection, {
+    proposalAddress: PROPOSAL.toBase58(),
+  }, { nowMs });
+
+  assert.deepEqual(calls, [{
+    address: PROPOSAL.toBase58(),
+    config: { commitment: 'confirmed' },
+  }]);
+  assert.equal(result.slot, 446);
+  assert.equal(result.proposal.state, 'passed');
+  assert.equal(result.proposal.daoAddress, DAO.toBase58());
+  assert.equal(result.createdAt, '2026-07-31T21:43:20.000Z');
+  assert.equal(result.endsAt, '2026-08-03T21:43:20.000Z');
+  assert.equal(result.thresholdBps, undefined);
+});
+
+test('resolved proposal metadata rejects spoofed account ownership', async () => {
+  const nowMs = Date.parse('2026-07-31T22:00:00Z');
+  const account = proposalAccount(nowMs / 1_000, 3);
+  account.owner = PublicKey.default;
+  await assert.rejects(
+    loadValidatedProposalMetadataFromProposal({
+      async getAccountInfoAndContext() {
+        return { context: { slot: 446 }, value: account };
+      },
+    }, { proposalAddress: PROPOSAL.toBase58() }, { nowMs }),
+    error => error?.code === 'SOURCE_MISMATCH',
+  );
 });

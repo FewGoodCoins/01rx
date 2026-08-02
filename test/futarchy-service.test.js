@@ -74,6 +74,40 @@ test('futarchy source normalizers bind known project aliases and lifecycle state
   assert.equal(_test.normalizeArchiveRow({ publicKey: 'invalid', projectSlug: 'umbra' }), null);
 });
 
+test('archive normalization preserves model evidence without inventing missing fields', () => {
+  const normalized = _test.normalizeArchiveRow({
+    publicKey: PROPOSAL,
+    projectSlug: 'umbra',
+    status: 'resolved',
+    result: 'approved',
+    passThresholdPct: '3',
+    isTeamSponsored: true,
+    programVersion: 'v0.6',
+    performanceStats: {
+      totalVolume: '352980',
+      totalTrades: '912',
+      liquidityUsd: '44000',
+    },
+  });
+  assert.equal(normalized.proposal.thresholdBps, 300);
+  assert.equal(normalized.proposal.isTeamSponsored, true);
+  assert.equal(normalized.proposal.version, 'v0.6');
+  assert.deepEqual(normalized.metrics, {
+    volumeUsd: 352980,
+    tradeCount: 912,
+    liquidityUsd: 44000,
+  });
+
+  const missing = _test.normalizeArchiveRow({
+    publicKey: PROPOSAL,
+    projectSlug: 'umbra',
+    status: 'resolved',
+    result: 'rejected',
+  });
+  assert.equal(missing.proposal.thresholdBps, null);
+  assert.equal(missing.proposal.version, null);
+});
+
 test('active markets join 01Resolved identity with proposal-discovered validated chain state', async () => {
   const calls = [];
   const service = createFutarchyService({
@@ -303,6 +337,50 @@ test('market data paginates every observed trade without requiring a signature',
   assert.equal(second.pagination.nextCursor, null);
   assert.equal(second.pagination.complete, true);
   assert.deepEqual(orderPages, [1, 2]);
+});
+
+test('server-only proposal order collection paginates and preserves unsigned duplicates', async () => {
+  const signed = {
+    marketType: 'PASS',
+    direction: 'BUY',
+    price: '1.1',
+    size: '10',
+    value: '11',
+    timeStamp: '2026-07-31T22:00:00Z',
+    txHash: '3'.repeat(64),
+  };
+  const unsigned = {
+    marketType: 'FAIL',
+    direction: 'SELL',
+    price: '0.9',
+    size: '5',
+    value: '4.5',
+    timeStamp: '2026-07-31T21:59:00Z',
+  };
+  const pages = [];
+  const service = createFutarchyService({
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
+    connection: {},
+    async fetchImpl(url) {
+      const page = Number(new URL(String(url)).searchParams.get('page'));
+      pages.push(page);
+      return jsonResponse({
+        data: page === 1 ? [signed, signed] : [unsigned, unsigned],
+        meta: { totalItems: 4, totalPages: 2 },
+      });
+    },
+  });
+
+  const result = await service.proposalOrders({
+    proposal: PROPOSAL,
+    pageSize: 2,
+    maxPages: 2,
+  });
+  assert.deepEqual(pages, [1, 2]);
+  assert.equal(result.trades.length, 3);
+  assert.equal(result.pagination.duplicatesRemoved, 1);
+  assert.equal(result.pagination.complete, true);
+  assert.equal(result.degraded.active, false);
 });
 
 test('positions preserve exact atomic balances and ignore unrelated parsed accounts', async () => {

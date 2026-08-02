@@ -15,6 +15,8 @@ const DEFAULT_RPC_URL = 'https://api.mainnet-beta.solana.com';
 const MAX_UPSTREAM_BYTES = 8 * 1024 * 1024;
 const SOURCE_TIMEOUT_MS = 10_000;
 const ACTIVE_CACHE_MS = 7_500;
+const DATASET_ORDER_PAGE_SIZE = 500;
+const DATASET_MAX_ORDER_PAGES = 100;
 const ADDRESS_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const SIGNATURE_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
 const TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -95,6 +97,22 @@ function finiteNumber(value) {
   if (value == null || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function firstFiniteNumber(...values) {
+  return values.map(finiteNumber).find(Number.isFinite) ?? null;
+}
+
+function optionalBoolean(...values) {
+  const value = values.find(candidate => typeof candidate === 'boolean');
+  return typeof value === 'boolean' ? value : null;
+}
+
+function boundedVersion(...values) {
+  const value = values.find(candidate => (
+    typeof candidate === 'string' && candidate.trim()
+  ));
+  return value ? value.trim().slice(0, 64) : null;
 }
 
 function explicitLikelihoodPercent(row) {
@@ -277,6 +295,23 @@ function normalizeArchiveRow(row) {
   const token = tokenFromProjectSlug(projectSlug);
   if (!proposalId || !token) return null;
   const status = normalizeArchiveStatus(row);
+  const thresholdBps = firstFiniteNumber(
+    row?.passThresholdBps,
+    row?.proposalThresholdBps,
+    row?.thresholdBps,
+    row?.threshold_bps,
+  );
+  const thresholdPct = firstFiniteNumber(
+    row?.passThresholdPct,
+    row?.proposalThresholdPct,
+    row?.thresholdPct,
+    row?.threshold_percent,
+  );
+  const normalizedThresholdBps = Number.isFinite(thresholdBps)
+    ? thresholdBps
+    : Number.isFinite(thresholdPct)
+      ? thresholdPct * 100
+      : null;
   return {
     token,
     ticker: String(row?.tokenSymbol || token).toUpperCase().slice(0, 32),
@@ -291,7 +326,41 @@ function normalizeArchiveRow(row) {
       createdAt: isoTimestamp(row?.startDate || row?.proposalCreationDate),
       endsAt: isoTimestamp(row?.endDate || row?.proposalEndDate),
       resolvedAt: status === 'pending' ? null : isoTimestamp(row?.endDate || row?.proposalEndDate),
+      thresholdBps: Number.isSafeInteger(normalizedThresholdBps)
+        && normalizedThresholdBps > -10_000
+        && normalizedThresholdBps <= 10_000
+        ? normalizedThresholdBps
+        : null,
+      isTeamSponsored: optionalBoolean(
+        row?.isTeamSponsored,
+        row?.teamSponsored,
+        row?.proposalIsTeamSponsored,
+      ),
+      version: boundedVersion(
+        row?.version,
+        row?.programVersion,
+        row?.marketVersion,
+        row?.futarchyVersion,
+      ),
       url: `https://www.metadao.fi/projects/${encodeURIComponent(projectSlug)}/proposal/${encodeURIComponent(proposalId)}`,
+    },
+    metrics: {
+      volumeUsd: firstFiniteNumber(
+        row?.performanceStats?.totalVolume,
+        row?.totalVolumeUsd,
+        row?.volumeUsd,
+        row?.totalVolume,
+      ),
+      tradeCount: firstFiniteNumber(
+        row?.performanceStats?.totalTrades,
+        row?.totalTrades,
+        row?.tradeCount,
+      ),
+      liquidityUsd: firstFiniteNumber(
+        row?.performanceStats?.liquidityUsd,
+        row?.liquidityUsd,
+        row?.totalLiquidityUsd,
+      ),
     },
     tradable: false,
     source: {
@@ -708,6 +777,93 @@ export function createFutarchyService(options = {}) {
     };
   }
 
+  /**
+   * Server-only complete order-history reader used by the offline likelihood
+   * dataset builder. It is deliberately not routed through the browser API.
+   */
+  async function proposalOrders(input = {}) {
+    const proposalId = safeAddress(input.proposal);
+    if (!proposalId) throw futarchyServiceError('proposal is invalid', 'BAD_REQUEST', 400);
+    const pageSize = parsePositiveInteger(
+      input.pageSize,
+      DATASET_ORDER_PAGE_SIZE,
+      DATASET_ORDER_PAGE_SIZE,
+      'pageSize',
+    );
+    const maxPages = parsePositiveInteger(
+      input.maxPages,
+      DATASET_MAX_ORDER_PAGES,
+      DATASET_MAX_ORDER_PAGES,
+      'maxPages',
+    );
+    const trades = [];
+    let indexed = 0;
+    let total = null;
+    let complete = false;
+    let pagesLoaded = 0;
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const payload = await fetchZeroOne(
+        `/v1/proposal/${encodeURIComponent(proposalId)}/orders?limit=${pageSize}&page=${page}`,
+        dependencies,
+      );
+      const rows = Array.isArray(payload?.data) ? payload.data : [];
+      indexed += rows.length;
+      pagesLoaded += 1;
+      trades.push(...rows.map(normalizeObservedTrade).filter(Boolean));
+
+      const pageMeta = orderPageMeta(payload, page, pageSize, rows.length);
+      if (Number.isSafeInteger(pageMeta.total)) total = pageMeta.total;
+      if (!pageMeta.nextCursor) {
+        complete = true;
+        break;
+      }
+    }
+
+    const seen = new Set();
+    const uniqueTrades = trades.filter((trade, index) => {
+      // A signature is the only stable upstream identity. Never collapse two
+      // unsigned rows merely because their public fields happen to match.
+      const key = trade.signature
+        ? [
+          trade.signature,
+          trade.branch,
+          trade.side,
+          trade.baseAmount ?? '',
+          trade.quoteAmount ?? '',
+        ].join('|')
+        : `unsigned:${index}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return {
+      proposalId,
+      asOf: new Date(dependencies.now()).toISOString(),
+      trades: uniqueTrades,
+      pagination: {
+        pageSize,
+        pagesLoaded,
+        indexed,
+        normalized: trades.length,
+        unique: uniqueTrades.length,
+        duplicatesRemoved: trades.length - uniqueTrades.length,
+        total,
+        complete,
+      },
+      source: { provider: '01Resolved observed proposal trades' },
+      degraded: {
+        active: !complete,
+        services: complete ? [] : ['01resolved-proposal-orders-truncated'],
+        issues: complete ? [] : [{
+          code: 'ORDER_HISTORY_PAGE_LIMIT_REACHED',
+          message: `Order history exceeded ${maxPages} pages.`,
+        }],
+      },
+    };
+  }
+
   async function positions(input = {}) {
     const owner = safeAddress(input.owner);
     const proposalId = safeAddress(input.proposal);
@@ -797,6 +953,7 @@ export function createFutarchyService(options = {}) {
     positions,
     programIntegrity,
     proposalHistory,
+    proposalOrders,
     proposals,
     recurringConfig,
     getConnection,
