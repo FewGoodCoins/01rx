@@ -223,6 +223,85 @@ test('proposal history leaves missing TWAPs empty instead of using a second prov
   assert.equal(result.degraded.active, false);
 });
 
+test('market data paginates every observed trade without requiring a signature', async () => {
+  const orderPages = [];
+  const service = createFutarchyService({
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
+    connection: {},
+    async fetchImpl(url) {
+      const value = String(url);
+      if (value.includes('/v1/global-dashboard/projects/decision-markets')) {
+        return jsonResponse({ data: [{
+          organizationSlug: 'futardio-cult',
+          proposalPublicKey: PROPOSAL,
+        }] });
+      }
+      if (value.includes(`/v1/proposal/${PROPOSAL}/orders`)) {
+        const page = Number(new URL(value).searchParams.get('page'));
+        orderPages.push(page);
+        return jsonResponse({
+          data: page === 1
+            ? [{
+              marketType: 'PASS',
+              direction: 'BUY',
+              price: '1.1',
+              size: '10',
+              value: '11',
+              timeStamp: '2026-07-31T22:00:00Z',
+              txHash: '3'.repeat(64),
+            }, {
+              marketType: 'FAIL',
+              direction: 'SELL',
+              price: null,
+              size: '5',
+              value: '4.5',
+              timeStamp: '2026-07-31T21:59:00Z',
+              txHash: null,
+            }]
+            : [{
+              marketType: 'FAIL',
+              direction: 'BUY',
+              price: '0.91',
+              size: '4',
+              value: '3.64',
+              timeStamp: '2026-07-31T21:58:00Z',
+              txHash: '4'.repeat(64),
+            }],
+          meta: { totalItems: 3, totalPages: 2 },
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    },
+    async loadMarketSnapshot() { return snapshot(); },
+  });
+
+  const first = await service.marketData({ proposal: PROPOSAL, limit: '2' });
+  assert.equal(first.recentTrades.length, 2);
+  assert.equal(first.recentTrades[1].signature, null);
+  assert.equal(first.recentTrades[1].price, null);
+  assert.deepEqual(first.pagination, {
+    page: 1,
+    limit: 2,
+    indexed: 2,
+    total: 3,
+    nextCursor: first.pagination.nextCursor,
+    complete: false,
+    returned: 2,
+  });
+  assert.ok(first.pagination.nextCursor);
+
+  const second = await service.marketData({
+    proposal: PROPOSAL,
+    limit: '2',
+    cursor: first.pagination.nextCursor,
+  });
+  assert.equal(second.recentTrades.length, 1);
+  assert.equal(second.pagination.page, 2);
+  assert.equal(second.pagination.nextCursor, null);
+  assert.equal(second.pagination.complete, true);
+  assert.deepEqual(orderPages, [1, 2]);
+});
+
 test('positions preserve exact atomic balances and ignore unrelated parsed accounts', async () => {
   const active = snapshot();
   const market = {

@@ -78,7 +78,7 @@ export const API_ENDPOINTS = Object.freeze({
     path: '/api/beta/futarchy',
     surface: API_SURFACES.BETA,
     view: 'market-data',
-    query: Object.freeze(['proposal', 'owner', 'limit']),
+    query: Object.freeze(['proposal', 'owner', 'limit', 'cursor']),
     required: Object.freeze(['proposal']),
   }),
   'futarchy.programIntegrity': endpoint({
