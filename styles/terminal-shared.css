@@ -67,6 +67,7 @@
   [data-ft-mode="token"].ft-proposal-focus.ft-archive-market .ft-terminal-grid,
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
     --ft-terminal-account-height: clamp(180px, 22dvh, 210px);
+    --ft-terminal-analysis-height: 0px;
     --ft-terminal-chart-height: max(
       550px,
       calc(
@@ -75,6 +76,7 @@
         - var(--site-footer-height)
         - 45px
         - var(--ft-terminal-account-height)
+        - var(--ft-terminal-analysis-height)
       )
     );
     height: auto;
@@ -83,12 +85,22 @@
       225px
       minmax(0, 25vw);
     grid-template-rows:
-      auto
+      max-content
       var(--ft-terminal-chart-height)
       var(--ft-terminal-account-height);
     align-items: stretch;
     gap: 0;
     overflow: visible;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid {
+    --ft-terminal-analysis-height: 78px;
+  }
+
+  @media (max-width: 1180px) {
+    [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-terminal-grid {
+      --ft-terminal-analysis-height: 110px;
+    }
   }
 
   /* The sidebar and terminal share two continuous desktop rails: a 38px market
@@ -127,7 +139,12 @@
     flex: 0 0 42px;
   }
 
-  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart-header-region,
+  [data-ft-mode="token"].ft-proposal-focus .ft-market-chart-header-region {
+    box-sizing: border-box;
+    height: auto;
+    min-height: 38px;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-header,
   [data-ft-mode="token"].ft-proposal-focus .ft-chart-market-header > * {
     box-sizing: border-box;

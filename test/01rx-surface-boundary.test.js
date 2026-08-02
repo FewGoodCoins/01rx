@@ -158,7 +158,11 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /\.ft-market-chart-header-region,[\s\S]*?\.ft-chart-market-header > \*\s*\{[\s\S]*?height: 38px;[\s\S]*?min-height: 38px;/,
+    /\.ft-market-chart-header-region\s*\{[\s\S]*?height: auto;[\s\S]*?min-height: 38px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-chart-market-header,[\s\S]*?\.ft-chart-market-header > \*\s*\{[\s\S]*?height: 38px;[\s\S]*?min-height: 38px;/,
   );
   assert.match(
     sharedTerminalCss,
@@ -618,11 +622,15 @@ test('spot and decision routes share one authoritative desktop terminal geometry
   );
   assert.match(
     sharedTerminalCss,
-    /grid-template-rows:\s*auto\s*var\(--ft-terminal-chart-height\)\s*var\(--ft-terminal-account-height\);/,
+    /grid-template-rows:\s*max-content\s*var\(--ft-terminal-chart-height\)\s*var\(--ft-terminal-account-height\);/,
   );
   assert.match(
     sharedTerminalCss,
-    /--ft-terminal-account-height: clamp\(180px, 22dvh, 210px\);[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,/,
+    /--ft-terminal-account-height: clamp\(180px, 22dvh, 210px\);[\s\S]*?--ft-terminal-analysis-height: 0px;[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,[\s\S]*?- var\(--ft-terminal-analysis-height\)/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus\.ft-live-market \.ft-terminal-grid\s*\{\s*--ft-terminal-analysis-height: 78px;/,
   );
   assert.match(
     sharedTerminalCss,
