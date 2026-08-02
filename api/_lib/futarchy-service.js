@@ -218,6 +218,7 @@ function activeIndexRows(payload) {
 
 function presentActiveMarket(indexed, snapshot) {
   return {
+    asOf: snapshot.asOf,
     token: indexed.token,
     ticker: indexed.ticker,
     name: indexed.projectName,
@@ -248,6 +249,7 @@ function presentActiveMarket(indexed, snapshot) {
     },
     tradable: true,
     likelihoodPct: indexed.likelihoodPct,
+    twapStartedAt: snapshot.twapStartedAt,
     thresholdBps: snapshot.thresholdBps,
     decision: snapshot.decision,
     spot: snapshot.spot,

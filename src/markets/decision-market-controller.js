@@ -1,6 +1,7 @@
 import { create01ResolvedClient } from '@01resolved/api-client';
 import base58Module from 'bs58';
 import { DEFAULT_MARKET_SELECTION } from '../core/default-route.js';
+import { proposalRemainingSpreadProjection } from './decision-analysis-model.js';
 import {
   proposalConditionalSpotChangePct,
   proposalDecisionEdge,
@@ -1507,6 +1508,11 @@ function normalizeMarket(raw, navMap, index, options = {}) {
     thresholdBps,
     thresholdPct,
     likelihoodPct,
+    twapStartedAt: firstText(
+      marketSnapshot.twapStartedAt,
+      raw.twapStartedAt,
+      proposal.twapStartedAt,
+    ),
     decision: {
       passing,
       marginPct,
@@ -1527,7 +1533,12 @@ function normalizeMarket(raw, navMap, index, options = {}) {
       fail.liquidityUsd,
     ),
     marketKind: firstText(marketSnapshot.kind, isLive ? 'live' : ''),
-    marketAsOf: firstText(marketSnapshot.asOf, raw.marketAsOf),
+    marketAsOf: firstText(
+      marketSnapshot.asOf,
+      raw.marketAsOf,
+      marketSnapshot.source?.asOf,
+      raw.source?.asOf,
+    ),
     marketSlot: firstNumber(marketSnapshot.slot, raw.marketSlot),
     source: isObject(raw.source) ? raw.source : {},
     nav: {
@@ -2168,6 +2179,10 @@ export function mountFutardTerminal({
       quoteRequestId: 0,
       quoteAbortController: null,
       quoteTimer: null,
+    },
+    pressure: {
+      assumption: 'spot',
+      customFailAverage: '',
     },
     activityTab: 'balances',
     ownershipActivityTab: 'balances',
@@ -3099,12 +3114,19 @@ export function mountFutardTerminal({
     `;
   }
 
+  function renderProposalTopSummary(market, history = null) {
+    return `
+      ${renderProposalChartHeader(market, history)}
+      ${market?.proposal?.statusGroup === 'live' ? renderDecisionPressure(market) : ''}
+    `;
+  }
+
   function renderHourlyHistoryPanel(market, options = {}) {
     const entry = state.historyByProposal.get(market.id);
     const chartHeader = history => (
       options.includeHeader === false
         ? ''
-        : renderProposalChartHeader(market, history)
+        : renderProposalTopSummary(market, history)
     );
     if (!entry || (entry.loading && !entry.data?.series?.length)) {
       return `
@@ -3818,6 +3840,7 @@ export function mountFutardTerminal({
       if (metric && update.tone) metric.dataset.tone = update.tone;
       if (metric && update.description) metric.title = update.description;
     });
+    refreshDecisionPressure(market);
     if (options.renderBooks !== false) renderLiveMarketStage(market);
     renderTradeTicket();
   }
@@ -3901,7 +3924,7 @@ export function mountFutardTerminal({
     const separateChartHeader = state.hostMode === 'token';
     const history = state.historyByProposal.get(market.id)?.data;
     regions.marketChartHeader.innerHTML = separateChartHeader
-      ? renderProposalChartHeader(market, history)
+      ? renderProposalTopSummary(market, history)
       : '';
     regions.marketChart.innerHTML = renderHourlyHistoryPanel(market, {
       includeHeader: !separateChartHeader,
@@ -4313,6 +4336,130 @@ export function mountFutardTerminal({
       sellPrice: formatPrice(firstNumber(book?.bestBid, branch.price)),
       ticker: market?.ticker || 'TOKEN',
     };
+  }
+
+  function decisionPressureScenario(market) {
+    const assumption = ['spot', 'twap', 'custom'].includes(
+      state.pressure.assumption,
+    )
+      ? state.pressure.assumption
+      : 'spot';
+    const failFutureAverage = assumption === 'twap'
+      ? firstNumber(market?.fail?.twapPrice)
+      : assumption === 'custom'
+        ? firstNumber(state.pressure.customFailAverage)
+        : firstNumber(market?.fail?.price);
+    const projection = proposalRemainingSpreadProjection({
+      passTwap: market?.pass?.twapPrice,
+      failTwap: market?.fail?.twapPrice,
+      thresholdPct: market?.thresholdPct,
+      failFutureAverage,
+      twapStartedAt: market?.twapStartedAt,
+      observedAt: firstText(market?.marketAsOf, state.asOf),
+      endsAt: market?.proposal?.endsAt,
+    });
+    return { assumption, failFutureAverage, projection };
+  }
+
+  function decisionPressureHeadline(projection) {
+    if (projection.requiredPassAverageBoundary <= 0) {
+      return 'PASS need not sustain a positive average';
+    }
+    const spread = projection.requiredSpreadPct;
+    const percent = Math.abs(spread).toLocaleString('en-US', {
+      maximumFractionDigits: 2,
+    });
+    if (spread > 0.005) return `PASS must average ${percent}% above FAIL`;
+    if (spread < -0.005) return `PASS may average ${percent}% below FAIL`;
+    return 'PASS must average just above FAIL';
+  }
+
+  function renderDecisionPressure(market) {
+    const { assumption, failFutureAverage, projection } = decisionPressureScenario(market);
+    const controls = `
+      <div class="ft-decision-pressure-controls" role="group" aria-label="Future FAIL average assumption">
+        <span>FAIL future average</span>
+        ${[
+          ['spot', 'Current price'],
+          ['twap', 'Current TWAP'],
+          ['custom', 'Custom'],
+        ].map(([key, label]) => `
+          <button
+            type="button"
+            data-ft-action="select-pressure-assumption"
+            data-ft-pressure-assumption="${key}"
+            aria-pressed="${assumption === key}"
+          >${label}</button>
+        `).join('')}
+      </div>
+      ${assumption === 'custom' ? `
+        <label class="ft-decision-pressure-custom">
+          <span>Custom FAIL average through expiry</span>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            inputmode="decimal"
+            value="${escapeHtml(state.pressure.customFailAverage)}"
+            data-ft-role="pressure-custom-fail-average"
+            aria-label="Custom future FAIL average"
+          >
+        </label>
+      ` : ''}
+    `;
+
+    if (!projection) {
+      const detail = assumption === 'custom' && !(failFutureAverage > 0)
+        ? 'Enter a positive future FAIL average to calculate the required spread.'
+        : 'Awaiting validated Solana TWAP timing, prices, and an open averaging window.';
+      return `
+        <section
+          class="ft-decision-pressure ft-decision-pressure-unavailable"
+          data-ft-role="decision-pressure"
+          data-ft-projection="true"
+          data-ft-available="false"
+        >
+          <div class="ft-decision-pressure-copy">
+            <header><span>Required remaining spread</span><small>Scenario · not forecast</small></header>
+            <strong data-ft-role="remaining-spread">Unavailable</strong>
+            <p>${escapeHtml(detail)}</p>
+          </div>
+          <div class="ft-decision-pressure-assumption">${controls}</div>
+        </section>
+      `;
+    }
+
+    const equivalent = projection.requiredPassAverageBoundary <= 0
+      ? `If FAIL averages ${formatPrice(projection.failFutureAverage)} through expiry, the accumulated PASS lead remains sufficient at a $0 future PASS average.`
+      : `If FAIL averages ${formatPrice(projection.failFutureAverage)} through expiry, PASS must average above ${formatPrice(projection.minimumPassAverage)}.`;
+    return `
+      <section
+        class="ft-decision-pressure"
+        data-ft-role="decision-pressure"
+        data-ft-projection="true"
+        data-ft-available="true"
+      >
+        <div class="ft-decision-pressure-copy">
+          <header><span>Required remaining spread</span><small>Scenario · not forecast</small></header>
+          <strong data-ft-role="remaining-spread">${escapeHtml(decisionPressureHeadline(projection))}</strong>
+          <p data-ft-role="pressure-equivalent-pass">${escapeHtml(equivalent)}</p>
+        </div>
+        <div class="ft-decision-pressure-assumption">${controls}</div>
+        <div class="ft-decision-pressure-inputs" data-ft-role="pressure-inputs">
+          <span>PASS TWAP <b>${formatPrice(projection.passTwap)}</b></span>
+          <span>FAIL TWAP <b>${formatPrice(projection.failTwap)}</b></span>
+          <span>Threshold <b>${formatCompactPercent(projection.thresholdPct)}</b></span>
+          <span>Remaining <b>${escapeHtml(formatIntervalDuration(projection.remainingMs / 1_000))}</b></span>
+          <span>Snapshot <b>${escapeHtml(formatHistoryOverlayTimestamp(projection.observedAt))}</b></span>
+        </div>
+      </section>
+    `;
+  }
+
+  function refreshDecisionPressure(market = selectedMarket()) {
+    const current = root.querySelector('[data-ft-role="decision-pressure"]');
+    if (!current || !market || market.proposal.statusGroup !== 'live') return;
+    current.outerHTML = renderDecisionPressure(market);
   }
 
   function renderExecutionTicket(market) {
@@ -8015,7 +8162,7 @@ export function mountFutardTerminal({
           ? state.historyByProposal.get(market.id)?.data
           : null;
         regions.marketChartHeader.innerHTML = market
-          ? renderProposalChartHeader(market, history)
+          ? renderProposalTopSummary(market, history)
           : '';
       }
     } else if (action === 'toggle-chart-expansion') {
@@ -8117,6 +8264,24 @@ export function mountFutardTerminal({
       if (book === 'pass' || book === 'fail') {
         state.bookTab = book;
         renderMarketStage();
+      }
+    } else if (action === 'select-pressure-assumption') {
+      const assumption = target.dataset.ftPressureAssumption;
+      if (['spot', 'twap', 'custom'].includes(assumption)) {
+        state.pressure.assumption = assumption;
+        if (
+          assumption === 'custom'
+          && !(firstNumber(state.pressure.customFailAverage) > 0)
+        ) {
+          const currentFailPrice = firstNumber(selectedMarket()?.fail?.price);
+          state.pressure.customFailAverage = Number.isFinite(currentFailPrice)
+            ? String(currentFailPrice)
+            : '';
+        }
+        refreshDecisionPressure();
+        if (assumption === 'custom') {
+          root.querySelector('[data-ft-role="pressure-custom-fail-average"]')?.focus();
+        }
       }
     } else if (action === 'select-outcome') {
       const outcome = target.dataset.ftOutcome;
@@ -8322,6 +8487,8 @@ export function mountFutardTerminal({
         return;
       }
       if (state.order.type === 'limit') return;
+    } else if (event.target.matches('[data-ft-role="pressure-custom-fail-average"]')) {
+      state.pressure.customFailAverage = event.target.value || '';
     } else if (event.target.matches('[data-ft-role="limit-price"]')) {
       state.order.price = event.target.value || '';
       updateDecisionTicketPreview(selectedMarket());
@@ -8366,6 +8533,9 @@ export function mountFutardTerminal({
         state.order.totalCycles = cycles;
         renderTradeTicket();
       }
+    } else if (event.target.matches('[data-ft-role="pressure-custom-fail-average"]')) {
+      state.pressure.customFailAverage = event.target.value || '';
+      refreshDecisionPressure();
     }
   }
 

@@ -93,6 +93,8 @@ function decodeOracle(buffer, offset, nowSeconds) {
   return {
     lastPriceRaw: oracle.lastPriceRaw,
     twapRaw: calculateOracleTwapRaw(oracle, nowSeconds),
+    twapStartedAtTimestamp:
+      oracle.createdAtTimestamp + BigInt(oracle.startDelaySeconds),
   };
 }
 
@@ -313,6 +315,11 @@ export async function loadValidatedMarketSnapshot(connection, input, options = {
   const spot = presentPool(daoState.spot, baseDecimals, quoteDecimals);
   const pass = presentPool(daoState.pass, baseDecimals, quoteDecimals);
   const fail = presentPool(daoState.fail, baseDecimals, quoteDecimals);
+  const passTwapStartedAt = daoState.pass.oracle.twapStartedAtTimestamp;
+  const failTwapStartedAt = daoState.fail.oracle.twapStartedAtTimestamp;
+  const twapStartedAt = passTwapStartedAt === failTwapStartedAt
+    ? isoFromSeconds(passTwapStartedAt)
+    : null;
   const thresholdBps = proposalState.isTeamSponsored
     ? daoState.teamSponsoredPassThresholdBps
     : daoState.passThresholdBps;
@@ -325,6 +332,7 @@ export async function loadValidatedMarketSnapshot(connection, input, options = {
     baseDecimals,
     quoteDecimals,
     proposal: proposalState,
+    twapStartedAt,
     thresholdBps,
     decision: buildDecision(
       daoState.pass,
