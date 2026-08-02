@@ -130,6 +130,7 @@
     height: 32px;
     flex: 0 1 calc(100% - 28px);
     margin: 0 14px;
+    transform: translateY(7px);
   }
 
   html[data-workspace="markets"] .tp-market-tabs {

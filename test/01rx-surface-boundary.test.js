@@ -170,7 +170,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: relative;[\s\S]*?width: calc\(100% - 28px\);[\s\S]*?height: 32px;[\s\S]*?flex: 0 1 calc\(100% - 28px\);[\s\S]*?margin: 0 14px;/,
+    /html\[data-workspace="markets"\] \.tp-market-search-field\s*\{[\s\S]*?position: relative;[\s\S]*?width: calc\(100% - 28px\);[\s\S]*?height: 32px;[\s\S]*?flex: 0 1 calc\(100% - 28px\);[\s\S]*?margin: 0 14px;[\s\S]*?transform: translateY\(7px\);/,
   );
   assert.match(
     indexSource,
@@ -191,7 +191,7 @@ test('market sidebar and execution controls continue the terminal header rails',
 test('market sidebar titles use consistent full-size click targets', () => {
   assert.match(
     refinementCss,
-    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 18% 29% 24% 29%;[\s\S]*?padding: 0;/,
+    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[\s\S]*?padding: 0 8px;/,
   );
   assert.match(
     refinementCss,
@@ -211,7 +211,7 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
 });
 
-test('market sidebar underline slides between proportionally spaced tabs', () => {
+test('market sidebar underline slides between evenly spaced tabs', () => {
   assert.match(
     refinementCss,
     /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?border-bottom: 0;/,
@@ -222,23 +222,23 @@ test('market sidebar underline slides between proportionally spaced tabs', () =>
   );
   assert.match(
     refinementCss,
-    /data-market-sidebar-tab="watchlist"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 18%;\s*--tp-market-tab-width: 29%;/,
+    /data-market-sidebar-tab="watchlist"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(37\.5% \+ 2px\);\s*--tp-market-tab-width: 58px;/,
   );
   assert.match(
     refinementCss,
-    /data-market-sidebar-tab="all"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 0%;\s*--tp-market-tab-width: 18%;/,
+    /data-market-sidebar-tab="all"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(12\.5% \+ 6px\);\s*--tp-market-tab-width: 28px;/,
   );
   assert.match(
     refinementCss,
-    /data-market-sidebar-tab="markets"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 71%;\s*--tp-market-tab-width: 29%;/,
+    /data-market-sidebar-tab="markets"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(87\.5% - 6px\);\s*--tp-market-tab-width: 50px;/,
   );
   assert.match(
     refinementCss,
-    /data-market-sidebar-tab="tokens"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 47%;\s*--tp-market-tab-width: 24%;/,
+    /data-market-sidebar-tab="tokens"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(62\.5% - 2px\);\s*--tp-market-tab-width: 44px;/,
   );
   assert.match(
     refinementCss,
-    /\.tp-market-tabs::after\s*\{[\s\S]*?left: var\(--tp-market-tab-left\);[\s\S]*?width: var\(--tp-market-tab-width\);[\s\S]*?left 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\),[\s\S]*?width 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\);/,
+    /\.tp-market-tabs::after\s*\{[\s\S]*?left: var\(--tp-market-tab-center\);[\s\S]*?width: var\(--tp-market-tab-width\);[\s\S]*?transform: translateX\(-50%\);[\s\S]*?left 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\),[\s\S]*?width 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\);/,
   );
   assert.doesNotMatch(refinementCss, /\.tp-market-tab\.active::after/);
   assert.doesNotMatch(refinementCss, /\.tp-market-tab-watchlist\.active/);
