@@ -3,6 +3,7 @@ import {
   CrosshairMode,
   LineSeries,
   LineStyle,
+  LineType,
   createChart,
   createSeriesMarkers,
 } from 'lightweight-charts';
@@ -46,6 +47,7 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     fallbackColor: '#f4f6f8',
     lineStyle: LineStyle.Solid,
     lineWidth: 2,
+    interpolation: 'rounded',
     liveEndpoint: 'price',
     priceLineVisible: false,
   },
@@ -56,6 +58,7 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     fallbackColor: '#42d89b',
     lineStyle: LineStyle.Solid,
     lineWidth: 2,
+    interpolation: 'rounded',
     liveEndpoint: 'pass',
     priceLineVisible: true,
   },
@@ -66,6 +69,7 @@ export const PROPOSAL_HISTORY_SERIES = Object.freeze([
     fallbackColor: '#ff6f7d',
     lineStyle: LineStyle.Solid,
     lineWidth: 2,
+    interpolation: 'rounded',
     liveEndpoint: 'fail',
     priceLineVisible: true,
   },
@@ -121,6 +125,12 @@ function finiteValue(value, signed = false) {
 
 function definitionValue(definition, value) {
   return finiteValue(value, definition?.signed === true);
+}
+
+export function proposalChartLineType(definition) {
+  return definition?.interpolation === 'rounded'
+    ? LineType.Curved
+    : LineType.Simple;
 }
 
 function unixTime(value) {
@@ -684,6 +694,7 @@ export function createProposalHistoryChart({
     const seriesOptions = {
       title: definition.label,
       lineStyle: definition.lineStyle,
+      lineType: proposalChartLineType(definition),
       lineWidth: definition.lineWidth,
       visible: seriesVisible,
       priceScaleId: definition.priceScaleId || 'right',
