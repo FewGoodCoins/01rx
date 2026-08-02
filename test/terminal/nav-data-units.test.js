@@ -4708,16 +4708,15 @@ test('chart topbar controls do not show focus outlines after click', () => {
   assert.equal(source.includes('.chart-topbar .layer-btn:focus,\n.chart-topbar .layer-btn:focus-visible,\n.chart-topbar .cbtn:focus,\n.chart-topbar .cbtn:focus-visible {\n  outline: none;\n  box-shadow: none;\n}'), true);
 });
 
-test('lightweight chart mirrors the TradingView NAV variants control', () => {
-  assert.match(source, /id="chart-nav-trigger"[\s\S]{0,240}aria-label="NAV variants"/);
-  assert.match(source, /id="chart-nav-menu"[\s\S]{0,1400}Current NAV[\s\S]{0,600}Historic NAV[\s\S]{0,600}Projected NAV/);
+test('lightweight chart keeps NAV variant state without exposing the unavailable toolbar control', () => {
+  assert.equal(source.includes('id="chart-nav-trigger"'), false);
+  assert.equal(source.includes('id="chart-nav-menu"'), false);
   assert.equal(source.includes('function _setChartNavMenuOpen(open, focusSelection)'), true);
   assert.equal(source.includes("var navControls = document.getElementById('chart-nav-control');"), true);
 });
 
-test('lightweight chart keeps the Growth icon in the top toolbar', () => {
-  assert.equal(source.includes('id="btn-growth-chart-toolbar"'), true);
-  assert.match(source, /id="btn-growth-chart-toolbar"[\s\S]{0,900}M2\.5 14\.5h13/);
+test('lightweight chart keeps Growth state without exposing the unavailable toolbar icon', () => {
+  assert.equal(source.includes('id="btn-growth-chart-toolbar"'), false);
   assert.equal(source.includes("document.getElementById('btn-growth-chart-toolbar')"), true);
 });
 

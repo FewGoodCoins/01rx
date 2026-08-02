@@ -2,7 +2,7 @@
 const projectMetadata = {
   "solo": {
     "live": true,
-    "name": "Solomon",
+    "name": "Solomon Labs",
     "ticker": "SOLO",
     "pair": "SOLO/USD",
     "color": "#00cc66",

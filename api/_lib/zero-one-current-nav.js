@@ -33,6 +33,10 @@ const PROJECT_SLUG_ALIASES = Object.freeze({
   'turbine-cash': 'zkfg',
 });
 
+const PROJECT_NAME_OVERRIDES = Object.freeze({
+  solo: 'Solomon Labs',
+});
+
 export function currentNavServiceError(
   message,
   code = 'UPSTREAM_UNAVAILABLE',
@@ -163,7 +167,7 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
   const ticker = safeText(row.tokenSymbol || row.ticker || token, 32)
     .replace(/^\$+/, '')
     .toUpperCase();
-  const name = safeText(
+  const name = PROJECT_NAME_OVERRIDES[token] || safeText(
     row.organizationName || row.projectName || row.name || ticker,
     160,
   );
