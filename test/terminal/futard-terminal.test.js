@@ -1361,7 +1361,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.ok(decisionPressure.closest('[data-ft-role="proposal-history"], .ft-market-chart-header-region'));
   assert.equal(tradeTicket.contains(decisionPressure), false);
   assert.equal(decisionPressure.dataset.ftAvailable, 'true');
-  assert.match(byRole(root, 'remaining-spread').textContent, /PASS (?:must|may) average/i);
+  assert.match(byRole(root, 'remaining-spread').textContent, /PASS avg ≥ \$0\.1298/i);
   assert.match(byRole(root, 'pressure-equivalent-pass').textContent, /If FAIL averages \$0\.1279 through expiry/i);
   assert.match(byRole(root, 'pressure-inputs').textContent, /PASS TWAP/i);
   assert.match(byRole(root, 'pressure-inputs').textContent, /FAIL TWAP/i);

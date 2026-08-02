@@ -4678,38 +4678,39 @@ export function mountFutardTerminal({
 
   function decisionPressureHeadline(projection) {
     if (projection.requiredPassAverageBoundary <= 0) {
-      return 'PASS need not sustain a positive average';
+      return 'PASS avg floor $0.0000 · accumulated lead sufficient';
     }
     const spread = projection.requiredSpreadPct;
     const percent = Math.abs(spread).toLocaleString('en-US', {
       maximumFractionDigits: 2,
     });
-    if (spread > 0.005) return `PASS must average ${percent}% above FAIL`;
-    if (spread < -0.005) return `PASS may average ${percent}% below FAIL`;
-    return 'PASS must average just above FAIL';
+    const sign = spread > 0.005 ? '+' : spread < -0.005 ? '−' : '';
+    return `PASS avg ≥ ${formatPrice(projection.minimumPassAverage)} · ${sign}${percent}% vs FAIL`;
   }
 
   function renderDecisionPressure(market) {
     const { assumption, failFutureAverage, projection } = decisionPressureScenario(market);
     const controls = `
       <div class="ft-decision-pressure-controls" role="group" aria-label="Future FAIL average assumption">
-        <span>FAIL future average</span>
+        <span>FAIL avg</span>
         ${[
-          ['spot', 'Current price'],
-          ['twap', 'Current TWAP'],
-          ['custom', 'Custom'],
-        ].map(([key, label]) => `
+          ['spot', 'Price', 'Use the current FAIL price'],
+          ['twap', 'TWAP', 'Use the current FAIL TWAP'],
+          ['custom', 'Custom', 'Enter a custom future FAIL average'],
+        ].map(([key, label, description]) => `
           <button
             type="button"
             data-ft-action="select-pressure-assumption"
             data-ft-pressure-assumption="${key}"
             aria-pressed="${assumption === key}"
+            aria-label="${description}"
+            title="${description}"
           >${label}</button>
         `).join('')}
       </div>
       ${assumption === 'custom' ? `
         <label class="ft-decision-pressure-custom">
-          <span>Custom FAIL average through expiry</span>
+          <span>Custom FAIL avg</span>
           <input
             type="number"
             min="0"
