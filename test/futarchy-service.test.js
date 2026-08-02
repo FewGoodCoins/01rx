@@ -29,6 +29,7 @@ function snapshot() {
     quoteMint: USDC,
     baseDecimals: 6,
     quoteDecimals: 6,
+    twapStartedAt: '2026-07-31T21:00:00.000Z',
     proposal: {
       number: 6,
       proposer: 'Ec9ZMbUyGbejqjMThZHGGFZBvScwpAQRtvQvVmwvRNKP',
@@ -108,6 +109,8 @@ test('active markets join 01Resolved identity with proposal-discovered validated
   assert.equal(first.markets[0].token, 'futardio');
   assert.equal(first.markets[0].tradable, true);
   assert.equal(first.markets[0].likelihoodPct, 64);
+  assert.equal(first.markets[0].asOf, snapshot().asOf);
+  assert.equal(first.markets[0].twapStartedAt, snapshot().twapStartedAt);
   assert.equal(first.markets[0].proposal.passBaseMint, snapshot().proposal.passBaseMint);
   assert.equal(second, first);
   assert.equal(calls.length, 1);
