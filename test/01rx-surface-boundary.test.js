@@ -387,13 +387,13 @@ test('decision chart plot starts without the exposed toolbar divider', () => {
   );
 });
 
-test('decision chart TWAP boundaries are unlabeled dashed white lines', () => {
+test('decision chart uses TWAP background context without vertical boundary lines', () => {
   assert.match(
     frameCss,
-    /\.ft-hourly-event-line\s*\{[\s\S]*?border-left: 1px dashed color-mix\(in srgb, #ffffff 82%, transparent\);/,
+    /\.ft-hourly-pre-twap-band\s*\{[\s\S]*?background: color-mix\(in srgb, var\(--ft-accent\) 5%, transparent\);/,
   );
-  assert.doesNotMatch(proposalChartSource, /label: 'TWAP (?:Open|Close)'/);
-  assert.doesNotMatch(proposalChartSource, /line\.appendChild\(label\)/);
+  assert.doesNotMatch(frameCss, /\.ft-hourly-event-line\s*\{/);
+  assert.doesNotMatch(proposalChartSource, /ft-hourly-event-line|data\.ftChartEvent/);
 });
 
 test('decision chart endpoints keep small solid centers with sequenced pulse bands', () => {
@@ -446,10 +446,14 @@ test('global wallet control uses the white 01RX header treatment', () => {
   );
 });
 
-test('decision trade wallet action stays white for both outcomes', () => {
+test('proposal trade wallet action stays white for conditional and spot markets', () => {
   assert.match(
     frameCss,
     /\.ft-decision-ticket\.ft-order-outcome-pass \.ft-primary-button\.ft-connect-trade-button:not\(:disabled\),\s*\.ft-decision-ticket\.ft-order-outcome-fail \.ft-primary-button\.ft-connect-trade-button:not\(:disabled\)\s*\{[\s\S]*?border-color: #f2f2ef;[\s\S]*?background: #f2f2ef;[\s\S]*?color: #101010;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-decision-ticket\.ft-order-outcome-spot \.ft-primary-button:not\(:disabled\)\s*\{[\s\S]*?border-color: #f2f2ef;[\s\S]*?background: #f2f2ef;[\s\S]*?color: #101010;/,
   );
 });
 
@@ -561,7 +565,7 @@ test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the pl
   );
 });
 
-test('decision chart toolbar keeps only chart expansion', () => {
+test('decision chart toolbar keeps proposal details and chart expansion', () => {
   assert.doesNotMatch(
     decisionMarketControllerSource,
     /hourly-series-trigger|TradingView weekly timeframe placeholder|ft-hourly-growth-control/,
@@ -569,6 +573,10 @@ test('decision chart toolbar keeps only chart expansion', () => {
   assert.match(
     decisionMarketControllerSource,
     /function renderChartExpansionControl\(\)[\s\S]*?data-ft-action="toggle-chart-expansion"/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /function renderProposalDetailsControl\([\s\S]*?data-ft-action="toggle-proposal-details"/,
   );
 });
 

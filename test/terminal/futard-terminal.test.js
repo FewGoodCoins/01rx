@@ -872,6 +872,19 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   const dom = new JSDOM(renderHourlyPriceChart(history, 'META', {
     windowEndedAt: '2026-06-16T11:30:00.000Z',
     now: Date.parse('2026-06-16T11:15:00.000Z'),
+    proposal: {
+      id: PASSED_PROPOSAL_ID,
+      number: 12,
+      title: 'Acquire protocol-owned liquidity',
+      description: 'Authorize the DAO to acquire protocol-owned liquidity.',
+      statusLabel: 'Live',
+      createdAt: '2026-06-15T10:00:00.000Z',
+      endsAt: '2026-06-16T11:30:00.000Z',
+      proposer: PASSED_PROPOSAL_ID,
+      sourceUrl: `https://www.metadao.fi/projects/meta/proposal/${PASSED_PROPOSAL_ID}`,
+      isTeamSponsored: true,
+    },
+    proposalDetailsOpen: true,
   }));
   const chart = dom.window.document;
   assert.equal(chart.querySelectorAll('[data-ft-series]').length, 0);
@@ -900,6 +913,18 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(chart.querySelector('[aria-label="TradingView settings placeholder"]'), null);
   assert.equal(chart.querySelectorAll('[data-ft-action="hourly-chart-tool"]').length, 0);
   assert.equal(chart.querySelectorAll('.ft-chart-crosshair-rail button').length, 1);
+  const proposalTrigger = chart.querySelector('.ft-proposal-details-trigger');
+  const proposalDetails = chart.querySelector('[data-ft-role="proposal-details"]');
+  assert.ok(proposalTrigger);
+  assert.equal(proposalTrigger.getAttribute('aria-expanded'), 'true');
+  assert.ok(proposalDetails);
+  assert.equal(proposalDetails.hidden, false);
+  assert.match(proposalDetails.textContent, /Acquire protocol-owned liquidity/);
+  assert.match(proposalDetails.textContent, /Team-sponsored/);
+  assert.equal(
+    proposalDetails.querySelector('.ft-proposal-details-source')?.getAttribute('rel'),
+    'noopener noreferrer',
+  );
   assert.equal(
     chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
       .dataset.ftChartEngine,
@@ -1353,10 +1378,12 @@ test('proposal-first terminal renders validated market state and a safe trade in
     /USDC held\s*0\.0000/,
   );
   assert.equal(byRole(root, 'average-price').textContent, '$0.1400');
-  assert.equal(byRole(root, 'position-before').textContent, '0.00');
-  assert.equal(byRole(root, 'position-after').textContent, '0.00');
-  assert.match(byRole(root, 'fail-payoff').textContent, /0\.00 LOYAL/);
-  assert.match(byRole(root, 'pass-payoff').textContent, /0\.00 LOYAL/);
+  assert.equal(byRole(root, 'position-before').textContent, '—');
+  assert.equal(byRole(root, 'position-after').textContent, '—');
+  assert.equal(byRole(root, 'fail-payoff').textContent, '— USDC');
+  assert.equal(byRole(root, 'fail-payoff-detail').textContent, '— LOYAL');
+  assert.equal(byRole(root, 'pass-payoff').textContent, '— LOYAL');
+  assert.equal(byRole(root, 'pass-payoff-detail').textContent, '— USDC');
   assert.deepEqual(
     Array.from(root.querySelectorAll('[data-ft-action="decision-amount-preset"]'))
       .map(element => element.textContent.trim()),
@@ -1366,7 +1393,11 @@ test('proposal-first terminal renders validated market state and a safe trade in
     '[data-ft-action="decision-amount-preset"][data-ft-amount="500"]',
   ).click();
   assert.equal(byRole(root, 'amount').value, '500');
-  assert.notEqual(byRole(root, 'position-after').textContent, '0.00');
+  assert.notEqual(byRole(root, 'position-after').textContent, '—');
+  assert.equal(byRole(root, 'fail-payoff').textContent, '+$500.00 USDC');
+  assert.equal(byRole(root, 'fail-payoff-detail').textContent, '0.00 LOYAL');
+  assert.match(byRole(root, 'pass-payoff').textContent, /^\+.* LOYAL$/);
+  assert.equal(byRole(root, 'pass-payoff-detail').textContent, '−$500.00 USDC');
   assert.deepEqual(
     Array.from(byRole(root, 'pass-card').querySelectorAll('.ft-book-columns span'))
       .map(element => element.textContent.trim()),
@@ -1480,6 +1511,10 @@ test('proposal-first terminal renders validated market state and a safe trade in
   amount.dispatchEvent(new window.Event('input', { bubbles: true }));
   assert.equal(byRole(root, 'estimate'), null);
   actionWithText(root, 'select-outcome', /fail/i).click();
+  assert.equal(byRole(root, 'pass-payoff').textContent, '+$100.00 USDC');
+  assert.equal(byRole(root, 'pass-payoff-detail').textContent, '0.00 LOYAL');
+  assert.match(byRole(root, 'fail-payoff').textContent, /^\+.* LOYAL$/);
+  assert.equal(byRole(root, 'fail-payoff-detail').textContent, '−$100.00 USDC');
   assert.match(
     byRole(root, 'trade-ticket').querySelector('.ft-execution-ticket').className,
     /ft-order-outcome-fail/,
@@ -2714,6 +2749,106 @@ test('ownership market orders quote through DFlow and submit only after explicit
   cleanupMount(mounted);
 });
 
+test('proposal pages expose spot trading through the existing reviewed spot route', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const quoteRequests = [];
+  const terminal = makeWindow({
+    url: 'https://navgator.xyz/?token=loyal&view=markets',
+    async spotOrderResponder(body) {
+      quoteRequests.push(body);
+      return {
+        cluster: 'solana:mainnet',
+        token: body.token,
+        ticker: 'LOYAL',
+        name: 'Loyal',
+        side: body.side,
+        owner: body.owner || null,
+        amount: body.amount,
+        quote: {
+          inputMint: ACTIVE_MARKETS.markets[0].quoteMint,
+          outputMint: ACTIVE_MARKETS.markets[0].baseMint,
+          inputDecimals: 6,
+          outputDecimals: 6,
+          inAmountRaw: '25000000',
+          outAmountRaw: '200000000',
+          minimumAmountOutRaw: '198000000',
+          amountIn: '25',
+          estimatedAmountOut: '200',
+          minimumAmountOut: '198',
+          priceImpactPercent: 0.08,
+          slippageBps: 100,
+          platformFeeBps: 0,
+          contextSlot: 355000000,
+          lastValidBlockHeight: 390000000,
+          route: [{ venue: 'MetaDAO', marketKey: PROPOSAL_ID }],
+        },
+        transaction: null,
+        reviewToken: null,
+        review: null,
+      };
+    },
+  });
+  const controller = mountFutardTerminal({
+    window: terminal.window,
+    root: terminal.root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, terminal.window);
+  await controller.ready;
+
+  const spotTab = terminal.root.querySelector(
+    '[data-ft-action="select-proposal-trade-market"][data-ft-trade-market="spot"]',
+  );
+  assert.ok(spotTab);
+  assert.deepEqual(
+    [...terminal.root.querySelectorAll('.ft-proposal-trade-tabs > button')]
+      .map(button => button.textContent.trim()),
+    ['If "Pass"', 'Spot', 'If "Fail"'],
+  );
+  spotTab.click();
+  const spotTicket = terminal.root.querySelector('.ft-proposal-spot-ticket');
+  assert.ok(spotTicket);
+  assert.ok(spotTicket.classList.contains('ft-decision-ticket'));
+  [
+    '.ft-decision-ticket-scroll',
+    '.ft-decision-side-quotes',
+    '.ft-decision-amount-field',
+    '.ft-decision-presets',
+    '.ft-decision-average',
+    '.ft-decision-position',
+    '.ft-decision-payoff',
+    '.ft-decision-advanced',
+    '.ft-decision-action',
+  ].forEach(selector => assert.ok(spotTicket.querySelector(selector), selector));
+
+  const amount = byRole(terminal.root, 'ownership-amount');
+  amount.value = '25';
+  amount.dispatchEvent(new terminal.window.Event('input', { bubbles: true }));
+  await settleUntil(terminal.window, () => quoteRequests.length === 1);
+
+  assert.deepEqual(quoteRequests, [{
+    token: 'loyal',
+    side: 'buy',
+    amount: '25',
+    slippageBps: 100,
+  }]);
+  assert.match(terminal.root.textContent, /200/);
+  assert.equal(
+    terminal.root.querySelector(
+      '[data-ft-action="select-proposal-trade-market"][data-ft-trade-market="spot"]',
+    )?.getAttribute('aria-selected'),
+    'true',
+  );
+
+  actionWithText(terminal.root, 'select-outcome', /pass/i).click();
+  assert.equal(terminal.root.querySelector('.ft-proposal-spot-ticket'), null);
+  assert.ok(terminal.root.querySelector('.ft-decision-ticket'));
+  assert.ok(byAction(terminal.root, 'connect-wallet'));
+
+  cleanupMount(mounted);
+});
+
 test('invalid token proposal deep links fall back with a visible notice', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
@@ -3200,6 +3335,17 @@ test('interactive history chart controls update and clean up an injected chart a
     root.querySelector('.ft-chart-crosshair-tool').getAttribute('aria-pressed'),
     'true',
   );
+
+  const proposalDetailsButton = byAction(root, 'toggle-proposal-details');
+  const proposalDetails = byRole(root, 'proposal-details');
+  assert.ok(proposalDetailsButton);
+  assert.equal(proposalDetails.hidden, true);
+  proposalDetailsButton.click();
+  assert.equal(proposalDetails.hidden, false);
+  assert.equal(proposalDetailsButton.getAttribute('aria-expanded'), 'true');
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+  assert.equal(proposalDetails.hidden, true);
+  assert.equal(proposalDetailsButton.getAttribute('aria-expanded'), 'false');
 
   const expansionButton = byAction(root, 'toggle-chart-expansion');
   const chartPanel = byRole(root, 'proposal-history');
