@@ -372,10 +372,13 @@ async function renderTokenLeftPanel(priceMap) {
   var secondaryLabels = {
     change24h: '24h',
     change1h: '1h',
-    nav: 'NAV'
+    nav: 'NAV',
+    marketCap: 'MCap',
+    volume24h: 'Vol 24h'
   };
   var secondaryLabel = document.getElementById('tp-token-secondary-label');
   if (secondaryLabel) secondaryLabel.textContent = secondaryLabels[secondaryMetric] || '24h';
+  if (typeof _syncMarketSortMenu === 'function') _syncMarketSortMenu();
   document.querySelectorAll('input[name="tp-token-secondary-column"]').forEach(function(input) {
     input.checked = input.value === secondaryMetric;
   });
@@ -389,10 +392,32 @@ async function renderTokenLeftPanel(priceMap) {
     return value >= 1 ? '$' + value.toFixed(2) : '$' + value.toFixed(4);
   }
 
-  function renderSecondaryMetric(entry) {
+  function marketCapForEntry(entry, spot) {
+    var marketCap = Number(entry && (entry.marketCap || entry.mcap)) || 0;
+    if (!(marketCap > 0) && entry && entry.navSnapshot && entry.navSnapshot.market) {
+      marketCap = Number(entry.navSnapshot.market.marketCap) || 0;
+    }
+    if (!(marketCap > 0) && spot > 0 && entry && Number(entry.effectiveSupply) > 0) {
+      marketCap = spot * Number(entry.effectiveSupply);
+    }
+    return marketCap > 0 ? marketCap : null;
+  }
+
+  function volumeForEntry(entry) {
+    var volume = Number(entry && (entry.volume24hUsd || entry.daoVolume24h || entry.volume24h));
+    return volume > 0 ? volume : null;
+  }
+
+  function renderSecondaryMetric(entry, spot) {
     entry = entry || {};
     if (secondaryMetric === 'nav') {
       return '<div class="tt-change tp-token-secondary is-neutral" data-metric="nav">' + fmtCompactUsd(navFromEntry(entry)) + '</div>';
+    }
+    if (secondaryMetric === 'marketCap') {
+      return '<div class="tt-change tp-token-secondary is-neutral" data-metric="marketCap">' + fmtCompactUsd(marketCapForEntry(entry, spot)) + '</div>';
+    }
+    if (secondaryMetric === 'volume24h') {
+      return '<div class="tt-change tp-token-secondary is-neutral" data-metric="volume24h">' + fmtCompactUsd(volumeForEntry(entry)) + '</div>';
     }
     var value = secondaryMetric === 'change1h' ? entry.change1h : entry.change24h;
     var metricKey = secondaryMetric === 'change1h' ? 'change1h' : 'change24h';
@@ -415,14 +440,10 @@ async function renderTokenLeftPanel(priceMap) {
     var strike = navFromEntry(entry);
     var discPct = (spot > 0 && strike > 0) ? ((spot - strike) / strike * 100) : null;
     var sortChange = entry && isFinite(Number(entry.change24h)) ? Number(entry.change24h) : '';
-    var sortMarketCap = Number(entry && (entry.marketCap || entry.mcap)) || 0;
-    if (!(sortMarketCap > 0) && entry && entry.navSnapshot && entry.navSnapshot.market) {
-      sortMarketCap = Number(entry.navSnapshot.market.marketCap) || 0;
-    }
-    if (!(sortMarketCap > 0) && spot > 0 && entry && Number(entry.effectiveSupply) > 0) {
-      sortMarketCap = spot * Number(entry.effectiveSupply);
-    }
-    var sortVolume = Number(entry && (entry.volume24hUsd || entry.daoVolume24h || entry.volume24h)) || 0;
+    var sortChange1h = entry && isFinite(Number(entry.change1h)) ? Number(entry.change1h) : '';
+    var sortNav = strike > 0 ? strike : '';
+    var sortMarketCap = marketCapForEntry(entry, spot);
+    var sortVolume = volumeForEntry(entry);
 
     var squareCls = _tokenUsesSquareLogo(tok, key) ? ' graveyard-square-icon' : '';
     var iconH = tok.logo
@@ -459,7 +480,7 @@ async function renderTokenLeftPanel(priceMap) {
       chg24Html = chg24 !== undefined && chg24 !== null && isFinite(chg24) ? (Math.abs(chg24) < 0.01 ? '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span style="color:var(--dim)"><span style="display:inline-block;width:10px;text-align:center">—</span> 0.00%</span></div>' : '<div class="tt-change" style="font-size:12px"><span style="color:var(--dim);font-family:\'IBM Plex Mono\',monospace">24H</span> <span class="' + (chg24 >= 0 ? 'up' : 'down') + '"><span style="display:inline-block;width:10px;text-align:center">' + (chg24 >= 0 ? '▲' : '▼') + '</span> ' + _fmtSignedSidebarPct(chg24) + '%</span></div>') : '<div class="tt-change" style="font-size:12px"><span class="tt-skel tt-skel-sm"></span></div>';
     }
     if (isMarketWorkspace && !_isLiquidated && !_pendingLiq) {
-      chg24Html = renderSecondaryMetric(entry);
+      chg24Html = renderSecondaryMetric(entry, spot);
     }
 
     var sw = _navgatorWatchlist.has(key);
@@ -472,6 +493,8 @@ async function renderTokenLeftPanel(priceMap) {
       ' data-market-search="' + _esc([tok.ticker, tok.name || '', key].join(' ')) + '"' +
       ' data-sort-price="' + _esc(String(spot || '')) + '"' +
       ' data-sort-change="' + _esc(String(sortChange)) + '"' +
+      ' data-sort-change-1h="' + _esc(String(sortChange1h)) + '"' +
+      ' data-sort-nav="' + _esc(String(sortNav)) + '"' +
       ' data-sort-market-cap="' + _esc(String(sortMarketCap || '')) + '"' +
       ' data-sort-volume="' + _esc(String(sortVolume || '')) + '"' +
       ' href="' + _tokenPageUrl(key) + '">' +

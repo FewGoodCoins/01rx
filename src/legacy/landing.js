@@ -881,10 +881,13 @@ window._cachedPriceMap = _cachedPriceMap;
     var secondaryLabels = {
       change24h: '24h',
       change1h: '1h',
-      nav: 'NAV'
+      nav: 'NAV',
+      marketCap: 'MCap',
+      volume24h: 'Vol 24h'
     };
     var secondaryLabel = document.getElementById('tp-token-secondary-label');
     if (secondaryLabel) secondaryLabel.textContent = secondaryLabels[secondaryMetric] || '24h';
+    if (typeof _syncMarketSortMenu === 'function') _syncMarketSortMenu();
     document.querySelectorAll('input[name="tp-token-secondary-column"]').forEach(function(input) {
       input.checked = input.value === secondaryMetric;
     });
@@ -903,6 +906,12 @@ window._cachedPriceMap = _cachedPriceMap;
       token = token || {};
       if (secondaryMetric === 'nav') {
         return '<div class="tt-change tp-token-secondary is-neutral" data-metric="nav">' + fmtCompactUsd(token.strike) + '</div>';
+      }
+      if (secondaryMetric === 'marketCap') {
+        return '<div class="tt-change tp-token-secondary is-neutral" data-metric="marketCap">' + fmtCompactUsd(token.mcap) + '</div>';
+      }
+      if (secondaryMetric === 'volume24h') {
+        return '<div class="tt-change tp-token-secondary is-neutral" data-metric="volume24h">' + fmtCompactUsd(token.volume24h) + '</div>';
       }
       var value = secondaryMetric === 'change1h' ? token.change1h : token.change24h;
       var metricKey = secondaryMetric === 'change1h' ? 'change1h' : 'change24h';
@@ -953,6 +962,8 @@ window._cachedPriceMap = _cachedPriceMap;
         ' data-market-search="' + _esc([tok.ticker, tok.name || '', key].join(' ')) + '"' +
         ' data-sort-price="' + _esc(String(spot || '')) + '"' +
         ' data-sort-change="' + _esc(String(lt && isFinite(Number(lt.change24h)) ? Number(lt.change24h) : '')) + '"' +
+        ' data-sort-change-1h="' + _esc(String(lt && isFinite(Number(lt.change1h)) ? Number(lt.change1h) : '')) + '"' +
+        ' data-sort-nav="' + _esc(String(lt && lt.strike > 0 ? lt.strike : '')) + '"' +
         ' data-sort-market-cap="' + _esc(String(lt && lt.mcap > 0 ? lt.mcap : '')) + '"' +
         ' data-sort-volume="' + _esc(String(lt && lt.volume24h > 0 ? lt.volume24h : '')) + '"' +
         ' href="' + _tokenPageUrl(key) + '">' +

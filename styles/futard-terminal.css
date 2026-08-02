@@ -4193,51 +4193,10 @@ body.is-futard-terminal #token-switch-loader {
   bottom: 26px;
   left: 0;
   width: 0;
-  border-left: 1px dashed color-mix(in srgb, var(--ft-warning) 72%, transparent);
+  border-left: 1px dashed color-mix(in srgb, #ffffff 82%, transparent);
   pointer-events: none;
   transform: translate3d(var(--ft-event-x, 0px), 0, 0);
   will-change: transform;
-}
-
-.ft-hourly-event-line > span {
-  position: absolute;
-  top: calc(70px + var(--ft-event-offset, 0px));
-  left: 4px;
-  padding: 3px 5px;
-  border: 1px solid color-mix(in srgb, var(--ft-warning) 35%, var(--ft-border));
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--ft-panel-strong) 92%, transparent);
-  color: var(--ft-warning);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
-
-.ft-hourly-event-line.ft-is-near-right > span {
-  right: 4px;
-  left: auto;
-}
-
-.ft-hourly-event-twap-start {
-  border-left-style: solid;
-  border-left-color: color-mix(in srgb, var(--ft-accent) 82%, transparent);
-}
-
-.ft-hourly-event-twap-end {
-  border-left-style: solid;
-  border-left-color: color-mix(in srgb, var(--ft-warning) 78%, transparent);
-}
-
-.ft-hourly-event-twap-end > span {
-  border-color: color-mix(in srgb, var(--ft-warning) 38%, var(--ft-border));
-  color: var(--ft-warning);
-}
-
-.ft-hourly-event-twap-start > span {
-  border-color: color-mix(in srgb, var(--ft-accent) 38%, var(--ft-border));
-  color: var(--ft-accent-strong);
 }
 
 .ft-proposal-live-dot {
@@ -4322,6 +4281,104 @@ body.is-futard-terminal #token-switch-loader {
   margin-left: 42px;
   visibility: visible;
   pointer-events: auto;
+}
+
+.ft-hourly-chart-enhanced .ft-hourly-plot-shell.ft-has-twap-progress .ft-hourly-live {
+  height: calc(clamp(340px, 32vw, 430px) - 50px);
+  min-height: 290px;
+}
+
+.ft-twap-window-pane {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  width: calc(100% - 42px);
+  height: 50px;
+  margin-left: 42px;
+  padding: 5px 12px 4px;
+  border-top: 1px solid #292929;
+  background: #101010;
+  color: var(--ft-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  grid-template-rows: 14px 7px 11px;
+  row-gap: 2px;
+}
+
+.ft-hourly-chart-pending .ft-twap-window-pane,
+.ft-hourly-chart-failed .ft-twap-window-pane {
+  visibility: hidden;
+}
+
+.ft-twap-window-heading,
+.ft-twap-window-bounds {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ft-twap-window-heading {
+  color: var(--ft-ink);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ft-twap-window-heading strong {
+  color: var(--ft-positive);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ft-twap-window-track {
+  position: relative;
+  height: 4px;
+  align-self: center;
+  border-radius: 2px;
+  background: #2b2b2b;
+}
+
+.ft-twap-window-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--ft-twap-progress, 0%);
+  border-radius: inherit;
+  background: var(--ft-positive);
+}
+
+.ft-twap-window-marker {
+  position: absolute;
+  top: 50%;
+  left: var(--ft-twap-progress, 0%);
+  width: 7px;
+  height: 7px;
+  border: 1px solid #101010;
+  border-radius: 50%;
+  background: var(--ft-positive);
+  box-shadow: 0 0 0 1px var(--ft-positive);
+  transform: translate(-50%, -50%);
+}
+
+.ft-twap-window-bounds {
+  color: var(--ft-faint);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ft-twap-window-pane[data-ft-twap-state="upcoming"] .ft-twap-window-heading strong,
+.ft-twap-window-pane[data-ft-twap-state="upcoming"] .ft-twap-window-marker {
+  color: var(--ft-muted);
+  background: var(--ft-muted);
+  box-shadow: 0 0 0 1px var(--ft-muted);
+}
+
+.ft-twap-window-pane[data-ft-twap-state="complete"] .ft-twap-window-heading strong {
+  color: var(--ft-ink);
 }
 
 .ft-hourly-chart-foot {
@@ -7161,6 +7218,13 @@ body.is-token-markets .token-markets-root {
   color: #ffffff;
 }
 
+.ft-decision-ticket.ft-order-outcome-pass .ft-primary-button.ft-connect-trade-button:not(:disabled),
+.ft-decision-ticket.ft-order-outcome-fail .ft-primary-button.ft-connect-trade-button:not(:disabled) {
+  border-color: #f2f2ef;
+  background: #f2f2ef;
+  color: #101010;
+}
+
 .ft-decision-advanced {
   margin-top: 11px;
   border-top: 1px solid #303030;
@@ -9462,6 +9526,10 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-live {
   height: 100%;
   min-height: 0;
+}
+
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-plot-shell.ft-has-twap-progress .ft-hourly-live {
+  height: calc(100% - 50px);
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar {

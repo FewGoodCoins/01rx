@@ -20,6 +20,18 @@ const proposalChartSource = fs.readFileSync(
   new URL('../src/markets/proposal-history-chart.js', import.meta.url),
   'utf8',
 );
+const appCoreSource = fs.readFileSync(
+  new URL('../src/legacy/app-core.js', import.meta.url),
+  'utf8',
+);
+const tokenPageSource = fs.readFileSync(
+  new URL('../src/legacy/token-page.js', import.meta.url),
+  'utf8',
+);
+const landingSource = fs.readFileSync(
+  new URL('../src/legacy/landing.js', import.meta.url),
+  'utf8',
+);
 const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
@@ -131,6 +143,54 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
 });
 
+test('market sidebar titles use consistent full-size click targets', () => {
+  assert.match(
+    refinementCss,
+    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 18% 29% 24% 29%;[\s\S]*?padding: 0;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-market-tab\s*\{[\s\S]*?height: 100%;[\s\S]*?align-items: center;/,
+  );
+  assert.match(
+    refinementCss,
+    /#tp-market-tab-all\s*\{\s*padding-inline: 0;\s*justify-content: center;/,
+  );
+  assert.match(
+    indexSource,
+    /<button[\s\S]*?tp-unified-section-toggle-live[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-decisions-panel', this\)"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?<\/button>/,
+  );
+  assert.match(
+    indexSource,
+    /<button[\s\S]*?tp-unified-section-toggle-tokens[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-all-panel', this\)"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?<\/button>/,
+  );
+});
+
+test('market sidebar underline slides between proportionally spaced tabs', () => {
+  assert.match(
+    refinementCss,
+    /data-market-sidebar-tab="watchlist"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 18%;\s*--tp-market-tab-width: 29%;/,
+  );
+  assert.match(
+    refinementCss,
+    /data-market-sidebar-tab="all"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 0%;\s*--tp-market-tab-width: 18%;/,
+  );
+  assert.match(
+    refinementCss,
+    /data-market-sidebar-tab="markets"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 71%;\s*--tp-market-tab-width: 29%;/,
+  );
+  assert.match(
+    refinementCss,
+    /data-market-sidebar-tab="tokens"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-left: 47%;\s*--tp-market-tab-width: 24%;/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-market-tabs::after\s*\{[\s\S]*?left: var\(--tp-market-tab-left\);[\s\S]*?width: var\(--tp-market-tab-width\);[\s\S]*?left 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\),[\s\S]*?width 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\);/,
+  );
+  assert.doesNotMatch(refinementCss, /\.tp-market-tab\.active::after/);
+  assert.doesNotMatch(refinementCss, /\.tp-market-tab-watchlist\.active/);
+});
+
 test('recent transaction rows use an open tape without divider lines', () => {
   assert.match(
     frameCss,
@@ -229,6 +289,32 @@ test('token markets do not reserve a second empty header row', () => {
 test('decision charts render without a token or PASS/FAIL backdrop', () => {
   assert.doesNotMatch(proposalChartSource, /createTextWatermark/);
   assert.doesNotMatch(proposalChartSource, /PASS\s*\/\s*FAIL/);
+  assert.doesNotMatch(proposalChartSource, /BaselineSeries/);
+  assert.doesNotMatch(proposalChartSource, /createPriceLine/);
+});
+
+test('decision charts reserve a compact lower pane for TWAP window progress', () => {
+  assert.match(
+    frameCss,
+    /\.ft-twap-window-pane\s*\{[\s\S]*?height: 50px;[\s\S]*?border-top: 1px solid #292929;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-twap-window-fill\s*\{[\s\S]*?width: var\(--ft-twap-progress, 0%\);[\s\S]*?background: var\(--ft-positive\);/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-hourly-plot-shell\.ft-has-twap-progress \.ft-hourly-live\s*\{\s*height: calc\(100% - 50px\);/,
+  );
+});
+
+test('decision chart TWAP boundaries are unlabeled dashed white lines', () => {
+  assert.match(
+    frameCss,
+    /\.ft-hourly-event-line\s*\{[\s\S]*?border-left: 1px dashed color-mix\(in srgb, #ffffff 82%, transparent\);/,
+  );
+  assert.doesNotMatch(proposalChartSource, /label: 'TWAP (?:Open|Close)'/);
+  assert.doesNotMatch(proposalChartSource, /line\.appendChild\(label\)/);
 });
 
 test('decision chart endpoints keep small solid centers with sequenced pulse bands', () => {
@@ -281,6 +367,13 @@ test('global wallet control uses the white 01RX header treatment', () => {
   );
 });
 
+test('decision trade wallet action stays white for both outcomes', () => {
+  assert.match(
+    frameCss,
+    /\.ft-decision-ticket\.ft-order-outcome-pass \.ft-primary-button\.ft-connect-trade-button:not\(:disabled\),\s*\.ft-decision-ticket\.ft-order-outcome-fail \.ft-primary-button\.ft-connect-trade-button:not\(:disabled\)\s*\{[\s\S]*?border-color: #f2f2ef;[\s\S]*?background: #f2f2ef;[\s\S]*?color: #101010;/,
+  );
+});
+
 test('market sidebar uses one market section with a leading live indicator', () => {
   assert.match(
     sharedTerminalCss,
@@ -288,18 +381,18 @@ test('market sidebar uses one market section with a leading live indicator', () 
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Pass<\/span>[\s\S]*?<span>Fail<\/span>[\s\S]*?id="tp-live-decision-count">0 markets live<\/span>[\s\S]*?id="tlp-all-panel"/,
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Threshold<\/span>[\s\S]*?<span>Signal<\/span>[\s\S]*?id="tp-live-decision-count">0 markets live<\/span>[\s\S]*?id="tlp-all-panel"/,
   );
   assert.match(
     indexSource,
-    /data-market-sidebar-tab="watchlist"[^>]*>[\s\S]*?<\/button>[\s\S]*?data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Markets<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>/,
+    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Markets<\/button>/,
   );
   assert.doesNotMatch(indexSource, /tlp-past-decisions|tp-past-decisions|tlp-decision-history-toggle-slot/);
   assert.doesNotMatch(indexSource, /<span>Status<\/span>/);
   assert.doesNotMatch(indexSource, /tp-decision-columns|tp-token-columns|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
   assert.match(
     indexSource,
-    /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?<span>Price<\/span>[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
+    /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?<span aria-hidden="true">Price<\/span>[\s\S]*?id="tp-token-secondary-sort"[\s\S]*?onclick="sortMarketSidebarBySecondaryMetric\(event\)"[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
   );
   assert.match(refinementCss, /\.tp-all-section\.is-collapsed\s*\{[\s\S]*?flex: 0 0 30px;/);
   assert.match(refinementCss, /\.is-collapsed \.tp-unified-section-columns\s*\{\s*display: none;/);
@@ -324,6 +417,33 @@ test('market sidebar uses one market section with a leading live indicator', () 
     refinementCss,
     /\.tp-decision-live-dot\s*\{[\s\S]*?animation: tp-decision-live-pulse var\(--tp-live-pulse-duration, 1s\) ease-out infinite;[\s\S]*?animation-delay: var\(--tp-live-pulse-delay, 0ms\);/,
   );
+});
+
+test('the visible token metric toggles high and low sorting', () => {
+  assert.match(
+    appCoreSource,
+    /function sortMarketSidebarBySecondaryMetric\(event\)\s*\{[\s\S]*?_marketTokenSecondarySortConfig\[_marketTokenSecondaryMetric\][\s\S]*?_marketTokenSortKey === config\.key[\s\S]*?_marketSidebarSortAscending = !_marketSidebarSortAscending;[\s\S]*?_marketTokenSortKey = config\.key;[\s\S]*?_marketSidebarSortAscending = false;[\s\S]*?applyMarketSidebarSearch\(\);/,
+  );
+  assert.match(
+    appCoreSource,
+    /secondaryDirection\.textContent = secondaryIsActive[\s\S]*?_marketSidebarSortAscending \? '↑' : '↓'[\s\S]*?: '↕';/,
+  );
+  assert.match(appCoreSource, /change1h: \{ key: 'change-1h', label: '1-hour change' \}/);
+  assert.match(appCoreSource, /nav: \{ key: 'nav', label: 'NAV' \}/);
+  assert.match(appCoreSource, /marketCap: \{ key: 'market-cap', label: 'market cap' \}/);
+  assert.match(appCoreSource, /volume24h: \{ key: 'volume', label: '24-hour volume' \}/);
+  assert.match(
+    refinementCss,
+    /\.tp-token-secondary-sort\s*\{[\s\S]*?cursor: pointer;/,
+  );
+  assert.match(indexSource, /value="marketCap"[\s\S]*?>Market Cap<\/span>/);
+  assert.match(indexSource, /value="volume24h"[\s\S]*?>24h Volume<\/span>/);
+  [tokenPageSource, landingSource].forEach((source) => {
+    assert.match(source, /data-sort-change-1h=/);
+    assert.match(source, /data-sort-nav=/);
+    assert.match(source, /data-sort-market-cap=/);
+    assert.match(source, /data-sort-volume=/);
+  });
 });
 
 test('spot chart aligns equal-width timeframe, NAV, and Growth boxes with the plot rail', () => {
@@ -389,7 +509,7 @@ test('desktop decision trading keeps its action outside the scrolling ticket bod
 test('spot and decision routes share one authoritative desktop terminal geometry', () => {
   assert.match(
     sharedTerminalCss,
-    /html\[data-workspace="markets"\]\s*\{\s*--sidebar-width: 250px;/,
+    /html\[data-workspace="markets"\]\s*\{\s*--sidebar-width: 275px;/,
   );
   assert.match(
     sharedTerminalCss,

@@ -433,6 +433,89 @@ function formatCountdown(value, now = Date.now()) {
   return `${minutes}m remaining`;
 }
 
+export function proposalTwapWindowProgress(preTwap, windowEndedAt, now = Date.now()) {
+  const openedAt = new Date(preTwap || '').getTime();
+  const closedAt = new Date(windowEndedAt || '').getTime();
+  const currentTime = Number(now);
+  if (
+    !Number.isFinite(openedAt)
+    || !Number.isFinite(closedAt)
+    || !Number.isFinite(currentTime)
+    || closedAt <= openedAt
+  ) return null;
+
+  const progress = Math.min(1, Math.max(0, (currentTime - openedAt) / (closedAt - openedAt)));
+  return {
+    openedAt,
+    closedAt,
+    progress,
+    percent: Math.round(progress * 100),
+    state: currentTime < openedAt
+      ? 'upcoming'
+      : currentTime >= closedAt
+        ? 'complete'
+        : 'active',
+  };
+}
+
+function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
+  const windowProgress = proposalTwapWindowProgress(preTwap, windowEndedAt, now);
+  if (!windowProgress) return '';
+  const progressPercent = windowProgress.progress * 100;
+  const progressLabel = `${windowProgress.percent}% through`;
+  return `
+    <section
+      class="ft-twap-window-pane"
+      data-ft-role="twap-window-progress"
+      data-ft-twap-opened-at="${windowProgress.openedAt}"
+      data-ft-twap-closed-at="${windowProgress.closedAt}"
+      data-ft-twap-state="${windowProgress.state}"
+      style="--ft-twap-progress: ${progressPercent.toFixed(4)}%"
+      aria-label="TWAP window: ${progressLabel}"
+    >
+      <div class="ft-twap-window-heading">
+        <span>TWAP window</span>
+        <strong data-ft-role="twap-window-percent">${progressLabel}</strong>
+      </div>
+      <div
+        class="ft-twap-window-track"
+        data-ft-role="twap-window-track"
+        role="progressbar"
+        aria-label="TWAP window progress"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="${windowProgress.percent}"
+      >
+        <span class="ft-twap-window-fill" aria-hidden="true"></span>
+        <i class="ft-twap-window-marker" aria-hidden="true"></i>
+      </div>
+      <div class="ft-twap-window-bounds" aria-hidden="true">
+        <span>Open</span>
+        <span>Close</span>
+      </div>
+    </section>
+  `;
+}
+
+function updateTwapWindowProgress(root, now = Date.now()) {
+  const pane = root?.querySelector?.('[data-ft-role="twap-window-progress"]');
+  if (!pane) return;
+  const windowProgress = proposalTwapWindowProgress(
+    Number(pane.dataset.ftTwapOpenedAt),
+    Number(pane.dataset.ftTwapClosedAt),
+    now,
+  );
+  if (!windowProgress) return;
+  const progressLabel = `${windowProgress.percent}% through`;
+  pane.dataset.ftTwapState = windowProgress.state;
+  pane.style.setProperty('--ft-twap-progress', `${windowProgress.progress * 100}%`);
+  pane.setAttribute('aria-label', `TWAP window: ${progressLabel}`);
+  const percent = pane.querySelector('[data-ft-role="twap-window-percent"]');
+  if (percent) percent.textContent = progressLabel;
+  const track = pane.querySelector('[data-ft-role="twap-window-track"]');
+  track?.setAttribute('aria-valuenow', String(windowProgress.percent));
+}
+
 function normalizeProposalOutcome(...values) {
   for (const value of values) {
     if (value === true) return 'passed';
@@ -960,7 +1043,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const cadenceLabel = historyCadenceLabel(interval);
   const values = observations.flatMap(point => [
     point.underlyingPrice,
-    point.decisionEdge,
     point.passPrice,
     point.passTwap,
     point.failPrice,
@@ -972,6 +1054,11 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const hasPreTwap = Number.isFinite(preTwapTime);
   const twapEndTime = new Date(options.windowEndedAt || '').getTime();
   const hasTwapEnd = Number.isFinite(twapEndTime);
+  const twapWindow = twapWindowProgressMarkup(
+    history?.preTwap,
+    options.windowEndedAt,
+    options.now,
+  );
   const latestPoint = observations[observations.length - 1] || {};
   const latestTime = firstText(
     latestPoint.chartTimestamp,
@@ -984,19 +1071,14 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const coverage = history.summary?.coverage || {};
   const visibleCoverage = {
     ...coverage,
-    decisionEdge: observations.filter(point => Number.isFinite(point.decisionEdge)).length,
     passTwap: observations.filter(point => Number.isFinite(point.passTwap)).length,
     failTwap: observations.filter(point => Number.isFinite(point.failTwap)).length,
   };
   const visibility = isObject(options.visibility) ? options.visibility : {};
-  const latestDecisionEdge = latestValue('decisionEdge');
   const latestPass = latestValue('passPrice');
   const latestPassTwap = latestValue('passTwap');
   const latestFail = latestValue('failPrice');
   const latestFailTwap = latestValue('failTwap');
-  const decisionEdgePassing = Number.isFinite(latestDecisionEdge)
-    && Number.isFinite(options.thresholdPct)
-    && latestDecisionEdge > options.thresholdPct;
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
   return `
     <div
@@ -1087,12 +1169,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           >
             <div class="ft-hourly-series-menu-label">TWAP series</div>
             ${historySeriesMenuOption({
-              field: 'decisionEdge',
-              label: 'Pass edge vs threshold',
-              count: visibleCoverage.decisionEdge || 0,
-              visible: visibility.decisionEdge !== false,
-            })}
-            ${historySeriesMenuOption({
               field: 'passTwap',
               label: 'Pass TWAP',
               count: visibleCoverage.passTwap || 0,
@@ -1108,7 +1184,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
         </div>
         ${renderTradingViewToolbarPreview()}
       </div>
-      <div class="ft-hourly-plot-shell">
+      <div class="ft-hourly-plot-shell${twapWindow ? ' ft-has-twap-progress' : ''}">
         <div class="ft-chart-crosshair-rail" role="toolbar" aria-label="Chart cursor tools">
           <button class="ft-chart-crosshair-tool" type="button" aria-label="Crosshair cursor" aria-pressed="true" title="Crosshair cursor">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
@@ -1153,15 +1229,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
               visible: visibility.failPrice !== false,
             })}
             ${historyOverlayMetric({
-              className: `ft-hourly-overlay-edge${decisionEdgePassing ? '' : ' ft-is-failing'}`,
-              field: 'decisionEdge',
-              label: 'Pass edge',
-              value: latestDecisionEdge,
-              count: visibleCoverage.decisionEdge || 0,
-              visible: visibility.decisionEdge !== false,
-              format: 'percent',
-            })}
-            ${historyOverlayMetric({
               className: 'ft-hourly-overlay-pass-twap',
               field: 'passTwap',
               label: 'Pass TWAP',
@@ -1187,7 +1254,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           <span class="ft-loader" aria-hidden="true"></span>
           <div>
             <strong>Preparing proposal chart</strong>
-            <p>Applying indexed prices, decision edge, TWAP, and market-boundary data.</p>
+            <p>Applying indexed prices, TWAP, and market-boundary data.</p>
           </div>
         </div>
         <div
@@ -1195,8 +1262,9 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           data-ft-role="proposal-history-tradingview"
           data-ft-chart-engine="tradingview-lightweight"
           role="img"
-          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series and the PASS edge against its decision threshold when available.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
+          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' The TWAP start boundary separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The TWAP end boundary closes that window.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
         ></div>
+        ${twapWindow}
       </div>
     </div>
   `;
@@ -2079,11 +2147,10 @@ export function mountFutardTerminal({
     historyRange: 'all',
     historySeriesVisibility: {
       underlyingPrice: true,
-      decisionEdge: true,
       passPrice: true,
-      passTwap: true,
+      passTwap: false,
       failPrice: true,
-      failTwap: true,
+      failTwap: false,
     },
     pollTimer: null,
     pricePollTimer: null,
@@ -2869,7 +2936,6 @@ export function mountFutardTerminal({
         launchedAt: market.proposal.createdAt,
         windowEndedAt: market.proposal.endsAt,
         isLive: market.proposal.statusGroup === 'live',
-        thresholdPct: market.thresholdPct,
       }) || null;
       if (!state.historyChart) {
         showHourlyChartMountError(chartRoot);
@@ -3151,7 +3217,6 @@ export function mountFutardTerminal({
           visibility: state.historySeriesVisibility,
           launchedAt: market.proposal.createdAt,
           windowEndedAt: market.proposal.endsAt,
-          thresholdPct: market.thresholdPct,
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">
@@ -3332,8 +3397,15 @@ export function mountFutardTerminal({
         ? ''
         : ` #${Math.round(market.proposal.number)}`;
       const destination = tokenMarketsUrl(market.token, market.id);
-      const passPrice = nonNegativeNumber(market.pass?.price);
-      const failPrice = nonNegativeNumber(market.fail?.price);
+      const thresholdPct = firstNumber(market.thresholdPct);
+      const signalPct = firstNumber(market.decision?.marginPct);
+      const signalDirection = !Number.isFinite(signalPct)
+        ? 'unavailable'
+        : signalPct > 0
+          ? 'up'
+          : signalPct < 0
+            ? 'down'
+            : 'flat';
       return `
         <a
           class="tp-decision-item"
@@ -3353,15 +3425,16 @@ export function mountFutardTerminal({
             </span>
           </span>
           <span
-            class="tp-decision-result tp-decision-pass-price"
-            data-result="pass"
-            data-available="${Number.isFinite(passPrice)}"
-          >${escapeHtml(formatPrice(passPrice))}</span>
+            class="tp-decision-result tp-decision-threshold"
+            data-available="${Number.isFinite(thresholdPct)}"
+            title="Required PASS versus FAIL TWAP threshold"
+          >${escapeHtml(formatCompactPercent(thresholdPct))}</span>
           <span
-            class="tp-decision-result tp-decision-fail-price"
-            data-result="fail"
-            data-available="${Number.isFinite(failPrice)}"
-          >${escapeHtml(formatPrice(failPrice))}</span>
+            class="tp-decision-result tp-decision-signal"
+            data-direction="${signalDirection}"
+            data-available="${Number.isFinite(signalPct)}"
+            title="Live margin above or below the required threshold"
+          >${escapeHtml(formatCompactPercent(signalPct))}</span>
         </a>
       `;
     }
@@ -4364,7 +4437,7 @@ export function mountFutardTerminal({
         ? 'Checking reviewed programs…'
         : 'Trading paused · program review required'}</button>`;
     } else if (!state.wallet.address) {
-      cta = '<button class="ft-primary-button" type="button" data-ft-action="connect-wallet">Connect wallet to trade</button>';
+      cta = '<button class="ft-primary-button ft-connect-trade-button" type="button" data-ft-action="connect-wallet">Connect wallet to trade</button>';
     } else if (!state.wallet.canTransact) {
       cta = '<button class="ft-primary-button" type="button" disabled>Wallet cannot sign transactions</button>';
     } else if ((isLimit || isRecurring) && !limitReady) {
@@ -6143,6 +6216,7 @@ export function mountFutardTerminal({
     const market = selectedMarket();
     const countdown = root.querySelector('[data-ft-region="countdown"]');
     if (countdown && market) countdown.textContent = formatCountdown(market.proposal.endsAt);
+    updateTwapWindowProgress(root);
     if (state.asOf && regions.headerUpdated) {
       regions.headerUpdated.textContent = `Updated ${formatRelativeTime(state.asOf)}`;
     }
@@ -7952,7 +8026,6 @@ export function mountFutardTerminal({
     const observations = proposalHistoryChartObservations(history);
     return Object.fromEntries([
       'underlyingPrice',
-      'decisionEdge',
       'passPrice',
       'passTwap',
       'failPrice',
@@ -8105,7 +8178,6 @@ export function mountFutardTerminal({
       const field = target.dataset.ftSeriesField;
       if (![
         'underlyingPrice',
-        'decisionEdge',
         'passPrice',
         'passTwap',
         'failPrice',

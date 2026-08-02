@@ -164,7 +164,7 @@ test('market sidebar separates decision markets from tokens while retaining watc
     (match) => match[1],
   );
 
-  assert.deepEqual(tabs, ['watchlist', 'all', 'markets', 'tokens']);
+  assert.deepEqual(tabs, ['all', 'watchlist', 'tokens', 'markets']);
   assert.match(appCore, /function setMarketSidebarTab\(nextTab\)/);
   assert.match(appCore, /var _marketSidebarTab = 'all';/);
   assert.match(appCore, /item\.dataset\.watched === 'true'/);
