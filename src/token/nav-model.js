@@ -54,8 +54,8 @@ export function cfgVal(cfg, primaryKey, fallbackKey) {
 }
 
 export function effectiveSupplyForNav(cfg) {
-  if (cfg && cfg.navSnapshot && cfg.navSnapshot.supply && cfg.navSnapshot.supply.effective != null) return unitNum(cfg.navSnapshot.supply.effective) || 1;
-  return cfgVal(cfg, 'effectiveSupply') || cfgVal(cfg, 'supply') || 1;
+  if (cfg && cfg.navSnapshot && cfg.navSnapshot.supply && cfg.navSnapshot.supply.effective != null) return unitNum(cfg.navSnapshot.supply.effective);
+  return cfgVal(cfg, 'effectiveSupply') || cfgVal(cfg, 'supply') || 0;
 }
 
 export function lockedTokensForNav(cfg) {
