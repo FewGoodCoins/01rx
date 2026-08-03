@@ -421,7 +421,12 @@ test('Liveline is the default decision chart renderer without owning the history
   assert.match(proposalLivelineSource, /proposalHistoryChartObservations/);
   assert.match(proposalLivelineSource, /PROPOSAL_HISTORY_ENGINE = 'liveline'/);
   assert.match(proposalLivelineSource, /data-ft-chart-gap/);
+  assert.match(proposalLivelineSource, /label: ''/);
   assert.doesNotMatch(proposalLivelineSource, /fetch\(/);
+  assert.match(
+    frameCss,
+    /\.ft-liveline-root > div:not\(\.ft-liveline-canvas\)\s*\{\s*display: none !important;/,
+  );
   assert.match(decisionMarketControllerSource, /data-ft-chart-engine="liveline"/);
 });
 
