@@ -4490,6 +4490,10 @@ body.is-futard-terminal #token-switch-loader {
   overflow: hidden;
 }
 
+.ft-hourly-chart-liveline .ft-hourly-readout {
+  display: none;
+}
+
 .ft-liveline-root {
   position: relative;
   width: 100%;
@@ -4498,7 +4502,9 @@ body.is-futard-terminal #token-switch-loader {
 }
 
 .ft-liveline-root > div:not(.ft-liveline-canvas) {
-  display: none !important;
+  position: absolute;
+  z-index: 4;
+  top: 12px;
 }
 
 .ft-liveline-canvas {
@@ -4509,7 +4515,7 @@ body.is-futard-terminal #token-switch-loader {
 .ft-liveline-gap-mask {
   position: absolute;
   z-index: 3;
-  top: 76px;
+  top: 54px;
   bottom: 30px;
   min-width: 2px;
   pointer-events: none;
@@ -4525,7 +4531,7 @@ body.is-futard-terminal #token-switch-loader {
 .ft-liveline-phase-band {
   position: absolute;
   z-index: 2;
-  top: 76px;
+  top: 54px;
   bottom: 30px;
   pointer-events: none;
   background: color-mix(in srgb, var(--ft-accent) 5%, transparent);

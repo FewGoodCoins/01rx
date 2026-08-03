@@ -1480,15 +1480,13 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   assert.doesNotMatch(chartHeader.textContent, /Fund Loyal contributor growth for Q3/);
   assert.equal(chartHeader.querySelector('.ft-chart-market-identity a'), null);
-  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Current TWAP']) {
+  for (const label of ['Threshold', 'Current TWAP']) {
     assert.match(chartHeader.textContent, new RegExp(label));
   }
+  for (const key of ['price', 'pass', 'fail']) {
+    assert.equal(chartHeader.querySelector(`[data-ft-chart-header-metric="${key}"]`), null);
+  }
   assert.equal(chartHeader.querySelector('[data-ft-chart-header-metric="status"]'), null);
-  const passMetric = chartHeader.querySelector('[data-ft-chart-header-metric="pass"]');
-  const failMetric = chartHeader.querySelector('[data-ft-chart-header-metric="fail"]');
-  assert.equal(passMetric.parentElement.dataset.ftChartHeaderGroup, 'outcomes');
-  assert.equal(failMetric.parentElement, passMetric.parentElement);
-  assert.equal(passMetric.nextElementSibling, failMetric);
   assert.equal(
     chartHeader.querySelector('[data-ft-chart-header-metric="threshold"] strong').textContent,
     '+1.5%',
@@ -1506,10 +1504,6 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.equal(passSignal.dataset.tone, 'positive');
   assert.match(passSignal.title, /decision signal, not a probability/);
   assert.doesNotMatch(chartHeader.textContent, /Liquidity/);
-  assert.match(
-    chartHeader.querySelector('[data-ft-chart-header-metric="price"] strong').textContent,
-    /^\$/,
-  );
   assert.equal(
     byRole(root, 'proposal-history-chart')
       .querySelector('[data-ft-chart-anchor="shared-launch-reserve"]'),
@@ -1935,10 +1929,10 @@ test('live trade surfaces append the latest 01Resolved snapshot without refetchi
     /view=market-data/.test(url)
   )).length;
   assert.deepEqual(livePoints, []);
-  const indexedPassPrice = byRole(root, 'proposal-chart-header')
-    .querySelector('[data-ft-chart-header-metric="pass"] strong').textContent;
-  const indexedFailPrice = byRole(root, 'proposal-chart-header')
-    .querySelector('[data-ft-chart-header-metric="fail"] strong').textContent;
+  const indexedPassPrice = chart
+    .querySelector('[data-ft-readout-value="passPrice"]').textContent;
+  const indexedFailPrice = chart
+    .querySelector('[data-ft-readout-value="failPrice"]').textContent;
 
   activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
   activeMarkets.asOf = '2026-07-24T12:00:07.000Z';
@@ -1979,15 +1973,11 @@ test('live trade surfaces append the latest 01Resolved snapshot without refetchi
     /0\.1555/,
   );
   assert.equal(
-    byRole(root, 'proposal-chart-header')
-      .querySelector('[data-ft-chart-header-metric="pass"] strong')
-      .textContent,
+    chart.querySelector('[data-ft-readout-value="passPrice"]').textContent,
     indexedPassPrice,
   );
   assert.equal(
-    byRole(root, 'proposal-chart-header')
-      .querySelector('[data-ft-chart-header-metric="fail"] strong')
-      .textContent,
+    chart.querySelector('[data-ft-readout-value="failPrice"]').textContent,
     indexedFailPrice,
   );
   const passSignal = byRole(root, 'proposal-chart-header')

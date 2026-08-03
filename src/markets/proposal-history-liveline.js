@@ -17,7 +17,7 @@ const RANGE_SECONDS = Object.freeze({
 });
 const WINDOW_BUFFER_RATIO = 1.08;
 const LIVE_LERP_SPEED = 0.08;
-const PLOT_TOP_PADDING = 76;
+const PLOT_TOP_PADDING = 54;
 // Liveline adds up to 0.2 of adaptive easing internally. Leave enough
 // headroom to keep the effective coefficient at or below 1.
 const RESOLVED_LERP_SPEED = 0.75;
@@ -325,9 +325,9 @@ export function createProposalHistoryChart(options = {}) {
         definition.colorVariable,
         definition.fallbackColor,
       ),
-      // The chart readout already owns series labels and toggles. Endpoint
-      // labels collide when spot and conditional prices converge.
-      label: '',
+      // Liveline owns the visible series identity, endpoint labels, and hover
+      // values. The renderer-neutral 01RX readout remains only as a fallback.
+      label: definition.label,
     }));
     root.render(createElement(
       'div',
