@@ -263,7 +263,9 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
   const totalSupply = finiteNumber(row.tokenTotalSupply, { nonNegative: true });
   const marketCap = finiteNumber(row.marketCap, { nonNegative: true });
   const fdv = finiteNumber(row.fdv, { nonNegative: true });
+  const change1h = finiteNumber(row.tokenPriceChangePercentage1h);
   const change24h = finiteNumber(row.tokenPriceChangePercentage24h);
+  const change7d = finiteNumber(row.tokenPriceChangePercentage7d);
   const spendingLimit = finiteNumber(row.spendingLimit, { nonNegative: true });
   const runway = finiteNumber(row.runway, { nonNegative: true });
   const proposalCount = finiteNumber(row.proposalCount, { nonNegative: true });
@@ -328,7 +330,9 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
   };
 
   return {
+    change1h,
     change24h,
+    change7d,
     circulatingSupply,
     currentNavStatus: navAvailable ? 'available' : 'unavailable',
     currentPriceTracked: spot != null && spot > 0,
@@ -351,8 +355,8 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
     onChainSupply: totalSupply,
     pair: `${ticker}/USD`,
     premDisc: finiteNumber(row.premDisc),
-    priceChange1h: finiteNumber(row.tokenPriceChangePercentage1h),
-    priceChange7d: finiteNumber(row.tokenPriceChangePercentage7d),
+    priceChange1h: change1h,
+    priceChange7d: change7d,
     priceChange24h: change24h,
     priceChange24hPct: change24h,
     proposalCount,
@@ -381,11 +385,23 @@ export async function loadZeroOneCurrentNav(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const now = options.now || (() => Date.now());
   const retrievedAt = new Date(now()).toISOString();
+  const totalTimeoutMs = Number(options.timeoutMs) > 0
+    ? Math.floor(Number(options.timeoutMs))
+    : DEFAULT_TIMEOUT_MS;
+  const deadlineAt = Date.now() + totalTimeoutMs;
   const url = new URL(PROJECT_INDEX_PATH, ZERO_ONE_RESOLVED_ORIGIN);
   url.searchParams.set('limit', '100');
   url.searchParams.set('page', '1');
 
   const requestJson = async (requestUrl, label) => {
+    const remainingMs = deadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      throw currentNavServiceError(
+        `01Resolved ${label} exceeded the current NAV deadline`,
+        'UPSTREAM_TIMEOUT',
+        504,
+      );
+    }
     let response;
     try {
       response = await fetchImpl(requestUrl, {
@@ -396,7 +412,7 @@ export async function loadZeroOneCurrentNav(options = {}) {
         },
         method: 'GET',
         redirect: 'manual',
-        signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.max(1, remainingMs)),
       });
     } catch (cause) {
       throw currentNavServiceError(
@@ -482,9 +498,25 @@ export async function loadZeroOneCurrentNav(options = {}) {
       'UPSTREAM_EMPTY',
     );
   }
+  const pricedTokenCount = tokens.filter(row => row.currentPriceTracked).length;
+  const currentNavTokenCount = tokens.filter(row => row.hasCurrentNav).length;
+  if (indexedRows.length && pricedTokenCount === 0 && currentNavTokenCount === 0) {
+    throw currentNavServiceError(
+      '01Resolved DAO price and treasury enrichment returned no usable snapshots',
+      'UPSTREAM_ENRICHMENT_UNAVAILABLE',
+    );
+  }
+  const degradedServices = [];
+  if (tokens.length && pricedTokenCount < tokens.length) degradedServices.push('01resolved-current-price');
+  if (tokens.length && currentNavTokenCount < tokens.length) degradedServices.push('01resolved-current-nav');
 
   return {
     asOf: retrievedAt,
+    degraded: {
+      active: degradedServices.length > 0,
+      issues: [],
+      services: degradedServices,
+    },
     publicationGateApplied: false,
     preview: false,
     source: {

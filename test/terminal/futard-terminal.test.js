@@ -2064,6 +2064,77 @@ test('decision sidebar shows an honest empty state without a separate proposal a
   cleanupMount(mounted);
 });
 
+test('token Markets shares one canonical current-NAV snapshot with the token sidebar', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const currentNav = {
+    tokens: [{
+      ...HOME_BOOTSTRAP.currentNav.tokens[0],
+      spot: 0.2345,
+      nav: 0.1987,
+      source: {
+        currentPrice: { endpoint: '/v1/dao/overview' },
+        currentNav: { endpoint: '/v1/dao/treasury/overview' },
+      },
+    }],
+  };
+  const { requests, root, window } = makeWindow({
+    currentNav,
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  });
+  const hydratedSnapshots = [];
+  window.NAVGATOR.marketTokenSidebar = {
+    async hydrateCurrentNav(payload) {
+      hydratedSnapshots.push(payload);
+      return true;
+    },
+  };
+
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  assert.deepEqual(hydratedSnapshots, [currentNav]);
+  assert.equal(
+    requests.filter(url => /\/api\/current-nav\?includeInactive=1$/.test(url)).length,
+    1,
+  );
+
+  cleanupMount(mounted);
+});
+
+test('token Markets leaves the last sidebar snapshot untouched when current NAV fails', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    currentNavError: new Error('current NAV unavailable'),
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  });
+  let hydrationCount = 0;
+  window.NAVGATOR.marketTokenSidebar = {
+    hydrateCurrentNav() {
+      hydrationCount += 1;
+      return true;
+    },
+  };
+
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  assert.equal(hydrationCount, 0);
+
+  cleanupMount(mounted);
+});
+
 test('token Markets keeps its workspace scoped while refreshing the global proposal index', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { requests, root, window } = makeWindow({

@@ -137,7 +137,9 @@ test('01Resolved current NAV normalization preserves published values and source
   assert.equal(row.effectiveSupply, 8264757);
   assert.equal(row.onChainSupply, 25799968);
   assert.equal(row.lockedTokens, 17535211);
+  assert.equal(row.change1h, -0.5);
   assert.equal(row.change24h, 2.25);
+  assert.equal(row.change7d, 8.5);
   assert.equal(row.marketCap, 5196588.31);
   assert.equal(row.fdv, 16227509.52);
   assert.equal(row.monthlyAllowance, 100000);
@@ -289,6 +291,21 @@ test('01Resolved DAO enrichment fails closed per contract without retaining glob
   assert.equal(lasoRow.treasuryUSDC, null);
   assert.equal(lasoRow.currentNavStatus, 'unavailable');
   assert.equal(lasoRow.navSnapshot.sources.currentNav.endpoint, '/v1/global-dashboard/projects');
+});
+
+test('current NAV rejects a systemic DAO enrichment outage instead of returning empty 200 data', async () => {
+  await assert.rejects(
+    loadZeroOneCurrentNav({
+      env: { ZERO_ONE_RESOLVED_API_KEY: 'server-secret' },
+      async fetchImpl(url) {
+        if (String(url).includes('/v1/global-dashboard/projects?')) {
+          return Response.json({ data: [project()] });
+        }
+        return Response.json({ error: 'unavailable' }, { status: 503 });
+      },
+    }),
+    error => error.code === 'UPSTREAM_ENRICHMENT_UNAVAILABLE' && error.statusCode === 503,
+  );
 });
 
 test('single-token current NAV reads enrich only the matching project', async () => {

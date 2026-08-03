@@ -1329,6 +1329,20 @@ function mergeCurrentNavMap(compatibilityMap, currentPayload) {
   return map;
 }
 
+async function hydrateMarketTokenSidebar(runtime, currentPayload) {
+  const hydrate = runtime?.NAVGATOR?.marketTokenSidebar?.hydrateCurrentNav;
+  if (typeof hydrate !== 'function') return false;
+  try {
+    return await hydrate(currentPayload) === true;
+  } catch (error) {
+    runtime.console?.warn?.(
+      '[01RX] Market token sidebar could not apply the current-NAV snapshot.',
+      error,
+    );
+    return false;
+  }
+}
+
 function normalizeBranch(raw, fallbackPrice = null) {
   const branch = isObject(raw) ? raw : {};
   return {
@@ -8266,6 +8280,10 @@ export function mountFutardTerminal({
     state.navMap = currentNavResult.status === 'fulfilled'
       ? mergeCurrentNavMap(compatibilityMap, currentNavResult.value)
       : compatibilityMap;
+    if (state.hostMode === 'token' && currentNavResult.status === 'fulfilled') {
+      await hydrateMarketTokenSidebar(runtime, currentNavResult.value);
+      if (state.destroyed || requestId !== state.requestId) return state.markets;
+    }
     if (recurringResult.status === 'fulfilled') {
       const config = recurringResult.value || {};
       state.recurring.enabled = config.enabled === true;

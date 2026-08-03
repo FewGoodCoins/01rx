@@ -12,12 +12,26 @@ window._cachedPriceMap = _cachedPriceMap;
 
   // Refresh landingTokens from current TOKENS object
   function refreshLandingTokens() {
+    var previousByKey = {};
+    landingTokens.forEach(function(token) { previousByKey[token.key] = token; });
     landingTokens = Object.entries(TOKENS).map(function(e) {
       var k = e[0], v = e[1];
+      var previous = previousByKey[k] || {};
       return { key: k, name: v.name, ticker: v.ticker, logo: v.logo, color: v.color,
         live: v.live, monthlyAllowance: v.monthlyAllowance, launchpad: v.launchpad || null,
         launchDate: v.launchDate || null, liquidatedAt: v.liquidatedAt || null, graveyard: !!v.graveyard,
-        spot: 0, strike: 0, treasury: 0, mcap: 0, change7d: undefined, effectiveSupply: 0 };
+        spot: previous.spot > 0 ? previous.spot : 0,
+        strike: previous.strike > 0 ? previous.strike : 0,
+        treasury: previous.treasury > 0 ? previous.treasury : 0,
+        mcap: previous.mcap > 0 ? previous.mcap : 0,
+        change1h: previous.change1h,
+        change24h: previous.change24h,
+        change7d: previous.change7d,
+        volume24h: previous.volume24h,
+        effectiveSupply: previous.effectiveSupply > 0 ? previous.effectiveSupply : 0,
+        navSnapshot: previous.navSnapshot,
+        navVerified: previous.navVerified,
+        navZScore: previous.navZScore };
     });
   }
 
@@ -794,6 +808,79 @@ window._cachedPriceMap = _cachedPriceMap;
     }, 150);
   });
 
+  function _applyCurrentNavPayload(data) {
+    if (!data || !Array.isArray(data.tokens)) return false;
+    var applied = false;
+    for (var i = 0; i < data.tokens.length; i++) {
+      var sourceToken = data.tokens[i];
+      if (!sourceToken || sourceToken.error) continue;
+      var currentTokenKey = _normalizeTokenKey(sourceToken.token || sourceToken.key);
+      if (!currentTokenKey) continue;
+
+      // Never mutate the typed API response. The same snapshot also feeds the
+      // market controller, so sidebar-only cache fallbacks belong on a copy.
+      var t = Object.assign({}, sourceToken);
+      var change1h = t.change1h != null ? Number(t.change1h) : Number(t.priceChange1h);
+      var change7d = t.change7d != null ? Number(t.change7d) : Number(t.priceChange7d);
+      var volume24h = t.volume24h != null
+        ? Number(t.volume24h)
+        : t.volume24hUsd != null
+          ? Number(t.volume24hUsd)
+          : Number(t.daoVolume24h);
+      if (isFinite(change1h)) t.change1h = change1h;
+      if (isFinite(change7d)) t.change7d = change7d;
+      if (isFinite(volume24h) && volume24h >= 0) t.volume24h = volume24h;
+      var existingCached = _cachedPriceMap[currentTokenKey];
+      if (existingCached && existingCached.spot > 0 && (!(t.spot > 0) || t.currentNavStatus === 'dependency_unavailable')) {
+        t.spot = existingCached.spot;
+      }
+      if (existingCached) {
+        ['change1h', 'change24h', 'change7d', 'volume24h'].forEach(function(field) {
+          if (existingCached[field] != null && t[field] == null) t[field] = existingCached[field];
+        });
+      }
+      _cachedPriceMap[currentTokenKey] = t;
+      applied = true;
+
+      var lt = landingTokens.find(function(x) { return x.key === currentTokenKey; });
+      if (!lt) continue;
+      var snap = t.navSnapshot || null;
+      var snapSupply = (snap && snap.supply) || {};
+      var treasury = snap && snap.treasuryUSDC != null ? +snap.treasuryUSDC : t.treasuryUSDC;
+      var effSupply = snapSupply.effective != null ? +snapSupply.effective : t.effectiveSupply;
+      var navPerToken = snap && snap.navPerToken != null
+        ? +snap.navPerToken
+        : t.nav != null
+          ? +t.nav
+          : t.navPerToken != null
+            ? +t.navPerToken
+            : 0;
+      if (t.spot > 0) {
+        lt.spot = t.spot;
+      }
+      var marketCap = t.marketCap;
+      if (!(marketCap > 0) && snap && snap.market && snap.market.marketCap > 0) marketCap = snap.market.marketCap;
+      if (!(marketCap > 0) && t.spot > 0 && effSupply > 0) marketCap = t.spot * effSupply;
+      if (marketCap > 0) lt.mcap = marketCap;
+      if (treasury > 0) lt.treasury = treasury;
+      if (effSupply > 0) lt.effectiveSupply = effSupply;
+      if (navPerToken > 0) lt.strike = navPerToken;
+      else if (t.hasCurrentNav === false || t.currentNavStatus === 'unavailable') lt.strike = 0;
+      if (isFinite(t.change1h)) lt.change1h = Number(t.change1h);
+      var canonical24h = _canonicalPriceChange24h(t);
+      if (canonical24h !== null) lt.change24h = canonical24h;
+      if (isFinite(t.change7d)) lt.change7d = Number(t.change7d);
+      if (isFinite(t.volume24h) && Number(t.volume24h) >= 0) lt.volume24h = Number(t.volume24h);
+      if (t.navSnapshot) lt.navSnapshot = t.navSnapshot;
+      if (typeof t.navVerified === 'boolean') lt.navVerified = t.navVerified;
+      if (t.navSnapshot && t.navSnapshot.status) lt.navVerified = t.navSnapshot.status !== 'unverified';
+      if (t.navZScore) lt.navZScore = t.navZScore;
+      _applyCurrentNavLifecycle(lt, t);
+    }
+    window._cachedPriceMap = _cachedPriceMap;
+    return applied;
+  }
+
   async function fetchLandingData() {
     try {
       // Landing first paint uses the cached home bootstrap when available.
@@ -804,48 +891,12 @@ window._cachedPriceMap = _cachedPriceMap;
       refreshLandingTokens();
 
       var data = results[1];
-      if (!data || !data.tokens) {
+      if (!data || !Array.isArray(data.tokens)) {
         // Retry once — getAllTokens cache was cleared on failure
         data = await getAllTokens();
-        if (!data || !data.tokens) return;
+        if (!data || !Array.isArray(data.tokens)) return;
       }
-      for (var i = 0; i < data.tokens.length; i++) {
-        var t = data.tokens[i];
-        if (t.error) continue;
-        var currentTokenKey = _normalizeTokenKey(t.token);
-        if (!currentTokenKey) continue;
-        var existingCached = _cachedPriceMap[currentTokenKey];
-        if (existingCached && existingCached.spot > 0 && (!(t.spot > 0) || t.currentNavStatus === 'dependency_unavailable')) {
-          t.spot = existingCached.spot;
-        }
-        if (existingCached && existingCached.change24h != null && t.change24h == null) {
-          t.change24h = existingCached.change24h;
-        }
-        _cachedPriceMap[currentTokenKey] = t;
-        var lt = landingTokens.find(function(x) { return x.key === currentTokenKey; });
-        if (!lt) continue;
-        var snap = t.navSnapshot || null;
-        var snapSupply = (snap && snap.supply) || {};
-        var treasury = snap && snap.treasuryUSDC != null ? +snap.treasuryUSDC : t.treasuryUSDC;
-        var effSupply = snapSupply.effective != null ? +snapSupply.effective : t.effectiveSupply;
-        var navPerToken = snap && snap.navPerToken != null ? +snap.navPerToken : (treasury > 0 && effSupply > 0 ? treasury / effSupply : 0);
-        if (t.spot > 0) {
-          lt.spot = t.spot;
-          var marketCap = t.marketCap;
-          if (!(marketCap > 0) && snap && snap.market && snap.market.marketCap > 0) marketCap = snap.market.marketCap;
-          if (!(marketCap > 0) && effSupply > 0) marketCap = t.spot * effSupply;
-          lt.mcap = marketCap > 0 ? marketCap : 0;
-        }
-        if (treasury > 0 && effSupply > 0) { lt.treasury = treasury; lt.strike = navPerToken; lt.effectiveSupply = effSupply; }
-        var canonical24h = _canonicalPriceChange24h(t);
-        if (canonical24h !== null) lt.change24h = canonical24h;
-        if (t.navSnapshot) lt.navSnapshot = t.navSnapshot;
-        if (typeof t.navVerified === 'boolean') lt.navVerified = t.navVerified;
-        if (t.navSnapshot && t.navSnapshot.status) lt.navVerified = t.navSnapshot.status !== 'unverified';
-        if (t.navZScore) lt.navZScore = t.navZScore;
-        _applyCurrentNavLifecycle(lt, t);
-      }
-      window._cachedPriceMap = _cachedPriceMap;
+      _applyCurrentNavPayload(data);
       renderTable();
       renderTreemap();
       // Populate left sidebar on landing page too
@@ -1067,6 +1118,37 @@ window._cachedPriceMap = _cachedPriceMap;
   }
 
   window.NAVGATOR = window.NAVGATOR || {};
+  var _latestMarketCurrentNavPayload = null;
+  var _marketTokenDiscoveryRefresh = null;
+
+  function _renderMarketTokenSidebarFromCurrentNav(data) {
+    refreshLandingTokens();
+    if (!_applyCurrentNavPayload(data)) return false;
+    populateSidebarFromLanding();
+    return true;
+  }
+
+  window.NAVGATOR.marketTokenSidebar = window.NAVGATOR.marketTokenSidebar || {};
+  window.NAVGATOR.marketTokenSidebar.hydrateCurrentNav = function(data) {
+    // Market routes intentionally skip token-page.js. Reuse the current-NAV
+    // snapshot already fetched by the typed market client instead of issuing a
+    // second request through the legacy data loader.
+    _latestMarketCurrentNavPayload = data;
+    discoverTokens();
+    var applied = _renderMarketTokenSidebarFromCurrentNav(data);
+
+    // Token routes paint from bundled metadata immediately while list-tokens
+    // resolves in the background. Re-apply only the latest snapshot once that
+    // full catalog arrives so newly discovered projects are not omitted.
+    if (!_marketTokenDiscoveryRefresh && typeof whenTokenDiscoverySettled === 'function') {
+      _marketTokenDiscoveryRefresh = whenTokenDiscoverySettled().then(function() {
+        if (_latestMarketCurrentNavPayload) {
+          _renderMarketTokenSidebarFromCurrentNav(_latestMarketCurrentNavPayload);
+        }
+      }).catch(function() {});
+    }
+    return applied;
+  };
   window.NAVGATOR.refreshMarketTokenSidebar = populateSidebarFromLanding;
 
   // Populate sidebar immediately with no-price placeholders, then update when API responds
@@ -1323,7 +1405,13 @@ window._cachedPriceMap = _cachedPriceMap;
     })();
   }
 
+  function _marketRouteUsesCurrentNavOnly() {
+    return document.documentElement.dataset.workspace === 'markets'
+      || new URLSearchParams(window.location.search).get('view') === 'markets';
+  }
+
   async function loadSparklines(attempt) {
+    if (_marketRouteUsesCurrentNavOnly()) return;
     attempt = attempt || 0;
     if (_sparklinesLoaded && attempt === 0) return;
     try {
@@ -1626,7 +1714,10 @@ window._cachedPriceMap = _cachedPriceMap;
 
   if (_hasToken) {
     // Token pages do not need the hidden landing table boot path.
-    setTimeout(function() { loadSparklines(0); }, 2500);
+    discoverTokens();
+    if (!_marketRouteUsesCurrentNavOnly()) {
+      setTimeout(function() { loadSparklines(0); }, 2500);
+    }
   } else {
     // Render the table skeleton from TOKENS_FALLBACK immediately so the user sees
     // the token list (logos, names) without waiting for /api/current — that endpoint

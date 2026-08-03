@@ -25,14 +25,29 @@ const INTERVAL_MS = Object.freeze({
   '1h': 60 * 60 * 1_000,
 });
 const PROJECT_TOKEN_ALIASES = Object.freeze({
+  'areal-finance': 'arl',
+  arealfinance: 'arl',
+  'credible-finance': 'cred',
+  credible: 'cred',
+  'flash-trade': 'faf',
   'futardio-cult': 'futardio',
+  futario: 'futardio',
   gesim: 'gsim',
   'jurassic-finance': 'rawr',
+  jurassicfi: 'rawr',
+  'laso-finance': 'laso',
   metadao: 'meta',
   mtncapital: 'mtn',
+  omnipair: 'omfg',
+  'ordr-trade': 'ordr',
   paystream: 'pays',
   ranger: 'rngr',
+  'rip-cars': 'cars',
+  ripcars: 'cars',
+  solomon: 'solo',
+  'solomon-labs': 'solo',
   superclaw: 'super',
+  'turbine-cash': 'zkfg',
 });
 
 export function futarchyServiceError(
