@@ -18,7 +18,7 @@ synthesize them or fall back to another provider.
 The migrated application includes:
 
 - ownership-token price, NAV, treasury, supply, and projected-NAV charts;
-- searchable ownership-token and live-decision market navigation;
+- searchable ownership-token and complete live/resolved decision-market navigation;
 - Liveline-rendered public PASS/FAIL history at its native 15-minute cadence;
 - a horizontally scrollable TWAP-window progress timeline;
 - wallet-standard discovery and explicit transaction review;

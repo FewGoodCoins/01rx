@@ -518,14 +518,14 @@ test('proposal trade wallet action stays white for conditional and spot markets'
   );
 });
 
-test('market sidebar uses one market section with a leading live indicator', () => {
+test('market sidebar uses one unified live and resolved market section', () => {
   assert.match(
     sharedTerminalCss,
     /#tlp-all-list,[\s\S]*?#tlp-wl-list\s*\{[\s\S]*?scrollbar-width: none;[\s\S]*?-ms-overflow-style: none;/,
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Likelihood<\/span>[\s\S]*?<span>Signal<\/span>[\s\S]*?id="tp-live-decision-count">0 markets live<\/span>[\s\S]*?id="tlp-all-panel"/,
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Likelihood<\/span>[\s\S]*?<span>Signal<\/span>[\s\S]*?id="tp-live-decision-count">0 live · 0 past<\/span>[\s\S]*?id="tlp-all-panel"/,
   );
   assert.match(
     indexSource,
@@ -564,6 +564,14 @@ test('market sidebar uses one market section with a leading live indicator', () 
   assert.match(
     refinementCss,
     /\.tp-decision-live-dot\s*\{[\s\S]*?animation: tp-decision-live-pulse var\(--tp-live-pulse-duration, 1s\) ease-out infinite;[\s\S]*?animation-delay: var\(--tp-live-pulse-delay, 0ms\);/,
+  );
+  assert.match(
+    refinementCss,
+    /\.tp-decision-live-dot\[data-market-state="passed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="failed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="other"\]\s*\{[\s\S]*?animation: none;/,
+  );
+  assert.match(
+    appCoreSource,
+    /var liveComparison = Number\(b\.getAttribute\('data-market-live'\)[\s\S]*?if \(liveComparison !== 0\) return liveComparison;/,
   );
 });
 

@@ -403,6 +403,9 @@ function _orderMarketSidebarList(list, tab, query) {
       );
       if (sortComparison !== 0) return sortComparison;
     } else if (tab === 'decisions') {
+      var liveComparison = Number(b.getAttribute('data-market-live') || 0)
+        - Number(a.getAttribute('data-market-live') || 0);
+      if (liveComparison !== 0) return liveComparison;
       var decisionSortComparison = _compareMarketSortValues(
         _marketSortValue(a, _marketDecisionSortKey),
         _marketSortValue(b, _marketDecisionSortKey),

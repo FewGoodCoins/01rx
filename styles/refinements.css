@@ -1319,6 +1319,25 @@ html[data-workspace="markets"] #tlp-all-list .tt-change > span[style*="font-fami
   animation-delay: var(--tp-live-pulse-delay, 0ms);
 }
 
+.tp-decision-live-dot[data-market-state="passed"],
+.tp-decision-live-dot[data-market-state="failed"],
+.tp-decision-live-dot[data-market-state="other"] {
+  animation: none;
+  box-shadow: none;
+}
+
+.tp-decision-live-dot[data-market-state="passed"] {
+  background: #00cc66;
+}
+
+.tp-decision-live-dot[data-market-state="failed"] {
+  background: #ff3333;
+}
+
+.tp-decision-live-dot[data-market-state="other"] {
+  background: #7f8792;
+}
+
 .tp-decision-result {
   color: #e6e6e6;
 }
