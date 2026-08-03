@@ -7,6 +7,19 @@ const PRODUCTION_API_BASE = 'https://01rx.vercel.app';
 const LOCAL_API_BASE = 'http://127.0.0.1:3001';
 const DEGRADED_SERVICE_TTL_MS = 5 * 60 * 1000;
 
+function isReviewedApiOrigin(parsed, runtime) {
+  const origin = parsed.origin.replace(/\/+$/, '');
+  const pageOrigin = String(runtime.location?.origin || '').replace(/\/+$/, '');
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(parsed.hostname);
+  const allowedProtocol = parsed.protocol === 'https:'
+    || (local && parsed.protocol === 'http:');
+  return allowedProtocol && (
+    origin === PRODUCTION_API_BASE
+    || origin === pageOrigin
+    || local
+  );
+}
+
 /**
  * Resolve the public API origin with the same local-dev override and storage
  * precedence as the legacy frontend.
@@ -28,7 +41,7 @@ export function resolveApiBase(browserWindow) {
 
     if (override) {
       const parsed = new runtime.URL(override, runtime.location.href);
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      if (isReviewedApiOrigin(parsed, runtime)) {
         if (parsed.hostname === 'navgator.xyz' || parsed.hostname.endsWith('.navgator.xyz')) {
           runtime.localStorage.removeItem('navgator_api_base');
           runtime.localStorage.removeItem('navgatorApiBase');
@@ -55,6 +68,9 @@ export function resolveApiBase(browserWindow) {
             return base;
           }
         }
+      } else {
+        runtime.localStorage.removeItem('navgator_api_base');
+        runtime.localStorage.removeItem('navgatorApiBase');
       }
     }
 
@@ -77,11 +93,8 @@ function configuredApiOrigin(value, runtime, fallback) {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try {
     const parsed = new runtime.URL(value);
-    const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(parsed.hostname);
-    const allowedProtocol = parsed.protocol === 'https:'
-      || (local && parsed.protocol === 'http:');
     if (
-      !allowedProtocol
+      !isReviewedApiOrigin(parsed, runtime)
       || parsed.hostname === 'navgator.xyz'
       || parsed.hostname.endsWith('.navgator.xyz')
       || parsed.username
@@ -99,9 +112,9 @@ function configuredApiOrigin(value, runtime, fallback) {
 }
 
 /**
- * Stable futarchy reads and guarded transaction routes remain on 01RX's
- * same-origin API unless trusted deployment configuration explicitly supplies
- * another non-NAVgator HTTPS origin.
+ * Stable futarchy reads and guarded transaction routes remain on reviewed 01RX
+ * browser boundaries. Upstream 01Resolved origins are server-only: the typed
+ * client builds /api routes, not upstream /v1 routes.
  */
 export function resolveFutarchyApiBases(browserWindow, baseUrl) {
   const runtime = browserWindow || globalThis.window;

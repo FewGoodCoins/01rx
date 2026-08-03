@@ -1039,6 +1039,7 @@ function _applyDiscoveredTokens(data) {
 }
 
 var _discoverPromise = null;
+var _discoverSettledPromise = null;
 function discoverTokens() {
   if (_discoverPromise) return _discoverPromise;
 
@@ -1048,9 +1049,10 @@ function discoverTokens() {
       TOKENS = { ...TOKENS_FALLBACK };
       _tokensLoaded = true;
     }
-    listTokensP.then(function(data) {
+    _discoverSettledPromise = listTokensP.then(function(data) {
       if (_tokenDiscoveryHasFallbackCoverage(data)) _applyDiscoveredTokens(data);
-    }).catch(function() {});
+      return TOKENS;
+    }).catch(function() { return TOKENS; });
     _discoverPromise = Promise.resolve(TOKENS);
     return _discoverPromise;
   }
@@ -1070,8 +1072,14 @@ function discoverTokens() {
       _tokensLoaded = true;
       return TOKENS;
     });
+  _discoverSettledPromise = _discoverPromise;
 
   return _discoverPromise;
+}
+
+function whenTokenDiscoverySettled() {
+  if (!_discoverPromise) discoverTokens();
+  return _discoverSettledPromise || _discoverPromise || Promise.resolve(TOKENS);
 }
 
 // ═══════════════════════════════════════════════════════════════════════

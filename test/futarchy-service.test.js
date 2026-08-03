@@ -68,6 +68,9 @@ test('futarchy service prefers HELIUS_URL and rejects unsafe RPC origins', () =>
 
 test('futarchy source normalizers bind known project aliases and lifecycle states', () => {
   assert.equal(_test.tokenFromProjectSlug('futardio-cult'), 'futardio');
+  assert.equal(_test.tokenFromProjectSlug('laso-finance'), 'laso');
+  assert.equal(_test.tokenFromProjectSlug('solomon-labs'), 'solo');
+  assert.equal(_test.tokenFromProjectSlug('rip-cars'), 'cars');
   assert.equal(_test.tokenFromProjectSlug('umbra'), 'umbra');
   assert.equal(_test.normalizeArchiveStatus({ status: 'resolved', result: 'approved' }), 'passed');
   assert.equal(_test.normalizeArchiveStatus({ status: 'resolved', result: 'rejected' }), 'failed');

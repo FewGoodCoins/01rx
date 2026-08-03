@@ -77,10 +77,10 @@ test('API base resolution preserves production, local, and explicit override pre
   const explicitStorage = createStorage();
   assert.equal(
     resolveApiBase(createRuntime('http://localhost:4173/?dev&api=https://api.example/path', explicitStorage)),
-    'https://api.example',
+    'http://localhost:4173',
   );
-  assert.equal(explicitStorage.getItem('navgator_api_base'), 'https://api.example');
-  assert.equal(explicitStorage.getItem('navgatorApiBase'), 'https://api.example');
+  assert.equal(explicitStorage.getItem('navgator_api_base'), null);
+  assert.equal(explicitStorage.getItem('navgatorApiBase'), null);
 });
 
 test('API base resolution removes a stale same-origin local override', async () => {
@@ -118,7 +118,7 @@ test('Vite preview keeps public reads and guarded trading on its same-origin han
   assert.equal(productionOverrideStorage.getItem('navgatorApiBase'), null);
 });
 
-test('futarchy API origins reject retired providers and accept trusted split-host configuration', async () => {
+test('futarchy API origins reject direct upstream and retired-provider configuration', async () => {
   const { resolveFutarchyApiBases } = await importCore('api-client.js');
   const runtime = createRuntime('https://navgator.xyz/terminal');
 
@@ -132,8 +132,8 @@ test('futarchy API origins reject retired providers and accept trusted split-hos
     futarchyExecutionApiBase: 'https://execution.01resolved.com',
   };
   assert.deepEqual(resolveFutarchyApiBases(runtime, 'https://navgator.xyz'), {
-    readBaseUrl: 'https://api.01resolved.com',
-    executionBaseUrl: 'https://execution.01resolved.com',
+    readBaseUrl: 'https://01rx.vercel.app',
+    executionBaseUrl: 'https://01rx.vercel.app',
   });
 
   runtime.NAVGATOR_CONFIG = {

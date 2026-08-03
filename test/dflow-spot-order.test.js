@@ -508,7 +508,6 @@ test('execution allowlist is intersected with the current 01Resolved project ind
   const calls = [];
   const tokens = await getTradableOwnershipTokens({
     env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
-    fresh: true,
     async loadCurrentProjects(options) {
       calls.push(options);
       return {

@@ -63,6 +63,7 @@ export async function getTradableOwnershipTokens(options = {}) {
   const now = options.now?.() ?? Date.now();
   if (
     !options.fresh
+    && registryCache
     && registryCache.expiresAt > now
   ) {
     return registryCache.tokens;

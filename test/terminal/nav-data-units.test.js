@@ -188,6 +188,7 @@ function loadHelpers(extra = '', sandboxOverrides = {}) {
     '_fmtSignedSidebarPct',
     '_isFlatSidebarChange',
     '_applyCurrentNavLifecycle',
+    '_applyCurrentNavPayload',
     '_cfgVal',
     '_finiteNumOrNull',
     '_effectiveSupplyForNav',
@@ -848,6 +849,86 @@ test('fresh active current NAV clears stale liquidation lifecycle state', () => 
   });
   assert.equal(source.includes('_applyCurrentNavLifecycle(lt, t);'), true);
   assert.equal(source.includes('_applyCurrentNavLifecycle(CFG, data);'), true);
+});
+
+test('market sidebar applies the published current-NAV fields without mutating or synthesizing them', () => {
+  const currentNav = {
+    tokens: [
+      {
+        token: 'umbra',
+        spot: 0.2345,
+        nav: 0.1987,
+        treasuryUSDC: 2_400_000,
+        effectiveSupply: 13_800_000,
+        marketCap: 3_236_100,
+        priceChange1h: -0.75,
+        change24h: 2.25,
+        priceChange7d: 8.5,
+        volume24hUsd: 125_000,
+        hasCurrentNav: true,
+        status: 'active',
+        live: true,
+      },
+      {
+        token: 'laso',
+        spot: 0.135,
+        nav: null,
+        treasuryUSDC: 900_000,
+        effectiveSupply: 10_000_000,
+        hasCurrentNav: false,
+        currentNavStatus: 'unavailable',
+      },
+      {
+        token: 'catalog-only',
+        spot: 1.25,
+        nav: 1.1,
+      },
+    ],
+  };
+  const original = JSON.stringify(currentNav);
+  const landingTokens = [
+    { key: 'umbra', spot: 0, strike: 0, treasury: 0, mcap: 0 },
+    { key: 'laso', spot: 0, strike: 0, treasury: 0, mcap: 0 },
+  ];
+  const cached = {};
+  const sandbox = loadHelpers(`
+    result = {
+      applied: _applyCurrentNavPayload(currentNav),
+      cached: _cachedPriceMap,
+      landingTokens: landingTokens,
+      windowCache: window._cachedPriceMap
+    };
+  `, {
+    _cachedPriceMap: cached,
+    _normalizeTokenKey(value) { return String(value || '').toLowerCase(); },
+    currentNav,
+    landingTokens,
+    window: {},
+  });
+  const result = JSON.parse(JSON.stringify(sandbox.result));
+
+  assert.equal(result.applied, true);
+  assert.equal(JSON.stringify(currentNav), original);
+  assert.notEqual(sandbox.result.cached.umbra, currentNav.tokens[0]);
+  assert.equal(result.cached['catalog-only'].spot, 1.25);
+  assert.deepEqual(result.landingTokens[0], {
+    change1h: -0.75,
+    change24h: 2.25,
+    change7d: 8.5,
+    effectiveSupply: 13_800_000,
+    graveyard: false,
+    key: 'umbra',
+    liquidatedAt: null,
+    live: true,
+    mcap: 3_236_100,
+    proposalFlag: null,
+    spot: 0.2345,
+    strike: 0.1987,
+    treasury: 2_400_000,
+    volume24h: 125_000,
+  });
+  assert.equal(result.landingTokens[1].strike, 0);
+  assert.equal(result.windowCache.umbra.spot, 0.2345);
 });
 
 test('proposal fetch includes inactive graveyard tokens', () => {
