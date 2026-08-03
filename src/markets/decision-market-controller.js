@@ -2432,6 +2432,8 @@ export function mountFutardTerminal({
     routeNotice: '',
     markets: [],
     sidebarMarkets: [],
+    sidebarArchiveComplete: false,
+    sidebarArchiveTotal: null,
     activeMarkets: [],
     indexedProposals: [],
     selectedId: initialProposalId,
@@ -3721,6 +3723,9 @@ export function mountFutardTerminal({
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
+    const pastMarkets = state.sidebarMarkets.filter(
+      market => market.proposal.statusGroup !== 'live',
+    );
     const pulseNow = runtime.Date?.now?.() ?? Date.now();
     const pulsePhaseMs = Math.round(pulseNow) % LIVE_MARKET_PULSE_INTERVAL_MS;
     list.style.setProperty(
@@ -3730,6 +3735,7 @@ export function mountFutardTerminal({
     list.style.setProperty('--tp-live-pulse-delay', `${-pulsePhaseMs}ms`);
 
     function renderSidebarMarket(market) {
+      const isLive = market.proposal.statusGroup === 'live';
       const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
       const proposalNumber = market.proposal.number == null
         ? ''
@@ -3744,24 +3750,44 @@ export function mountFutardTerminal({
           : signalPct < 0
             ? 'down'
             : 'flat';
+      const stateLabel = isLive
+        ? 'Live'
+        : market.proposal.statusGroup === 'passed'
+          ? 'Passed'
+          : market.proposal.statusGroup === 'failed'
+            ? 'Failed'
+            : market.proposal.statusLabel || 'Indexed';
+      const stateTime = firstText(
+        market.proposal.resolvedAt,
+        market.proposal.endsAt,
+        market.proposal.createdAt,
+      );
       return `
         <a
           class="tp-decision-item"
           href="${escapeHtml(destination)}"
-          title="Live · ${escapeHtml(market.proposal.title)}"
+          title="${escapeHtml(stateLabel)} · ${escapeHtml(market.proposal.title)}"
           data-ft-proposal-id="${escapeHtml(market.id)}"
           data-ft-token="${escapeHtml(market.token || '')}"
+          data-market-live="${isLive ? '1' : '0'}"
+          data-market-state="${escapeHtml(market.proposal.statusGroup)}"
           data-market-search-primary="${escapeHtml(ticker)}"
-          data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''}`)}"
+          data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''} ${stateLabel}`)}"
           data-sort-likelihood="${Number.isFinite(likelihoodPct) ? escapeHtml(String(likelihoodPct)) : ''}"
           data-sort-signal="${Number.isFinite(signalPct) ? escapeHtml(String(signalPct)) : ''}"
           ${market.id === selectedMarket()?.id ? 'aria-current="page"' : ''}
         >
-          <span class="tp-decision-live-dot" role="img" aria-label="Live market"></span>
+          <span
+            class="tp-decision-live-dot"
+            data-market-state="${escapeHtml(market.proposal.statusGroup)}"
+            role="img"
+            aria-label="${escapeHtml(stateLabel)} market"
+          ></span>
           <span class="tp-decision-project">
             ${renderLogo(market, 'small')}
             <span class="tp-decision-copy">
               <strong>${escapeHtml(`${ticker}${proposalNumber}`)}</strong>
+              ${isLive ? '' : `<small>${escapeHtml(stateLabel)}${stateTime ? ` · ${escapeHtml(formatRelativeTime(stateTime))}` : ''}</small>`}
             </span>
           </span>
           <span
@@ -3775,23 +3801,24 @@ export function mountFutardTerminal({
             class="tp-decision-result tp-decision-signal"
             data-direction="${signalDirection}"
             data-available="${Number.isFinite(signalPct)}"
-            title="Live margin above or below the required threshold"
+            title="${isLive ? 'Live' : 'Last observed'} margin above or below the required threshold"
           >${escapeHtml(formatCompactPercent(signalPct))}</span>
         </a>
       `;
     }
 
     if (count) {
-      count.textContent = `${liveMarkets.length} ${liveMarkets.length === 1 ? 'market' : 'markets'} live`;
+      count.textContent = `${liveMarkets.length} live · ${pastMarkets.length} past`;
     }
     if (section) section.hidden = false;
 
-    const activeHtml = liveMarkets.length
-      ? liveMarkets.map(market => renderSidebarMarket(market)).join('')
+    const sidebarRows = [...liveMarkets, ...pastMarkets];
+    const activeHtml = sidebarRows.length
+      ? sidebarRows.map(market => renderSidebarMarket(market)).join('')
       : `
         <div class="tp-decisions-empty">
-          <strong>No active decision markets</strong>
-          <span>There are no proposals currently trading.</span>
+          <strong>No decision markets</strong>
+          <span>There are no indexed live or past proposals.</span>
         </div>
       `;
     list.innerHTML = activeHtml;
@@ -8358,6 +8385,78 @@ export function mountFutardTerminal({
     }
   }
 
+  async function completeSidebarProposalArchive(initialSnapshot, signal) {
+    const cachedPastMarkets = state.sidebarMarkets.filter(
+      market => market.proposal.statusGroup !== 'live',
+    );
+    const initialTotal = firstNumber(
+      initialSnapshot.pagination.total,
+      initialSnapshot.summary.total,
+    );
+    const canReuseCompleteArchive = state.sidebarArchiveComplete && (
+      !Number.isFinite(initialTotal)
+      || !Number.isFinite(state.sidebarArchiveTotal)
+      || initialTotal === state.sidebarArchiveTotal
+    );
+    let markets = canReuseCompleteArchive
+      ? mergeIndexedProposalPages(cachedPastMarkets, initialSnapshot.markets)
+      : initialSnapshot.markets;
+    let nextCursor = canReuseCompleteArchive
+      ? ''
+      : initialSnapshot.pagination.nextCursor;
+    let total = firstNumber(
+      initialTotal,
+      markets.length,
+    );
+    let paginationError = '';
+    const seenCursors = new Set();
+
+    while (nextCursor) {
+      if (seenCursors.has(nextCursor)) {
+        paginationError = 'Proposal history returned a repeated page cursor.';
+        break;
+      }
+      seenCursors.add(nextCursor);
+      try {
+        const payload = await client.futarchy.proposals({
+          cursor: nextCursor,
+          limit: 100,
+        }, { signal });
+        const page = normalizeMarketPayload(payload, state.navMap);
+        markets = mergeIndexedProposalPages(markets, page.markets);
+        total = firstNumber(
+          page.pagination.total,
+          page.summary.total,
+          total,
+          markets.length,
+        );
+        const previousCursor = nextCursor;
+        nextCursor = page.pagination.nextCursor;
+        if (nextCursor && nextCursor === previousCursor) {
+          paginationError = 'Proposal history returned a repeated page cursor.';
+          break;
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') throw error;
+        paginationError = error?.timeout
+          ? 'Complete proposal history timed out.'
+          : 'Complete proposal history is temporarily unavailable.';
+        break;
+      }
+    }
+    return {
+      ...initialSnapshot,
+      markets,
+      pagination: {
+        ...initialSnapshot.pagination,
+        nextCursor,
+        total,
+      },
+      archiveComplete: !nextCursor,
+      paginationError,
+    };
+  }
+
   async function refresh(options = {}) {
     if (state.destroyed) return [];
     if (
@@ -8394,7 +8493,12 @@ export function mountFutardTerminal({
       try {
         const payload = await client.futarchy.proposals({}, { signal });
         if (state.destroyed || requestId !== state.requestId) return state.markets;
-        const snapshot = normalizeMarketPayload(payload, new Map());
+        let snapshot = normalizeMarketPayload(payload, new Map());
+        snapshot = await completeSidebarProposalArchive(snapshot, signal);
+        if (state.destroyed || requestId !== state.requestId) return state.markets;
+        state.sidebarArchiveComplete = snapshot.archiveComplete;
+        state.sidebarArchiveTotal = snapshot.pagination.total;
+        if (snapshot.paginationError) state.archiveError = snapshot.paginationError;
         state.indexedProposals = snapshot.markets;
         state.activeMarkets = [];
         state.markets = mergeProposalLists(snapshot.markets, []);
@@ -8529,6 +8633,20 @@ export function mountFutardTerminal({
 
     if (proposalResult.status === 'fulfilled') {
       proposalSnapshot = normalizeMarketPayload(proposalResult.value, state.navMap);
+      try {
+        proposalSnapshot = await completeSidebarProposalArchive(proposalSnapshot, signal);
+      } catch (error) {
+        if (state.destroyed || requestId !== state.requestId || error?.name === 'AbortError') {
+          return state.markets;
+        }
+        throw error;
+      }
+      if (state.destroyed || requestId !== state.requestId) return state.markets;
+      state.sidebarArchiveComplete = proposalSnapshot.archiveComplete;
+      state.sidebarArchiveTotal = proposalSnapshot.pagination.total;
+      if (proposalSnapshot.paginationError) {
+        state.archiveError = proposalSnapshot.paginationError;
+      }
       const preserveLoadedPages = state.indexedProposals.length > proposalSnapshot.markets.length;
       const tokenProposals = proposalSnapshot.markets.filter(marketMatchesToken);
       state.indexedProposals = preserveLoadedPages
@@ -8640,7 +8758,7 @@ export function mountFutardTerminal({
     try {
       const payload = await client.futarchy.proposals({
         cursor,
-        ...(state.tokenFilter ? { token: state.tokenFilter } : {}),
+        limit: 100,
       }, {
         signal: state.paginationAbortController?.signal,
       });
@@ -8650,6 +8768,16 @@ export function mountFutardTerminal({
       state.indexedProposals = mergeIndexedProposalPages(
         state.indexedProposals,
         normalized.markets.filter(marketMatchesToken),
+      );
+      const sidebarLiveMarkets = state.sidebarMarkets.filter(
+        market => market.proposal.statusGroup === 'live',
+      );
+      const sidebarPastMarkets = state.sidebarMarkets.filter(
+        market => market.proposal.statusGroup !== 'live',
+      );
+      state.sidebarMarkets = mergeProposalLists(
+        mergeIndexedProposalPages(sidebarPastMarkets, normalized.markets),
+        sidebarLiveMarkets,
       );
       state.proposalSummary = {
         ...state.proposalSummary,
@@ -8667,8 +8795,9 @@ export function mountFutardTerminal({
         && normalized.pagination.nextCursor === cursor) {
         state.proposalPagination.nextCursor = '';
       }
+      state.sidebarArchiveComplete = !state.proposalPagination.nextCursor;
+      state.sidebarArchiveTotal = state.proposalPagination.total;
       state.markets = mergeProposalLists(state.indexedProposals, state.activeMarkets);
-      if (!state.tokenFilter) state.sidebarMarkets = state.markets;
       state.asOf = normalized.asOf || state.asOf;
       render();
       return state.markets;
