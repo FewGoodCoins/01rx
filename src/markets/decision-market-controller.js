@@ -2115,11 +2115,32 @@ function addressRow(label, address, actionLabel) {
 
 function executionEstimate(market, outcome, side, amount, slippageBps) {
   const branch = outcome === 'fail' ? market?.fail : market?.pass;
-  const price = branch?.price;
-  if (!market || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(price) || price <= 0) {
+  const inputReserves = side === 'buy'
+    ? firstNumber(branch?.quoteReserves)
+    : firstNumber(branch?.baseReserves);
+  const outputReserves = side === 'buy'
+    ? firstNumber(branch?.baseReserves)
+    : firstNumber(branch?.quoteReserves);
+  const referencePrice = firstNumber(branch?.price);
+  if (
+    !market
+    || !Number.isFinite(amount)
+    || amount <= 0
+    || (!(inputReserves > 0) || !(outputReserves > 0))
+      && !(referencePrice > 0)
+  ) {
     return null;
   }
-  const output = side === 'buy' ? amount / price : amount * price;
+  const hasReserves = inputReserves > 0 && outputReserves > 0;
+  const effectiveInput = amount * 0.995;
+  const output = hasReserves
+    ? effectiveInput * outputReserves / (inputReserves + effectiveInput)
+    : side === 'buy'
+      ? amount / referencePrice
+      : amount * referencePrice;
+  const price = hasReserves
+    ? side === 'buy' ? amount / output : output / amount
+    : referencePrice;
   const protectedReference = output * (1 - slippageBps / 10_000);
   return {
     output,
@@ -2129,7 +2150,70 @@ function executionEstimate(market, outcome, side, amount, slippageBps) {
     outputSymbol: side === 'buy'
       ? `${outcome.toUpperCase()} ${market.ticker}`
       : `${outcome.toUpperCase()} USDC`,
+    route: 'futarchy_amm',
+    routeLabel: 'MetaDAO AMM',
   };
+}
+
+function manifestExecutionEstimate(book, market, outcome, side, amount, slippageBps) {
+  if (
+    book?.canonical !== true
+    || !book.address
+    || !Number.isFinite(amount)
+    || amount <= 0
+  ) return null;
+  const levels = (side === 'buy' ? book.asks : book.bids)
+    .filter(level => Number.isFinite(level.price) && level.price > 0
+      && Number.isFinite(level.amount) && level.amount > 0)
+    .sort((left, right) => (
+      side === 'buy' ? left.price - right.price : right.price - left.price
+    ));
+  let remaining = amount;
+  let output = 0;
+  for (const level of levels) {
+    if (remaining <= 0) break;
+    if (side === 'buy') {
+      const levelCost = level.amount * level.price;
+      if (levelCost <= remaining) {
+        output += level.amount;
+        remaining -= levelCost;
+      } else {
+        output += remaining / level.price;
+        remaining = 0;
+      }
+    } else {
+      const fill = Math.min(remaining, level.amount);
+      output += fill * level.price;
+      remaining -= fill;
+    }
+  }
+  if (remaining > Math.max(1e-9, amount * 1e-9) || !(output > 0)) return null;
+  return {
+    output,
+    protectedReference: output * (1 - slippageBps / 10_000),
+    price: side === 'buy' ? amount / output : output / amount,
+    inputSymbol: side === 'buy' ? 'USDC' : market.ticker,
+    outputSymbol: side === 'buy'
+      ? `${outcome.toUpperCase()} ${market.ticker}`
+      : `${outcome.toUpperCase()} USDC`,
+    route: 'manifest',
+    routeLabel: 'Manifest book',
+  };
+}
+
+function bestExecutionEstimate(market, book, outcome, side, amount, slippageBps) {
+  const amm = executionEstimate(market, outcome, side, amount, slippageBps);
+  const manifest = manifestExecutionEstimate(
+    book,
+    market,
+    outcome,
+    side,
+    amount,
+    slippageBps,
+  );
+  if (!amm) return manifest;
+  if (!manifest || manifest.output <= amm.output) return amm;
+  return manifest;
 }
 
 /**
@@ -4425,8 +4509,9 @@ export function mountFutardTerminal({
     const book = selectedOrderBook(market);
     const amount = firstNumber(state.order.amount);
     const amountValid = Number.isFinite(amount) && amount > 0;
-    const estimate = executionEstimate(
+    const estimate = bestExecutionEstimate(
       market,
+      book,
       outcome,
       side,
       amount,
@@ -4555,7 +4640,9 @@ export function mountFutardTerminal({
 
     return {
       amountValid,
-      averagePrice: formatPrice(limitPrice),
+      averagePrice: formatPrice(state.order.type === 'swap'
+        ? firstNumber(estimate?.price, limitPrice)
+        : limitPrice),
       buyPrice: formatPrice(firstNumber(book?.bestAsk, branch.price)),
       failDetail,
       failValue,
@@ -4570,6 +4657,11 @@ export function mountFutardTerminal({
       positionSymbol: selectedOutputAsset === 'quote'
         ? 'USDC'
         : market?.ticker || 'TOKEN',
+      routeLabel: state.order.type === 'swap'
+        ? `${estimate?.routeLabel || 'Verified route'} · no 01RX fee`
+        : state.order.type === 'limit'
+          ? 'Manifest limit order'
+          : 'Manifest automatic order',
       sellPrice: formatPrice(firstNumber(book?.bestBid, branch.price)),
       ticker: market?.ticker || 'TOKEN',
     };
@@ -5031,6 +5123,7 @@ export function mountFutardTerminal({
         <div class="ft-decision-average">
           <span>Average price</span>
           <strong data-ft-role="average-price">${escapeHtml(preview.averagePrice)}</strong>
+          <small data-ft-role="route-preview">${escapeHtml(preview.routeLabel)}</small>
         </div>
 
         <div class="ft-decision-position">
@@ -5163,6 +5256,7 @@ export function mountFutardTerminal({
       'pass-payoff-detail': preview.passDetail,
       'position-after': preview.positionAfter,
       'position-before': preview.positionBefore,
+      'route-preview': preview.routeLabel,
       'sell-price': preview.sellPrice,
     };
     Object.entries(textByRole).forEach(([role, value]) => {
@@ -6631,6 +6725,11 @@ export function mountFutardTerminal({
                 : 'Unavailable'}</dd></div>`
               : ''}
             ${plan.kind === 'swap'
+              ? `<div><dt>Best execution</dt><dd>${Number.isFinite(summary.comparedRouteCount)
+                ? `${summary.comparedRouteCount} verified route${summary.comparedRouteCount === 1 ? '' : 's'} compared`
+                : 'Verified route'} · ${escapeHtml(summary.venue || 'Selected venue')}</dd></div>`
+              : ''}
+            ${plan.kind === 'swap'
               ? `<div><dt>On-chain attribution</dt><dd>${summary.attributionAuthority
                 ? `01RX co-signed · ${escapeHtml(shortenAddress(summary.attributionAuthority, 5))}`
                 : 'Unavailable'}</dd></div>`
@@ -7640,6 +7739,7 @@ export function mountFutardTerminal({
         connection,
         walletAddress: state.wallet.address,
         market,
+        manifestBook: selectedOrderBook(market),
         outcome,
         side,
         amount,

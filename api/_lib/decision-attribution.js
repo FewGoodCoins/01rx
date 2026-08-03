@@ -10,6 +10,11 @@ import {
 } from '@solana/web3.js';
 import base58Module from 'bs58';
 import { FutarchyIDL as FUTARCHY_V0_6_IDL } from '@metadaoproject/programs/futarchy/v0.6';
+import { ConditionalVaultIDL as CONDITIONAL_VAULT_V0_4_IDL } from '@metadaoproject/programs/conditional_vault/v0.4';
+import {
+  SwapStruct as MANIFEST_SWAP_STRUCT,
+  swapInstructionDiscriminator as MANIFEST_SWAP_DISCRIMINATOR,
+} from '@cks-systems/manifest-sdk';
 import {
   DECISION_ATTRIBUTION,
 } from '@01resolved/contracts';
@@ -22,14 +27,19 @@ const FUTARCHY_V0_6_PROGRAM_ID = new PublicKey(
 const CONDITIONAL_VAULT_V0_4_PROGRAM_ID = new PublicKey(
   'VLTX1ishMBbcX3rdBWGssxawAo1Q2X2qxYFYqiGodVg',
 );
+const MANIFEST_PROGRAM_ID = new PublicKey(
+  'MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms',
+);
 const MEMO_PROGRAM_ID = new PublicKey(DECISION_ATTRIBUTION.memoProgramId);
 const MARKER_BYTES = Buffer.from(DECISION_ATTRIBUTION.marker, 'utf8');
 const instructionCoder = new BorshInstructionCoder(FUTARCHY_V0_6_IDL);
+const vaultInstructionCoder = new BorshInstructionCoder(CONDITIONAL_VAULT_V0_4_IDL);
 const ALLOWED_CORE_PROGRAMS = new Set([
   ASSOCIATED_TOKEN_PROGRAM_ID.toBase58(),
   ComputeBudgetProgram.programId.toBase58(),
   CONDITIONAL_VAULT_V0_4_PROGRAM_ID.toBase58(),
   FUTARCHY_V0_6_PROGRAM_ID.toBase58(),
+  MANIFEST_PROGRAM_ID.toBase58(),
 ]);
 
 function requireObject(value, label) {
@@ -125,7 +135,7 @@ function u64String(value, label) {
   return amount.toString();
 }
 
-function inspectDecisionSwap(transaction, authority) {
+function inspectDecisionSwap(transaction, authority, proposalHint = '') {
   const authorityAddress = authority.toBase58();
   for (const instruction of transaction.instructions) {
     const programId = instruction.programId.toBase58();
@@ -154,53 +164,152 @@ function inspectDecisionSwap(transaction, authority) {
   const swapInstructions = transaction.instructions.filter(instruction => (
     instruction.programId.equals(FUTARCHY_V0_6_PROGRAM_ID)
   ));
-  if (vaultInstructions.length !== 1 || swapInstructions.length !== 1) {
+  const manifestInstructions = transaction.instructions.filter(instruction => (
+    instruction.programId.equals(MANIFEST_PROGRAM_ID)
+  ));
+  if (
+    vaultInstructions.length !== 1
+    || swapInstructions.length + manifestInstructions.length !== 1
+  ) {
     throw tradingError(
-      'Decision attribution requires one conditional split and one MetaDAO AMM swap',
+      'Decision attribution requires one conditional split and one reviewed venue swap',
       'INVALID_ATTRIBUTION_TRANSACTION',
       400,
     );
   }
 
-  const swap = swapInstructions[0];
-  const decoded = instructionCoder.decode(swap.data);
-  const params = decoded?.name === 'conditionalSwap'
-    ? decoded.data?.params
-    : null;
-  if (!params || swap.keys.length < 9) {
+  const split = vaultInstructions[0];
+  let decodedSplit;
+  try {
+    decodedSplit = vaultInstructionCoder.decode(split.data);
+  } catch {
+    decodedSplit = null;
+  }
+  const splitAmount = decodedSplit?.name === 'splitTokens'
+    ? u64String(decodedSplit.data?.amount, 'split amount')
+    : '';
+  if (
+    !splitAmount
+    || split.keys.length < 12
+    || !split.keys[3]?.isSigner
+    || split.keys[3].pubkey.toBase58() !== transaction.feePayer.toBase58()
+  ) {
     throw tradingError(
-      'Decision attribution requires a MetaDAO conditional swap',
+      'Decision attribution requires an exact wallet-funded conditional split',
       'INVALID_ATTRIBUTION_TRANSACTION',
       400,
     );
   }
-  const trader = swap.keys[8];
+
+  if (swapInstructions.length === 1) {
+    const swap = swapInstructions[0];
+    const decoded = instructionCoder.decode(swap.data);
+    const params = decoded?.name === 'conditionalSwap'
+      ? decoded.data?.params
+      : null;
+    if (!params || swap.keys.length < 9) {
+      throw tradingError(
+        'Decision attribution requires a MetaDAO conditional swap',
+        'INVALID_ATTRIBUTION_TRANSACTION',
+        400,
+      );
+    }
+    const trader = swap.keys[8];
+    if (
+      !trader?.isSigner
+      || trader.pubkey.toBase58() !== transaction.feePayer.toBase58()
+    ) {
+      throw tradingError(
+        'MetaDAO trader must match the transaction fee payer',
+        'INVALID_ATTRIBUTION_TRANSACTION',
+        400,
+      );
+    }
+    const outcome = enumKey(params.market, 'market');
+    const side = enumKey(params.swapType, 'swap type');
+    const inputAmountRaw = u64String(params.inputAmount, 'input amount');
+    if (
+      !['pass', 'fail'].includes(outcome)
+      || !['buy', 'sell'].includes(side)
+      || inputAmountRaw !== splitAmount
+    ) {
+      throw tradingError(
+        'MetaDAO decision direction or split amount is invalid',
+        'INVALID_ATTRIBUTION_TRANSACTION',
+        400,
+      );
+    }
+    return {
+      inputAmountRaw,
+      minimumOutputAmountRaw: u64String(params.minOutputAmount, 'minimum output'),
+      outcome,
+      proposal: swap.keys[3].pubkey.toBase58(),
+      side,
+      trader: trader.pubkey.toBase58(),
+      venue: 'futarchy_amm',
+    };
+  }
+
+  const manifestSwap = manifestInstructions[0];
+  let decodedManifest;
+  try {
+    [decodedManifest] = MANIFEST_SWAP_STRUCT.deserialize(manifestSwap.data);
+  } catch {
+    decodedManifest = null;
+  }
+  const manifestParams = decodedManifest?.instructionDiscriminator
+    === MANIFEST_SWAP_DISCRIMINATOR
+    ? decodedManifest.params
+    : null;
+  const trader = manifestSwap.keys[0];
   if (
-    !trader?.isSigner
+    !manifestParams
+    || manifestParams.isExactIn !== true
+    || manifestSwap.keys.length < 11
+    || !trader?.isSigner
     || trader.pubkey.toBase58() !== transaction.feePayer.toBase58()
   ) {
     throw tradingError(
-      'MetaDAO trader must match the transaction fee payer',
+      'Decision attribution requires an exact-in Manifest swap funded by the wallet',
       'INVALID_ATTRIBUTION_TRANSACTION',
       400,
     );
   }
-  const outcome = enumKey(params.market, 'market');
-  const side = enumKey(params.swapType, 'swap type');
-  if (!['pass', 'fail'].includes(outcome) || !['buy', 'sell'].includes(side)) {
+  const side = manifestParams.isBaseIn ? 'sell' : 'buy';
+  const inputMint = manifestSwap.keys[side === 'sell' ? 8 : 10]?.pubkey;
+  const inputAccount = manifestSwap.keys[side === 'sell' ? 3 : 4]?.pubkey;
+  const outcomeIndex = [8, 9].findIndex(index => (
+    inputMint && split.keys[index]?.pubkey.equals(inputMint)
+  ));
+  if (
+    outcomeIndex < 0
+    || !inputAccount?.equals(split.keys[10 + outcomeIndex]?.pubkey)
+    || u64String(manifestParams.inAtoms, 'input amount') !== splitAmount
+  ) {
     throw tradingError(
-      'MetaDAO decision direction is invalid',
+      'Manifest input must consume one branch of the exact conditional split',
       'INVALID_ATTRIBUTION_TRANSACTION',
+      400,
+    );
+  }
+  let proposal;
+  try {
+    proposal = new PublicKey(String(proposalHint || '').trim()).toBase58();
+  } catch {
+    throw tradingError(
+      'Manifest decision attribution requires a valid proposal identity',
+      'INVALID_ATTRIBUTION_REQUEST',
       400,
     );
   }
   return {
-    inputAmountRaw: u64String(params.inputAmount, 'input amount'),
-    minimumOutputAmountRaw: u64String(params.minOutputAmount, 'minimum output'),
-    outcome,
-    proposal: swap.keys[3].pubkey.toBase58(),
+    inputAmountRaw: splitAmount,
+    minimumOutputAmountRaw: u64String(manifestParams.outAtoms, 'minimum output'),
+    outcome: outcomeIndex === 0 ? 'fail' : 'pass',
+    proposal,
     side,
     trader: trader.pubkey.toBase58(),
+    venue: 'manifest',
   };
 }
 
@@ -246,13 +355,21 @@ export function createDecisionAttributionService(dependencies = {}) {
 
   async function decisionAttest(body) {
     const request = requireObject(body, 'Decision attribution request');
-    rejectUnknownKeys(request, new Set(['transaction']), 'Decision attribution request');
+    rejectUnknownKeys(
+      request,
+      new Set(['proposal', 'transaction']),
+      'Decision attribution request',
+    );
     const authority = signingKey || decodeSigningKey(
       env.O1RX_ATTRIBUTION_SIGNING_KEY,
       env.O1RX_ATTRIBUTION_PUBLIC_KEY,
     );
     const transaction = decodeUnsignedTransaction(request.transaction);
-    const swap = inspectDecisionSwap(transaction, authority.publicKey);
+    const swap = inspectDecisionSwap(
+      transaction,
+      authority.publicKey,
+      request.proposal,
+    );
     transaction.add(new TransactionInstruction({
       programId: MEMO_PROGRAM_ID,
       keys: [{
@@ -314,6 +431,7 @@ export function createDecisionAttributionService(dependencies = {}) {
 export {
   CONDITIONAL_VAULT_V0_4_PROGRAM_ID,
   FUTARCHY_V0_6_PROGRAM_ID,
+  MANIFEST_PROGRAM_ID,
   MEMO_PROGRAM_ID,
   inspectDecisionSwap,
 };

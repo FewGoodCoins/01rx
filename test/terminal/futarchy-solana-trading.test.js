@@ -18,6 +18,7 @@ const {
   AccountLayout,
   MintLayout,
   TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
 } = require('@solana/spl-token');
 const {
   SolanaSignAndSendTransaction,
@@ -46,6 +47,9 @@ const FUTARCHY_PROGRAM = new PublicKey(
 );
 const CONDITIONAL_VAULT_PROGRAM = new PublicKey(
   'VLTX1ishMBbcX3rdBWGssxawAo1Q2X2qxYFYqiGodVg',
+);
+const MANIFEST_PROGRAM = new PublicKey(
+  'MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms',
 );
 const OPEN_PROPOSAL_DATA = Buffer.from(
   'Gl69u3SINSEEAAAAlxokYkoX9Z53s3KtbcrEm8bJsPwGNwKPUnAgX9SXfAiKZmFqAAAAAAHb+gFewlq83zm3nIW2xSMBxQrIsYfHVxCqALJTRmx1cMK4eaKdYucXxrcG0UXgB5bhRqxV9c0u8J0PSh6WEmuA7Su8yhwQ8EoZhKg5lA0yW6RWbzvlELbPjI+O3/6rSWD+vquRFNMfUAtF4mswQgY7sdwLWyIJ3B1oNKBD8Bw56e6A9AMAif1JlBe73934dXcDNYJXwiMwPktD/qYTDsJ56i+0hF6EGKmLYE7YKHOlm6HlIUmPGE66HCP399fxn9xOELMWQW5Z2HMMwAVX34G2bsPTpzAflyfjksVnIIpukozXnGwg8Gf1QLBg1nll6EnkyET3m6306al0LDXLM5HkGkG7EvxPY0wF8ncMS1W9uJxjPwfLahKjHYnFf35HXUNtPDrhWwBdQ208OuFbAA==',
@@ -336,6 +340,35 @@ test('Manifest exact-in quotes consume the best levels and require a full fill',
   });
   assert.equal(sell.fullFill, true);
   assert.equal(sell.outputRaw, 3_500_000n);
+});
+
+test('best execution selects only a fully fillable route with higher net output', async () => {
+  const { selectBestDecisionRoute } = await loadTradingModule();
+  const ammQuote = {
+    outputRaw: 10_000n,
+    minimumOutputRaw: 9_900n,
+  };
+  const betterBook = {
+    fullFill: true,
+    outputRaw: 10_500n,
+    minimumOutputRaw: 10_395n,
+  };
+  const selected = selectBestDecisionRoute({
+    ammQuote,
+    manifestQuote: betterBook,
+  });
+  assert.equal(selected.route, 'manifest');
+  assert.equal(selected.quote, betterBook);
+  assert.equal(selected.candidates.length, 2);
+
+  assert.equal(selectBestDecisionRoute({
+    ammQuote,
+    manifestQuote: { ...betterBook, fullFill: false },
+  }).route, 'futarchy_amm');
+  assert.equal(selectBestDecisionRoute({
+    ammQuote,
+    manifestQuote: { ...betterBook, outputRaw: 9_999n },
+  }).route, 'futarchy_amm');
 });
 
 test('DFlow v0 plans require detached signing and preserve the reviewed message', async () => {
@@ -923,9 +956,20 @@ test('spot prediction plan atomically splits underlying USDC before the AMM swap
   assert.equal(plan.summary.attributionAuthority, authority.publicKey.toBase58());
 });
 
-test('spot prediction plans stay on MetaDAO Futarchy AMM when a Manifest book exists', async () => {
-  const { buildConditionalSwapPlan } = await loadTradingModule();
-  const { ManifestClient } = await import('@cks-systems/manifest-sdk');
+test('spot predictions choose a better verified Manifest route and preserve attribution', async () => {
+  const {
+    applyDecisionAttribution,
+    buildConditionalSwapPlan,
+    decisionAttributionRequest,
+  } = await loadTradingModule();
+  const {
+    ManifestClient,
+    SwapStruct,
+    swapInstructionDiscriminator,
+  } = await import('@cks-systems/manifest-sdk');
+  const {
+    createDecisionAttributionService,
+  } = await import('../../api/_lib/decision-attribution.js');
   const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
   const wallet = new PublicKey(WALLET_ADDRESS);
   const manifestMarket = new PublicKey(
@@ -971,8 +1015,9 @@ test('spot prediction plans stay on MetaDAO Futarchy AMM when a Manifest book ex
       })),
     ];
   };
-  connection.getAccountInfo = async () => {
-    throw new Error('Manifest must not be read for a market decision swap');
+  connection.getAccountInfo = async address => {
+    assert.equal(address.toBase58(), manifestMarket.toBase58());
+    return programAccountInfo(Buffer.alloc(80), MANIFEST_PROGRAM);
   };
   connection.getMinimumBalanceForRentExemption = async () => 2_039_280;
   connection.getLatestBlockhash = async () => ({
@@ -982,30 +1027,83 @@ test('spot prediction plans stay on MetaDAO Futarchy AMM when a Manifest book ex
   connection.getFeeForMessage = async () => ({ value: 5_000 });
 
   const originalReadClient = ManifestClient.getClientReadOnly;
-  ManifestClient.getClientReadOnly = async () => {
-    throw new Error('Manifest must not be read for a market decision swap');
-  };
+  const passBaseAccount = getAssociatedTokenAddressSync(passBaseMint, wallet);
+  const passQuoteAccount = getAssociatedTokenAddressSync(passQuoteMint, wallet);
+  ManifestClient.getClientReadOnly = async () => ({
+    market: {
+      baseMint: () => passBaseMint,
+      quoteMint: () => passQuoteMint,
+      baseDecimals: () => 6,
+      quoteDecimals: () => 6,
+      bidsL2: () => [],
+      asksL2: () => [{ tokenPrice: 0.1, numBaseTokens: 1 }],
+    },
+    swapIx(payer, params) {
+      assert.equal(payer.toBase58(), WALLET_ADDRESS);
+      assert.equal(params.inAtoms.toString(), '1000');
+      assert.equal(params.outAtoms.toString(), '9900');
+      assert.equal(params.isBaseIn, false);
+      assert.equal(params.isExactIn, true);
+      const [data] = SwapStruct.serialize({
+        instructionDiscriminator: swapInstructionDiscriminator,
+        params,
+      });
+      return new TransactionInstruction({
+        programId: MANIFEST_PROGRAM,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: manifestMarket, isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: passBaseAccount, isSigner: false, isWritable: true },
+          { pubkey: passQuoteAccount, isSigner: false, isWritable: true },
+          { pubkey: DEFAULT_PUBLIC_KEY, isSigner: false, isWritable: true },
+          { pubkey: DEFAULT_PUBLIC_KEY, isSigner: false, isWritable: true },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: passBaseMint, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: passQuoteMint, isSigner: false, isWritable: false },
+        ],
+        data,
+      });
+    },
+  });
   try {
     const plan = await buildConditionalSwapPlan({
       connection,
       walletAddress: WALLET_ADDRESS,
       market,
-      marketAddress: manifestMarket.toBase58(),
-      expectedBaseMint: passBaseMint.toBase58(),
-      expectedQuoteMint: passQuoteMint.toBase58(),
+      manifestBook: {
+        address: manifestMarket.toBase58(),
+        baseMint: passBaseMint.toBase58(),
+        quoteMint: passQuoteMint.toBase58(),
+        canonical: true,
+      },
       outcome: 'pass',
       side: 'buy',
       amount: '0.001',
       slippageBps: 100,
     });
 
-    assert.equal(plan.summary.venue, 'MetaDAO v0.6 AMM');
-    assert.equal(plan.attributionIntent.venue, 'futarchy_amm');
-    assert.match(plan.summary.note, /MetaDAO Futarchy AMM/);
+    assert.equal(plan.summary.venue, 'Manifest order book');
+    assert.equal(plan.summary.comparedRouteCount, 2);
+    assert.equal(plan.attributionIntent.venue, 'manifest');
+    assert.match(plan.summary.note, /selected Manifest/);
     assert.equal(
       plan.transaction.instructions.at(-1).programId.toBase58(),
-      FUTARCHY_PROGRAM.toBase58(),
+      MANIFEST_PROGRAM.toBase58(),
     );
+
+    const authority = Keypair.generate();
+    const attestation = await createDecisionAttributionService({
+      signingKey: authority,
+    }).decisionAttest(decisionAttributionRequest(plan));
+    assert.equal(attestation.proposal, market.proposal.id);
+    assert.equal(attestation.outcome, 'pass');
+    assert.equal(attestation.side, 'buy');
+    assert.equal(attestation.venue, 'manifest');
+    await applyDecisionAttribution(connection, plan, attestation);
+    assert.equal(plan.summary.platformFeeBps, 0);
+    assert.equal(plan.summary.attributionAuthority, authority.publicKey.toBase58());
   } finally {
     ManifestClient.getClientReadOnly = originalReadClient;
   }

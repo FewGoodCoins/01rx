@@ -7496,6 +7496,7 @@ body.is-token-markets .token-markets-root {
   gap: 12px;
   color: #a2a2a2;
   font-size: 13px;
+  flex-wrap: wrap;
 }
 
 .ft-decision-average strong {
@@ -7503,6 +7504,13 @@ body.is-token-markets .token-markets-root {
   color: #f4f4f4;
   font-size: 18px;
   font-weight: 600;
+}
+
+.ft-decision-average small {
+  flex: 0 0 100%;
+  color: #7f7f7f;
+  font-size: 11px;
+  text-align: right;
 }
 
 .ft-decision-position {

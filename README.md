@@ -92,9 +92,10 @@ transactions are revalidated by 01RX's server-only guard before submission.
 Decision-market swaps receive a server-validated, zero-fee 01RX co-signature
 before simulation. The co-signature is attached to a Memo instruction containing
 `01RX:D1:0`; the marker means decision attribution version 1 with a 0 bps 01RX
-fee. Market PASS/FAIL swaps always execute through the MetaDAO Futarchy AMM;
-Manifest is reserved for explicit order-book actions such as limit orders. The
-MetaDAO swap and attribution succeed or fail atomically. If conditional token
+fee. Market PASS/FAIL swaps compare the MetaDAO Futarchy AMM with the proposal's
+canonical Manifest book and select the higher-output fully fillable route.
+Limit orders continue to rest explicitly on Manifest. The selected swap and
+attribution succeed or fail atomically. If conditional token
 accounts are missing, account setup is shown as a separate reviewed wallet
 transaction before the attributed swap is prepared.
 

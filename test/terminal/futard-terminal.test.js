@@ -3972,6 +3972,11 @@ test('decision trades simulate and open the wallet from one explicit execute cli
         assert.equal(input.outcome, 'pass');
         assert.equal(input.side, 'buy');
         assert.equal(input.amount, '1');
+        assert.equal(input.manifestBook.canonical, true);
+        assert.equal(
+          input.manifestBook.address,
+          PROPOSAL_MARKET_DATA.books.pass.address,
+        );
         return {
           kind: 'swap',
           transaction: {},

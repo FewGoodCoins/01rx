@@ -60,6 +60,7 @@ export interface FutarchyClient {
 
 export interface TradingClient {
   decisionAttest(body: {
+    proposal?: string;
     transaction: string;
   }, options?: ClientCallOptions): Promise<DecisionAttestData>;
   spotOrder(body: {

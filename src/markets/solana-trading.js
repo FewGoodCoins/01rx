@@ -1020,6 +1020,34 @@ export function quoteManifestOrderbook({
   };
 }
 
+export function selectBestDecisionRoute({ ammQuote, manifestQuote = null }) {
+  if (!ammQuote || BigInt(ammQuote.outputRaw || 0) <= 0n) {
+    throw new Error('A verified MetaDAO AMM quote is required');
+  }
+  const manifestEligible = !!manifestQuote
+    && manifestQuote.fullFill === true
+    && BigInt(manifestQuote.outputRaw || 0) > 0n
+    && BigInt(manifestQuote.minimumOutputRaw || 0) > 0n;
+  const useManifest = manifestEligible
+    && BigInt(manifestQuote.outputRaw) > BigInt(ammQuote.outputRaw);
+  return {
+    route: useManifest ? 'manifest' : 'futarchy_amm',
+    quote: useManifest ? manifestQuote : ammQuote,
+    candidates: [
+      {
+        route: 'futarchy_amm',
+        eligible: true,
+        outputRaw: BigInt(ammQuote.outputRaw),
+      },
+      ...(manifestQuote ? [{
+        route: 'manifest',
+        eligible: manifestEligible,
+        outputRaw: BigInt(manifestQuote.outputRaw || 0),
+      }] : []),
+    ],
+  };
+}
+
 function requireAddress(value, label) {
   const address = safeAddress(value);
   if (!address) throw new Error(`${label} is not a valid Solana address`);
@@ -1680,6 +1708,7 @@ export async function buildConditionalSwapPlan({
   connection,
   walletAddress,
   market,
+  manifestBook = null,
   outcome,
   side,
   amount,
@@ -1739,6 +1768,73 @@ export async function buildConditionalSwapPlan({
     ),
     `${outcome.toUpperCase()} quote mint`,
   );
+
+  let manifestRoute = null;
+  if (manifestBook?.canonical === true && manifestBook.address) {
+    const manifestMarket = requireAddress(
+      manifestBook.address,
+      'Manifest market',
+    );
+    const expectedManifestBaseMint = requireAddress(
+      manifestBook.baseMint,
+      'Manifest base mint',
+    );
+    const expectedManifestQuoteMint = requireAddress(
+      manifestBook.quoteMint,
+      'Manifest quote mint',
+    );
+    const selectedBaseMint = outcome === 'pass'
+      ? derived.passBaseMint
+      : derived.failBaseMint;
+    const selectedQuoteMint = outcome === 'pass'
+      ? derived.passQuoteMint
+      : derived.failQuoteMint;
+    assertDerivedMint(selectedBaseMint, expectedManifestBaseMint, 'Manifest base mint');
+    assertDerivedMint(selectedQuoteMint, expectedManifestQuoteMint, 'Manifest quote mint');
+    const manifestAccountInfo = await connection.getAccountInfo(
+      manifestMarket,
+      'confirmed',
+    );
+    assertProgramAccount(
+      manifestAccountInfo,
+      MANIFEST_PROGRAM_ID,
+      'Manifest market',
+    );
+    const manifestClient = await ManifestClient.getClientReadOnly(
+      connection,
+      manifestMarket,
+    );
+    if (
+      !manifestClient.market.baseMint().equals(selectedBaseMint)
+      || !manifestClient.market.quoteMint().equals(selectedQuoteMint)
+      || manifestClient.market.baseDecimals() !== baseDecimals
+      || manifestClient.market.quoteDecimals() !== quoteDecimals
+    ) {
+      throw new Error('Manifest market mint pair does not match the selected proposal');
+    }
+    const manifestQuote = quoteManifestOrderbook({
+      amount,
+      inputDecimals,
+      outputDecimals,
+      side,
+      bids: typeof manifestClient.market.bidsL2 === 'function'
+        ? manifestClient.market.bidsL2()
+        : manifestClient.market.bids(),
+      asks: typeof manifestClient.market.asksL2 === 'function'
+        ? manifestClient.market.asksL2()
+        : manifestClient.market.asks(),
+      slippageBps,
+    });
+    manifestRoute = {
+      client: manifestClient,
+      market: manifestMarket,
+      quote: manifestQuote,
+    };
+  }
+  const routeSelection = selectBestDecisionRoute({
+    ammQuote,
+    manifestQuote: manifestRoute?.quote,
+  });
 
   const outputMint = side === 'buy'
     ? (outcome === 'pass' ? derived.passBaseMint : derived.failBaseMint)
@@ -1842,6 +1938,7 @@ export async function buildConditionalSwapPlan({
       additionalSigners: [],
       resume: Object.freeze({
         amount,
+        manifestBook,
         market,
         outcome,
         side,
@@ -1872,7 +1969,7 @@ export async function buildConditionalSwapPlan({
     };
   }
 
-  const quote = ammQuote;
+  const quote = routeSelection.quote;
   const splitInstruction = await client.vaultClient.splitTokensIx(
     derived.question,
     underlyingVault,
@@ -1882,18 +1979,25 @@ export async function buildConditionalSwapPlan({
     trader,
     trader,
   ).instruction();
-  const swapInstruction = await client.conditionalSwapIx({
-    dao,
-    trader,
-    payer: trader,
-    baseMint,
-    quoteMint,
-    proposal,
-    market: outcome,
-    swapType: side,
-    inputAmount: new BN(ammQuote.inputRaw.toString()),
-    minOutputAmount: new BN(quote.minimumOutputRaw.toString()),
-  }).instruction();
+  const swapInstruction = routeSelection.route === 'manifest'
+    ? manifestRoute.client.swapIx(trader, {
+      inAtoms: new BN(quote.inputRaw.toString()),
+      outAtoms: new BN(quote.minimumOutputRaw.toString()),
+      isBaseIn: side === 'sell',
+      isExactIn: true,
+    })
+    : await client.conditionalSwapIx({
+      dao,
+      trader,
+      payer: trader,
+      baseMint,
+      quoteMint,
+      proposal,
+      market: outcome,
+      swapType: side,
+      inputAmount: new BN(ammQuote.inputRaw.toString()),
+      minOutputAmount: new BN(quote.minimumOutputRaw.toString()),
+    }).instruction();
   const transaction = new Transaction().add(
     ComputeBudgetProgram.setComputeUnitLimit({ units: 650_000 }),
     splitInstruction,
@@ -1917,12 +2021,14 @@ export async function buildConditionalSwapPlan({
       proposal: proposal.toBase58(),
       side,
       trader: trader.toBase58(),
-      venue: 'futarchy_amm',
+      venue: routeSelection.route,
     }),
     quote,
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: 'MetaDAO v0.6 AMM',
+      venue: routeSelection.route === 'manifest'
+        ? 'Manifest order book'
+        : 'MetaDAO v0.6 AMM',
       action: `${side.toUpperCase()} ${outcome.toUpperCase()}`,
       amountIn: `${String(amount)} ${inputSymbol}`,
       inputMint: underlyingInputMint.toBase58(),
@@ -1934,13 +2040,17 @@ export async function buildConditionalSwapPlan({
       feePayer: trader.toBase58(),
       programIds: [
         vaultProgramId.toBase58(),
-        FUTARCHY_V0_6_PROGRAM_ID.toBase58(),
+        routeSelection.route === 'manifest'
+          ? MANIFEST_PROGRAM_ID.toBase58()
+          : FUTARCHY_V0_6_PROGRAM_ID.toBase58(),
       ],
+      comparedRouteCount: routeSelection.candidates.length,
+      selectedRoute: routeSelection.route,
       slippageBps: Number(slippageBps),
       setupRequired: missingAccountCount > 0,
       networkFeeSol: finalized.networkFeeSol,
       accountRentSol: accountRentLamports / 1_000_000_000,
-      note: `Splits ${inputSymbol} into PASS/FAIL claims, executes through the MetaDAO Futarchy AMM, and leaves the complementary claim in your wallet.`,
+      note: `Compared ${routeSelection.candidates.length} verified route${routeSelection.candidates.length === 1 ? '' : 's'}, selected ${routeSelection.route === 'manifest' ? 'Manifest' : 'the MetaDAO Futarchy AMM'} for the highest estimated output. Splits ${inputSymbol} into PASS/FAIL claims and leaves the complementary claim in your wallet.`,
     },
   };
 }
@@ -3238,9 +3348,9 @@ export function decisionAttributionRequest(plan) {
   if (
     plan?.kind !== 'swap'
     || !(plan.transaction instanceof Transaction)
-    || plan.attributionIntent?.venue !== 'futarchy_amm'
+    || !['futarchy_amm', 'manifest'].includes(plan.attributionIntent?.venue)
   ) {
-    throw new Error('A MetaDAO decision swap is required for 01RX attribution');
+    throw new Error('A reviewed decision swap is required for 01RX attribution');
   }
   const transaction = plan.transaction;
   if (
@@ -3260,6 +3370,7 @@ export function decisionAttributionRequest(plan) {
     throw new Error('Decision transaction exceeds Solana transaction size limits');
   }
   return {
+    proposal: plan.attributionIntent.proposal,
     transaction: Buffer.from(wireBytes).toString('base64'),
   };
 }
@@ -3281,6 +3392,7 @@ export async function applyDecisionAttribution(connection, plan, payload) {
     || payload?.side !== intent.side
     || payload?.inputAmountRaw !== intent.inputAmountRaw
     || payload?.minimumOutputAmountRaw !== intent.minimumOutputAmountRaw
+    || payload?.venue !== intent.venue
   ) {
     throw new Error('01RX attribution does not match the reviewed decision swap');
   }

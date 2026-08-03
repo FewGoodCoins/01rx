@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BorshInstructionCoder } from '@coral-xyz/anchor';
 import { FutarchyIDL } from '@metadaoproject/programs/futarchy/v0.6';
+import { ConditionalVaultIDL } from '@metadaoproject/programs/conditional_vault/v0.4';
 import {
   ComputeBudgetProgram,
   Keypair,
@@ -21,6 +22,7 @@ import {
 } from '../api/_lib/decision-attribution.js';
 
 const coder = new BorshInstructionCoder(FutarchyIDL);
+const vaultCoder = new BorshInstructionCoder(ConditionalVaultIDL);
 const RECENT_BLOCKHASH = '11111111111111111111111111111111';
 
 function unsignedDecisionTransaction({
@@ -37,12 +39,27 @@ function unsignedDecisionTransaction({
     ComputeBudgetProgram.setComputeUnitLimit({ units: 650_000 }),
     new TransactionInstruction({
       programId: CONDITIONAL_VAULT_V0_4_PROGRAM_ID,
-      keys: authority ? [{
-        pubkey: authority,
-        isSigner: false,
-        isWritable: false,
-      }] : [],
-      data: Buffer.from([1]),
+      keys: [
+        placeholder,
+        placeholder,
+        placeholder,
+        trader.publicKey,
+        placeholder,
+        placeholder,
+        authority || placeholder,
+        placeholder,
+        placeholder,
+        placeholder,
+        placeholder,
+        placeholder,
+      ].map((pubkey, index) => ({
+        pubkey,
+        isSigner: index === 3,
+        isWritable: index !== 0 && index !== 3 && index !== 5,
+      })),
+      data: vaultCoder.encode('splitTokens', {
+        amount: new BN(1_000_000),
+      }),
     }),
     new TransactionInstruction({
       programId: FUTARCHY_V0_6_PROGRAM_ID,
@@ -103,6 +120,7 @@ test('decision attribution co-signs an exact zero-fee on-chain marker', async ()
   assert.equal(result.trader, core.trader.publicKey.toBase58());
   assert.equal(result.outcome, 'pass');
   assert.equal(result.side, 'buy');
+  assert.equal(result.venue, 'futarchy_amm');
   assert.equal(result.inputAmountRaw, '1000000');
   assert.equal(result.minimumOutputAmountRaw, '9000000');
   assert.equal(result.feeBps, 0);
