@@ -169,6 +169,18 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
+    /\.ft-proposal-focus\.ft-live-market \.ft-chart-market-metric-group\s*\{[\s\S]*?height: 80px;[\s\S]*?grid-template-rows: 38px 42px;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /data-ft-chart-header-group="outcomes"\]\s*\{\s*grid-column: 3;/,
+  );
+  assert.match(
+    sharedTerminalCss,
+    /data-ft-chart-header-group="threshold"\]\s*\{\s*grid-column: 5;/,
+  );
+  assert.match(
+    sharedTerminalCss,
     /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-ownership-market\) \.ft-chart-market-identity::after\s*\{[\s\S]*?top: 20px;[\s\S]*?right: -1px;[\s\S]*?bottom: 20px;[\s\S]*?width: 1px;/,
   );
   assert.match(

@@ -2000,19 +2000,27 @@ function proposalHeaderSignal(market) {
     return { key: 'result', label: 'Result', value: 'Failed', tone: 'negative' };
   }
   if (market?.proposal?.statusGroup === 'live') {
-    const margin = market?.decision?.marginPct;
+    const margin = firstNumber(market?.decision?.marginPct);
+    const threshold = firstNumber(market?.thresholdPct);
+    const passTwap = firstNumber(market?.pass?.twapPrice);
+    const failTwap = firstNumber(market?.fail?.twapPrice);
+    const currentTwapSpreadPct = Number.isFinite(margin) && Number.isFinite(threshold)
+      ? margin + threshold
+      : Number.isFinite(passTwap) && Number.isFinite(failTwap) && failTwap > 0
+        ? ((passTwap / failTwap) - 1) * 100
+        : null;
     const passing = market?.decision?.passing;
     return {
       key: 'pass-signal',
-      label: 'Pass signal',
-      value: formatCompactPercent(margin),
+      label: 'Current TWAP',
+      value: formatCompactPercent(currentTwapSpreadPct),
       tone: passing === true
         ? 'positive'
         : passing === false
           ? 'negative'
           : 'muted',
-      description: Number.isFinite(margin)
-        ? `Current ${passing === true ? 'passing' : 'failing'} margin after the required threshold. This is a decision signal, not a probability.`
+      description: Number.isFinite(currentTwapSpreadPct)
+        ? `Current PASS-versus-FAIL TWAP spread. Required threshold is ${formatCompactPercent(threshold)}. This is a decision signal, not a probability.`
         : 'No current PASS-versus-FAIL TWAP signal is available. Conditional prices do not represent a probability.',
     };
   }
@@ -3188,7 +3196,6 @@ export function mountFutardTerminal({
     const price = firstNumber(latest.underlyingPrice);
     const passPrice = firstNumber(latest.passPrice);
     const failPrice = firstNumber(latest.failPrice);
-    const displayStatus = proposalDisplayStatus(market.proposal);
     const signal = proposalHeaderSignal(market);
     const proposalNumber = market.proposal.number == null
       ? 'Proposal'
@@ -3210,6 +3217,14 @@ export function mountFutardTerminal({
       >
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
+      </div>
+    `;
+    const metricGroup = (key, metrics) => `
+      <div
+        class="ft-chart-market-metric-group"
+        data-ft-chart-header-group="${escapeHtml(key)}"
+      >
+        ${metrics.join('')}
       </div>
     `;
 
@@ -3243,36 +3258,35 @@ export function mountFutardTerminal({
           value: formatChartCurrency(price),
           featured: true,
         })}
-        ${metric({
-          key: 'pass',
-          label: 'Pass',
-          value: formatChartCurrency(passPrice),
-          tone: 'positive',
-        })}
-        ${metric({
-          key: 'fail',
-          label: 'Fail',
-          value: formatChartCurrency(failPrice),
-          tone: 'negative',
-        })}
-        ${metric({
-          key: 'threshold',
-          label: 'Threshold',
-          value: formatCompactPercent(market.thresholdPct),
-          tone: 'warning',
-        })}
-        ${metric({
-          key: 'status',
-          label: 'Status',
-          value: displayStatus.label,
-        })}
-        ${metric({
-          key: signal.key,
-          label: signal.label,
-          value: signal.value,
-          tone: signal.tone,
-          description: signal.description,
-        })}
+        ${metricGroup('outcomes', [
+          metric({
+            key: 'pass',
+            label: 'Pass',
+            value: formatChartCurrency(passPrice),
+            tone: 'positive',
+          }),
+          metric({
+            key: 'fail',
+            label: 'Fail',
+            value: formatChartCurrency(failPrice),
+            tone: 'negative',
+          }),
+        ])}
+        ${metricGroup('threshold', [
+          metric({
+            key: 'threshold',
+            label: 'Threshold',
+            value: formatCompactPercent(market.thresholdPct),
+            tone: 'warning',
+          }),
+          metric({
+            key: signal.key,
+            label: signal.label,
+            value: signal.value,
+            tone: signal.tone,
+            description: signal.description,
+          }),
+        ])}
       </header>
     `;
   }

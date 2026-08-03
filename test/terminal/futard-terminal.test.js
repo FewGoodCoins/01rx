@@ -1464,17 +1464,29 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   assert.doesNotMatch(chartHeader.textContent, /Fund Loyal contributor growth for Q3/);
   assert.equal(chartHeader.querySelector('.ft-chart-market-identity a'), null);
-  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Status', 'Pass signal']) {
+  for (const label of ['Price', 'Pass', 'Fail', 'Threshold', 'Current TWAP']) {
     assert.match(chartHeader.textContent, new RegExp(label));
   }
+  assert.equal(chartHeader.querySelector('[data-ft-chart-header-metric="status"]'), null);
+  const passMetric = chartHeader.querySelector('[data-ft-chart-header-metric="pass"]');
+  const failMetric = chartHeader.querySelector('[data-ft-chart-header-metric="fail"]');
+  assert.equal(passMetric.parentElement.dataset.ftChartHeaderGroup, 'outcomes');
+  assert.equal(failMetric.parentElement, passMetric.parentElement);
+  assert.equal(passMetric.nextElementSibling, failMetric);
   assert.equal(
     chartHeader.querySelector('[data-ft-chart-header-metric="threshold"] strong').textContent,
     '+1.5%',
   );
+  const thresholdMetric = chartHeader.querySelector(
+    '[data-ft-chart-header-metric="threshold"]',
+  );
   const passSignal = chartHeader.querySelector(
     '[data-ft-chart-header-metric="pass-signal"]',
   );
-  assert.equal(passSignal.querySelector('strong').textContent, '+1.63%');
+  assert.equal(thresholdMetric.parentElement.dataset.ftChartHeaderGroup, 'threshold');
+  assert.equal(passSignal.parentElement, thresholdMetric.parentElement);
+  assert.equal(thresholdMetric.nextElementSibling, passSignal);
+  assert.equal(passSignal.querySelector('strong').textContent, '+3.13%');
   assert.equal(passSignal.dataset.tone, 'positive');
   assert.match(passSignal.title, /decision signal, not a probability/);
   assert.doesNotMatch(chartHeader.textContent, /Liquidity/);
@@ -1964,9 +1976,9 @@ test('live trade surfaces refresh without mutating the 01Resolved chart series',
   );
   const passSignal = byRole(root, 'proposal-chart-header')
     .querySelector('[data-ft-chart-header-metric="pass-signal"]');
-  assert.equal(passSignal.querySelector('strong').textContent, '-0.4%');
+  assert.equal(passSignal.querySelector('strong').textContent, '+1.1%');
   assert.equal(passSignal.dataset.tone, 'negative');
-  assert.match(passSignal.title, /Current failing margin/);
+  assert.match(passSignal.title, /Current PASS-versus-FAIL TWAP spread/);
   assert.deepEqual(livePoints, []);
   cleanupMount(mounted);
 });
