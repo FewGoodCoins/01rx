@@ -463,6 +463,62 @@
     }
   }
 
+  /* Live decision pairs use both terminal header rails. Each observation owns
+     a full rectangular cell instead of sharing the compact 38px summary row. */
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group {
+    position: relative;
+    z-index: 4;
+    box-sizing: border-box;
+    height: 80px;
+    min-height: 80px;
+    grid-column: auto;
+    grid-template-rows: 38px 42px;
+    border-right: 1px solid #343636;
+    border-bottom: 1px solid #343636;
+    background: #101010;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group[data-ft-chart-header-group="outcomes"] {
+    grid-column: 3;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group[data-ft-chart-header-group="threshold"] {
+    grid-column: 5;
+    border-left: 1px solid #343636;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group > .ft-chart-market-metric {
+    display: flex;
+    min-height: 0;
+    padding: 2px 8px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group > .ft-chart-market-metric:first-child {
+    border-bottom: 1px solid #343636;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group > .ft-chart-market-metric > strong {
+    text-align: left;
+  }
+
+  /* The paired cells occupy columns three and five in the lower rail. Keep
+     the projection scenario and its controls readable in the open columns. */
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-copy {
+    grid-column: 4 / 5;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-assumption {
+    grid-column: 6 / 8;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-inputs {
+    display: none;
+  }
+
   [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket .ft-outcome-tabs,
   [data-ft-mode="token"].ft-proposal-focus .ft-decision-ticket .ft-outcome-tabs button {
     box-sizing: border-box;
