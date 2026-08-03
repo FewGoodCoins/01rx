@@ -58,6 +58,44 @@ function project(overrides = {}) {
   };
 }
 
+function daoOverview(overrides = {}) {
+  return {
+    data: {
+      imageUrl: 'https://cdn.01resolved.com/solo-dao.png',
+      name: 'Solomon',
+      slug: 'solomon-labs',
+      updatedAt: '2026-08-01T17:58:00.000Z',
+      baseToken: {
+        circulatingSupply: '8264757',
+        name: 'Solomon',
+        priceChangePercentage1h: '-0.5',
+        priceChangePercentage24h: '2.25',
+        priceChangePercentage7d: '8.5',
+        symbol: 'SOLO',
+        totalSupply: '25799968',
+        updatedAt: '2026-08-01T17:59:00.000Z',
+        usdPrice: '0.628927',
+        url: 'https://cdn.01resolved.com/solo-token.png',
+      },
+      ...overrides,
+    },
+  };
+}
+
+function treasuryOverview(overrides = {}) {
+  return {
+    data: {
+      baseMintCurrentPrice: '0.628927',
+      monthOfRunway: '57.66',
+      netAssetValue: '0.697689',
+      spendingLimit: '100000',
+      totalBalance: '5766232.78',
+      updatedAt: '2026-08-01T17:59:30.000Z',
+      ...overrides,
+    },
+  };
+}
+
 test('current NAV is a stable typed client contract with compatibility query flags', async () => {
   assert.equal(getEndpoint('core.currentNav').contract, 'core.current-nav.v1');
   assert.equal(
@@ -131,7 +169,7 @@ test('01Resolved current NAV maps known project slugs without synthesizing missi
   assert.equal(row.navSnapshot.issues[0].code, 'ZERO_ONE_CURRENT_NAV_UNAVAILABLE');
 });
 
-test('01Resolved current NAV loader uses only the official server-authenticated endpoint', async () => {
+test('01Resolved current NAV loader enriches the project index from official DAO contracts', async () => {
   const calls = [];
   const data = await loadZeroOneCurrentNav({
     env: {
@@ -140,25 +178,203 @@ test('01Resolved current NAV loader uses only the official server-authenticated 
     },
     now: () => Date.parse('2026-08-01T18:00:00.000Z'),
     async fetchImpl(url, options) {
-      calls.push({ options, url: String(url) });
-      return new Response(JSON.stringify({ data: [project()] }), {
+      const value = String(url);
+      calls.push({ options, url: value });
+      let body;
+      if (value.includes('/v1/global-dashboard/projects?')) {
+        body = { data: [project({
+          netAssetValue: '999',
+          tokenUsdPrice: '999',
+          treasuryValue: '999',
+        })] };
+      } else if (value.includes('/v1/dao/overview?slug=solomon-labs')) {
+        body = daoOverview();
+      } else if (value.includes('/v1/dao/treasury/overview?slug=solomon-labs')) {
+        body = treasuryOverview();
+      } else {
+        throw new Error(`Unexpected 01Resolved URL: ${value}`);
+      }
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     },
   });
 
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 3);
   assert.equal(
     calls[0].url,
     'https://api.01resolved.com/v1/global-dashboard/projects?limit=100&page=1',
   );
-  assert.equal(calls[0].options.headers['x-api-key'], 'server-secret');
-  assert.equal(calls[0].options.headers.authorization, undefined);
-  assert.equal(calls[0].options.headers.cookie, undefined);
+  assert.deepEqual(
+    new Set(calls.slice(1).map(call => call.url)),
+    new Set([
+      'https://api.01resolved.com/v1/dao/overview?slug=solomon-labs',
+      'https://api.01resolved.com/v1/dao/treasury/overview?slug=solomon-labs',
+    ]),
+  );
+  for (const call of calls) {
+    assert.equal(call.options.headers['x-api-key'], 'server-secret');
+    assert.equal(call.options.headers.authorization, undefined);
+    assert.equal(call.options.headers.cookie, undefined);
+  }
   assert.equal(data.tokens.length, 1);
+  assert.equal(data.tokens[0].spot, 0.628927);
+  assert.equal(data.tokens[0].nav, 0.697689);
+  assert.equal(data.tokens[0].treasuryUSDC, 5766232.78);
+  assert.equal(data.tokens[0].circulatingSupply, 8264757);
+  assert.equal(data.tokens[0].marketCap, 5196588.31);
+  assert.equal(data.tokens[0].fdv, 16227509.52);
+  assert.equal(data.tokens[0].source.endpoint, '/v1/global-dashboard/projects');
+  assert.equal(
+    data.tokens[0].navSnapshot.sources.currentPrice.endpoint,
+    '/v1/dao/overview',
+  );
+  assert.equal(
+    data.tokens[0].navSnapshot.sources.currentNav.endpoint,
+    '/v1/dao/treasury/overview',
+  );
   assert.equal(data.source.provider, '01Resolved');
   assert.equal(JSON.stringify(data).includes('server-secret'), false);
+});
+
+test('01Resolved DAO enrichment fails closed per contract without retaining global values', async () => {
+  const laso = project({
+    organizationName: 'Laso Finance',
+    organizationSlug: 'laso-finance',
+    tokenSymbol: 'LASO',
+  });
+  const data = await loadZeroOneCurrentNav({
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-secret' },
+    now: () => Date.parse('2026-08-01T18:00:00.000Z'),
+    async fetchImpl(url) {
+      const value = String(url);
+      if (value.includes('/v1/global-dashboard/projects?')) {
+        return Response.json({ data: [project(), laso] });
+      }
+      if (value.includes('/v1/dao/overview?slug=solomon-labs')) {
+        return Response.json({ error: 'unavailable' }, { status: 503 });
+      }
+      if (value.includes('/v1/dao/treasury/overview?slug=solomon-labs')) {
+        return Response.json(treasuryOverview({ baseMintCurrentPrice: '0.5' }));
+      }
+      if (value.includes('/v1/dao/overview?slug=laso-finance')) {
+        return Response.json(daoOverview({
+          name: 'Laso Finance',
+          baseToken: {
+            circulatingSupply: '12899945.827518001',
+            symbol: 'LASO',
+            totalSupply: '29999945.827518',
+            updatedAt: '2026-08-01T17:59:00.000Z',
+            usdPrice: '0.1350507756592917',
+          },
+        }));
+      }
+      if (value.includes('/v1/dao/treasury/overview?slug=laso-finance')) {
+        return Response.json({ error: 'unavailable' }, { status: 503 });
+      }
+      throw new Error(`Unexpected 01Resolved URL: ${value}`);
+    },
+  });
+
+  const solo = data.tokens.find(row => row.token === 'solo');
+  assert.equal(solo.spot, 0.5);
+  assert.equal(solo.nav, 0.697689);
+  assert.equal(solo.circulatingSupply, null);
+  assert.equal(solo.navSnapshot.sources.currentPrice.endpoint, '/v1/dao/treasury/overview');
+
+  const lasoRow = data.tokens.find(row => row.token === 'laso');
+  assert.equal(lasoRow.spot, 0.1350507756592917);
+  assert.equal(lasoRow.nav, null);
+  assert.equal(lasoRow.treasuryUSDC, null);
+  assert.equal(lasoRow.currentNavStatus, 'unavailable');
+  assert.equal(lasoRow.navSnapshot.sources.currentNav.endpoint, '/v1/global-dashboard/projects');
+});
+
+test('single-token current NAV reads enrich only the matching project', async () => {
+  const calls = [];
+  const data = await loadZeroOneCurrentNav({
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-secret' },
+    token: 'laso',
+    async fetchImpl(url) {
+      const value = String(url);
+      calls.push(value);
+      if (value.includes('/v1/global-dashboard/projects?')) {
+        return Response.json({ data: [
+          project(),
+          project({
+            organizationName: 'Laso Finance',
+            organizationSlug: 'laso-finance',
+            tokenSymbol: 'LASO',
+          }),
+        ] });
+      }
+      if (value.includes('/v1/dao/overview?slug=laso-finance')) {
+        return Response.json(daoOverview({
+          baseToken: { symbol: 'LASO', usdPrice: '0.13' },
+        }));
+      }
+      if (value.includes('/v1/dao/treasury/overview?slug=laso-finance')) {
+        return Response.json(treasuryOverview({ netAssetValue: '0.09' }));
+      }
+      throw new Error(`Unexpected 01Resolved URL: ${value}`);
+    },
+  });
+
+  assert.equal(calls.length, 3);
+  assert.equal(calls.some(url => url.includes('slug=solomon-labs')), false);
+  assert.equal(data.tokens.length, 1);
+  assert.equal(data.tokens[0].token, 'laso');
+  assert.equal(data.tokens[0].spot, 0.13);
+  assert.equal(data.tokens[0].nav, 0.09);
+});
+
+test('unknown single-token reads return an empty index result for the handler to map to 404', async () => {
+  const calls = [];
+  const data = await loadZeroOneCurrentNav({
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-secret' },
+    token: 'umbra',
+    async fetchImpl(url) {
+      calls.push(String(url));
+      return Response.json({ data: [project()] });
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(data.tokens, []);
+});
+
+test('DAO enrichment bounds concurrent upstream work by project', async () => {
+  let active = 0;
+  let maximumActive = 0;
+  const data = await loadZeroOneCurrentNav({
+    enrichmentConcurrency: 1,
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-secret' },
+    async fetchImpl(url) {
+      const value = String(url);
+      if (value.includes('/v1/global-dashboard/projects?')) {
+        return Response.json({ data: [
+          project({ organizationSlug: 'one', tokenSymbol: 'ONE' }),
+          project({ organizationSlug: 'two', tokenSymbol: 'TWO' }),
+          project({ organizationSlug: 'three', tokenSymbol: 'THREE' }),
+        ] });
+      }
+      const slug = new URL(value).searchParams.get('slug');
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise(resolve => setTimeout(resolve, 5));
+      active -= 1;
+      if (value.includes('/v1/dao/treasury/overview?')) {
+        return Response.json(treasuryOverview());
+      }
+      return Response.json(daoOverview({
+        baseToken: { symbol: slug.toUpperCase(), usdPrice: '1' },
+      }));
+    },
+  });
+
+  assert.equal(data.tokens.length, 3);
+  assert.equal(maximumActive, 2);
 });
 
 test('current NAV handler preserves the all-token and single-token wire formats', async () => {
@@ -169,8 +385,12 @@ test('current NAV handler preserves the all-token and single-token wire formats'
       retrievedAt: '2026-08-01T18:00:00.000Z',
     })],
   };
+  const loadInputs = [];
   const handler = createCurrentNavHandler({
-    loadCurrentNav: async () => data,
+    loadCurrentNav: async (input) => {
+      loadInputs.push(input);
+      return data;
+    },
     logger: { error() {} },
     now: () => Date.parse('2026-08-01T18:00:01.000Z'),
   });
@@ -197,6 +417,7 @@ test('current NAV handler preserves the all-token and single-token wire formats'
   assert.equal(singleResponse.body.data.nav, 0.697689);
   assert.equal(Array.isArray(singleResponse.body.data.tokens), false);
   assert.equal(singleResponse.headers['cache-control'], 'private, no-store');
+  assert.deepEqual(loadInputs, [{ token: '' }, { token: 'solo' }]);
 });
 
 test('current NAV handler rejects unsafe requests and fails closed without 01Resolved', async () => {

@@ -9,9 +9,10 @@ a fallback provider.
 
 | 01RX surface | Source | Contract used by 01RX |
 | --- | --- | --- |
-| Current token price and NAV | 01Resolved | `GET /v1/global-dashboard/projects` through same-origin `/api/current-nav` |
-| Current 1h, 24h, and 7d token changes | 01Resolved | `GET /v1/global-dashboard/projects` |
-| Current market cap, FDV, treasury, supply, runway, and proposal count when published | 01Resolved | `GET /v1/global-dashboard/projects` |
+| Current token price and supply | 01Resolved | `GET /v1/dao/overview?slug={slug}` through same-origin `/api/current-nav` |
+| Current NAV, treasury, spending limit, and runway | 01Resolved | `GET /v1/dao/treasury/overview?slug={slug}` through same-origin `/api/current-nav` |
+| Current 1h, 24h, and 7d token changes | 01Resolved | `GET /v1/dao/overview?slug={slug}` |
+| Project identity, market cap, FDV, and proposal count when published | 01Resolved | `GET /v1/global-dashboard/projects` |
 | Decision-market index and lifecycle | 01Resolved | global decision-market dashboard endpoints |
 | Decision price, PASS, FAIL, PASS TWAP, and FAIL TWAP history | 01Resolved | `GET /v1/proposal/{publicKey}/price-chart` |
 | Observed decision trades and partial history fallback | 01Resolved | `GET /v1/proposal/{publicKey}/orders` |
@@ -36,11 +37,13 @@ program owners, and mint metadata.
 ## Dated deployment check
 
 On 2026-08-02, a GET-only check through the local 01RX preview returned 31
-01Resolved project rows. None of the 31 contained a positive current `spot` or
-`nav` value after normalization. This includes SOLO, UMBRA, META, FUTARDIO,
-LOYAL, and the other published projects. The correct post-cutover behavior is
-therefore to show `—` for those values while retaining the project identity and
-the explicit 01Resolved unavailable status.
+01Resolved project rows. None of the global project rows contained a positive
+current `spot` or `nav` value after normalization. A later contract check found
+that 01Resolved publishes those values through the DAO-specific overview and
+treasury-overview endpoints instead. 01RX now uses the global endpoint only as
+the project index and enriches each row from those DAO-specific contracts.
+Individual DAO failures remain unavailable and are not filled from the stale
+global fields or another provider.
 
 The same check returned two pending decision proposals and one validated live
 market from the deployed public read surface. This is a point-in-time result,
