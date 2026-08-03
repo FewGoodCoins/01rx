@@ -221,6 +221,7 @@ export interface DecisionAttestData {
   readonly side: 'buy' | 'sell';
   readonly trader: string;
   readonly transaction: string;
+  readonly venue: 'futarchy_amm' | 'manifest';
   readonly version: 1;
 }
 

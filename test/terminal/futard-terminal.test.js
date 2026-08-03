@@ -929,7 +929,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(
     chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
       .dataset.ftChartEngine,
-    'tradingview-lightweight',
+    'liveline',
   );
   assert.match(
     chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
@@ -944,6 +944,13 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   const twapProgress = chart.querySelector('[data-ft-role="twap-window-progress"]');
   assert.ok(twapProgress);
   assert.equal(twapProgress.dataset.ftTwapState, 'active');
+  assert.ok(twapProgress.querySelector('[data-ft-role="twap-window-scroll"]'));
+  assert.equal(
+    twapProgress.querySelector('[data-ft-role="twap-window-scroll"]').tabIndex,
+    0,
+  );
+  assert.ok(twapProgress.querySelector('.ft-twap-window-timeline'));
+  assert.ok(twapProgress.querySelector('.ft-twap-window-now'));
   assert.equal(
     twapProgress.querySelector('[data-ft-role="twap-window-percent"]').textContent,
     '50%',
@@ -1879,7 +1886,7 @@ test('proposal transaction feed identifies an interrupted history as incomplete'
   cleanupMount(mounted);
 });
 
-test('live trade surfaces refresh without mutating the 01Resolved chart series', async () => {
+test('live trade surfaces append the latest 01Resolved snapshot without refetching indexed history', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   let activeMarkets = JSON.parse(JSON.stringify(ACTIVE_MARKETS));
   let marketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));
@@ -1979,7 +1986,14 @@ test('live trade surfaces refresh without mutating the 01Resolved chart series',
   assert.equal(passSignal.querySelector('strong').textContent, '+1.1%');
   assert.equal(passSignal.dataset.tone, 'negative');
   assert.match(passSignal.title, /Current PASS-versus-FAIL TWAP spread/);
-  assert.deepEqual(livePoints, []);
+  assert.deepEqual(livePoints, [{
+    asOf: '2026-07-24T12:00:07.000Z',
+    underlyingPrice: 0.1305,
+    passPrice: 0.1555,
+    failPrice: 0.1111,
+    passTwap: 0.1455,
+    failTwap: 0.1211,
+  }]);
   cleanupMount(mounted);
 });
 
@@ -3972,6 +3986,11 @@ test('decision trades simulate and open the wallet from one explicit execute cli
         assert.equal(input.outcome, 'pass');
         assert.equal(input.side, 'buy');
         assert.equal(input.amount, '1');
+        assert.equal(input.manifestBook.canonical, true);
+        assert.equal(
+          input.manifestBook.address,
+          PROPOSAL_MARKET_DATA.books.pass.address,
+        );
         return {
           kind: 'swap',
           transaction: {},

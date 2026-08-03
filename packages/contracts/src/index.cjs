@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTRACT_RELEASE = '2026-07-30';
+const CONTRACT_RELEASE = '2026-08-03';
 const CONTRACT_HEADERS = Object.freeze({
   contract: 'X-01R-Contract',
   release: 'X-01R-Contract-Release',

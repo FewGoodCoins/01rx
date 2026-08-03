@@ -36,8 +36,11 @@
     "bs58": "6.0.0",
     "buffer": "6.0.3",
     "events": "3.3.0",
+    "liveline": "0.0.7",
     "lightweight-charts": "5.1.0",
     "process": "0.11.10",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "rpc-websockets": "9.3.8",
     "util": "0.12.5"
   },
@@ -46,7 +49,7 @@
     "vite": "8.1.4"
   },
   "overrides": {
-    "brace-expansion": "5.0.8",
+    "brace-expansion": "5.0.9",
     "uuid": "11.1.1",
     "@metadaoproject/programs": {
       "bn.js": "5.2.3"

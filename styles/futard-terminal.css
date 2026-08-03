@@ -4486,6 +4486,57 @@ body.is-futard-terminal #token-switch-loader {
   pointer-events: auto;
 }
 
+.ft-hourly-chart-liveline .ft-hourly-live {
+  overflow: hidden;
+}
+
+.ft-liveline-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ft-liveline-root > div:not(.ft-liveline-canvas) {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+}
+
+.ft-liveline-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+.ft-liveline-gap-mask {
+  position: absolute;
+  z-index: 3;
+  top: 54px;
+  bottom: 30px;
+  min-width: 2px;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ft-faint) 9%, var(--market-surface, #101010)) 0 2px,
+      var(--market-surface, #101010) 2px 6px
+    );
+  border-inline: 1px solid color-mix(in srgb, var(--ft-faint) 18%, transparent);
+}
+
+.ft-liveline-phase-band {
+  position: absolute;
+  z-index: 2;
+  top: 54px;
+  bottom: 30px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ft-accent) 5%, transparent);
+}
+
+.ft-liveline-phase-band-post-twap {
+  background: color-mix(in srgb, var(--ft-faint) 6%, transparent);
+}
+
 .ft-hourly-chart-enhanced .ft-hourly-plot-shell.ft-has-twap-progress .ft-hourly-live {
   height: calc(clamp(340px, 32vw, 430px) - 42px);
   min-height: 298px;
@@ -4529,8 +4580,47 @@ body.is-futard-terminal #token-switch-loader {
   text-transform: none;
 }
 
+.ft-twap-window-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+  overscroll-behavior-x: contain;
+  scrollbar-color: rgba(255, 255, 255, 0.36) transparent;
+  scrollbar-width: thin;
+  touch-action: pan-x;
+}
+
+.ft-twap-window-scroll:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--ft-ink) 64%, transparent);
+  outline-offset: 3px;
+}
+
+.ft-twap-window-scroll.ft-is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.ft-twap-window-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.ft-twap-window-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.ft-twap-window-timeline {
+  display: flex;
+  width: max(160%, var(--ft-twap-timeline-width, 720px));
+  min-height: 14px;
+  align-items: center;
+}
+
 .ft-twap-window-track {
   position: relative;
+  width: 100%;
   height: 4px;
   align-self: center;
   border-radius: 2px;
@@ -4543,6 +4633,20 @@ body.is-futard-terminal #token-switch-loader {
   width: var(--ft-twap-progress, 0%);
   border-radius: inherit;
   background: #fff;
+}
+
+.ft-twap-window-now {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: var(--ft-twap-progress, 0%);
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--market-surface, #101010);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.58);
+  transform: translate(-50%, -50%);
 }
 
 .ft-twap-window-pane[data-ft-twap-state="upcoming"] .ft-twap-window-percent {
@@ -7496,6 +7600,7 @@ body.is-token-markets .token-markets-root {
   gap: 12px;
   color: #a2a2a2;
   font-size: 13px;
+  flex-wrap: wrap;
 }
 
 .ft-decision-average strong {
@@ -7503,6 +7608,13 @@ body.is-token-markets .token-markets-root {
   color: #f4f4f4;
   font-size: 18px;
   font-weight: 600;
+}
+
+.ft-decision-average small {
+  flex: 0 0 100%;
+  color: #7f7f7f;
+  font-size: 11px;
+  text-align: right;
 }
 
 .ft-decision-position {

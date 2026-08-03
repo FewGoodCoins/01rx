@@ -1,4 +1,4 @@
-export const CONTRACT_RELEASE = '2026-07-30';
+export const CONTRACT_RELEASE = '2026-08-03';
 export const CONTRACT_HEADERS = Object.freeze({
   contract: 'X-01R-Contract',
   release: 'X-01R-Contract-Release',
