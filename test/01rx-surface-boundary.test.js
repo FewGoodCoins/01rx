@@ -177,11 +177,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /data-ft-chart-header-group="outcomes"\]\s*\{\s*grid-column: 3;/,
-  );
-  assert.match(
-    sharedTerminalCss,
-    /data-ft-chart-header-group="threshold"\]\s*\{\s*grid-column: 5;/,
+    /data-ft-chart-header-group="threshold"\]\s*\{\s*grid-column: 2;/,
   );
   assert.match(
     sharedTerminalCss,
@@ -189,7 +185,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     sharedTerminalCss,
-    /\.ft-proposal-focus:is\(\.ft-live-market, \.ft-ownership-market\) \.ft-chart-market-metric\[data-ft-chart-header-metric="price"\]\s*\{[\s\S]*?height: 80px;[\s\S]*?min-height: 80px;/,
+    /\.ft-proposal-focus\.ft-ownership-market \.ft-chart-market-metric\[data-ft-chart-header-metric="price"\]\s*\{[\s\S]*?height: 80px;[\s\S]*?min-height: 80px;/,
   );
   assert.match(
     sharedTerminalCss,
@@ -421,11 +417,15 @@ test('Liveline is the default decision chart renderer without owning the history
   assert.match(proposalLivelineSource, /proposalHistoryChartObservations/);
   assert.match(proposalLivelineSource, /PROPOSAL_HISTORY_ENGINE = 'liveline'/);
   assert.match(proposalLivelineSource, /data-ft-chart-gap/);
-  assert.match(proposalLivelineSource, /label: ''/);
+  assert.match(proposalLivelineSource, /label: definition\.label/);
   assert.doesNotMatch(proposalLivelineSource, /fetch\(/);
   assert.match(
     frameCss,
-    /\.ft-liveline-root > div:not\(\.ft-liveline-canvas\)\s*\{\s*display: none !important;/,
+    /\.ft-hourly-chart-liveline \.ft-hourly-readout\s*\{\s*display: none;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-liveline-root > div:not\(\.ft-liveline-canvas\)\s*\{[\s\S]*?position: absolute;[\s\S]*?z-index: 4;[\s\S]*?top: 12px;/,
   );
   assert.match(decisionMarketControllerSource, /data-ft-chart-engine="liveline"/);
 });

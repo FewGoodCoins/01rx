@@ -222,9 +222,9 @@
     font-size: 10px;
   }
 
-  /* Price is the second persistent identity cell. Like the title, it spans
-     both header rails; the remaining top and bottom metrics stay independent. */
-  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-metric[data-ft-chart-header-metric="price"] {
+  /* Ownership price is the second persistent identity cell. Proposal price
+     series belong to Liveline and are intentionally absent from this header. */
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-chart-market-metric[data-ft-chart-header-metric="price"] {
     position: relative;
     z-index: 3;
     box-sizing: border-box;
@@ -239,7 +239,7 @@
     background: #101010;
   }
 
-  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-metric[data-ft-chart-header-metric="price"] > span {
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-chart-market-metric[data-ft-chart-header-metric="price"] > span {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -251,7 +251,7 @@
     border: 0;
   }
 
-  [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-ownership-market) .ft-chart-market-metric[data-ft-chart-header-metric="price"] > strong {
+  [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-chart-market-metric[data-ft-chart-header-metric="price"] > strong {
     font-size: clamp(22px, 2vw, 30px);
     font-weight: 560;
     line-height: 1;
@@ -463,8 +463,8 @@
     }
   }
 
-  /* Live decision pairs use both terminal header rails. Each observation owns
-     a full rectangular cell instead of sharing the compact 38px summary row. */
+  /* Live proposal context uses both terminal header rails. Price, PASS, and
+     FAIL are rendered only by Liveline below this header. */
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group {
     position: relative;
     z-index: 4;
@@ -478,13 +478,8 @@
     background: #101010;
   }
 
-  [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group[data-ft-chart-header-group="outcomes"] {
-    grid-column: 3;
-  }
-
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group[data-ft-chart-header-group="threshold"] {
-    grid-column: 5;
-    border-left: 1px solid #343636;
+    grid-column: 2;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-chart-market-metric-group > .ft-chart-market-metric {
@@ -505,14 +500,14 @@
     text-align: left;
   }
 
-  /* The paired cells occupy columns three and five in the lower rail. Keep
-     the projection scenario and its controls readable in the open columns. */
+  /* With Liveline owning the price series, the remaining columns can carry
+     the projection scenario without competing with duplicate quote cells. */
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-copy {
-    grid-column: 4 / 5;
+    grid-column: 3 / 5;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-assumption {
-    grid-column: 6 / 8;
+    grid-column: 5 / 8;
   }
 
   [data-ft-mode="token"].ft-proposal-focus.ft-live-market .ft-decision-pressure-inputs {

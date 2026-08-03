@@ -3418,16 +3418,7 @@ export function mountFutardTerminal({
     `;
   }
 
-  function renderProposalChartHeader(market, history = null) {
-    const latest = Array.isArray(history?.series) && history.series.length
-      ? history.series[history.series.length - 1]
-      : {};
-    // Chart prices and their header values share one source: the latest
-    // 01Resolved history observation. Live Solana account state remains
-    // available to the trade ticket, but is not mixed into the chart surface.
-    const price = firstNumber(latest.underlyingPrice);
-    const passPrice = firstNumber(latest.passPrice);
-    const failPrice = firstNumber(latest.failPrice);
+  function renderProposalChartHeader(market) {
     const signal = proposalHeaderSignal(market);
     const proposalNumber = market.proposal.number == null
       ? 'Proposal'
@@ -3484,26 +3475,6 @@ export function mountFutardTerminal({
             <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber)}</small>
           </div>
         </div>
-        ${metric({
-          key: 'price',
-          label: 'Price',
-          value: formatChartCurrency(price),
-          featured: true,
-        })}
-        ${metricGroup('outcomes', [
-          metric({
-            key: 'pass',
-            label: 'Pass',
-            value: formatChartCurrency(passPrice),
-            tone: 'positive',
-          }),
-          metric({
-            key: 'fail',
-            label: 'Fail',
-            value: formatChartCurrency(failPrice),
-            tone: 'negative',
-          }),
-        ])}
         ${metricGroup('threshold', [
           metric({
             key: 'threshold',
@@ -3523,9 +3494,9 @@ export function mountFutardTerminal({
     `;
   }
 
-  function renderProposalTopSummary(market, history = null) {
+  function renderProposalTopSummary(market) {
     return `
-      ${renderProposalChartHeader(market, history)}
+      ${renderProposalChartHeader(market)}
       ${market?.proposal?.statusGroup === 'live' ? renderDecisionPressure(market) : ''}
     `;
   }
