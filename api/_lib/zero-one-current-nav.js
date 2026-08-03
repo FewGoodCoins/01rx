@@ -1,8 +1,11 @@
 import { resolveZeroOneResolvedApiKey } from './zero-one-api-key.js';
 
 const ZERO_ONE_RESOLVED_ORIGIN = 'https://api.01resolved.com';
-const CURRENT_NAV_PATH = '/v1/global-dashboard/projects';
+const PROJECT_INDEX_PATH = '/v1/global-dashboard/projects';
+const DAO_OVERVIEW_PATH = '/v1/dao/overview';
+const DAO_TREASURY_OVERVIEW_PATH = '/v1/dao/treasury/overview';
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_ENRICHMENT_CONCURRENCY = 8;
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_PROJECT_ROWS = 250;
 const TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -101,6 +104,11 @@ function unwrapPayload(payload) {
   return payload?.data ?? payload;
 }
 
+function payloadObject(payload) {
+  const data = unwrapPayload(payload);
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+}
+
 function projectRows(payload) {
   const data = unwrapPayload(payload);
   if (Array.isArray(data)) return data;
@@ -117,10 +125,10 @@ function projectRows(payload) {
   return [];
 }
 
-async function boundedJson(response) {
+async function boundedJson(response, label = 'current NAV') {
   if (!response.ok || response.status >= 300) {
     throw currentNavServiceError(
-      `01Resolved current NAV returned HTTP ${response.status}`,
+      `01Resolved ${label} returned HTTP ${response.status}`,
       response.status === 404 ? 'UPSTREAM_NOT_FOUND' : 'UPSTREAM_UNAVAILABLE',
     );
   }
@@ -150,6 +158,77 @@ async function boundedJson(response) {
   }
 }
 
+function sourceRecord(endpoint, retrievedAt, observedAt = null) {
+  return Object.freeze({
+    endpoint,
+    observedAt: isoTimestamp(observedAt),
+    provider: '01Resolved',
+    retrievedAt,
+    scope: 'current-nav',
+  });
+}
+
+function clearDaoSnapshotFields(row) {
+  return {
+    ...row,
+    netAssetValue: null,
+    runway: null,
+    spendingLimit: null,
+    tokenCirculatingSupply: null,
+    tokenPriceChangePercentage1h: null,
+    tokenPriceChangePercentage24h: null,
+    tokenPriceChangePercentage7d: null,
+    tokenTotalSupply: null,
+    tokenUsdPrice: null,
+    treasuryValue: null,
+  };
+}
+
+function enrichProjectRow(row, daoOverview, treasuryOverview) {
+  const enriched = clearDaoSnapshotFields(row);
+  const baseToken = daoOverview?.baseToken;
+
+  if (baseToken && typeof baseToken === 'object') {
+    enriched.organizationImageUrl = baseToken.url || daoOverview.imageUrl || row.organizationImageUrl;
+    enriched.organizationName = daoOverview.name || baseToken.name || row.organizationName;
+    enriched.tokenSymbol = baseToken.symbol || row.tokenSymbol;
+    enriched.tokenUsdPrice = baseToken.usdPrice;
+    enriched.tokenPriceChangePercentage1h = baseToken.priceChangePercentage1h;
+    enriched.tokenPriceChangePercentage24h = baseToken.priceChangePercentage24h;
+    enriched.tokenPriceChangePercentage7d = baseToken.priceChangePercentage7d;
+    enriched.tokenCirculatingSupply = baseToken.circulatingSupply;
+    enriched.tokenTotalSupply = baseToken.totalSupply;
+    enriched.updatedAt = baseToken.updatedAt || daoOverview.updatedAt || row.updatedAt;
+  }
+
+  if (treasuryOverview) {
+    enriched.netAssetValue = treasuryOverview.netAssetValue;
+    enriched.treasuryValue = treasuryOverview.totalBalance;
+    enriched.spendingLimit = treasuryOverview.spendingLimit;
+    enriched.runway = treasuryOverview.monthOfRunway;
+    if (enriched.tokenUsdPrice == null || enriched.tokenUsdPrice === '') {
+      enriched.tokenUsdPrice = treasuryOverview.baseMintCurrentPrice;
+    }
+  }
+
+  return enriched;
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.min(items.length, Math.max(1, concurrency));
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export function normalizeZeroOneCurrentNavRow(row, options = {}) {
   if (!row || typeof row !== 'object') return null;
   const token = tokenFromProject(row);
@@ -163,7 +242,13 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
       || row.timestamp
       || options.observedAt,
   );
-  const snapshotTime = observedAt || retrievedAt;
+  const projectObservedAt = options.projectObservedAt
+    ? isoTimestamp(options.projectObservedAt)
+    : observedAt;
+  const navObservedAt = options.navSource
+    ? isoTimestamp(options.navSource.observedAt)
+    : observedAt;
+  const snapshotTime = navObservedAt || retrievedAt;
   const ticker = safeText(row.tokenSymbol || row.ticker || token, 32)
     .replace(/^\$+/, '')
     .toUpperCase();
@@ -186,12 +271,21 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
     ? Math.max(0, totalSupply - circulatingSupply)
     : null;
   const navAvailable = nav != null && nav > 0;
+  const projectIndexSource = sourceRecord(PROJECT_INDEX_PATH, retrievedAt, projectObservedAt);
+  const priceSource = options.priceSource
+    ? sourceRecord(options.priceSource.endpoint, retrievedAt, options.priceSource.observedAt)
+    : projectIndexSource;
+  const navSource = options.navSource
+    ? sourceRecord(options.navSource.endpoint, retrievedAt, options.navSource.observedAt)
+    : projectIndexSource;
+  const endpoints = [...new Set([
+    PROJECT_INDEX_PATH,
+    priceSource.endpoint,
+    navSource.endpoint,
+  ])];
   const source = Object.freeze({
-    endpoint: CURRENT_NAV_PATH,
-    observedAt,
-    provider: '01Resolved',
-    retrievedAt,
-    scope: 'current-nav',
+    ...projectIndexSource,
+    endpoints: Object.freeze(endpoints),
   });
   const navSnapshot = {
     formulaVersion: '01resolved-current-nav-v1',
@@ -205,8 +299,12 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
       spot,
     },
     navPerToken: nav,
-    source,
-    sources: { currentNav: source },
+    source: navSource,
+    sources: {
+      currentNav: navSource,
+      currentPrice: priceSource,
+      projectIndex: projectIndexSource,
+    },
     status: navAvailable ? 'verified' : 'unverified',
     statusLabel: navAvailable
       ? '01Resolved current NAV'
@@ -283,43 +381,102 @@ export async function loadZeroOneCurrentNav(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const now = options.now || (() => Date.now());
   const retrievedAt = new Date(now()).toISOString();
-  const url = new URL(CURRENT_NAV_PATH, ZERO_ONE_RESOLVED_ORIGIN);
+  const url = new URL(PROJECT_INDEX_PATH, ZERO_ONE_RESOLVED_ORIGIN);
   url.searchParams.set('limit', '100');
   url.searchParams.set('page', '1');
 
-  let response;
-  try {
-    response = await fetchImpl(url, {
-      headers: {
-        Accept: 'application/json',
-        'user-agent': '01rx-current-nav/1.0',
-        'x-api-key': apiKey,
-      },
-      method: 'GET',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_TIMEOUT_MS),
-    });
-  } catch (cause) {
-    throw currentNavServiceError(
-      '01Resolved current NAV did not respond',
-      'UPSTREAM_TIMEOUT',
-      504,
-      cause,
-    );
-  }
-  if (response.status >= 300 && response.status < 400) {
-    throw currentNavServiceError(
-      '01Resolved current NAV redirect was rejected',
-      'UPSTREAM_REDIRECT_REJECTED',
-    );
-  }
-  const payload = await boundedJson(response);
-  const tokens = projectRows(payload)
+  const requestJson = async (requestUrl, label) => {
+    let response;
+    try {
+      response = await fetchImpl(requestUrl, {
+        headers: {
+          Accept: 'application/json',
+          'user-agent': '01rx-current-nav/1.0',
+          'x-api-key': apiKey,
+        },
+        method: 'GET',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_TIMEOUT_MS),
+      });
+    } catch (cause) {
+      throw currentNavServiceError(
+        `01Resolved ${label} did not respond`,
+        'UPSTREAM_TIMEOUT',
+        504,
+        cause,
+      );
+    }
+    if (response.status >= 300 && response.status < 400) {
+      throw currentNavServiceError(
+        `01Resolved ${label} redirect was rejected`,
+        'UPSTREAM_REDIRECT_REJECTED',
+      );
+    }
+    return boundedJson(response, label);
+  };
+
+  const payload = await requestJson(url, 'project index');
+  const requestedToken = safeToken(options.token);
+  const indexedRows = projectRows(payload)
     .slice(0, MAX_PROJECT_ROWS)
-    .map(row => normalizeZeroOneCurrentNavRow(row, { retrievedAt }))
+    .filter(row => !requestedToken || tokenFromProject(row) === requestedToken);
+  const concurrency = Number.isInteger(options.enrichmentConcurrency)
+    ? options.enrichmentConcurrency
+    : DEFAULT_ENRICHMENT_CONCURRENCY;
+  const enrichedRows = await mapWithConcurrency(indexedRows, concurrency, async (row) => {
+    const slug = safeToken(row?.organizationSlug || row?.projectSlug || row?.slug);
+    if (!slug) return normalizeZeroOneCurrentNavRow(clearDaoSnapshotFields(row), { retrievedAt });
+
+    const overviewUrl = new URL(DAO_OVERVIEW_PATH, ZERO_ONE_RESOLVED_ORIGIN);
+    overviewUrl.searchParams.set('slug', slug);
+    const treasuryUrl = new URL(DAO_TREASURY_OVERVIEW_PATH, ZERO_ONE_RESOLVED_ORIGIN);
+    treasuryUrl.searchParams.set('slug', slug);
+    const [overviewResult, treasuryResult] = await Promise.allSettled([
+      requestJson(overviewUrl, 'DAO overview'),
+      requestJson(treasuryUrl, 'DAO treasury overview'),
+    ]);
+    const daoOverview = overviewResult.status === 'fulfilled'
+      ? payloadObject(overviewResult.value)
+      : null;
+    const treasuryOverview = treasuryResult.status === 'fulfilled'
+      ? payloadObject(treasuryResult.value)
+      : null;
+    const baseToken = daoOverview?.baseToken;
+    const priceSource = baseToken
+      ? {
+        endpoint: DAO_OVERVIEW_PATH,
+        observedAt: baseToken.updatedAt || daoOverview.updatedAt,
+      }
+      : (treasuryOverview?.baseMintCurrentPrice != null ? {
+        endpoint: DAO_TREASURY_OVERVIEW_PATH,
+        observedAt: treasuryOverview.updatedAt
+          || treasuryOverview.asOf
+          || treasuryOverview.timestamp,
+      } : null);
+    return normalizeZeroOneCurrentNavRow(
+      enrichProjectRow(row, daoOverview, treasuryOverview),
+      {
+        projectObservedAt: row.updatedAt
+          || row.lastUpdatedAt
+          || row.asOf
+          || row.timestamp,
+        retrievedAt,
+        ...(priceSource ? { priceSource } : {}),
+        ...(treasuryOverview ? {
+          navSource: {
+            endpoint: DAO_TREASURY_OVERVIEW_PATH,
+            observedAt: treasuryOverview.updatedAt
+              || treasuryOverview.asOf
+              || treasuryOverview.timestamp,
+          },
+        } : {}),
+      },
+    );
+  });
+  const tokens = enrichedRows
     .filter(Boolean)
     .sort((left, right) => left.token.localeCompare(right.token));
-  if (!tokens.length) {
+  if (!tokens.length && !requestedToken) {
     throw currentNavServiceError(
       '01Resolved returned no current NAV projects',
       'UPSTREAM_EMPTY',
@@ -331,7 +488,12 @@ export async function loadZeroOneCurrentNav(options = {}) {
     publicationGateApplied: false,
     preview: false,
     source: {
-      endpoint: CURRENT_NAV_PATH,
+      endpoint: PROJECT_INDEX_PATH,
+      endpoints: [
+        PROJECT_INDEX_PATH,
+        DAO_OVERVIEW_PATH,
+        DAO_TREASURY_OVERVIEW_PATH,
+      ],
       provider: '01Resolved',
       retrievedAt,
       scope: 'current-nav',

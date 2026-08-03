@@ -116,10 +116,11 @@ export function createCurrentNavHandler(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const logger = options.logger || console;
   const now = options.now || (() => Date.now());
-  const load = options.loadCurrentNav || (() => loadZeroOneCurrentNav({
+  const load = options.loadCurrentNav || ((input = {}) => loadZeroOneCurrentNav({
     env,
     fetchImpl,
     now,
+    token: input.token,
     timeoutMs: options.timeoutMs,
   }));
 
@@ -164,7 +165,7 @@ export function createCurrentNavHandler(options = {}) {
     }
 
     try {
-      const data = await load();
+      const data = await load({ token: input.token });
       const selected = input.token
         ? data.tokens.find(row => row.token === input.token)
         : null;
