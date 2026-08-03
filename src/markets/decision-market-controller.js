@@ -535,6 +535,8 @@ function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
   if (!windowProgress) return '';
   const progressPercent = windowProgress.progress * 100;
   const progressLabel = `${windowProgress.percent}%`;
+  const durationHours = (windowProgress.closedAt - windowProgress.openedAt) / 3_600_000;
+  const timelineWidth = Math.min(3_200, Math.max(720, Math.round(durationHours * 36)));
   return `
     <section
       class="ft-twap-window-pane"
@@ -547,15 +549,28 @@ function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
     >
       <span class="ft-twap-window-title">TWAP window</span>
       <div
-        class="ft-twap-window-track"
-        data-ft-role="twap-window-track"
-        role="progressbar"
-        aria-label="TWAP window progress"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-valuenow="${windowProgress.percent}"
+        class="ft-twap-window-scroll"
+        data-ft-role="twap-window-scroll"
+        tabindex="0"
+        aria-label="Scrollable TWAP window timeline, ${progressLabel} complete"
       >
-        <span class="ft-twap-window-fill" aria-hidden="true"></span>
+        <div
+          class="ft-twap-window-timeline"
+          style="--ft-twap-timeline-width: ${timelineWidth}px"
+        >
+          <div
+            class="ft-twap-window-track"
+            data-ft-role="twap-window-track"
+            role="progressbar"
+            aria-label="TWAP window progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="${windowProgress.percent}"
+          >
+            <span class="ft-twap-window-fill" aria-hidden="true"></span>
+            <span class="ft-twap-window-now" aria-hidden="true"></span>
+          </div>
+        </div>
       </div>
       <strong class="ft-twap-window-percent" data-ft-role="twap-window-percent">${progressLabel}</strong>
     </section>
@@ -579,6 +594,76 @@ function updateTwapWindowProgress(root, now = Date.now()) {
   if (percent) percent.textContent = progressLabel;
   const track = pane.querySelector('[data-ft-role="twap-window-track"]');
   track?.setAttribute('aria-valuenow', String(windowProgress.percent));
+  const scroll = pane.querySelector('[data-ft-role="twap-window-scroll"]');
+  scroll?.setAttribute(
+    'aria-label',
+    `Scrollable TWAP window timeline, ${progressLabel} complete`,
+  );
+}
+
+function mountTwapWindowScroller(root, runtime) {
+  const scroll = root?.querySelector?.('[data-ft-role="twap-window-scroll"]');
+  if (!scroll) return () => {};
+  let pointerId = null;
+  let pointerStart = 0;
+  let scrollStart = 0;
+
+  const centerProgress = () => {
+    const pane = scroll.closest('[data-ft-role="twap-window-progress"]');
+    const progress = Math.min(1, Math.max(0, Number.parseFloat(
+      pane?.style?.getPropertyValue('--ft-twap-progress') || '0',
+    ) / 100));
+    const maximum = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+    const target = Math.min(maximum, Math.max(0,
+      progress * scroll.scrollWidth - scroll.clientWidth / 2,
+    ));
+    if (typeof scroll.scrollTo === 'function') scroll.scrollTo({ left: target });
+    else scroll.scrollLeft = target;
+  };
+  const onPointerDown = (event) => {
+    if (event.button !== 0 || scroll.scrollWidth <= scroll.clientWidth) return;
+    pointerId = event.pointerId;
+    pointerStart = event.clientX;
+    scrollStart = scroll.scrollLeft;
+    scroll.classList.add('ft-is-dragging');
+    scroll.setPointerCapture?.(pointerId);
+  };
+  const onPointerMove = (event) => {
+    if (pointerId == null || event.pointerId !== pointerId) return;
+    scroll.scrollLeft = scrollStart - (event.clientX - pointerStart);
+  };
+  const endPointer = (event) => {
+    if (pointerId == null || (event.pointerId != null && event.pointerId !== pointerId)) return;
+    scroll.releasePointerCapture?.(pointerId);
+    pointerId = null;
+    scroll.classList.remove('ft-is-dragging');
+  };
+  const onWheel = (event) => {
+    if (scroll.scrollWidth <= scroll.clientWidth) return;
+    const delta = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+      ? event.deltaX
+      : event.deltaY;
+    if (!delta) return;
+    scroll.scrollLeft += delta;
+    event.preventDefault();
+  };
+  scroll.addEventListener('pointerdown', onPointerDown);
+  scroll.addEventListener('pointermove', onPointerMove);
+  scroll.addEventListener('pointerup', endPointer);
+  scroll.addEventListener('pointercancel', endPointer);
+  scroll.addEventListener('wheel', onWheel, { passive: false });
+  if (typeof runtime.requestAnimationFrame === 'function') {
+    runtime.requestAnimationFrame(centerProgress);
+  } else {
+    centerProgress();
+  }
+  return () => {
+    scroll.removeEventListener('pointerdown', onPointerDown);
+    scroll.removeEventListener('pointermove', onPointerMove);
+    scroll.removeEventListener('pointerup', endPointer);
+    scroll.removeEventListener('pointercancel', endPointer);
+    scroll.removeEventListener('wheel', onWheel);
+  };
 }
 
 function normalizeProposalOutcome(...values) {
@@ -1265,9 +1350,9 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
         <div
           class="ft-hourly-live"
           data-ft-role="proposal-history-tradingview"
-          data-ft-chart-engine="tradingview-lightweight"
+          data-ft-chart-engine="liveline"
           role="img"
-          aria-label="Interactive TradingView chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A subtle background change separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The chart retains the complete indexed window without drawing a boundary line.' : ''} Drag to pan, use the mouse wheel or pinch to zoom, and hover to inspect exact values."
+          aria-label="Interactive Liveline chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A subtle background change separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The chart retains the complete indexed window without drawing a boundary line.' : ''} Hover or drag across the chart to inspect exact values."
         ></div>
         ${renderProposalDetailsPanel(proposal, proposalDetailsOpen)}
         ${twapWindow}
@@ -3087,7 +3172,11 @@ export function mountFutardTerminal({
     });
   }
 
+  let twapScrollerCleanup = null;
+
   function destroyHourlyChart() {
+    twapScrollerCleanup?.();
+    twapScrollerCleanup = null;
     if (!state.historyChart) return;
     try {
       state.historyChart.destroy?.();
@@ -3155,6 +3244,8 @@ export function mountFutardTerminal({
         showHourlyChartMountError(chartRoot);
         return;
       }
+      twapScrollerCleanup?.();
+      twapScrollerCleanup = mountTwapWindowScroller(chartRoot, runtime);
       chartRoot?.classList.remove('ft-hourly-chart-pending', 'ft-hourly-chart-failed');
       if (chartRoot) {
         chartRoot.dataset.ftChartState = 'ready';
@@ -7125,6 +7216,14 @@ export function mountFutardTerminal({
 
       const refreshedMarket = selectedMarket();
       if (!refreshedMarket || refreshedMarket.id !== market.id) return null;
+      state.historyChart?.updateLivePoint?.({
+        asOf: snapshot.asOf || new Date().toISOString(),
+        underlyingPrice: refreshedMarket.spot.price,
+        passPrice: refreshedMarket.pass.price,
+        failPrice: refreshedMarket.fail.price,
+        passTwap: refreshedMarket.pass.twapPrice,
+        failTwap: refreshedMarket.fail.twapPrice,
+      });
       await loadProposalMarketData(refreshedMarket, {
         force: true,
         preserveChart: true,

@@ -5,7 +5,7 @@ import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';
 import { isFutarchyTerminalPath } from '../core/page-entry.js';
 import { mountFutardTerminal } from '../markets/decision-market-controller.js';
-import { createProposalHistoryChart } from '../markets/proposal-history-chart.js';
+import { createProposalHistoryChart } from '../markets/proposal-history-liveline.js';
 
 export const pageKind = 'home';
 

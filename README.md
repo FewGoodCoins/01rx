@@ -19,7 +19,8 @@ The migrated application includes:
 
 - ownership-token price, NAV, treasury, supply, and projected-NAV charts;
 - searchable ownership-token and live-decision market navigation;
-- public PASS/FAIL history at its native 15-minute cadence;
+- Liveline-rendered public PASS/FAIL history at its native 15-minute cadence;
+- a horizontally scrollable TWAP-window progress timeline;
 - wallet-standard discovery and explicit transaction review;
 - PASS/FAIL AMM and Manifest order planning;
 - guarded DFlow ownership-token market orders;
@@ -113,9 +114,12 @@ for its scope and the upgrade policy.
 - aligned premium/discount regions;
 - interpolated values for crosshair hover.
 
-Lightweight Charts currently renders decision history and the fallback
-ownership-token chart. The optional Advanced Charts adapter consumes the same
-01RX data model when an approved library is configured.
+Liveline is the default decision-history renderer. Its adapter consumes the
+same normalized proposal-history model, masks incomplete intervals rather than
+smoothing through them, and falls back to Lightweight Charts for data too
+sparse for a multi-series live canvas. Lightweight Charts also remains the
+fallback ownership-token renderer. The optional Advanced Charts adapter
+consumes the same 01RX data model when an approved library is configured.
 
 Projected NAV is illustrative. It assumes the latest effective supply stays
 constant and deducts the configured monthly allowance from the latest observed

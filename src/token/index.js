@@ -110,7 +110,7 @@ export async function loadLegacyPage({ loadClassicScript }) {
     { createProposalHistoryChart },
   ] = await Promise.all([
     import('../markets/decision-market-controller.js'),
-    import('../markets/proposal-history-chart.js'),
+    import('../markets/proposal-history-liveline.js'),
   ]);
   root.hidden = false;
   window.NAVGATOR.marketWorkspace?.destroy?.();

@@ -24,6 +24,10 @@ const proposalChartSource = fs.readFileSync(
   new URL('../src/markets/proposal-history-chart.js', import.meta.url),
   'utf8',
 );
+const proposalLivelineSource = fs.readFileSync(
+  new URL('../src/markets/proposal-history-liveline.js', import.meta.url),
+  'utf8',
+);
 const appCoreSource = fs.readFileSync(
   new URL('../src/legacy/app-core.js', import.meta.url),
   'utf8',
@@ -369,7 +373,7 @@ test('decision charts render without a token or PASS/FAIL backdrop', () => {
   assert.doesNotMatch(proposalChartSource, /createPriceLine/);
 });
 
-test('decision charts reserve a compact lower pane for TWAP window progress', () => {
+test('decision charts reserve a compact, scrollable lower pane for TWAP window progress', () => {
   assert.match(
     frameCss,
     /\.ft-twap-window-pane\s*\{[\s\S]*?height: 42px;[\s\S]*?grid-template-columns: max-content minmax\(0, 1fr\) max-content;/,
@@ -382,6 +386,15 @@ test('decision charts reserve a compact lower pane for TWAP window progress', ()
     frameCss,
     /\.ft-twap-window-percent\s*\{[\s\S]*?color: #fff;/,
   );
+  assert.match(
+    frameCss,
+    /\.ft-twap-window-scroll\s*\{[\s\S]*?overflow-x: auto;[\s\S]*?touch-action: pan-x;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-twap-window-timeline\s*\{[\s\S]*?width: max\(160%, var\(--ft-twap-timeline-width, 720px\)\);/,
+  );
+  assert.match(decisionMarketControllerSource, /mountTwapWindowScroller/);
   assert.doesNotMatch(decisionMarketControllerSource, /ft-twap-window-marker/);
   assert.doesNotMatch(frameCss, /\.ft-twap-window-marker\s*\{/);
   assert.doesNotMatch(decisionMarketControllerSource, /ft-twap-window-bounds/);
@@ -401,6 +414,15 @@ test('decision charts reserve a compact lower pane for TWAP window progress', ()
     frameCss,
     /\.ft-hourly-plot-shell\.ft-has-twap-progress \.ft-hourly-live\s*\{\s*height: calc\(100% - 42px\);/,
   );
+});
+
+test('Liveline is the default decision chart renderer without owning the history model', () => {
+  assert.match(proposalLivelineSource, /from 'liveline'/);
+  assert.match(proposalLivelineSource, /proposalHistoryChartObservations/);
+  assert.match(proposalLivelineSource, /PROPOSAL_HISTORY_ENGINE = 'liveline'/);
+  assert.match(proposalLivelineSource, /data-ft-chart-gap/);
+  assert.doesNotMatch(proposalLivelineSource, /fetch\(/);
+  assert.match(decisionMarketControllerSource, /data-ft-chart-engine="liveline"/);
 });
 
 test('decision chart plot starts without the exposed toolbar divider', () => {

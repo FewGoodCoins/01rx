@@ -234,6 +234,8 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.doesNotMatch(homeEntry, /token-page|token\/(?:chart-data|nav-model|proposal-model|token-controller)/);
   assert.match(tokenEntry, /token-page\.js\?url/);
   assert.match(tokenEntry, /import\('lightweight-charts'\)/);
+  assert.match(tokenEntry, /proposal-history-liveline\.js/);
+  assert.match(homeEntry, /proposal-history-liveline\.js/);
   assert.doesNotMatch(document, /unpkg\.com\/lightweight-charts/);
   assert.match(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.match(tokenEntry, /\.\.\/markets\/decision-market-controller\.js/);
