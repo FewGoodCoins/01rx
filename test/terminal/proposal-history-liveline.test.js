@@ -83,3 +83,38 @@ test('Liveline gap masks include absent intervals and cadence breaks', async () 
   assert.ok(gaps.length >= 1);
   assert.ok(gaps.some(range => range.to - range.from >= 60 * 60));
 });
+
+test('Liveline ignores missing values from a series too sparse to render', async () => {
+  const { proposalLivelineDataset } = await loadLivelineAdapter();
+  const sparseTwapHistory = {
+    interval: '1h',
+    series: HISTORY.series.slice(0, 3).map((point, index) => ({
+      ...point,
+      passPrice: 1.1 + index * 0.01,
+      passTwap: index === 1 ? 1.105 : null,
+      failTwap: null,
+    })),
+  };
+  const dataset = proposalLivelineDataset(sparseTwapHistory, {
+    nowSeconds: Date.parse('2026-08-03T14:00:00.000Z') / 1_000,
+  });
+
+  assert.deepEqual(dataset.series.map(series => series.id), ['price', 'pass', 'fail']);
+  assert.deepEqual(dataset.gapRanges, []);
+});
+
+test('resolved Liveline playback leaves interpolation headroom', async () => {
+  const { proposalLivelinePlaybackOptions } = await loadLivelineAdapter();
+
+  assert.deepEqual(proposalLivelinePlaybackOptions(true), {
+    lerpSpeed: 0.08,
+    paused: false,
+    pulse: true,
+  });
+  assert.deepEqual(proposalLivelinePlaybackOptions(false), {
+    lerpSpeed: 0.75,
+    paused: true,
+    pulse: false,
+  });
+  assert.ok(proposalLivelinePlaybackOptions(false).lerpSpeed <= 0.8);
+});

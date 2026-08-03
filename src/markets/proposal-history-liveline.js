@@ -16,6 +16,10 @@ const RANGE_SECONDS = Object.freeze({
   '48h': 48 * 60 * 60,
 });
 const WINDOW_BUFFER_RATIO = 1.08;
+const LIVE_LERP_SPEED = 0.08;
+// Liveline adds up to 0.2 of adaptive easing internally. Leave enough
+// headroom to keep the effective coefficient at or below 1.
+const RESOLVED_LERP_SPEED = 0.75;
 
 export const PROPOSAL_HISTORY_ENGINE = 'liveline';
 export const PROPOSAL_LIVELINE_SERIES = Object.freeze([
@@ -55,6 +59,14 @@ export const PROPOSAL_LIVELINE_SERIES = Object.freeze([
     fallbackColor: '#ff6f7d',
   },
 ]);
+
+export function proposalLivelinePlaybackOptions(isLive) {
+  return {
+    lerpSpeed: isLive ? LIVE_LERP_SPEED : RESOLVED_LERP_SPEED,
+    paused: !isLive,
+    pulse: Boolean(isLive),
+  };
+}
 
 function intervalSeconds(value) {
   return INTERVAL_SECONDS[String(value || '').trim().toLowerCase()]
@@ -190,7 +202,7 @@ export function proposalLivelineDataset(history, options = {}) {
     windowSeconds,
     gapRanges: proposalLivelineGapRanges(
       observations,
-      definitions.map(definition => definition.field),
+      series.map(definition => definition.field),
       history?.interval,
     ),
   };
@@ -301,6 +313,7 @@ export function createProposalHistoryChart(options = {}) {
   function render() {
     const prepared = dataset();
     if (!prepared?.series?.length) return;
+    const playback = proposalLivelinePlaybackOptions(isLive);
     const series = prepared.series.map(definition => ({
       id: definition.id,
       data: definition.data,
@@ -328,11 +341,11 @@ export function createProposalHistoryChart(options = {}) {
         formatTime: value => formatUtcTime(value - prepared.timeOffset),
         formatValue: formatPrice,
         grid: true,
-        lerpSpeed: isLive ? 0.08 : 1,
+        lerpSpeed: playback.lerpSpeed,
         momentum: false,
         padding: { top: 54, right: 72, bottom: 30, left: 12 },
-        paused: !isLive,
-        pulse: isLive,
+        paused: playback.paused,
+        pulse: playback.pulse,
         scrub: true,
         series,
         seriesToggleCompact: true,
