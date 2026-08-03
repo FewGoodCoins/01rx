@@ -824,6 +824,7 @@ test.afterEach(() => {
 test('15-minute history normalization preserves missing series and chart gaps', async () => {
   const {
     normalizeProposalHistoryPayload,
+    proposalTwapWindowInitialScrollLeft,
     proposalTwapWindowProgress,
     proposalHistoryPhase,
     renderHourlyPriceChart,
@@ -985,6 +986,14 @@ test('15-minute history normalization preserves missing series and chart gaps', 
       Date.parse('2026-06-16T11:00:00.000Z'),
     ),
     null,
+  );
+  assert.equal(
+    proposalTwapWindowInitialScrollLeft(1, 'complete', 1_727, 339),
+    0,
+  );
+  assert.equal(
+    proposalTwapWindowInitialScrollLeft(0.5, 'active', 1_727, 339),
+    694,
   );
   assert.equal(chart.querySelector('.ft-hourly-values'), null);
   assert.equal(chart.querySelector('[data-ft-role="pre-twap-definition"]'), null);
@@ -3635,6 +3644,39 @@ test('interactive history chart controls update and clean up an injected chart a
     root.querySelector('.ft-chart-crosshair-tool').getAttribute('aria-pressed'),
     'true',
   );
+
+  const twapScroll = root.querySelector('[data-ft-role="twap-window-scroll"]');
+  assert.ok(twapScroll);
+  Object.defineProperties(twapScroll, {
+    clientWidth: { configurable: true, value: 300 },
+    scrollWidth: { configurable: true, value: 900 },
+  });
+  twapScroll.scrollLeft = 0;
+  const wheelForward = new window.WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    deltaY: 120,
+  });
+  twapScroll.dispatchEvent(wheelForward);
+  assert.equal(twapScroll.scrollLeft, 120);
+  assert.equal(wheelForward.defaultPrevented, true);
+  twapScroll.scrollLeft = 600;
+  const wheelAtEnd = new window.WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    deltaY: 120,
+  });
+  twapScroll.dispatchEvent(wheelAtEnd);
+  assert.equal(twapScroll.scrollLeft, 600);
+  assert.equal(wheelAtEnd.defaultPrevented, false);
+  const keyboardBack = new window.KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    key: 'ArrowLeft',
+  });
+  twapScroll.dispatchEvent(keyboardBack);
+  assert.ok(twapScroll.scrollLeft < 600);
+  assert.equal(keyboardBack.defaultPrevented, true);
 
   const proposalDetailsButton = byAction(root, 'toggle-proposal-details');
   const proposalDetails = byRole(root, 'proposal-details');

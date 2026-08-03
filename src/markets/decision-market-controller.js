@@ -530,6 +530,22 @@ export function proposalTwapWindowProgress(preTwap, windowEndedAt, now = Date.no
   };
 }
 
+export function proposalTwapWindowInitialScrollLeft(
+  progress,
+  state,
+  scrollWidth,
+  clientWidth,
+) {
+  const contentWidth = Math.max(0, Number(scrollWidth) || 0);
+  const viewportWidth = Math.max(0, Number(clientWidth) || 0);
+  const maximum = Math.max(0, contentWidth - viewportWidth);
+  if (state !== 'active') return 0;
+  const boundedProgress = Math.min(1, Math.max(0, Number(progress) || 0));
+  return Math.min(maximum, Math.max(0,
+    boundedProgress * contentWidth - viewportWidth / 2,
+  ));
+}
+
 function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
   const windowProgress = proposalTwapWindowProgress(preTwap, windowEndedAt, now);
   if (!windowProgress) return '';
@@ -553,6 +569,7 @@ function twapWindowProgressMarkup(preTwap, windowEndedAt, now = Date.now()) {
         data-ft-role="twap-window-scroll"
         tabindex="0"
         aria-label="Scrollable TWAP window timeline, ${progressLabel} complete"
+        title="Scroll, drag, or use arrow keys to inspect the TWAP window"
       >
         <div
           class="ft-twap-window-timeline"
@@ -608,15 +625,24 @@ function mountTwapWindowScroller(root, runtime) {
   let pointerStart = 0;
   let scrollStart = 0;
 
+  const setScrollLeft = (nextLeft) => {
+    const maximum = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+    const previous = scroll.scrollLeft;
+    scroll.scrollLeft = Math.min(maximum, Math.max(0, nextLeft));
+    return scroll.scrollLeft !== previous;
+  };
+
   const centerProgress = () => {
     const pane = scroll.closest('[data-ft-role="twap-window-progress"]');
     const progress = Math.min(1, Math.max(0, Number.parseFloat(
       pane?.style?.getPropertyValue('--ft-twap-progress') || '0',
     ) / 100));
-    const maximum = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
-    const target = Math.min(maximum, Math.max(0,
-      progress * scroll.scrollWidth - scroll.clientWidth / 2,
-    ));
+    const target = proposalTwapWindowInitialScrollLeft(
+      progress,
+      pane?.dataset?.ftTwapState,
+      scroll.scrollWidth,
+      scroll.clientWidth,
+    );
     if (typeof scroll.scrollTo === 'function') scroll.scrollTo({ left: target });
     else scroll.scrollLeft = target;
   };
@@ -627,10 +653,13 @@ function mountTwapWindowScroller(root, runtime) {
     scrollStart = scroll.scrollLeft;
     scroll.classList.add('ft-is-dragging');
     scroll.setPointerCapture?.(pointerId);
+    scroll.focus?.({ preventScroll: true });
+    event.preventDefault();
   };
   const onPointerMove = (event) => {
     if (pointerId == null || event.pointerId !== pointerId) return;
-    scroll.scrollLeft = scrollStart - (event.clientX - pointerStart);
+    setScrollLeft(scrollStart - (event.clientX - pointerStart));
+    event.preventDefault();
   };
   const endPointer = (event) => {
     if (pointerId == null || (event.pointerId != null && event.pointerId !== pointerId)) return;
@@ -644,14 +673,25 @@ function mountTwapWindowScroller(root, runtime) {
       ? event.deltaX
       : event.deltaY;
     if (!delta) return;
-    scroll.scrollLeft += delta;
-    event.preventDefault();
+    if (setScrollLeft(scroll.scrollLeft + delta)) event.preventDefault();
+  };
+  const onKeyDown = (event) => {
+    const step = Math.max(48, scroll.clientWidth * 0.8);
+    const targets = {
+      ArrowLeft: scroll.scrollLeft - step,
+      ArrowRight: scroll.scrollLeft + step,
+      Home: 0,
+      End: scroll.scrollWidth - scroll.clientWidth,
+    };
+    if (!Object.prototype.hasOwnProperty.call(targets, event.key)) return;
+    if (setScrollLeft(targets[event.key])) event.preventDefault();
   };
   scroll.addEventListener('pointerdown', onPointerDown);
   scroll.addEventListener('pointermove', onPointerMove);
   scroll.addEventListener('pointerup', endPointer);
   scroll.addEventListener('pointercancel', endPointer);
   scroll.addEventListener('wheel', onWheel, { passive: false });
+  scroll.addEventListener('keydown', onKeyDown);
   if (typeof runtime.requestAnimationFrame === 'function') {
     runtime.requestAnimationFrame(centerProgress);
   } else {
@@ -663,6 +703,7 @@ function mountTwapWindowScroller(root, runtime) {
     scroll.removeEventListener('pointerup', endPointer);
     scroll.removeEventListener('pointercancel', endPointer);
     scroll.removeEventListener('wheel', onWheel);
+    scroll.removeEventListener('keydown', onKeyDown);
   };
 }
 
