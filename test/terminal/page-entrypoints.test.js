@@ -293,18 +293,23 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(main, /installBrowserEmbed\(window\)/);
 });
 
-test('market sidebar places collapsible decision and token sections in order', () => {
+test('market sidebar places persistent live, past, and token sections in order', () => {
   const document = fs.readFileSync('index.html', 'utf8');
   const appCore = fs.readFileSync('src/legacy/app-core.js', 'utf8');
   const liveDecisions = document.indexOf('id="tlp-decisions-panel"');
+  const pastDecisions = document.indexOf('id="tlp-past-decisions-panel"');
   const tokens = document.indexOf('id="tlp-all-panel"');
 
   assert.ok(liveDecisions >= 0);
-  assert.ok(tokens > liveDecisions);
-  assert.doesNotMatch(document, /id="tlp-past-decisions-panel"/);
+  assert.ok(pastDecisions > liveDecisions);
+  assert.ok(tokens > pastDecisions);
   assert.match(
     document,
-    /tp-unified-section-toggle-live[\s\S]+aria-label="Collapse decision markets"[\s\S]+M1 4L4 1L7 4/,
+    /tp-unified-section-toggle-live[\s\S]+aria-label="Collapse live markets"[\s\S]+M1 4L4 1L7 4/,
+  );
+  assert.match(
+    document,
+    /tp-unified-section-toggle-past[\s\S]+aria-label="Collapse past markets"[\s\S]+M1 4L4 1L7 4/,
   );
   assert.match(
     document,

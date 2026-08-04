@@ -406,6 +406,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
   <nav class="site-header-identities" aria-label="01RX">
     <a href="/?token=solo&amp;view=markets&amp;tab=tokens" class="site-header-brand site-header-decision" id="app-brand-link" aria-label="01RX trading home">
       <span class="site-header-decision-frame"><img src="logos/01rx.png?v=5" alt="01RX" width="126" height="126"></span>
+      <span class="site-header-market-name" aria-hidden="true">FOMO</span>
     </a>
   </nav>
   <div
@@ -477,22 +478,22 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       </div>
     </div>
     <div class="tp-market-tabs" role="tablist" aria-label="Market list views">
-      <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
+      <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-past-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
       <button class="tp-market-tab tp-market-tab-watchlist" id="tp-market-tab-watchlist" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="watchlist" onclick="setMarketSidebarTab('watchlist')">Watchlist</button>
       <button class="tp-market-tab" id="tp-market-tab-tokens" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="tokens" onclick="setMarketSidebarTab('tokens')">Tokens</button>
-      <button class="tp-market-tab" id="tp-market-tab-markets" type="button" role="tab" aria-selected="false" aria-controls="tlp-decisions-panel" data-market-sidebar-tab="markets" onclick="setMarketSidebarTab('markets')">Markets</button>
+      <button class="tp-market-tab" id="tp-market-tab-markets" type="button" role="tab" aria-selected="false" aria-controls="tlp-decisions-panel tlp-past-decisions-panel" data-market-sidebar-tab="markets" onclick="setMarketSidebarTab('markets')">Markets</button>
     </div>
     <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-decision-markets-title">
       <div class="tp-unified-section-heading">
         <button
           class="tp-unified-section-title-group tp-unified-section-toggle tp-unified-section-toggle-live"
           type="button"
-          aria-label="Collapse decision markets"
+          aria-label="Collapse live markets"
           aria-expanded="true"
           onclick="toggleMarketSidebarSection('tlp-decisions-panel', this)"
         >
           <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span id="tp-decision-markets-title">Markets</span>
+          <span id="tp-decision-markets-title">Live Markets</span>
         </button>
         <span class="tp-unified-section-columns tp-unified-section-columns-market">
           <button
@@ -502,9 +503,10 @@ window.toggleChartFeatureMenu = function(trigger, event) {
             aria-label="Sort markets by likelihood, highest likelihood first"
             aria-pressed="false"
             data-sort-direction="none"
+            data-market-decision-sort="likelihood"
             onclick="sortMarketSidebarDecision('likelihood', event)"
           >
-            <span class="tp-sidebar-sort-direction" id="tp-market-likelihood-sort-direction" aria-hidden="true" hidden>↓</span>
+            <span class="tp-sidebar-sort-direction" id="tp-market-likelihood-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
             <span>Likelihood</span>
           </button>
           <button
@@ -514,16 +516,69 @@ window.toggleChartFeatureMenu = function(trigger, event) {
             aria-label="Sort markets by signal, highest signals first"
             aria-pressed="false"
             data-sort-direction="none"
+            data-market-decision-sort="signal"
             onclick="sortMarketSidebarDecision('signal', event)"
           >
-            <span class="tp-sidebar-sort-direction" id="tp-market-signal-sort-direction" aria-hidden="true" hidden>↓</span>
+            <span class="tp-sidebar-sort-direction" id="tp-market-signal-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
             <span>Signal</span>
           </button>
         </span>
-        <span class="tp-unified-section-count" id="tp-live-decision-count">0 live · 0 past</span>
+        <span class="tp-unified-section-count" id="tp-live-decision-count">0 live</span>
       </div>
       <div id="tlp-decisions-list">
-        <div class="tp-decisions-empty">No indexed decision markets</div>
+        <div class="tp-decisions-empty" id="tp-live-decisions-empty" data-empty-title="No live markets" data-empty-detail="New live decision markets will appear here.">
+          <strong>No live markets</strong>
+          <span>New live decision markets will appear here.</span>
+        </div>
+      </div>
+    </section>
+    <section class="tp-decisions-section tp-past-decisions-section" id="tlp-past-decisions-panel" aria-labelledby="tp-past-decision-markets-title">
+      <div class="tp-unified-section-heading">
+        <button
+          class="tp-unified-section-title-group tp-unified-section-toggle tp-unified-section-toggle-past"
+          type="button"
+          aria-label="Collapse past markets"
+          aria-expanded="true"
+          onclick="toggleMarketSidebarSection('tlp-past-decisions-panel', this)"
+        >
+          <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="tp-past-decision-markets-title">Past Markets</span>
+        </button>
+        <span class="tp-unified-section-columns tp-unified-section-columns-market">
+          <button
+            class="tp-sidebar-metric-sort"
+            id="tp-past-market-likelihood-sort"
+            type="button"
+            aria-label="Sort past markets by likelihood, highest likelihood first"
+            aria-pressed="false"
+            data-sort-direction="none"
+            data-market-decision-sort="likelihood"
+            onclick="sortMarketSidebarDecision('likelihood', event)"
+          >
+            <span class="tp-sidebar-sort-direction" id="tp-past-market-likelihood-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
+            <span>Likelihood</span>
+          </button>
+          <button
+            class="tp-sidebar-metric-sort"
+            id="tp-past-market-signal-sort"
+            type="button"
+            aria-label="Sort past markets by signal, highest signals first"
+            aria-pressed="false"
+            data-sort-direction="none"
+            data-market-decision-sort="signal"
+            onclick="sortMarketSidebarDecision('signal', event)"
+          >
+            <span class="tp-sidebar-sort-direction" id="tp-past-market-signal-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
+            <span>Signal</span>
+          </button>
+        </span>
+        <span class="tp-unified-section-count" id="tp-past-decision-count">0 past</span>
+      </div>
+      <div id="tlp-past-decisions-list">
+        <div class="tp-decisions-empty" id="tp-past-decisions-empty" data-empty-title="No past markets" data-empty-detail="Resolved decision markets will appear here.">
+          <strong>No past markets</strong>
+          <span>Resolved decision markets will appear here.</span>
+        </div>
       </div>
     </section>
     <section class="tp-all-section" id="tlp-all-panel" aria-labelledby="tp-token-section-title">

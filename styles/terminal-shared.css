@@ -690,6 +690,7 @@ html[data-workspace="markets"] :is(
   .tp-all-section,
   .tp-unified-section-heading,
   #tlp-decisions-list,
+  #tlp-past-decisions-list,
   #tlp-all-list
 ) {
   background: var(--market-surface, #101010) !important;

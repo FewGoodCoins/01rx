@@ -204,6 +204,7 @@ var _marketTokenSortConfig = {
 var _marketDecisionSortConfig = {
   likelihood: {
     buttonId: 'tp-market-likelihood-sort',
+    buttonSelector: '[data-market-decision-sort="likelihood"]',
     directionId: 'tp-market-likelihood-sort-direction',
     label: 'likelihood',
     descendingLabel: 'highest likelihood first',
@@ -211,6 +212,7 @@ var _marketDecisionSortConfig = {
   },
   signal: {
     buttonId: 'tp-market-signal-sort',
+    buttonSelector: '[data-market-decision-sort="signal"]',
     directionId: 'tp-market-signal-sort-direction',
     label: 'signal',
     descendingLabel: 'highest signals first',
@@ -228,13 +230,13 @@ var _marketTokenSortKey = (function() {
   }
 })();
 var _marketSidebarSortAscending = false;
-var _marketDecisionSortKeys = ['asset', 'likelihood', 'signal'];
+var _marketDecisionSortKeys = ['default', 'likelihood', 'signal'];
 var _marketDecisionSortKey = (function() {
   try {
     var saved = localStorage.getItem('01rx-market-decision-sort');
-    return _marketDecisionSortKeys.indexOf(saved) >= 0 ? saved : 'asset';
+    return _marketDecisionSortKeys.indexOf(saved) >= 0 ? saved : 'default';
   } catch (e) {
-    return 'asset';
+    return 'default';
   }
 })();
 var _marketDecisionSortAscending = false;
@@ -263,23 +265,27 @@ function setMarketSidebarTab(nextTab) {
 function _syncMarketSortGroup(configByKey, activeKey, ascending, subject) {
   Object.keys(configByKey).forEach(function(key) {
     var config = configByKey[key];
-    var button = document.getElementById(config.buttonId);
-    var direction = document.getElementById(config.directionId);
     var isActive = activeKey === key;
-    if (!button) return;
     var nextDirection = isActive && !ascending
       ? config.ascendingLabel
       : config.descendingLabel;
-    button.classList.toggle('active', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
-    button.dataset.sortDirection = isActive
-      ? (ascending ? 'ascending' : 'descending')
-      : 'none';
-    button.setAttribute('aria-label', 'Sort ' + subject + ' by ' + config.label + ', ' + nextDirection);
-    if (direction) {
-      direction.hidden = !isActive;
-      direction.textContent = ascending ? '↑' : '↓';
-    }
+    var buttons = config.buttonSelector
+      ? Array.from(document.querySelectorAll(config.buttonSelector))
+      : [document.getElementById(config.buttonId)].filter(Boolean);
+    buttons.forEach(function(button) {
+      var direction = button.querySelector('.tp-sidebar-sort-direction')
+        || document.getElementById(config.directionId);
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+      button.dataset.sortDirection = isActive
+        ? (ascending ? 'ascending' : 'descending')
+        : 'none';
+      button.setAttribute('aria-label', 'Sort ' + subject + ' by ' + config.label + ', ' + nextDirection);
+      if (direction) {
+        direction.hidden = !isActive;
+        direction.textContent = ascending ? '↑' : '↓';
+      }
+    });
   });
 }
 
@@ -438,7 +444,31 @@ function applyMarketSidebarSearch() {
   if (tokenCount) {
     tokenCount.textContent = visibleTokens + ' ' + (visibleTokens === 1 ? 'token' : 'tokens') + ' live';
   }
-  _orderMarketSidebarList(document.getElementById('tlp-decisions-list'), 'decisions', query);
+  [
+    ['tlp-decisions-list', 'live'],
+    ['tlp-past-decisions-list', 'past']
+  ].forEach(function(entry) {
+    var list = document.getElementById(entry[0]);
+    var visibleMarkets = _orderMarketSidebarList(list, 'decisions', query) || 0;
+    if (!list) return;
+    var rows = list.querySelectorAll('.tp-decision-item');
+    var decisionEmpty = list.querySelector('.tp-decisions-empty');
+    if (!decisionEmpty) return;
+    decisionEmpty.hidden = visibleMarkets > 0;
+    var emptyTitle = decisionEmpty.querySelector('strong');
+    var emptyDetail = decisionEmpty.querySelector('span');
+    if (query && rows.length > 0 && visibleMarkets === 0) {
+      if (emptyTitle) emptyTitle.textContent = 'No matching ' + entry[1] + ' markets';
+      if (emptyDetail) emptyDetail.textContent = 'Try a different asset or proposal search.';
+    } else {
+      if (emptyTitle && decisionEmpty.dataset.emptyTitle) {
+        emptyTitle.textContent = decisionEmpty.dataset.emptyTitle;
+      }
+      if (emptyDetail && decisionEmpty.dataset.emptyDetail) {
+        emptyDetail.textContent = decisionEmpty.dataset.emptyDetail;
+      }
+    }
+  });
   var empty = document.getElementById('tp-market-empty');
   if (empty) {
     empty.hidden = visibleTokens > 0;
@@ -470,7 +500,11 @@ window.toggleMarketSidebarSection = function toggleMarketSidebarSection(sectionI
   var section = document.getElementById(sectionId);
   if (!section || !button) return;
   var collapsed = section.classList.toggle('is-collapsed');
-  var sectionLabel = sectionId === 'tlp-all-panel' ? 'tokens' : 'decision markets';
+  var sectionLabel = sectionId === 'tlp-all-panel'
+    ? 'tokens'
+    : sectionId === 'tlp-past-decisions-panel'
+      ? 'past markets'
+      : 'live markets';
   button.setAttribute('aria-expanded', String(!collapsed));
   button.setAttribute(
     'aria-label',
