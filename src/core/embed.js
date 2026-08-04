@@ -1,4 +1,6 @@
-const DEFAULT_EMBED_ORIGIN = 'https://onrx.trade';
+import { PRODUCT_BRAND } from '../shell/brand.js';
+
+const DEFAULT_EMBED_ORIGIN = PRODUCT_BRAND.canonicalOrigin;
 const DEFAULT_EMBED_HEIGHT = 420;
 const EMBED_CURRENT_NAV_TOKEN_KEYS = Object.freeze([
   'meta',
@@ -69,7 +71,7 @@ export function createChartEmbedHelpers(browserWindow) {
 
   function fullPageUrl(key = tokenKey()) {
     const safeKey = routes.normalizeTokenKey(key);
-    const origin = normalizeOrigin(runtime.location.origin);
+    const origin = PRODUCT_BRAND.canonicalOrigin;
     return safeKey
       ? `${origin}/?token=${encodeURIComponent(safeKey)}&view=markets&tab=tokens`
       : `${origin}/?token=solo&view=markets&tab=tokens`;
@@ -99,7 +101,7 @@ export function createChartEmbedUrl(options = {}) {
       : ''
   ));
   const token = normalizeTokenKey(options.token);
-  if (!token) throw new Error('A valid 01RX token key is required');
+  if (!token) throw new Error(`A valid ${PRODUCT_BRAND.displayName} token key is required`);
 
   const url = new URL('/embed', normalizeOrigin(options.origin));
   url.searchParams.set('token', token);
@@ -128,7 +130,7 @@ export function createChartIframeCode(options = {}) {
   const maxWidthStyle = width === '100%' && Number.isFinite(numericMaxWidth) && numericMaxWidth >= 300
     ? `width:100%;max-width:${numericMaxWidth}px;`
     : 'max-width:100%;';
-  const title = options.title || '01RX price and current NAV chart';
+  const title = options.title || `${PRODUCT_BRAND.displayName} price and current NAV chart`;
 
   return `<iframe src="${escapeHtmlAttribute(url)}" title="${escapeHtmlAttribute(title)}" width="${escapeHtmlAttribute(width)}" height="${height}" loading="lazy" style="border:0;${maxWidthStyle}" allow="fullscreen"></iframe>`;
 }

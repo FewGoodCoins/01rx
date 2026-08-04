@@ -2,6 +2,6 @@ User-agent: *
 Content-Signal: search=yes,ai-input=yes,ai-train=no
 Allow: /
 
-# 01RX allows indexing and real-time AI retrieval/grounding of public pages
+# 01R.Trade allows indexing and real-time AI retrieval/grounding of public pages
 # while reserving rights for model training and fine-tuning.
-Sitemap: https://onrx.trade/sitemap.xml
+Sitemap: https://fewgoodcoins.xyz/sitemap.xml

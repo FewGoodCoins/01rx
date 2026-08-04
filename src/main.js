@@ -47,6 +47,6 @@ const loadPageEntry = createPageEntryLoader();
 window.NAVGATOR.ready = bootLegacyApplication();
 window.NAVGATOR.ready.catch((error) => {
   failMarketWorkspaceBoot(document);
-  console.error('[01RX] Frontend boot failed', error);
+  console.error('[01R.Trade] Frontend boot failed', error);
   window.dispatchEvent(new CustomEvent('01rx:boot-error', { detail: error }));
 });

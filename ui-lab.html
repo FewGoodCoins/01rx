@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-01r-theme-scope data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>01R.Trade UI Lab</title>
+  <script type="module" src="/src/ui-lab/index.js"></script>
+</head>
+<body>
+  <div class="ui-lab" id="ui-lab-root">
+    <header class="ui-lab-toolbar">
+      <div>
+        <strong>01R.Trade UI Lab</strong>
+        <span>Fixture-only desktop section review</span>
+      </div>
+      <label>
+        View
+        <select data-ui-control="panel">
+          <option value="assembled">Assembled shell</option>
+          <option value="market-explorer">Market explorer</option>
+          <option value="market-summary">Market summary</option>
+          <option value="primary-market">Primary market</option>
+          <option value="activity">Activity</option>
+          <option value="trade-ticket">Trade ticket</option>
+          <option value="system-status">System status</option>
+        </select>
+      </label>
+      <label>
+        State
+        <select data-ui-control="state">
+          <option value="normal">Normal</option>
+          <option value="loading">Loading</option>
+          <option value="empty">Empty</option>
+          <option value="degraded">Degraded</option>
+          <option value="error">Error</option>
+          <option value="long">Long content</option>
+          <option value="connected">Wallet connected</option>
+          <option value="disconnected">Wallet disconnected</option>
+        </select>
+      </label>
+      <label>
+        Width
+        <select data-ui-control="width">
+          <option value="1280">1280</option>
+          <option value="1440" selected>1440</option>
+          <option value="1728">1728</option>
+        </select>
+      </label>
+    </header>
+    <main class="ui-lab-stage" data-ui-stage>
+      <div class="ui-lab-viewport" data-ui-viewport>
+        <div id="ui-lab-terminal"></div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

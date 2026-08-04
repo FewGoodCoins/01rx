@@ -18,7 +18,7 @@
   overflow: hidden;
 }
 
-/* 01RX adds only NAV and Growth controls. TradingView owns generic chart
+/* 01R.Trade adds only NAV and Growth controls. TradingView owns generic chart
    controls such as timeframe, chart type, drawing tools, scale, and export. */
 body.is-token .chart-toolbar-row > .chart-controls,
 body.is-token .chart-toolbar-row > .chart-series-control,

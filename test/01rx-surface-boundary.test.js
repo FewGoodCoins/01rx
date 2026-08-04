@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { JSDOM } from 'jsdom';
 
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const faviconAsset = fs.readFileSync(
-  new URL('../public/logos/01rx-favicon.png', import.meta.url),
+  new URL('../public/logos/01r-mark.png', import.meta.url),
 );
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
@@ -48,14 +49,22 @@ const landingSource = fs.readFileSync(
   new URL('../src/legacy/landing.js', import.meta.url),
   'utf8',
 );
+const advancedChartsSource = fs.readFileSync(
+  new URL('../src/charting/advanced-charts.js', import.meta.url),
+  'utf8',
+);
+const tradingContractSource = fs.readFileSync(
+  new URL('../packages/contracts/src/index.js', import.meta.url),
+  'utf8',
+);
 const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
 
-test('01RX exposes no user-facing NAVgator navigation', () => {
+test('01R.Trade exposes no user-facing NAVgator navigation', () => {
   assert.doesNotMatch(indexSource, /<a\b[^>]*href=["'][^"']*navgator/i);
   assert.doesNotMatch(indexSource, /site-header-navgator/);
-  assert.match(indexSource, /rel="canonical" href="https:\/\/onrx\.trade\/"/);
+  assert.match(indexSource, /rel="canonical" href="https:\/\/fewgoodcoins\.xyz\/"/);
 
   const redirected = new Set(
     (vercelConfig.redirects || []).map(route => route.source),
@@ -71,14 +80,14 @@ test('01RX exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('browser icon metadata uses only the compact cache-busted 01RX mark', () => {
+test('browser icon metadata uses only the compact cache-busted 01R mark', () => {
   const iconLinks = [...indexSource.matchAll(
     /<link\b[^>]*rel="(?:icon|shortcut icon|apple-touch-icon)"[^>]*>/g,
   )].map(match => match[0]);
 
   assert.equal(iconLinks.length, 3);
   iconLinks.forEach((link) => {
-    assert.match(link, /href="\/logos\/01rx-favicon\.png\?v=1"/);
+    assert.match(link, /href="\/logos\/01r-mark\.png\?v=1"/);
     assert.doesNotMatch(link, /navgator|favicon\.ico/i);
   });
   assert.equal(faviconAsset.subarray(1, 4).toString('ascii'), 'PNG');
@@ -86,21 +95,44 @@ test('browser icon metadata uses only the compact cache-busted 01RX mark', () =>
   assert.equal(faviconAsset.readUInt32BE(20), 512);
 });
 
-test('decision markets add the FOMO product name beside the 01RX wordmark', () => {
+test('product metadata and accessible copy use only the 01R.Trade brand', () => {
+  const dom = new JSDOM(indexSource);
+  dom.window.document.querySelectorAll('script, style').forEach(node => node.remove());
+  const accessibleCopy = [
+    dom.window.document.title,
+    dom.window.document.body.textContent,
+    ...[...dom.window.document.querySelectorAll('[aria-label], [title], [alt], [placeholder]')]
+      .flatMap(node => ['aria-label', 'title', 'alt', 'placeholder'].map(name => node.getAttribute(name) || '')),
+    ...[...dom.window.document.querySelectorAll('meta[content]')]
+      .map(node => node.getAttribute('content') || ''),
+  ].join('\n');
+
+  assert.match(accessibleCopy, /01R\.Trade/);
+  assert.doesNotMatch(accessibleCopy, /FOMO|01RX/);
   assert.match(
     indexSource,
-    /class="site-header-market-name" aria-hidden="true">FOMO<\/span>/,
+    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?01R[\s\S]*?\.Trade/,
   );
   assert.match(
     refinementCss,
-    /\.site-header-market-name\s*\{[\s\S]*?display: none;[\s\S]*?color: #ffb000;[\s\S]*?font-size: 11px;/,
+    /\.product-wordmark\s*\{[\s\S]*?font-family:[\s\S]*?font-weight: 780;/,
   );
-  assert.match(
-    refinementCss,
-    /body\.is-token-markets:has\([\s\S]*?\.ft-live-market, \.ft-archive-market[\s\S]*?\) \.site-header-market-name\s*\{\s*display: inline-flex;/,
-  );
+  assert.doesNotMatch(indexSource, /FOMO|onrx\.trade|01rx-favicon/);
+  assert.doesNotMatch(refinementCss, /site-header-market-name|FOMO/);
+  assert.match(indexSource, /property="og:site_name" content="01R\.Trade"/);
+  assert.match(indexSource, /property="og:url" content="https:\/\/fewgoodcoins\.xyz\/"/);
+  assert.match(indexSource, /"name": "01R\.Trade"/);
+  assert.match(indexSource, /"url": "https:\/\/fewgoodcoins\.xyz\/"/);
   assert.doesNotMatch(indexSource, /decision-markets-home-root/);
   assert.doesNotMatch(frameCss, /is-market-discovery|data-ft-mode="discovery"/);
+  dom.window.close();
+});
+
+test('protected internal market identifiers remain stable through the brand change', () => {
+  assert.match(indexSource, /get\('frame'\) === '01rx'/);
+  assert.match(advancedChartsSource, /`01RX:\$\{symbolTicker\}`/);
+  assert.match(advancedChartsSource, /raw\.startsWith\('01RX:'\)/);
+  assert.match(tradingContractSource, /marker: '01RX:D1:0'/);
 });
 
 test('decision and token chart readouts share one typography scale', () => {
@@ -547,7 +579,7 @@ test('decision chart endpoints keep small solid centers with sequenced pulse ban
   );
 });
 
-test('global wallet control uses the white 01RX header treatment', () => {
+test('global wallet control uses the white 01R.Trade header treatment', () => {
   assert.match(
     frameCss,
     /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #eeeeea;[\s\S]*?--ft-focus: #ffffff;/,

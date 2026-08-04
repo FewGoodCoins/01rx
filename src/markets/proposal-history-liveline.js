@@ -236,7 +236,7 @@ function phaseBandElements(dataset, preTwap, windowEndedAt) {
 
 /**
  * Default decision-market chart adapter. Liveline owns rendering while the
- * 01RX proposal-history model continues to own timestamps, nulls, and gaps.
+ * 01R.Trade proposal-history model continues to own timestamps, nulls, and gaps.
  */
 export function createProposalHistoryChart(options = {}) {
   const {
@@ -295,7 +295,7 @@ export function createProposalHistoryChart(options = {}) {
         definition.fallbackColor,
       ),
       // Liveline owns the visible series identity, endpoint labels, and hover
-      // values. The renderer-neutral 01RX readout remains only as a fallback.
+      // values. The renderer-neutral 01R.Trade readout remains only as a fallback.
       label: definition.label,
     }));
     root.render(createElement(

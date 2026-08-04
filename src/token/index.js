@@ -1,11 +1,13 @@
 import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
 import '../../styles/terminal-shared.css';
+import '../../styles/terminal-shell.css';
 import { installBrowserTradingViewAttribution } from '../chart/tradingview-attribution.js';
 import { installBrowserAdvancedCharts } from '../charting/advanced-charts.js';
 import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';
 import tokenPageUrl from '../legacy/token-page.js?url';
+import { PRODUCT_BRAND } from '../shell/brand.js';
 import { installBrowserTokenPage } from './runtime.js';
 
 export const pageKind = 'token';
@@ -27,13 +29,13 @@ function installTokenWorkspaceMetadata(browserWindow, token, marketTab = 'decisi
   const proposal = routes.normalizeProposalAddress(params.get('proposal'));
   const ownershipMode = marketTab === 'tokens';
   browserWindow.document.title = ownershipMode
-    ? `${ticker} Spot Market — 01RX`
-    : `${ticker} Decision Market — 01RX`;
+    ? `${ticker} Spot Market — ${PRODUCT_BRAND.displayName}`
+    : `${ticker} Decision Market — ${PRODUCT_BRAND.displayName}`;
   const canonical = browserWindow.document.querySelector('link[rel="canonical"]');
   if (canonical) {
     canonical.setAttribute(
       'href',
-      `${browserWindow.location.origin}${ownershipMode
+      `${PRODUCT_BRAND.canonicalOrigin}${ownershipMode
         ? routes.tokenTradingUrl(token)
         : routes.tokenMarketUrl(token, proposal)}`,
     );
