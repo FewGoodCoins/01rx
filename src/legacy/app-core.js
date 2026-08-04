@@ -49,7 +49,7 @@ async function _initChartWhenReady(rawCandles, navPerToken, canInitialize) {
     if (d && (d.maintenance || d.api_maintenance)) {
       var gate = document.getElementById('maintenance-gate');
       if (gate && !gate.innerHTML) {
-        gate.innerHTML = '<div class="mt-logo"><img src="logos/01rx.png?v=5" alt="01RX" width="80" height="80"></div><div class="mt-brand">01RX</div><div class="mt-status">Updates in progress</div><div class="mt-msg">The terminal is temporarily offline while updates are applied.</div>';
+        gate.innerHTML = '<div class="mt-logo"><img src="logos/01r-mark.png?v=1" alt="01R" width="80" height="80"></div><div class="mt-brand">01R.Trade</div><div class="mt-status">Updates in progress</div><div class="mt-msg">The terminal is temporarily offline while updates are applied.</div>';
       }
       if (gate) {
         gate.hidden = false;
@@ -779,12 +779,12 @@ _refreshShellPanelControls();
 
 if (_hasToken) {
   document.getElementById('dashboard-view').classList.add('active');
-  document.title = '01RX · Dashboard';
+  document.title = '01R.Trade · Dashboard';
   document.body.classList.add('is-token');
   document.getElementById('token-switch-loader').classList.add('active');
 } else {
   document.getElementById('landing-view').classList.add('active');
-  document.title = '01RX — Ownership and Decision Markets';
+  document.title = '01R.Trade — Ownership and Decision Markets';
   var _ll = document.getElementById('token-switch-loader');
   _ll.querySelector('.token-switch-label').textContent = 'Loading tokens…';
   _ll.classList.add('active');

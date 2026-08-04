@@ -1,5 +1,10 @@
 # 01RX agent notes
 
+- The exact user-facing product brand is `01R.Trade` and its current canonical
+  origin is `https://fewgoodcoins.xyz`. Never display `01RX` or `FOMO`. Keep
+  stable technical identifiers such as `01RX:D1:0`, `frame=01rx`, environment
+  variables, event names, storage keys, and internal APIs unchanged unless a
+  separate migration explicitly covers them.
 - Keep the chart customization model independent from its rendering engine.
 - 01RX owns browser product code. Current NAV and current token snapshots come
   from the server-only 01Resolved adapter. Decision indexes, trades, and chart

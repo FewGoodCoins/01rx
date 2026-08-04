@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { pathToFileURL } = require('node:url');
+const { JSDOM } = require('jsdom');
 
 const shellRoot = path.resolve('src/shell');
 
@@ -50,6 +51,149 @@ function createButton() {
     title: '',
   };
 }
+
+test('terminal layout exports stable panel IDs, sizing, and visual order', async () => {
+  const {
+    DEFAULT_DESKTOP_LAYOUT,
+    TERMINAL_PANEL_IDS,
+    terminalGridAreas,
+    validateTerminalLayout,
+  } = await importShell('terminal-layout.js');
+
+  assert.deepEqual(TERMINAL_PANEL_IDS, {
+    marketExplorer: 'market-explorer',
+    marketSummary: 'market-summary',
+    primaryMarket: 'primary-market',
+    activity: 'activity',
+    tradeTicket: 'trade-ticket',
+    systemStatus: 'system-status',
+    modal: 'modal',
+  });
+  assert.deepEqual(DEFAULT_DESKTOP_LAYOUT.columns, {
+    explorer: '280px',
+    primary: 'minmax(560px, 1fr)',
+    ticket: '344px',
+  });
+  assert.equal(new Set(DEFAULT_DESKTOP_LAYOUT.order).size, 5);
+  assert.equal(
+    terminalGridAreas(DEFAULT_DESKTOP_LAYOUT),
+    '"market-explorer market-summary market-summary" '
+      + '"market-explorer primary-market trade-ticket" '
+      + '"market-explorer activity trade-ticket"',
+  );
+  assert.throws(
+    () => validateTerminalLayout({
+      ...DEFAULT_DESKTOP_LAYOUT,
+      order: ['market-explorer', 'market-explorer'],
+    }),
+    /order must be unique/,
+  );
+  assert.throws(
+    () => validateTerminalLayout({
+      ...DEFAULT_DESKTOP_LAYOUT,
+      order: DEFAULT_DESKTOP_LAYOUT.order.slice(1),
+    }),
+    /include every workspace panel/,
+  );
+});
+
+test('terminal shell creates unique stable regions in declarative DOM order and cleans up', async () => {
+  const { createTerminalShell } = await importShell('terminal-shell.js');
+  const { DEFAULT_DESKTOP_LAYOUT, TERMINAL_PANEL_IDS } = await importShell('terminal-layout.js');
+  const dom = new JSDOM('<main id="root"></main>');
+  const root = dom.window.document.getElementById('root');
+  const shell = createTerminalShell({ root });
+
+  const workspaceOrder = [...root.querySelectorAll(
+    '.terminal-workspace-grid > [data-terminal-panel]',
+  )].map(panel => panel.getAttribute('data-terminal-panel'));
+  assert.deepEqual(workspaceOrder, DEFAULT_DESKTOP_LAYOUT.order);
+
+  const allPanelIds = [...root.querySelectorAll('[data-terminal-panel]')]
+    .map(panel => panel.getAttribute('data-terminal-panel'));
+  assert.deepEqual(
+    [...allPanelIds].sort(),
+    Object.values(TERMINAL_PANEL_IDS).sort(),
+  );
+  Object.values(shell.panels).forEach(panel => assert.ok(panel));
+  [
+    'headerUpdated',
+    'status',
+    'rpcStatus',
+    'programStatus',
+    'slot',
+    'marketListTitle',
+    'marketCount',
+    'statusFilters',
+    'marketList',
+    'pagination',
+    'marketChartHeader',
+    'marketChart',
+    'ownershipAccount',
+    'marketStage',
+    'tradeTicket',
+    'positions',
+    'modal',
+    'walletStatus',
+    'search',
+  ].forEach(name => assert.ok(shell.regions[name], name));
+
+  shell.setStatus('warning', 'Live reads are degraded.');
+  assert.equal(shell.regions.status.dataset.state, 'warning');
+  assert.equal(shell.regions.status.textContent, 'Live reads are degraded.');
+
+  shell.destroy();
+  assert.equal(root.childElementCount, 0);
+  dom.window.close();
+});
+
+test('terminal shell honors a configured panel order and portals the token explorer once', async () => {
+  const { createTerminalShell } = await importShell('terminal-shell.js');
+  const { DEFAULT_DESKTOP_LAYOUT } = await importShell('terminal-layout.js');
+  const dom = new JSDOM(
+    '<aside id="explorer" class="terminal-panel-external" data-terminal-panel="legacy-panel"></aside>'
+      + '<main id="root"></main>',
+  );
+  const root = dom.window.document.getElementById('root');
+  const explorer = dom.window.document.getElementById('explorer');
+  const layout = {
+    ...DEFAULT_DESKTOP_LAYOUT,
+    id: 'ticket-before-market-test',
+    order: Object.freeze([
+      'market-explorer',
+      'market-summary',
+      'trade-ticket',
+      'primary-market',
+      'activity',
+    ]),
+  };
+  const shell = createTerminalShell({
+    root,
+    layout,
+    mode: 'token',
+    externalPanels: { marketExplorer: explorer },
+  });
+
+  const workspaceOrder = [...root.querySelectorAll(
+    '.terminal-workspace-grid > [data-terminal-panel], '
+      + '.terminal-workspace-grid > [data-terminal-compatibility-panel]',
+  )].map(panel => panel.getAttribute('data-terminal-panel')
+    || panel.getAttribute('data-terminal-compatibility-panel'));
+  assert.deepEqual(workspaceOrder, layout.order);
+  assert.equal(
+    dom.window.document.querySelectorAll('[data-terminal-panel="market-explorer"]').length,
+    1,
+  );
+  assert.equal(shell.panels.marketExplorer, explorer);
+  assert.ok(shell.regions.marketList);
+  assert.ok(shell.regions.search);
+
+  shell.destroy();
+  assert.equal(explorer.getAttribute('data-terminal-panel'), 'legacy-panel');
+  assert.equal(explorer.classList.contains('terminal-panel-external'), true);
+  assert.equal(root.childElementCount, 0);
+  dom.window.close();
+});
 
 test('token normalization preserves aliases, validation, order, and deduplication', async () => {
   const { normalizeTokenKey, normalizeTokenList } = await importShell('routes.js');
