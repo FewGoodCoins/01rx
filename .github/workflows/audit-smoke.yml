@@ -1,0 +1,44 @@
+name: Read-only audit smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: Exact HTTPS deployment origin to inspect
+        required: true
+        default: https://01rx.vercel.app
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: GET-only deployment evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Use Node 24
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Capture GET-only audit evidence
+        env:
+          AUDIT_ORIGIN: ${{ inputs.origin }}
+        run: node scripts/audit-smoke.mjs --origin "$AUDIT_ORIGIN" --output audit-smoke.json
+
+      - name: Retain audit evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: 01rx-read-only-smoke-${{ github.sha }}
+          path: audit-smoke.json
+          if-no-files-found: error
+          retention-days: 90

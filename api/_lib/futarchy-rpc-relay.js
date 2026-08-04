@@ -1,5 +1,8 @@
 import { Transaction } from '@solana/web3.js';
-import { DECISION_ATTRIBUTION } from '@01resolved/contracts';
+import {
+  DECISION_ATTRIBUTION,
+  EXECUTION_RELEASE,
+} from '@01resolved/contracts';
 import { resolveFutarchyRpcUrl, futarchyServiceError } from './futarchy-service.js';
 import { normalizeAddress } from './futarchy-accounts.js';
 
@@ -219,6 +222,12 @@ function includesTransaction(payload) {
   ));
 }
 
+function includesSubmission(payload) {
+  return (Array.isArray(payload) ? payload : [payload]).some(call => (
+    call.method === 'sendTransaction'
+  ));
+}
+
 function bindMinimumSlot(payload, minimumSlot) {
   const calls = Array.isArray(payload) ? payload : [payload];
   const bound = calls.map((call) => {
@@ -246,8 +255,16 @@ export function createFutarchyRpcRelay(options = {}) {
   const env = options.env || process.env;
   const fetchImpl = options.fetchImpl || fetch;
   const integrity = options.programIntegrity;
+  const executionRelease = options.executionRelease || EXECUTION_RELEASE;
   return async function relayRpc(payload) {
     let forwarded = validateRpcPayload(payload, env);
+    if (includesSubmission(forwarded) && executionRelease?.enabled !== true) {
+      throw rpcError(
+        executionRelease?.message || 'Trading is paused for security review',
+        'EXECUTION_PAUSED',
+        503,
+      );
+    }
     if (includesTransaction(forwarded)) {
       if (typeof integrity !== 'function') {
         throw rpcError('Program integrity is unavailable', 'PROGRAM_INTEGRITY_UNAVAILABLE', 503);

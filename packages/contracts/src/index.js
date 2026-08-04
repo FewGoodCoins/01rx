@@ -1,6 +1,7 @@
-export const CONTRACT_RELEASE = '2026-08-03';
+export const CONTRACT_RELEASE = '2026-08-04';
 export const CONTRACT_HEADERS = Object.freeze({
   contract: 'X-01R-Contract',
+  execution: 'X-01R-Execution',
   release: 'X-01R-Contract-Release',
   surface: 'X-01R-Surface',
 });
@@ -15,6 +16,15 @@ export const DECISION_ATTRIBUTION = Object.freeze({
   marker: '01RX:D1:0',
   memoProgramId: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
   version: 1,
+});
+
+// This is a code-owned release gate, not a browser preference or deployment
+// environment toggle. Re-enabling execution requires a reviewed source change.
+export const EXECUTION_RELEASE = Object.freeze({
+  code: 'AUDIT_REVIEW_REQUIRED',
+  enabled: false,
+  message: 'Trading is paused while 01RX completes independent security review.',
+  phase: 'audit-readiness-v1',
 });
 
 function endpoint(definition) {
@@ -206,6 +216,7 @@ export default Object.freeze({
   CONTRACT_HEADERS,
   CONTRACT_RELEASE,
   DECISION_ATTRIBUTION,
+  EXECUTION_RELEASE,
   FUTARCHY_BETA_VIEWS,
   FUTARCHY_STABLE_V1_VIEWS,
   TRADING_BETA_VIEWS,

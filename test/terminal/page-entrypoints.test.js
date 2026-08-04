@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
+const { JSDOM } = require('jsdom');
 
 const pageEntryModulePromise = import('../../src/core/page-entry.js');
 const defaultRouteModulePromise = import('../../src/core/default-route.js');
@@ -126,6 +127,99 @@ test('every canonical application surface selects the token page entrypoint', as
     resolvePageKind(createRuntime(canonicalUnknown.search, normalizeTokenKey)),
     'token',
   );
+});
+
+test('market token entry installs its ESM sidebar without loading legacy page assets', async () => {
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    appType: 'custom',
+    logLevel: 'silent',
+    server: { middlewareMode: true },
+  });
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  const hadWindow = Object.hasOwn(globalThis, 'window');
+  const hadDocument = Object.hasOwn(globalThis, 'document');
+  const doms = [];
+
+  function createBrowserWindow(search) {
+    const dom = new JSDOM(`<!doctype html><html><body>
+      <div id="tlp-all-list"></div>
+      <span id="tp-token-count"></span>
+      <span id="tp-token-secondary-label"></span>
+    </body></html>`, {
+      url: `https://onrx.trade/${search}`,
+    });
+    doms.push(dom);
+    const browserWindow = dom.window;
+    browserWindow.LightweightCharts = {};
+    browserWindow.NAVGATOR = {
+      projectMetadata: {
+        meta: { live: true, name: 'MetaDAO', ticker: 'META' },
+        retired: { live: false, name: 'Retired', ticker: 'OLD' },
+        solo: { live: true, name: 'SolanaFloor', ticker: 'SOLO' },
+      },
+      shell: {
+        routes: {
+          homePageUrl: () => '/?token=solo&view=markets&tab=tokens',
+          marketHomeUrl: () => '/?token=solo&view=markets&tab=tokens',
+          normalizeProposalAddress: value => String(value || '').trim(),
+          normalizeTokenKey: value => String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, ''),
+          tokenMarketUrl: token => `/?token=${token}&view=markets&tab=decisions`,
+          tokenTradingUrl: token => `/?token=${token}&view=markets&tab=tokens`,
+        },
+      },
+    };
+    return browserWindow;
+  }
+
+  try {
+    const { installBrowserPage, loadLegacyPage } = await vite.ssrLoadModule(
+      '/src/token/index.js',
+    );
+    const marketWindow = createBrowserWindow('?token=solo&view=markets&tab=tokens');
+    installBrowserPage(marketWindow);
+    assert.equal(
+      typeof marketWindow.NAVGATOR.marketTokenSidebar?.hydrateCurrentNav,
+      'function',
+    );
+    assert.equal(
+      marketWindow.document.querySelectorAll('#tlp-all-list .tp-item').length,
+      2,
+    );
+    assert.equal(
+      marketWindow.document.getElementById('tp-token-count').textContent,
+      '2 tokens live',
+    );
+
+    globalThis.window = marketWindow;
+    globalThis.document = marketWindow.document;
+    const classicLoads = [];
+    await loadLegacyPage({
+      async loadClassicScript(url) {
+        classicLoads.push(url);
+      },
+    });
+    assert.deepEqual(classicLoads, []);
+
+    const researchWindow = createBrowserWindow('?token=solo');
+    installBrowserPage(researchWindow);
+    assert.equal(researchWindow.NAVGATOR.marketTokenSidebar, undefined);
+    assert.equal(
+      researchWindow.document.querySelectorAll('#tlp-all-list .tp-item').length,
+      0,
+    );
+  } finally {
+    if (hadWindow) globalThis.window = previousWindow;
+    else delete globalThis.window;
+    if (hadDocument) globalThis.document = previousDocument;
+    else delete globalThis.document;
+    doms.forEach(dom => dom.window.close());
+    await vite.close();
+  }
 });
 
 test('route helpers keep every token URL inside the 01RX market workspace', async () => {

@@ -15,6 +15,12 @@ const FAILED_PROPOSAL_ID = 'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq';
 const FAILED_PROPOSAL_URL = `https://www.metadao.fi/projects/solo/proposal/${FAILED_PROPOSAL_ID}`;
 const WALLET_ADDRESS = '9xQeWvG816bUx9EPfEZVyQVPvpkEU4NJTNJmV9fU6vq';
 const TRANSACTION_SIGNATURE = base58.encode(Buffer.alloc(64, 4));
+const ACTIVE_EXECUTION_RELEASE = Object.freeze({
+  code: 'TEST_EXECUTION_ENABLED',
+  enabled: true,
+  message: 'Execution enabled by this test fixture.',
+  phase: 'test',
+});
 const MOCK_BASE_MINT = testAddress(21);
 const MOCK_BASE_VAULT = testAddress(22);
 const MOCK_QUOTE_VAULT = testAddress(23);
@@ -528,7 +534,16 @@ async function loadTerminalModule() {
   const moduleUrl = pathToFileURL(
     path.resolve(__dirname, '../../src/markets/decision-market-controller.js'),
   );
-  return import(moduleUrl.href);
+  const loaded = await import(moduleUrl.href);
+  return {
+    ...loaded,
+    mountFutardTerminal(options = {}) {
+      return loaded.mountFutardTerminal({
+        executionRelease: ACTIVE_EXECUTION_RELEASE,
+        ...options,
+      });
+    },
+  };
 }
 
 async function loadProposalChartModule() {
@@ -3946,6 +3961,88 @@ test('RPC health ignores archive index warnings but reports actual Solana RPC de
   assert.equal(byRegion(rpcWindow.root, 'rpc-status').textContent, 'DEGRADED');
   assert.equal(byRegion(rpcWindow.root, 'rpc-status').dataset.state, 'warning');
   cleanupMount(rpcMount);
+});
+
+test('ownership workspace keeps decision-feed outages scoped to decision markets', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const liveMarketError = Object.assign(
+    new Error('Live decision account validation failed'),
+    { code: 'LIVE_MARKET_VALIDATION_FAILED' },
+  );
+  const ownershipWindow = makeWindow({
+    activeMarketsError: liveMarketError,
+    url: 'https://navgator.xyz/?token=loyal&view=markets&tab=tokens',
+  });
+  const ownershipController = mountFutardTerminal({
+    window: ownershipWindow.window,
+    root: ownershipWindow.root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const ownershipMount = trackMount(ownershipController, ownershipWindow.window);
+  await ownershipController.ready;
+
+  assert.ok(byRole(ownershipWindow.root, 'ownership-token-chart'));
+  assert.equal(
+    ownershipWindow.root.classList.contains('ft-has-system-message'),
+    false,
+    'a decision-feed outage must not expose the decision RPC status strip over spot Tokens',
+  );
+  cleanupMount(ownershipMount);
+
+  const decisionWindow = makeWindow({
+    activeMarketsError: liveMarketError,
+    url: 'https://navgator.xyz/?token=loyal&view=markets',
+  });
+  const decisionController = mountFutardTerminal({
+    window: decisionWindow.window,
+    root: decisionWindow.root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const decisionMount = trackMount(decisionController, decisionWindow.window);
+  await decisionController.ready;
+
+  assert.equal(byRegion(decisionWindow.root, 'rpc-status').textContent, 'OFFLINE');
+  assert.equal(byRegion(decisionWindow.root, 'rpc-status').dataset.state, 'error');
+  assert.equal(decisionWindow.root.classList.contains('ft-has-system-message'), true);
+  assert.match(
+    byRole(decisionWindow.root, 'status').textContent,
+    /live market reads are temporarily unavailable/i,
+  );
+  cleanupMount(decisionMount);
+});
+
+test('audit release stays read-only without hiding public market data', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const terminal = makeWindow();
+  const controller = mountFutardTerminal({
+    executionRelease: {
+      code: 'AUDIT_REVIEW_REQUIRED',
+      enabled: false,
+      message: 'Trading is paused while 01RX completes independent security review.',
+      phase: 'audit-readiness-v1',
+    },
+    window: terminal.window,
+    root: terminal.root,
+  });
+  const mounted = trackMount(controller, terminal.window);
+  await controller.ready;
+
+  assert.equal(proposalRows(terminal.root).length, 3);
+  assert.ok(byRole(terminal.root, 'proposal-history-chart'));
+  assert.match(
+    byRole(terminal.root, 'execution-paused').textContent,
+    /Trading is temporarily paused.*independent security review.*data, charts, and wallet balance reads remain available/is,
+  );
+  assert.equal(byAction(terminal.root, 'execute-trade'), null);
+  assert.equal(byAction(terminal.root, 'review-ownership-trade'), null);
+  assert.equal(
+    terminal.requests.some(url => /\/api\/beta\/trading/.test(url)),
+    false,
+  );
+
+  cleanupMount(mounted);
 });
 
 test('program revision mismatch pauses execution without hiding public proposals', async () => {

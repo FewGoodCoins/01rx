@@ -36,10 +36,7 @@ import {
   TransactionInstruction,
   VersionedTransaction,
 } from '@solana/web3.js';
-import {
-  SolanaSignAndSendTransaction,
-  SolanaSignTransaction,
-} from '@solana/wallet-standard-features';
+import { SolanaSignTransaction } from '@solana/wallet-standard-features';
 import { getWallets } from '@wallet-standard/app';
 import {
   StandardConnect,
@@ -163,17 +160,7 @@ function walletCanConnect(wallet) {
 }
 
 function walletCanSign(wallet, account = null) {
-  const accountFeatures = Array.isArray(account?.features) ? account.features : null;
-  const supportsSignAndSend = (
-    typeof wallet?.features?.[SolanaSignAndSendTransaction]?.signAndSendTransaction
-      === 'function'
-    && (!accountFeatures || accountFeatures.includes(SolanaSignAndSendTransaction))
-  );
-  const supportsSign = (
-    typeof wallet?.features?.[SolanaSignTransaction]?.signTransaction === 'function'
-    && (!accountFeatures || accountFeatures.includes(SolanaSignTransaction))
-  );
-  return supportsSignAndSend || supportsSign;
+  return walletCanSignTransaction(wallet, account);
 }
 
 function walletCanSignTransaction(wallet, account = null) {
@@ -232,8 +219,7 @@ export function discoverWalletOptions(
       kind: 'legacy',
       name,
       icon: '',
-      canTransact: typeof provider.signAndSendTransaction === 'function'
-        || typeof provider.signTransaction === 'function',
+      canTransact: typeof provider.signTransaction === 'function',
       canSignTransaction: typeof provider.signTransaction === 'function',
       provider,
     });
@@ -306,8 +292,7 @@ export async function connectWalletOption(option) {
     address,
     account,
     provider,
-    canTransact: typeof provider.signAndSendTransaction === 'function'
-      || typeof provider.signTransaction === 'function',
+    canTransact: typeof provider.signTransaction === 'function',
     canSignTransaction: typeof provider.signTransaction === 'function',
     unsubscribe: null,
     async disconnect() {
@@ -3558,11 +3543,6 @@ export function reviewedSignedWireBytes(signedTransaction, reviewedTransaction) 
   return new Uint8Array(wireBytes);
 }
 
-function hasReviewedCosignature(transaction) {
-  return transaction instanceof Transaction
-    && transaction.signatures.some(entry => entry.signature);
-}
-
 export function buildDflowSpotPlan(payload, walletAddress) {
   const owner = safeAddress(walletAddress);
   const responseOwner = safeAddress(payload?.owner);
@@ -3801,8 +3781,12 @@ export async function sendPlan(connection, adapter, plan, {
   if (!(connection instanceof Connection) || !plan?.transaction) {
     throw new Error('A built transaction plan is required');
   }
-  if (!adapter?.canTransact) {
-    throw new Error('Connected wallet does not support transaction signing');
+  if (!adapter?.canTransact || !adapter?.canSignTransaction) {
+    const error = new Error(
+      'Connected wallet must return the signed transaction for exact review validation',
+    );
+    error.code = 'WALLET_DETACHED_SIGNING_REQUIRED';
+    throw error;
   }
   if (adapter.address !== plan.summary?.feePayer) {
     throw new Error('Connected wallet changed after transaction review');
@@ -3831,8 +3815,6 @@ export async function sendPlan(connection, adapter, plan, {
   let signature = '';
   if (adapter.kind === 'standard') {
     const sign = adapter.wallet.features?.[SolanaSignTransaction]?.signTransaction;
-    const signAndSend = adapter.wallet.features?.[SolanaSignAndSendTransaction]
-      ?.signAndSendTransaction;
     if (typeof sign === 'function') {
       const [output] = await sign({
         account: adapter.account,
@@ -3850,28 +3832,10 @@ export async function sendPlan(connection, adapter, plan, {
         skipPreflight: false,
         maxRetries: 3,
       });
-    } else if (typeof signAndSend === 'function') {
-      if (hasReviewedCosignature(plan.transaction)) {
-        const error = new Error(
-          'This attributed transaction requires a wallet that returns the signed transaction',
-        );
-        error.code = 'WALLET_CANNOT_PRESERVE_COSIGNATURE';
-        throw error;
-      }
-      const [output] = await signAndSend({
-        account: adapter.account,
-        chain: MAINNET_CHAIN,
-        transaction: serializeForWallet(plan.transaction),
-        options: {
-          commitment: 'confirmed',
-          preflightCommitment: 'confirmed',
-          skipPreflight: false,
-          maxRetries: 3,
-        },
-      });
-      signature = output?.signature ? base58.encode(output.signature) : '';
     } else {
-      throw new Error('Wallet cannot sign Solana transactions');
+      const error = new Error('Wallet cannot return a signed Solana transaction');
+      error.code = 'WALLET_DETACHED_SIGNING_REQUIRED';
+      throw error;
     }
   } else {
     const provider = adapter.provider;
@@ -3883,23 +3847,10 @@ export async function sendPlan(connection, adapter, plan, {
         skipPreflight: false,
         maxRetries: 3,
       });
-    } else if (typeof provider?.signAndSendTransaction === 'function') {
-      if (hasReviewedCosignature(plan.transaction)) {
-        const error = new Error(
-          'This attributed transaction requires a wallet that returns the signed transaction',
-        );
-        error.code = 'WALLET_CANNOT_PRESERVE_COSIGNATURE';
-        throw error;
-      }
-      const result = await provider.signAndSendTransaction(plan.transaction, {
-        preflightCommitment: 'confirmed',
-        skipPreflight: false,
-        maxRetries: 3,
-      });
-      const resultSignature = result?.signature || result;
-      signature = resultSignature instanceof Uint8Array
-        ? base58.encode(resultSignature)
-        : String(resultSignature || '');
+    } else {
+      const error = new Error('Wallet cannot return a signed Solana transaction');
+      error.code = 'WALLET_DETACHED_SIGNING_REQUIRED';
+      throw error;
     }
   }
   const normalizedSignature = safeSignature(signature);

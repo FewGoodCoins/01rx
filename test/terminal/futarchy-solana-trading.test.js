@@ -24,6 +24,7 @@ const {
   SolanaSignAndSendTransaction,
   SolanaSignTransaction,
 } = require('@solana/wallet-standard-features');
+const { StandardConnect } = require('@wallet-standard/features');
 
 const base58 = base58Module.default || base58Module;
 const WALLET_ADDRESS = 'A4THR6vJ6LWJ75681gfRrDhgRfxHbxhjdJV9Bz5v97GK';
@@ -200,6 +201,49 @@ test('Solana error descriptions are fixed, actionable, and privacy-safe', async 
       retryable: true,
     },
   );
+});
+
+test('wallet discovery keeps sign-and-send-only wallets read-only', async () => {
+  const { discoverWalletOptions } = await loadTradingModule();
+  const standardSendOnly = {
+    name: 'Send-only Standard',
+    chains: ['solana:mainnet'],
+    features: {
+      [StandardConnect]: { async connect() { return { accounts: [] }; } },
+      [SolanaSignAndSendTransaction]: {
+        async signAndSendTransaction() { return []; },
+      },
+    },
+  };
+  const standardDetached = {
+    name: 'Detached Standard',
+    chains: ['solana:mainnet'],
+    features: {
+      [StandardConnect]: { async connect() { return { accounts: [] }; } },
+      [SolanaSignTransaction]: { async signTransaction() { return []; } },
+    },
+  };
+  const legacySendOnly = {
+    isPhantom: true,
+    async connect() { return { publicKey: WALLET_ADDRESS }; },
+    async signAndSendTransaction() { return { signature: SIGNATURE }; },
+  };
+  const options = discoverWalletOptions({
+    phantom: { solana: legacySendOnly },
+    solana: legacySendOnly,
+  }, {
+    get() { return [standardSendOnly, standardDetached]; },
+  });
+
+  const sendOnly = options.find(option => option.name === 'Send-only Standard');
+  const detached = options.find(option => option.name === 'Detached Standard');
+  const legacy = options.find(option => option.name === 'Phantom');
+  assert.equal(sendOnly.canTransact, false);
+  assert.equal(sendOnly.canSignTransaction, false);
+  assert.equal(detached.canTransact, true);
+  assert.equal(detached.canSignTransaction, true);
+  assert.equal(legacy.canTransact, false);
+  assert.equal(legacy.canSignTransaction, false);
 });
 
 test('v0.6.1 conditional quotes apply the current protocol-only fee', async () => {
@@ -507,6 +551,7 @@ test('an expired review cannot reach a wallet signing method', async () => {
     kind: 'legacy',
     address: WALLET_ADDRESS,
     canTransact: true,
+    canSignTransaction: true,
     provider: {
       async signTransaction() {
         signingCalls += 1;
@@ -541,6 +586,7 @@ test('wallet signing is bound to the exact transaction bytes that passed simulat
     kind: 'legacy',
     address: WALLET_ADDRESS,
     canTransact: true,
+    canSignTransaction: true,
     provider: {
       async signTransaction() {
         signingCalls += 1;
@@ -581,6 +627,7 @@ test('an unreviewed transaction cannot reach a wallet signing method', async () 
     kind: 'legacy',
     address: WALLET_ADDRESS,
     canTransact: true,
+    canSignTransaction: true,
     provider: {
       async signTransaction() {
         signingCalls += 1;
@@ -617,6 +664,7 @@ test('restart and program-integrity failures stop simulation and wallet signing'
     kind: 'legacy',
     address: WALLET_ADDRESS,
     canTransact: true,
+    canSignTransaction: true,
     provider: {
       async signTransaction() {
         signingCalls += 1;
@@ -673,6 +721,7 @@ test('wallet-returned signed bytes must preserve the reviewed transaction messag
     kind: 'legacy',
     address: WALLET_ADDRESS,
     canTransact: true,
+    canSignTransaction: true,
     provider: {
       async signTransaction() {
         return { serialize: () => reviewedWire };
@@ -752,6 +801,7 @@ test('wallet-returned bytes must preserve the 01RX attribution co-signature', as
     kind: 'legacy',
     address: WALLET_ADDRESS,
     canTransact: true,
+    canSignTransaction: true,
     provider: {
       async signTransaction() {
         return { serialize: () => strippedWire };
@@ -772,7 +822,7 @@ test('wallet-returned bytes must preserve the 01RX attribution co-signature', as
   };
   await assert.rejects(
     sendPlan(connection, adapter, plan, { safetyCheck: allowExecutionSafety }),
-    error => error?.code === 'WALLET_CANNOT_PRESERVE_COSIGNATURE',
+    error => error?.code === 'WALLET_DETACHED_SIGNING_REQUIRED',
   );
 });
 
@@ -808,6 +858,7 @@ test('wallet-standard execution prefers guarded relay submission when signing is
     address: WALLET_ADDRESS,
     account,
     canTransact: true,
+    canSignTransaction: true,
     wallet: {
       features: {
         [SolanaSignTransaction]: {

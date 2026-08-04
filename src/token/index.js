@@ -6,6 +6,7 @@ import { installBrowserAdvancedCharts } from '../charting/advanced-charts.js';
 import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';
 import tokenPageUrl from '../legacy/token-page.js?url';
+import { installBrowserMarketTokenSidebar } from '../markets/token-sidebar.js';
 import { installBrowserTokenPage } from './runtime.js';
 
 export const pageKind = 'token';
@@ -78,6 +79,7 @@ export function installBrowserPage(browserWindow) {
   installBrowserAdvancedCharts(browserWindow);
   const { markets } = routeState(browserWindow);
   if (!markets) beginLocalChartLibraryLoad(browserWindow);
+  if (markets) installBrowserMarketTokenSidebar(browserWindow);
   browserWindow.document.documentElement.classList.toggle(
     'is-framed-token',
     browserWindow.self !== browserWindow.top,

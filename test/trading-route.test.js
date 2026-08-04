@@ -7,6 +7,11 @@ import {
 } from '../api/beta/trading.js';
 import { tradingError } from '../api/_lib/dflow-spot-order.js';
 
+const ACTIVE_EXECUTION_RELEASE = Object.freeze({
+  enabled: true,
+  message: 'Enabled by test fixture',
+});
+
 function responseRecorder() {
   return {
     body: null,
@@ -47,6 +52,7 @@ function request(view, body = {}) {
 test('trading route returns the existing contract envelope and headers', async () => {
   const calls = [];
   const handler = createTradingHandler({
+    executionRelease: ACTIVE_EXECUTION_RELEASE,
     service: {
       async spotOrder(body) {
         calls.push(body);
@@ -69,12 +75,14 @@ test('trading route returns the existing contract envelope and headers', async (
   assert.equal(response.headers['cache-control'], 'private, no-store');
   assert.equal(response.headers['x-01r-contract'], 'trading.spot-order.beta1');
   assert.equal(response.headers['x-01r-surface'], 'beta');
+  assert.equal(response.headers['x-01r-execution'], 'enabled');
   assert.equal(response.headers['x-ratelimit-limit'], '60');
 });
 
 test('trading route exposes zero-fee decision attribution through the typed contract', async () => {
   const calls = [];
   const handler = createTradingHandler({
+    executionRelease: ACTIVE_EXECUTION_RELEASE,
     service: {
       async decisionAttest(body) {
         calls.push(body);
@@ -134,6 +142,7 @@ test('trading route preserves guarded service errors and hides unexpected failur
     },
   };
   const guarded = createTradingHandler({
+    executionRelease: ACTIVE_EXECUTION_RELEASE,
     logger,
     service: {
       async spotOrder() {
@@ -153,6 +162,7 @@ test('trading route preserves guarded service errors and hides unexpected failur
   assert.equal(guardedResponse.headers['x-navgator-degraded'], 'true');
 
   const unexpected = createTradingHandler({
+    executionRelease: ACTIVE_EXECUTION_RELEASE,
     logger,
     service: {
       async spotOrder() {
@@ -174,6 +184,28 @@ test('trading route preserves guarded service errors and hides unexpected failur
   assert.match(JSON.stringify(logs), /\[redacted-url\]/);
   assert.doesNotMatch(JSON.stringify(logs), /must-not-log/);
   assert.doesNotMatch(JSON.stringify(logs), /nested-secret/);
+});
+
+test('trading route fails closed while the code-owned audit gate is paused', async () => {
+  let calls = 0;
+  const handler = createTradingHandler({
+    service: {
+      async spotOrder() {
+        calls += 1;
+      },
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(request('spot-order', { amount: '1' }), response);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.code, 'EXECUTION_PAUSED');
+  assert.match(response.body.error, /independent security review/i);
+  assert.equal(response.headers['x-01r-execution'], 'paused');
+  assert.equal(response.headers['x-01r-contract'], 'trading.spot-order.beta1');
+  assert.equal(response.headers['x-ratelimit-limit'], undefined);
+  assert.equal(calls, 0);
 });
 
 test('server diagnostics redact API keys before logging', () => {
