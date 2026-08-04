@@ -98,6 +98,10 @@
     --ft-terminal-analysis-height: 42px;
   }
 
+  [data-ft-mode="token"].ft-proposal-focus:not(.ft-wallet-connected) .ft-terminal-grid {
+    --ft-terminal-account-height: 0px;
+  }
+
   /* The sidebar and terminal share two continuous desktop rails: a 38px market
      summary row followed by a 42px controls row. */
   html[data-workspace="markets"] .tp-market-toolbar {
@@ -646,6 +650,17 @@
   body.is-token-markets:has([data-ft-mode="token"].ft-proposal-focus) .app-content {
     overflow-y: hidden !important;
   }
+}
+
+[data-ft-mode="token"].ft-proposal-focus:not(.ft-wallet-connected) .ft-account-row {
+  display: none !important;
+}
+
+[data-ft-mode="token"].ft-proposal-focus.ft-has-system-message .ft-system-bar {
+  display: flex;
+  position: static;
+  top: auto;
+  flex: 0 0 auto;
 }
 
 /* Use one continuous surface across the market terminal. Borders, text, and

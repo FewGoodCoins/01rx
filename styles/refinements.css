@@ -629,7 +629,6 @@ body.is-token .tc-runway-label {
   text-transform: uppercase;
 }
 
-body.is-market-discovery .site-header-market-name,
 body.is-token-markets:has(
   [data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market)
 ) .site-header-market-name {
@@ -641,14 +640,12 @@ body.is-token-markets:has(
 }
 
 html[data-workspace="markets"] .site-header-navgator,
-body.is-market-discovery .site-header-navgator,
 body.is-token-markets .site-header-navgator {
   order: 2;
   opacity: 0.48;
 }
 
 html[data-workspace="markets"] .site-header-decision,
-body.is-market-discovery .site-header-decision,
 body.is-token-markets .site-header-decision {
   order: 0;
   width: var(--sidebar-width);
@@ -2519,5 +2516,35 @@ body.is-token.chart-fs .token-board-grid .token-chart-col.chart-expanded .growth
 
   body.is-token .token-board-grid > .token-stats-col .proposal-predictor-head {
     margin-bottom: 8px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    width: 100vw;
+    min-width: 0;
+  }
+
+  html[data-workspace="markets"] .site-header-decision,
+  body.is-token-markets .site-header-decision {
+    width: auto;
+    min-width: 0;
+    padding-left: 10px;
+  }
+
+  .site-header-decision-frame {
+    width: 92px;
+  }
+
+  .site-header-market-wallet[data-01r-theme-scope] {
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .site-header-market-wallet .ft-wallet-button {
+    max-width: 132px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

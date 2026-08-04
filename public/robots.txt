@@ -4,4 +4,4 @@ Allow: /
 
 # 01RX allows indexing and real-time AI retrieval/grounding of public pages
 # while reserving rights for model training and fine-tuning.
-Sitemap: https://01rx.vercel.app/sitemap.xml
+Sitemap: https://onrx.trade/sitemap.xml

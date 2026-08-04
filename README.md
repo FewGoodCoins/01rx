@@ -1,8 +1,9 @@
 # 01RX
 
-01RX is the standalone trading interface for ownership tokens and live decision
-markets. This repository owns the product shell, market navigation, chart
-experience, wallet connection, transaction review, and trading UI.
+01RX is a focused trading interface for ownership tokens and their live or
+resolved decision markets. This repository owns the product shell, market
+navigation, chart experience, wallet connection, transaction review, and
+trading UI.
 
 01Resolved is the canonical indexed-data source through 01RX's server-only API:
 current ownership-token snapshots, decision indexes, proposal price history,
@@ -18,8 +19,8 @@ synthesize them or fall back to another provider.
 The migrated application includes:
 
 - ownership-token price, NAV, treasury, supply, and projected-NAV charts;
-- searchable ownership-token and complete live/resolved decision-market navigation;
-- Liveline-rendered public PASS/FAIL history at its native 15-minute cadence;
+- searchable ownership-token and token-scoped live/resolved decision-market navigation;
+- interactive PASS/FAIL history at its native 15-minute cadence;
 - a horizontally scrollable TWAP-window progress timeline;
 - wallet-standard discovery and explicit transaction review;
 - PASS/FAIL AMM and Manifest order planning;
@@ -41,7 +42,8 @@ routes remain available, for example:
 ```text
 /?token=solo&view=markets&tab=tokens
 /?token=loyal&view=markets&tab=decisions
-/?view=markets&archive=1
+/?token=loyal&view=markets&tab=decisions&filter=resolved
+/embed?token=solo
 ```
 
 The Vite server handles `/api/current-nav`, futarchy reads, and
@@ -114,12 +116,12 @@ for its scope and the upgrade policy.
 - aligned premium/discount regions;
 - interpolated values for crosshair hover.
 
-Liveline is the default decision-history renderer. Its adapter consumes the
-same normalized proposal-history model, masks incomplete intervals rather than
-smoothing through them, and falls back to Lightweight Charts for data too
-sparse for a multi-series live canvas. Lightweight Charts also remains the
-fallback ownership-token renderer. The optional Advanced Charts adapter
-consumes the same 01RX data model when an approved library is configured.
+Decision history uses an engine-neutral presentation contract shared by its
+renderers. Lightweight Charts is the current interactive renderer; the
+optional Liveline adapter consumes the same normalized series. Both preserve
+native observations and gaps instead of inventing values between incomplete
+intervals. A future approved Advanced Charts adapter can consume the same 01RX
+data and presentation models without changing the route or API contracts.
 
 Projected NAV is illustrative. It assumes the latest effective supply stays
 constant and deducts the configured monthly allowance from the latest observed

@@ -59,7 +59,6 @@
   --z-tooltip:      9500;
   --z-cursor:       9600;
   --z-cmd:          9800;
-  --z-mobile-gate:  9900;
   --z-maintenance:  9950;
   /* Depth — whisper-level shadows for surface separation */
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);

@@ -6,6 +6,7 @@ import {
   proposalHistoryChartObservations,
 } from './proposal-history-model.js';
 import { createProposalHistoryChart as createLightweightProposalHistoryChart } from './proposal-history-chart.js';
+import { PROPOSAL_CHART_SERIES_PRESENTATION } from './proposal-history-presentation.js';
 
 const INTERVAL_SECONDS = Object.freeze({
   '15m': 15 * 60,
@@ -23,43 +24,11 @@ const PLOT_TOP_PADDING = 54;
 const RESOLVED_LERP_SPEED = 0.75;
 
 export const PROPOSAL_HISTORY_ENGINE = 'liveline';
-export const PROPOSAL_LIVELINE_SERIES = Object.freeze([
-  {
-    field: 'underlyingPrice',
-    id: 'price',
-    label: 'Price',
-    colorVariable: '--ft-ink-strong',
-    fallbackColor: '#f4f6f8',
-  },
-  {
-    field: 'passPrice',
-    id: 'pass',
-    label: 'Pass',
-    colorVariable: '--ft-positive',
-    fallbackColor: '#42d89b',
-  },
-  {
-    field: 'failPrice',
-    id: 'fail',
-    label: 'Fail',
-    colorVariable: '--ft-negative',
-    fallbackColor: '#ff6f7d',
-  },
-  {
-    field: 'passTwap',
-    id: 'pass-twap',
-    label: 'Pass TWAP',
-    colorVariable: '--ft-positive',
-    fallbackColor: '#42d89b',
-  },
-  {
-    field: 'failTwap',
-    id: 'fail-twap',
-    label: 'Fail TWAP',
-    colorVariable: '--ft-negative',
-    fallbackColor: '#ff6f7d',
-  },
-]);
+export const PROPOSAL_LIVELINE_SERIES = Object.freeze(
+  PROPOSAL_CHART_SERIES_PRESENTATION.filter(
+    definition => definition.decisionMetric !== true,
+  ),
+);
 
 export function proposalLivelinePlaybackOptions(isLive) {
   return {

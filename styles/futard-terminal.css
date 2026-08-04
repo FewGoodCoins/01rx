@@ -53,7 +53,6 @@ body.is-futard-terminal > .bb-tape,
 body.is-futard-terminal > .bloomberg-status,
 body.is-futard-terminal > .site-header,
 body.is-futard-terminal > .cmd-overlay,
-body.is-futard-terminal > #mobile-gate,
 body.is-futard-terminal .shell-panel-toggle,
 body.is-futard-terminal .app-left,
 body.is-futard-terminal .topnav,
@@ -4402,12 +4401,38 @@ body.is-futard-terminal #token-switch-loader {
   will-change: transform;
 }
 
+.ft-proposal-boundary-dot {
+  position: absolute;
+  z-index: 4;
+  width: var(--ft-proposal-live-dot-size, 5px);
+  height: var(--ft-proposal-live-dot-size, 5px);
+  border: 1px solid var(--market-surface, #101010);
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  will-change: left, top, transform;
+}
+
+.ft-proposal-boundary-dot-start {
+  opacity: 0.82;
+}
+
+.ft-proposal-boundary-dot-end {
+  z-index: 5;
+}
+
+.ft-proposal-boundary-dot[hidden] {
+  display: none;
+}
+
 .ft-proposal-live-dot {
   --ft-proposal-live-pulse-delay: 0s;
   position: absolute;
   z-index: 5;
-  width: 5px;
-  height: 5px;
+  width: var(--ft-proposal-live-dot-size, 5px);
+  height: var(--ft-proposal-live-dot-size, 5px);
   border-radius: 50%;
   background: currentColor;
   pointer-events: none;
@@ -4424,7 +4449,7 @@ body.is-futard-terminal #token-switch-loader {
   content: '';
   opacity: 0;
   pointer-events: none;
-  animation: ft-proposal-live-pulse 3s ease-out infinite;
+  animation: ft-proposal-live-pulse var(--ft-proposal-live-pulse-duration, 3s) ease-out infinite;
   animation-delay: var(--ft-proposal-live-pulse-delay);
 }
 
@@ -4437,12 +4462,12 @@ body.is-futard-terminal #token-switch-loader {
 }
 
 .ft-proposal-live-dot-pass {
-  --ft-proposal-live-pulse-delay: 1s;
+  --ft-proposal-live-pulse-delay: var(--ft-proposal-live-pulse-stagger, 1s);
   color: var(--ft-positive);
 }
 
 .ft-proposal-live-dot-fail {
-  --ft-proposal-live-pulse-delay: 2s;
+  --ft-proposal-live-pulse-delay: calc(var(--ft-proposal-live-pulse-stagger, 1s) * 2);
   color: var(--ft-negative);
 }
 
@@ -4455,7 +4480,7 @@ body.is-futard-terminal #token-switch-loader {
   36%,
   100% {
     opacity: 0;
-    transform: scale(3);
+    transform: scale(var(--ft-proposal-live-pulse-scale, 3));
   }
 }
 
@@ -5282,7 +5307,6 @@ body.is-futard-terminal #token-switch-loader {
   }
 }
 
-.decision-markets-home-root,
 .token-markets-root {
   width: 100%;
   min-width: 0;
@@ -5327,135 +5351,18 @@ body.is-futard-terminal #token-switch-loader {
   text-align: center;
 }
 
-.decision-markets-home-root,
 .token-markets-root,
-.decision-markets-home-root[data-theme],
 .token-markets-root[data-theme] {
   --ft-radius-sm: 5px;
   --ft-radius-md: 8px;
   --ft-radius-lg: 10px;
 }
 
-body.is-market-discovery .landing > .hero-strip,
-body.is-market-discovery .landing > .landing-blurb,
-body.is-market-discovery .landing > .lp-filter-bar,
-body.is-market-discovery .landing > .lp-view-bar,
-body.is-market-discovery .landing > .treemap-controls,
-body.is-market-discovery .landing > .token-table-wrap,
-body.is-market-discovery .landing > .treemap-wrap,
-body.is-market-discovery .landing > .footer {
-  display: none !important;
-}
-
-body.is-market-discovery .decision-markets-home-root {
-  display: block;
-}
-
-body.is-market-discovery #mobile-gate,
-body.is-token-markets #mobile-gate {
-  display: none !important;
-}
-
-[data-ft-mode="discovery"] .ft-shell,
 [data-ft-mode="token"] .ft-shell {
   min-height: 0;
   overflow: visible;
   background: transparent;
   color: var(--ft-ink);
-}
-
-[data-ft-mode="discovery"] .ft-header,
-[data-ft-mode="discovery"] .ft-footer,
-[data-ft-mode="discovery"] .ft-market-chart-header-region,
-[data-ft-mode="discovery"] .ft-market-chart,
-[data-ft-mode="discovery"] .ft-market-stage,
-[data-ft-mode="discovery"] .ft-ticket-column,
-[data-ft-mode="discovery"] .ft-activity-row {
-  display: none;
-}
-
-[data-ft-mode="discovery"] .ft-system-bar {
-  margin: 18px 0 0;
-  border: 1px solid var(--ft-border);
-  border-bottom: 0;
-  border-radius: var(--ft-radius-lg) var(--ft-radius-lg) 0 0;
-}
-
-[data-ft-mode="discovery"] .ft-system-meta {
-  display: none;
-}
-
-[data-ft-mode="discovery"] .ft-main {
-  padding: 0 0 32px;
-}
-
-[data-ft-mode="discovery"] .ft-terminal-grid {
-  display: block;
-  max-width: none;
-}
-
-[data-ft-mode="discovery"] .ft-market-rail {
-  position: static;
-  width: 100%;
-  max-height: none;
-  min-height: 480px;
-  border-radius: 0 0 var(--ft-radius-lg) var(--ft-radius-lg);
-  box-shadow: none;
-}
-
-[data-ft-mode="discovery"] .ft-rail-header {
-  min-height: 74px;
-  padding: 16px 18px 13px;
-}
-
-[data-ft-mode="discovery"] .ft-rail-header h1 {
-  font-size: 19px;
-}
-
-[data-ft-mode="discovery"] .ft-search {
-  margin: 12px 16px 8px;
-}
-
-[data-ft-mode="discovery"] .ft-search input {
-  height: 40px;
-  font-size: 12px;
-}
-
-[data-ft-mode="discovery"] .ft-filter-row {
-  display: flex;
-  margin: 0 16px 12px;
-  border: 0;
-  gap: 6px;
-}
-
-[data-ft-mode="discovery"] .ft-filter-button {
-  min-width: 82px;
-  min-height: 32px;
-  padding: 0 10px;
-  flex-direction: row;
-  border: 1px solid var(--ft-border);
-  border-radius: 999px;
-  gap: 6px;
-}
-
-[data-ft-mode="discovery"] .ft-market-list {
-  min-height: 320px;
-  overflow: visible;
-}
-
-[data-ft-mode="discovery"] .ft-market-row {
-  display: grid;
-  min-height: 68px;
-  padding: 11px 16px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  border-left: 2px solid transparent;
-  gap: 16px;
-  text-decoration: none;
-}
-
-[data-ft-mode="discovery"] .ft-market-row:hover {
-  border-left-color: var(--ft-accent);
 }
 
 .ft-market-row-state {
@@ -5471,12 +5378,6 @@ body.is-token-markets #mobile-gate {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 8px;
   white-space: nowrap;
-}
-
-[data-ft-mode="discovery"] .ft-rail-source {
-  position: sticky;
-  bottom: 0;
-  background: var(--ft-panel);
 }
 
 body.is-token-markets .app-content {
@@ -5918,9 +5819,7 @@ body.is-token-markets .token-markets-root {
 }
 
 @media (max-width: 760px) {
-  html:has(body.is-market-discovery),
   html:has(body.is-token-markets),
-  body.is-market-discovery,
   body.is-token-markets {
     width: 100%;
     max-width: 100vw;
@@ -5928,9 +5827,6 @@ body.is-token-markets .token-markets-root {
     overflow-x: clip !important;
   }
 
-  body.is-market-discovery .app-shell,
-  body.is-market-discovery .app-right,
-  body.is-market-discovery .app-content,
   body.is-token-markets .app-shell,
   body.is-token-markets .app-right,
   body.is-token-markets .app-content {
@@ -5944,52 +5840,25 @@ body.is-token-markets .token-markets-root {
     overflow: visible !important;
   }
 
-  body.is-market-discovery .landing,
   body.is-token-markets .dashboard,
-  body.is-market-discovery .decision-markets-home-root,
   body.is-token-markets .token-markets-root,
-  [data-ft-mode="discovery"] .ft-shell,
   [data-ft-mode="token"] .ft-shell,
-  [data-ft-mode="discovery"] .ft-main,
   [data-ft-mode="token"] .ft-main,
-  [data-ft-mode="discovery"] .ft-terminal-grid,
   [data-ft-mode="token"] .ft-terminal-grid {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
   }
 
-  body.is-market-discovery .decision-markets-home-root,
   body.is-token-markets .token-markets-root {
     contain: inline-size;
     overflow-x: clip;
   }
 
-  body.is-market-discovery .app-left,
   body.is-token-markets .app-left,
-  body.is-market-discovery > .bb-tape,
-  body.is-market-discovery > .bloomberg-status,
   body.is-token-markets > .bb-tape,
   body.is-token-markets > .bloomberg-status {
     display: none !important;
-  }
-
-  body.is-market-discovery .landing {
-    padding-bottom: 32px;
-  }
-
-  [data-ft-mode="discovery"] .ft-system-bar {
-    margin-top: 10px;
-  }
-
-  [data-ft-mode="discovery"] .ft-market-row {
-    min-height: 76px;
-    padding: 10px 12px;
-    gap: 10px;
-  }
-
-  [data-ft-mode="discovery"] .ft-market-row-state {
-    min-width: 88px;
   }
 
   [data-ft-mode="token"] .ft-header-inner,
@@ -11132,7 +11001,6 @@ html[data-01rx-chart-frame="true"] .bb-tape,
 html[data-01rx-chart-frame="true"] .bloomberg-status,
 html[data-01rx-chart-frame="true"] .site-header,
 html[data-01rx-chart-frame="true"] #maintenance-gate,
-html[data-01rx-chart-frame="true"] #mobile-gate,
 html[data-01rx-chart-frame="true"] .app-left,
 html[data-01rx-chart-frame="true"] .shell-panel-toggle,
 html[data-01rx-chart-frame="true"] #global-nav,

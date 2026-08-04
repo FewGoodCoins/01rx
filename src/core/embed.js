@@ -1,4 +1,4 @@
-const DEFAULT_EMBED_ORIGIN = 'https://01rx.vercel.app';
+const DEFAULT_EMBED_ORIGIN = 'https://onrx.trade';
 const DEFAULT_EMBED_HEIGHT = 420;
 const EMBED_CURRENT_NAV_TOKEN_KEYS = Object.freeze([
   'meta',
@@ -75,16 +75,7 @@ export function createChartEmbedHelpers(browserWindow) {
       : `${origin}/?token=solo&view=markets&tab=tokens`;
   }
 
-  function builderUrl(key = tokenKey()) {
-    const safeKey = routes.normalizeTokenKey(key);
-    const origin = normalizeOrigin(runtime.location.origin);
-    return safeKey
-      ? `${origin}/widgets/chart/?token=${encodeURIComponent(safeKey)}`
-      : `${origin}/widgets/chart/`;
-  }
-
   return {
-    builderUrl,
     fullPageUrl,
     isChartEmbed,
     isOutlined,

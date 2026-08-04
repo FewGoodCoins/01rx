@@ -95,13 +95,13 @@
 </style>
 <title>01RX — Ownership and Decision Markets</title>
 <meta name="description" content="Trade ownership tokens and live decision markets with price, NAV, treasury, and proposal context.">
-<link rel="canonical" href="https://01rx.vercel.app/">
+<link rel="canonical" href="https://onrx.trade/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="01RX">
 <meta property="og:title" content="01RX — Ownership and Decision Markets">
 <meta property="og:description" content="Trade ownership tokens and live decision markets with price, NAV, treasury, and proposal context.">
-<meta property="og:url" content="https://01rx.vercel.app/">
-<meta property="og:image" content="https://01rx.vercel.app/logos/01rx.png?v=5">
+<meta property="og:url" content="https://onrx.trade/">
+<meta property="og:image" content="https://onrx.trade/logos/01rx.png?v=5">
 <meta property="og:image:width" content="1254">
 <meta property="og:image:height" content="1254">
 <meta property="og:image:alt" content="01RX">
@@ -109,7 +109,7 @@
 <meta name="twitter:site" content="@checkNAV">
 <meta name="twitter:title" content="01RX — Ownership and Decision Markets">
 <meta name="twitter:description" content="Trade ownership tokens and live decision markets with price, NAV, treasury, and proposal context.">
-<meta name="twitter:image" content="https://01rx.vercel.app/logos/01rx.png?v=5">
+<meta name="twitter:image" content="https://onrx.trade/logos/01rx.png?v=5">
 <meta name="twitter:image:alt" content="01RX">
 <script type="application/ld+json">
 {
@@ -118,7 +118,7 @@
     {
       "@type": "WebApplication",
       "name": "01RX",
-      "url": "https://01rx.vercel.app/",
+      "url": "https://onrx.trade/",
       "applicationCategory": "FinanceApplication",
       "description": "Ownership-token and decision-market trading with NAV, treasury, and proposal context.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -136,27 +136,12 @@ try {
   var _bootParams = new URLSearchParams(window.location.search);
   var _bootPath = window.location.pathname.replace(/\/+$/, '') || '/';
   var _bootToken = (_bootParams.get('token') || '').trim().toLowerCase();
-  if (_bootParams.get('view') === 'markets') {
-    document.documentElement.setAttribute('data-workspace', 'markets');
-    document.documentElement.setAttribute('data-market-boot', 'pending');
-    document.documentElement.setAttribute('data-market-sidebar-tab', 'all');
-  }
-} catch (e) {}
-try {
-  if (/\/index\.html$/.test(window.location.pathname)) {
-    history.replaceState(null, '', window.location.pathname.replace(/\/index\.html$/, '/') + window.location.search + window.location.hash);
-  }
-} catch (e) {}
-try {
-  var _bootParams = _bootParams || new URLSearchParams(window.location.search);
-  var _bootPath = _bootPath || window.location.pathname.replace(/\/+$/, '') || '/';
-  var _bootToken = _bootToken || (_bootParams.get('token') || '').trim().toLowerCase();
   var _bootEmbed = _bootPath === '/embed' || _bootParams.get('embed') === '1' || _bootParams.get('embed') === 'true';
-  if (_bootParams.get('frame') === '01rx' && /^[a-z0-9][a-z0-9_-]*$/.test(_bootToken)) {
-    document.documentElement.setAttribute('data-01rx-chart-frame', 'true');
-    document.documentElement.setAttribute('data-chart-engine', 'advanced-loading');
-  }
-  if (_bootEmbed && /^[a-z0-9][a-z0-9_-]*$/.test(_bootToken)) {
+  var _bootFrame = !_bootEmbed
+    && window.self !== window.top
+    && _bootParams.get('frame') === '01rx'
+    && /^[a-z0-9][a-z0-9_-]*$/.test(_bootToken);
+  if (_bootEmbed) {
     document.documentElement.setAttribute('data-embed', 'chart');
     document.documentElement.setAttribute(
       'data-embed-theme',
@@ -168,6 +153,13 @@ try {
     if (_bootParams.get('outlined') === '1' || _bootParams.get('outlined') === 'true') {
       document.documentElement.setAttribute('data-embed-outlined', 'true');
     }
+  } else if (_bootFrame) {
+    document.documentElement.setAttribute('data-01rx-chart-frame', 'true');
+    document.documentElement.setAttribute('data-chart-engine', 'advanced-loading');
+  } else {
+    document.documentElement.setAttribute('data-workspace', 'markets');
+    document.documentElement.setAttribute('data-market-boot', 'pending');
+    document.documentElement.setAttribute('data-market-sidebar-tab', 'all');
   }
   var _bootNumFont = (_bootParams.get('numfont') || '').toLowerCase();
   if (_bootNumFont === 'inter' || _bootNumFont === 'ibm') {
@@ -350,57 +342,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
     <span id="bb-clock">--:--:-- UTC</span>
   </span>
 </footer>
-
-<!-- ══ TREEMAP OVERLAY ══ -->
-<div class="cmd-overlay" id="treemap-overlay">
-  <div class="treemap-overlay-box">
-    <div class="compare-header">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:13px;font-weight:600;color:var(--bright)">Treemap</div>
-        <div class="treemap-controls" id="treemap-controls" style="display:flex">
-          <span class="tm-label">Size by:</span>
-          <button class="treemap-size-btn active" id="tm-size-mcap" onclick="setTreemapSize('mcap')">MCap</button>
-          <button class="treemap-size-btn" id="tm-size-treasury" onclick="setTreemapSize('treasury')">Treasury</button>
-          <span class="tm-label" style="margin-left:12px">Color by:</span>
-          <button class="treemap-size-btn active" id="tm-color-change" onclick="setTreemapColor('change')">24H Change</button>
-          <button class="treemap-size-btn" id="tm-color-nav" onclick="setTreemapColor('nav')">Prem/Disc</button>
-        </div>
-      </div>
-      <button class="compare-close" id="treemap-close" title="Close">&times;</button>
-    </div>
-    <div class="treemap-wrap" id="treemap-wrap"></div>
-  </div>
-</div>
-
-<!-- ══ COMPARE OVERLAY ══ -->
-<div class="cmd-overlay" id="compare-overlay">
-  <div class="compare-box" id="compare-box">
-    <div class="compare-header">
-      <div style="font-size:13px;font-weight:600;color:var(--bright)">Token Comparison</div>
-      <button class="compare-close" id="compare-close" title="Close">&times;</button>
-    </div>
-    <div class="compare-body" id="compare-body"></div>
-  </div>
-</div>
-
-<!-- ══ RESTRUCTURING EVENTS OVERLAY ══ -->
-<div class="cmd-overlay" id="re-overlay">
-  <div class="compare-box" style="max-width:720px">
-    <div class="compare-header">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="font-size:13px;font-weight:600;color:var(--bright)">Restructuring Events</div>
-        <span style="font-size:11px;color:var(--dim)">NAV Efficiency</span>
-      </div>
-      <button class="compare-close" id="re-close" title="Close">&times;</button>
-    </div>
-    <div id="re-overlay-body" style="padding:16px;display:flex;flex-wrap:wrap;gap:8px"></div>
-  </div>
-</div>
-
-<div id="mobile-gate">
-  <div class="mg-brand">01RX</div>
-  <div class="mg-msg">01RX is designed for desktop. Please visit on a computer for the full experience.</div>
-</div>
 
 <header class="site-header" id="site-header">
   <nav class="site-header-identities" aria-label="01RX">
@@ -653,21 +594,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
           <a class="tp-footer-link icon-only" id="sidebar-link-twitter" href="https://x.com/checkNAV" target="_blank" rel="noopener" title="X" aria-label="Visit X">
             <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M9.5 1h1.7L7.6 5.2 11.7 11H8.4L5.7 7.5 2.6 11H.9l3.9-4.5L.5 1h3.4l2.4 3.2L9.5 1zm-.6 9h.9L3.2 2H2.2l6.7 8z"/></svg>
           </a>
-          <button class="tp-footer-btn icon-only disabled" id="sidebar-nav-calculator" type="button" title="NAV Calculator coming soon" aria-label="NAV Calculator coming soon" disabled hidden style="display:none">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2.5" y="1.75" width="11" height="12.5" rx="2"></rect>
-              <line x1="5" y1="5.1" x2="11" y2="5.1"></line>
-              <circle cx="5" cy="8.25" r="0.4" fill="currentColor" stroke="none"></circle>
-              <circle cx="8" cy="8.25" r="0.4" fill="currentColor" stroke="none"></circle>
-              <circle cx="11" cy="8.25" r="0.4" fill="currentColor" stroke="none"></circle>
-              <circle cx="5" cy="11.15" r="0.4" fill="currentColor" stroke="none"></circle>
-              <circle cx="8" cy="11.15" r="0.4" fill="currentColor" stroke="none"></circle>
-              <circle cx="11" cy="11.15" r="0.4" fill="currentColor" stroke="none"></circle>
-            </svg>
-          </button>
-          <button class="tp-footer-btn icon-only disabled" id="sidebar-theme-toggle" type="button" title="Dark mode only" aria-label="Dark mode only" disabled>
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3.1"/><path d="M8 1.3v1.8M8 12.9v1.8M1.3 8h1.8M12.9 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>
-          </button>
         </div>
       </div>
     </div>
@@ -692,108 +618,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
   </div>
   <div class="nav-right" id="nav-right"></div>
 </div><!-- /topnav -->
-
-<div class="system-health-banner" id="system-health-banner" hidden>
-  <div class="system-health-badge" id="system-health-badge">Checking</div>
-  <div class="system-health-copy">
-    <div class="system-health-title" id="system-health-title">Checking backend health…</div>
-    <div class="system-health-meta" id="system-health-meta">Polling API health endpoint.</div>
-    <div class="system-health-findings" id="system-health-findings"></div>
-  </div>
-  <a class="system-health-link" id="system-health-link" href="/api/health" target="_blank" rel="noopener">Open health JSON</a>
-</div>
-
-<!-- ══ LANDING ══ -->
-<div class="landing" id="landing-view">
-  <div id="decision-markets-home-root" class="decision-markets-home-root" hidden></div>
-
-  <div class="hero-strip">
-    <div class="hero-stats" id="hero-stats-normal">
-      <div class="hs-item">
-        <div class="hs-label">Aggregate NAV</div>
-        <div class="hs-val" id="landing-nav-total">—</div>
-        <div class="hs-chg" id="landing-treasury-7d"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Market Value</div>
-        <div class="hs-val" id="landing-mcap-total">—</div>
-        <div class="hs-chg" id="landing-mcap-7d"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Active Tokens</div>
-        <div class="hs-val" id="landing-count">—</div>
-        <div class="hs-chg" id="landing-count-7d"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Curated</div>
-        <div class="hs-val" id="landing-curated-count">—</div>
-        <div class="hs-chg"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Permissionless</div>
-        <div class="hs-val" id="landing-permissionless-count">—</div>
-        <div class="hs-chg"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Discounts</div>
-        <div class="hs-val" id="landing-discount-count">—</div>
-        <div class="hs-chg" id="landing-avg-discount"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Premiums</div>
-        <div class="hs-val" id="landing-premium-count">—</div>
-        <div class="hs-chg" id="landing-avg-premium"></div>
-      </div>
-      <div class="hs-item">
-        <div class="hs-label">Graveyard</div>
-        <div class="hs-val" id="landing-liquidated">2</div>
-        <div class="hs-chg" id="landing-liquidated-7d"></div>
-      </div>
-    </div>
-    <div class="hero-stats" id="hero-stats-graveyard" style="display:none">
-      <div class="hs-item" style="grid-column:1/-1;text-align:center">
-        <div class="hs-label">Graveyard</div>
-        <div class="hs-val" id="graveyard-count">—</div>
-      </div>
-    </div>
-  </div>
-  <div class="lp-filter-bar" id="lp-filter-bar">
-    <button class="lp-filter-btn active" data-lp="all" onclick="filterByLaunchpad(null)">All</button>
-    <button class="lp-filter-btn" data-lp="watchlist" onclick="filterByLaunchpad('watchlist')"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Watchlist</button>
-    <button class="lp-filter-btn" data-lp="curated" onclick="filterByLaunchpad('curated')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.25 9 11.5 5.25-1.25 9-6.25 9-11.5V7L12 2z"/><path d="M9 12l2 2 4-4"/></svg> Curated</button>
-    <button class="lp-filter-btn" data-lp="permissionless" onclick="filterByLaunchpad('permissionless')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg> Permissionless</button>
-    <button class="lp-filter-btn lp-filter-btn-graveyard" data-lp="graveyard" onclick="filterByLaunchpad('graveyard')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V8a6 6 0 0 1 12 0v13"/><path d="M9 12h6"/><path d="M12 9v6"/><path d="M4 21h16"/></svg> Graveyard</button>
-  </div>
-
-
-  <div class="token-table-wrap">
-    <table class="token-table" id="token-table">
-      <thead>
-        <tr>
-          <th class="no-sort" style="cursor:default;width:36px"></th>
-          <th class="no-sort" style="cursor:default;width:32px">#</th>
-          <th style="text-align:left">Name</th>
-          <th>Price <span style="color:var(--dim)">24H</span><span class="stat-tip below" data-tip="Current spot price.">i</span></th>
-          <th style="color:#ffcc00">NAV<span class="stat-tip below" data-tip="Net Asset Value = treasury USDC ÷ effective supply. The per-token treasury claim.">i</span></th>
-          <th><span style="color:#ffcc00">Prem/Disc</span><span class="stat-tip below" data-tip="Premium = price is above NAV. Discount = price is below NAV.">i</span></th>
-          <th>MCap<span class="stat-tip below" data-tip="Market cap = current price × circulating supply.">i</span></th>
-          <th>Treasury<span class="stat-tip below" data-tip="Total USDC held in the DAO treasury.">i</span></th>
-          <th>Age<span class="stat-tip below" data-tip="Time since the token's launch date.">i</span></th>
-          <th class="no-sort" style="cursor:default">Launchpad</th>
-          <th style="text-align:center">Trend <span style="color:var(--dim)">7D</span></th>
-        </tr>
-      </thead>
-      <tbody id="token-tbody"></tbody>
-    </table>
-  </div>
-
-  <div class="footer">
-    01RX · Ownership and decision markets ·
-    Data via 01RX API + Solana RPC ·
-    Not financial advice
-  </div>
-</div>
-
 
 <!-- ══ TOKEN SWITCH LOADER ══ -->
 <div class="token-switch-loader" id="token-switch-loader">
@@ -828,9 +652,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
 
     <!-- ── Main column (token panel now lives in app-left shell) ── -->
     <div class="dash-main">
-
-      <!-- hidden compat -->
-      <div id="snap-nav" style="display:none"></div>
 
       <!-- OUTER ROW: middle column (chart only) + right panel side by side -->
       <div class="token-outer-row token-board-grid" style="flex:1;min-height:0;display:flex;overflow:hidden">
@@ -876,7 +697,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                     <span id="embed-nav-premium">Prem / Disc —</span>
                   </div>
                 </div>
-                <a class="embed-powered" href="https://01rx.vercel.app" target="_blank" rel="noopener">
+                <a class="embed-powered" href="https://onrx.trade" target="_blank" rel="noopener">
                   Powered by <strong>01RX</strong>
                 </a>
               </div>
@@ -1010,13 +831,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                     </button>
                   </div>
                 </div>
-                <a class="chart-fs-btn" id="btn-chart-embed" href="/widgets/chart/" target="_blank" rel="noopener" title="Embed this chart" aria-label="Create an embeddable chart">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M5.5 4L2 8l3.5 4"/>
-                    <path d="M10.5 4L14 8l-3.5 4"/>
-                    <path d="M9.5 2.5l-3 11"/>
-                  </svg>
-                </a>
                 <div style="display:flex;gap:6px;align-items:center" id="layer-controls">
                   <div style="display:flex"><button class="layer-btn on" id="btn-price-line" onclick="togglePrice()" title="Toggle all price data" style="width:44px;font-size:9px">PRICE</button><button class="layer-btn on" id="btn-layer-price" onclick="setLayer('P')" title="Price line" aria-label="Toggle price line" style="width:38px;margin-left:-1px;border-top-left-radius:0;border-bottom-left-radius:0;height:28px;box-sizing:border-box"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><polyline points="1.5,12 5,7 8.5,10 14.5,3"/></svg></button></div>
                   <div style="display:flex"><button class="layer-btn on" data-layer="N" id="btn-layer-nav" onclick="setLayer('N')" title="NAV overlay" aria-label="Toggle NAV overlay" style="width:38px">
@@ -1097,7 +911,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                 <div class="leg-item" id="leg-nav-forecast" style="display:none"><div style="width:16px;height:0;border-top:2px dashed #ffcc00"></div><span>Projected NAV</span></div>
               </div>
               <div id="chart-legend-actions">
-                <button class="layer-btn disabled" id="btn-growth-chart" onclick="toggleGrowthChart()" title="Growth data coming soon" aria-label="Growth data coming soon" aria-controls="growth-chart-overlay" aria-expanded="false" aria-disabled="true" disabled>GROWTH</button>
                 <button class="layer-btn" id="btn-log-scale" onclick="toggleLogScale()" title="Logarithmic scale">LOG</button>
                 <button class="layer-btn" id="btn-focus-scale" onclick="toggleFocusScale()" title="Tighten price scale around visible movement">FOCUS</button>
                 <button class="layer-btn" id="btn-fit-view" onclick="fitChartView()" title="Fit chart to data">FIT</button>
@@ -1181,9 +994,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
           <div class="rp-links-bar" id="rp-links-bar">
             <button class="rp-link-btn rp-action-link" id="rp-wl-btn" onclick="toggleRpWatchlist()" title="Watchlist" type="button" aria-label="Toggle watchlist" style="cursor:pointer">
               <span id="rp-wl-star" style="display:inline-flex;transform:scale(1.4)"></span>
-            </button>
-            <button class="rp-link-btn rp-action-link disabled" disabled hidden title="Alerts" type="button" aria-label="Alerts (coming soon)" style="display:none">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             </button>
             <a class="rp-link-btn rp-social-link pending" id="link-website" target="_blank" rel="noopener" title="Website" aria-label="Visit website" aria-disabled="true" tabindex="-1">
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="5.5"/><path d="M1 6.5h11M6.5 1C5.2 3 4.5 4.7 4.5 6.5s.7 3.5 2 5.5M6.5 1c1.3 2 2 3.7 2 5.5s-.7 3.5-2 5.5"/></svg>
@@ -1445,55 +1255,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
             <div style="width:100%;max-width:620px;margin:44px auto;background:#0a0a0a;border:1px solid #222;border-radius:10px;padding:24px;position:relative;box-sizing:border-box">
               <button onclick="document.getElementById('nav-breakdown-modal').style.display='none'" type="button" aria-label="Close" style="position:absolute;top:12px;right:14px;cursor:pointer;color:#777;font-size:18px;line-height:1;background:none;border:none">&times;</button>
               <div id="nav-breakdown-content"></div>
-            </div>
-          </div>
-
-          <div id="nav-calc-modal" style="display:none;position:fixed;inset:0;z-index:var(--z-modal);background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);overflow-y:auto" onclick="if(event.target===this)closeNavCalculator()">
-            <div class="nav-calc-modal-card">
-              <div class="nav-calc-head">
-                <div>
-                  <div class="nav-calc-title">NAV Calculator</div>
-                  <div class="nav-calc-sub">Double-check NAV = Treasury ÷ Effective Supply</div>
-                </div>
-                <button class="nav-calc-close" type="button" aria-label="Close NAV calculator" onclick="closeNavCalculator()">&times;</button>
-              </div>
-              <div class="nav-calc-grid">
-                <label class="nav-calc-field">
-                  <span class="nav-calc-label">Treasury (USD)</span>
-                  <input class="nav-calc-input" id="nav-calc-treasury" type="text" inputmode="decimal" placeholder="0" oninput="recalcNavCalculator()">
-                  <span class="nav-calc-meta" id="nav-calc-treasury-meta">Live treasury input</span>
-                </label>
-                <label class="nav-calc-field">
-                  <span class="nav-calc-label">Effective Supply</span>
-                  <input class="nav-calc-input" id="nav-calc-supply" type="text" inputmode="decimal" placeholder="0" oninput="recalcNavCalculator()">
-                  <span class="nav-calc-meta" id="nav-calc-supply-meta">Live supply input</span>
-                </label>
-              </div>
-              <div class="nav-calc-hero">
-                <div class="nav-calc-kicker">Calculated NAV</div>
-                <div class="nav-calc-value" id="nav-calc-result">—</div>
-                <div class="nav-calc-formula" id="nav-calc-formula"><span class="t">Treasury</span> ÷ <span class="s">Effective Supply</span></div>
-              </div>
-              <div class="nav-calc-compare">
-                <div class="nav-calc-row">
-                  <span class="nav-calc-row-label">01RX NAV</span>
-                  <span class="nav-calc-row-value" id="nav-calc-reference">—</span>
-                </div>
-                <div class="nav-calc-row">
-                  <span class="nav-calc-row-label">Your Calc</span>
-                  <span class="nav-calc-row-value" id="nav-calc-your">—</span>
-                </div>
-                <div class="nav-calc-row">
-                  <span class="nav-calc-row-label">Difference</span>
-                  <span class="nav-calc-row-value" id="nav-calc-diff">—</span>
-                </div>
-                <div class="nav-calc-status neutral" id="nav-calc-status">Using live 01RX inputs.</div>
-                <div class="nav-calc-note" id="nav-calc-note">Edit the two inputs above to verify the current NAV math yourself.</div>
-              </div>
-              <div class="nav-calc-actions">
-                <button class="nav-calc-btn" id="nav-calc-reset" type="button" onclick="resetNavCalculatorToLive()">Reset to Live</button>
-                <button class="nav-calc-btn" type="button" onclick="closeNavCalculator(); openNavBreakdown();">NAV Breakdown</button>
-              </div>
             </div>
           </div>
 

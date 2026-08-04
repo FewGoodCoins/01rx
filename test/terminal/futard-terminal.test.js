@@ -365,6 +365,26 @@ const HOME_BOOTSTRAP = {
         marketCap: 1600000,
         treasuryUSDC: 360000,
       },
+      {
+        token: 'meta',
+        ticker: 'META',
+        name: 'MetaDAO',
+        spot: 4.53,
+        nav: 4.82,
+        change24h: 0.8,
+        marketCap: 45000000,
+        treasuryUSDC: 4200000,
+      },
+      {
+        token: 'solo',
+        ticker: 'SOLO',
+        name: 'Solomon',
+        spot: 0.552,
+        nav: 0.61,
+        change24h: -0.4,
+        marketCap: 9000000,
+        treasuryUSDC: 780000,
+      },
     ],
   },
   marketTickers: {},
@@ -934,7 +954,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(
     chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
       .dataset.ftChartEngine,
-    'liveline',
+    'tradingview-lightweight',
   );
   assert.match(
     chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
@@ -1038,6 +1058,7 @@ test('TradingView chart adapter splits null values and missing hours into honest
     PROPOSAL_HISTORY_SERIES,
     interpolateChartTimeCoordinate,
     proposalChartBoundaryEvents,
+    proposalChartBoundaryEndpoints,
     proposalChartBoundaryTimeline,
     proposalChartData,
     proposalChartDisplayRange,
@@ -1221,6 +1242,19 @@ test('TradingView chart adapter splits null values and missing hours into honest
     {
       from: Date.parse('2026-06-16T09:00:00.000Z') / 1_000,
       to: Date.parse('2026-06-16T11:00:00.000Z') / 1_000,
+    },
+  );
+  assert.deepEqual(
+    proposalChartBoundaryEndpoints(points, 'passPrice'),
+    {
+      start: {
+        time: Date.parse('2026-06-16T10:00:00.000Z') / 1_000,
+        value: 4.5,
+      },
+      end: {
+        time: Date.parse('2026-06-16T15:00:00.000Z') / 1_000,
+        value: 4.8,
+      },
     },
   );
   assert.deepEqual(
@@ -1437,7 +1471,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   assert.match(
     byRole(root, 'amount').closest('.ft-amount-field').textContent,
-    /USDC held\s*0\.0000/,
+    /USDC held\s*—/,
   );
   assert.equal(byRole(root, 'average-price').textContent, '$0.1400');
   assert.equal(byRole(root, 'position-before').textContent, '—');
@@ -2000,37 +2034,15 @@ test('live trade surfaces append the latest 01Resolved snapshot without refetchi
   cleanupMount(mounted);
 });
 
-test('homepage discovery uses only public stable proposal reads and canonical token links', async () => {
+test('standalone decision-market discovery mode has been removed', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { requests, root, window } = makeWindow();
-  const controller = mountFutardTerminal({
-    window,
-    root,
-    mode: 'discovery',
-  });
-  const mounted = trackMount(controller, window);
-  await controller.ready;
-
-  assert.equal(controller.getState().mode, 'discovery');
-  assert.equal(root.dataset.ftMode, 'discovery');
-  assert.equal(proposalRows(root).length, 3);
-  assert.equal(proposalRows(root)[0].dataset.ftProposalState, 'live');
-  assert.equal(proposalRows(root)[1].dataset.ftProposalOutcome, 'passed');
-  assert.equal(proposalRows(root)[2].dataset.ftProposalOutcome, 'failed');
-  assert.equal(
-    proposalRows(root)[0].getAttribute('href'),
-    `/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  assert.throws(
+    () => mountFutardTerminal({ window, root, mode: 'discovery' }),
+    /discovery surface has been removed/,
   );
-  assert.match(proposalRows(root)[0].textContent, /Loyal[\s\S]+LIVE/i);
-  assert.equal(filterButton(root, 'indexed'), null);
-  assert.equal(byAction(root, 'connect-wallet'), null);
-  assert.deepEqual(
-    [...new Set(requests.map(url => new URL(url).searchParams.get('view')).filter(Boolean))],
-    ['proposals'],
-  );
-  assert.equal(requests.some(url => /\/api\/beta\//.test(url)), false);
-
-  cleanupMount(mounted);
+  assert.deepEqual(requests, []);
+  assert.equal(root.hasAttribute('data-ft-mode'), false);
 });
 
 test('decision sidebar keeps an empty live section beside resolved proposal history', async () => {
@@ -2250,6 +2262,31 @@ test('token Markets leaves the last sidebar snapshot untouched when current NAV 
   cleanupMount(mounted);
 });
 
+test('token Markets replaces an unknown token with the canonical SOLO spot workspace', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=notreal&view=markets&tab=tokens',
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'notreal',
+  });
+  const mounted = trackMount(controller, window);
+
+  await controller.ready;
+
+  assert.equal(controller.getState().token, 'solo');
+  assert.equal(controller.getState().workspaceTab, 'tokens');
+  assert.equal(window.location.search, '?token=solo&view=markets&tab=tokens');
+  assert.equal(byRole(root, 'market-title').textContent, 'SOLO');
+  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed 01RX asset/i);
+  assert.equal(root.classList.contains('ft-has-system-message'), true);
+
+  cleanupMount(mounted);
+});
+
 test('token Markets keeps its workspace scoped while refreshing the global proposal index', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { requests, root, window } = makeWindow({
@@ -2294,12 +2331,8 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
     byRole(root, 'proposal-history-chart').querySelector('.ft-hourly-fallback'),
     null,
   );
-  assert.deepEqual(
-    [...byRole(root, 'ownership-account-activity')
-      .querySelectorAll('[data-ft-action="select-ownership-activity"]')]
-      .map(control => control.textContent.trim()),
-    ['Balances', 'Open Orders', 'Trade History'],
-  );
+  assert.equal(byRole(root, 'ownership-account-activity'), null);
+  assert.equal(root.classList.contains('ft-wallet-connected'), false);
   const proposalRequestsBefore = requests.filter(url => /view=proposals(?:&|$)/.test(url)).length;
   assert.ok(proposalRequestsBefore > 0);
   assert.equal(
@@ -2339,7 +2372,7 @@ test('token Markets keeps its workspace scoped while refreshing the global propo
   cleanupMount(mounted);
 });
 
-test('the implicit market landing opens the live decision market before revealing the workspace', async () => {
+test('token Markets ignores the retired implicit-live marker and preserves the requested spot workspace', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
     url: 'https://navgator.xyz/?token=solo&view=markets&tab=tokens',
@@ -2355,88 +2388,26 @@ test('the implicit market landing opens the live decision market before revealin
   const mounted = trackMount(controller, window);
 
   await controller.ready;
-  await settleUntil(window, () => (
-    controller.getState().token === 'loyal'
-    && controller.getState().selectedId === PROPOSAL_ID
-    && !root.hasAttribute('data-ft-transition')
-  ));
 
   assert.deepEqual(
     {
       token: controller.getState().token,
       workspaceTab: controller.getState().workspaceTab,
-      selectedId: controller.getState().selectedId,
     },
     {
-      token: 'loyal',
-      workspaceTab: 'decisions',
-      selectedId: PROPOSAL_ID,
+      token: 'solo',
+      workspaceTab: 'tokens',
     },
   );
-  assert.equal(
-    window.location.search,
-    `?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
-  );
-  assert.equal(
-    window.document.documentElement.dataset.defaultMarketSelection,
-    undefined,
-  );
-  assert.equal(root.hasAttribute('data-ft-transition'), false);
-
-  cleanupMount(mounted);
-});
-
-test('the implicit market landing stays on spot when there is no live decision market', async () => {
-  const { mountFutardTerminal } = await loadTerminalModule();
-  const priorProposalIndex = {
-    ...PROPOSAL_INDEX,
-    summary: {
-      ...PROPOSAL_INDEX.summary,
-      total: 2,
-      pending: 0,
-      tradable: 0,
-      filtered: 2,
-    },
-    pagination: {
-      ...PROPOSAL_INDEX.pagination,
-      returned: 2,
-      total: 2,
-    },
-    proposals: PROPOSAL_INDEX.proposals.filter(proposal => (
-      proposal.status === 'passed' || proposal.status === 'failed'
-    )),
-  };
-  const { root, window } = makeWindow({
-    url: 'https://navgator.xyz/?token=solo&view=markets&tab=tokens',
-    activeMarkets: {
-      ...ACTIVE_MARKETS,
-      pendingProposalCount: 0,
-      markets: [],
-    },
-    proposalIndex: priorProposalIndex,
-  });
-  window.document.documentElement.dataset.defaultMarketSelection =
-    'live-decision-if-available';
-  const controller = mountFutardTerminal({
-    window,
-    root,
-    mode: 'token',
-    token: 'solo',
-  });
-  const mounted = trackMount(controller, window);
-
-  await controller.ready;
-
-  assert.equal(controller.getState().token, 'solo');
-  assert.equal(controller.getState().workspaceTab, 'tokens');
   assert.equal(
     window.location.search,
     '?token=solo&view=markets&tab=tokens',
   );
   assert.equal(
     window.document.documentElement.dataset.defaultMarketSelection,
-    undefined,
+    'live-decision-if-available',
   );
+  assert.equal(root.hasAttribute('data-ft-transition'), false);
 
   cleanupMount(mounted);
 });
@@ -2878,6 +2849,18 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.doesNotMatch(currentStrip.textContent, /Current 01Resolved snapshot/i);
   assert.doesNotMatch(currentStrip.textContent, /Price\s+\$0\.2000|NAV\s+\$0\.2220/);
   assert.match(currentStrip.textContent, /Source\s+01Resolved/);
+  const ownershipTicket = byRole(root, 'ownership-trade-ticket');
+  assert.equal(ownershipTicket.dataset.ftOrderType, 'market');
+  assert.equal(byAction(root, 'select-ownership-order-type'), null);
+  assert.deepEqual(
+    [...ownershipTicket.querySelectorAll('[data-ft-action="ownership-amount-preset"]')]
+      .map(control => control.dataset.ftAmount),
+    ['100', '500', '1000'],
+  );
+  assert.equal(ownershipTicket.querySelector('[data-ft-amount="max"]'), null);
+  assert.equal(ownershipTicket.querySelector('.ft-ownership-settings'), null);
+  assert.equal(ownershipTicket.querySelector('.ft-ownership-balance'), null);
+  assert.equal(ownershipTicket.querySelector('.ft-ownership-chevron'), null);
 
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
   assert.equal(
@@ -2898,29 +2881,8 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     rows[0].getAttribute('href'),
     `https://solscan.io/tx/${TRANSACTION_SIGNATURE}`,
   );
-  const accountActivity = byRole(root, 'ownership-account-activity');
-  assert.deepEqual(
-    [...accountActivity.querySelectorAll('[data-ft-action="select-ownership-activity"]')]
-      .map(control => control.textContent.trim()),
-    ['Balances', 'Open Orders', 'Trade History'],
-  );
-  assert.match(
-    accountActivity.querySelector('[data-ft-ownership-activity-panel="balances"]').textContent,
-    /Connect wallet to view balances/,
-  );
-  accountActivity.querySelector('[data-ft-ownership-activity="orders"]').click();
-  assert.equal(
-    byRole(root, 'ownership-account-activity')
-      .querySelector('[data-ft-ownership-activity="orders"]')
-      .getAttribute('aria-selected'),
-    'true',
-  );
-  assert.match(
-    byRole(root, 'ownership-account-activity')
-      .querySelector('[data-ft-ownership-activity-panel="orders"]')
-      .textContent,
-    /Connect wallet to view open orders/,
-  );
+  assert.equal(byRole(root, 'ownership-account-activity'), null);
+  assert.equal(root.classList.contains('ft-wallet-connected'), false);
 
   cleanupMount(mounted);
 });
@@ -3055,6 +3017,8 @@ test('ownership market orders quote through DFlow and submit only after explicit
 
   byAction(terminal.root, 'connect-wallet').click();
   await settleUntil(terminal.window, () => controller.getState().walletAddress === WALLET_ADDRESS);
+  assert.equal(terminal.root.classList.contains('ft-wallet-connected'), true);
+  assert.ok(byRole(terminal.root, 'ownership-account-activity'));
   const amount = byRole(terminal.root, 'ownership-amount');
   amount.value = '1';
   amount.dispatchEvent(new terminal.window.Event('input', { bubbles: true }));
@@ -3777,19 +3741,14 @@ test('proposal browser presents compact live and resolved markets without exposi
   assert.ok(passedArchive);
   const historicalPreview = byRole(root, 'historical-trade-preview');
   assert.ok(historicalPreview);
-  assert.match(historicalPreview.textContent, /PASS/);
-  assert.match(historicalPreview.textContent, /FAIL/);
-  assert.match(historicalPreview.textContent, /LIMIT/);
-  assert.match(historicalPreview.textContent, /SWAP/);
-  assert.match(historicalPreview.textContent, /BUY/);
-  assert.match(historicalPreview.textContent, /SELL/);
-  assert.match(historicalPreview.textContent, /read only/i);
-  assert.ok(byRole(root, 'historical-limit-price').disabled);
-  assert.ok(byRole(root, 'historical-amount').disabled);
-  const closedCta = passedArchive.querySelector('[data-ft-role="archived-trade-cta"]');
-  assert.ok(closedCta);
-  assert.equal(closedCta.disabled, true);
-  assert.match(closedCta.textContent, /trading closed/i);
+  assert.match(historicalPreview.textContent, /Final resolution/);
+  assert.match(historicalPreview.textContent, /PASS reference/);
+  assert.match(historicalPreview.textContent, /FAIL reference/);
+  assert.match(historicalPreview.textContent, /Final resultPASS/);
+  assert.match(historicalPreview.textContent, /trading closed/i);
+  assert.equal(historicalPreview.querySelector('button'), null);
+  assert.equal(historicalPreview.querySelector('input'), null);
+  assert.equal(passedArchive.querySelector('[data-ft-role="archived-trade-cta"]'), null);
   assert.equal(byAction(root, 'execute-trade'), null);
   assert.equal(byAction(root, 'open-execution'), null);
   assert.equal(byRole(root, 'amount'), null);
@@ -3837,8 +3796,10 @@ test('proposal browser presents compact live and resolved markets without exposi
       .querySelector('[data-ft-role="proposal-status"]')?.dataset.ftOutcome,
     'failed',
   );
-  assert.ok(byRole(root, 'trade-ticket')
-    .querySelector('[data-ft-role="archived-trade-cta"]')?.disabled);
+  assert.equal(
+    byRole(root, 'trade-ticket').querySelector('[data-ft-role="archived-trade-cta"]'),
+    null,
+  );
   assert.equal(byAction(root, 'open-execution'), null);
   assert.equal(byRole(root, 'proposal-history-chart'), null);
   assert.match(

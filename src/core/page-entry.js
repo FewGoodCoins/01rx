@@ -1,13 +1,6 @@
 export const HOME_PAGE_KIND = 'home';
 export const TOKEN_PAGE_KIND = 'token';
 
-export function isFutarchyTerminalPath(pathname) {
-  const normalizedPath = String(pathname || '/')
-    .replace(/\/index\.html$/, '')
-    .replace(/\/+$/, '') || '/';
-  return normalizedPath === '/terminal';
-}
-
 export function resolvePageKind(browserWindow) {
   const runtime = browserWindow || globalThis.window;
   const routes = runtime.NAVGATOR.shell.routes;

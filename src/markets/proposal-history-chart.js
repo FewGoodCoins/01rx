@@ -14,6 +14,11 @@ import {
   proposalConditionalSpotChangePct,
   proposalDecisionEdge,
 } from './proposal-history-model.js';
+import {
+  PROPOSAL_CHART_PRESENTATION,
+  PROPOSAL_CHART_SERIES_PRESENTATION,
+  proposalChartPresentationCssVariables,
+} from './proposal-history-presentation.js';
 
 // TradingView Lightweight Charts adapter shared by every Markets host.
 const DEFAULT_INTERVAL_SECONDS = 60 * 60;
@@ -35,82 +40,18 @@ const MAX_BOUNDARY_TIMELINE_POINTS = 2_048;
 const MINIMUM_ZOOM_OUT_WIDTH = 24;
 const ZOOM_OUT_CONTENT_MULTIPLIER = 3;
 
+export const PROPOSAL_HISTORY_ENGINE = 'tradingview-lightweight';
 export const PROPOSAL_HISTORY_GUIDE_LINE_STYLE = LineStyle.SparseDotted;
 export const PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE = false;
 export const PROPOSAL_HISTORY_MIN_BAR_SPACING = 0.5;
 
-export const PROPOSAL_HISTORY_SERIES = Object.freeze([
-  {
-    field: 'underlyingPrice',
-    label: 'Price',
-    colorVariable: '--ft-ink-strong',
-    fallbackColor: '#f4f6f8',
-    lineStyle: LineStyle.Solid,
-    lineWidth: 2,
-    interpolation: 'rounded',
-    liveEndpoint: 'price',
-    priceLineVisible: false,
-  },
-  {
-    field: 'passPrice',
-    label: 'Pass',
-    colorVariable: '--ft-positive',
-    fallbackColor: '#42d89b',
-    lineStyle: LineStyle.Solid,
-    lineWidth: 2,
-    interpolation: 'rounded',
-    liveEndpoint: 'pass',
-    priceLineVisible: true,
-  },
-  {
-    field: 'failPrice',
-    label: 'Fail',
-    colorVariable: '--ft-negative',
-    fallbackColor: '#ff6f7d',
-    lineStyle: LineStyle.Solid,
-    lineWidth: 2,
-    interpolation: 'rounded',
-    liveEndpoint: 'fail',
-    priceLineVisible: true,
-  },
-  {
-    field: 'decisionEdge',
-    label: 'Pass edge',
-    colorVariable: '--ft-positive',
-    fallbackColor: '#42d89b',
-    negativeColorVariable: '--ft-negative',
-    negativeFallbackColor: '#ff6f7d',
-    lineStyle: LineStyle.Solid,
-    lineWidth: 2,
-    signed: true,
-    percent: true,
-    decisionMetric: true,
-    seriesType: 'baseline',
-    priceScaleId: 'left',
-    liveEndpoint: null,
-    priceLineVisible: false,
-  },
-  {
-    field: 'passTwap',
-    label: 'Pass TWAP',
-    colorVariable: '--ft-positive',
-    fallbackColor: '#42d89b',
-    lineStyle: LineStyle.Dashed,
-    lineWidth: 1,
-    liveEndpoint: null,
-    priceLineVisible: false,
-  },
-  {
-    field: 'failTwap',
-    label: 'Fail TWAP',
-    colorVariable: '--ft-negative',
-    fallbackColor: '#ff6f7d',
-    lineStyle: LineStyle.Dashed,
-    lineWidth: 1,
-    liveEndpoint: null,
-    priceLineVisible: false,
-  },
-]);
+export const PROPOSAL_HISTORY_SERIES = Object.freeze(
+  PROPOSAL_CHART_SERIES_PRESENTATION.map(definition => Object.freeze({
+    ...definition,
+    lineStyle: definition.stroke === 'dashed' ? LineStyle.Dashed : LineStyle.Solid,
+    interpolation: definition.curve === 'smooth' ? 'rounded' : 'linear',
+  })),
+);
 
 // Keep the decision-edge calculation in the shared history model while its
 // chart treatment is intentionally paused. Restoring it later should only
@@ -205,13 +146,29 @@ function cssColor(runtime, themeRoot, variable, fallback) {
 
 function chartTheme(runtime, themeRoot, theme) {
   const light = theme === 'light';
+  const presentationTheme = PROPOSAL_CHART_PRESENTATION.theme;
   return {
-    background: cssColor(runtime, themeRoot, '--ft-panel-soft', light ? '#f4f5f2' : '#0e1217'),
-    text: cssColor(runtime, themeRoot, '--ft-faint', light ? '#8a929c' : '#626c79'),
-    border: cssColor(runtime, themeRoot, '--ft-border', light ? '#cbd0d4' : '#2a323d'),
+    background: cssColor(
+      runtime,
+      themeRoot,
+      presentationTheme.backgroundVariable,
+      light ? '#f4f5f2' : '#0e1217',
+    ),
+    text: cssColor(
+      runtime,
+      themeRoot,
+      presentationTheme.faintVariable,
+      light ? '#8a929c' : '#626c79',
+    ),
+    border: cssColor(
+      runtime,
+      themeRoot,
+      presentationTheme.borderVariable,
+      light ? '#cbd0d4' : '#2a323d',
+    ),
     grid: light ? 'rgba(18, 22, 27, 0.055)' : 'rgba(255, 255, 255, 0.045)',
     crosshair: light ? 'rgba(32, 36, 42, 0.42)' : 'rgba(230, 233, 237, 0.38)',
-    font: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    font: presentationTheme.fontFamily,
   };
 }
 
@@ -317,11 +274,17 @@ export function proposalChartData(points, field, interval = '1h') {
 }
 
 export function proposalChartEndpoint(points, field, interval = '1h') {
+  return proposalChartBoundaryEndpoints(points, field, interval)?.end || null;
+}
+
+export function proposalChartBoundaryEndpoints(points, field, interval = '1h') {
   const data = proposalChartData(points, field, interval);
-  for (let index = data.length - 1; index >= 0; index -= 1) {
-    if (Number.isFinite(data[index]?.value)) return data[index];
-  }
-  return null;
+  const observed = data.filter(point => Number.isFinite(point?.value));
+  if (!observed.length) return null;
+  return {
+    start: observed[0],
+    end: observed[observed.length - 1],
+  };
 }
 
 export function proposalChartLiveEndpoints(points, interval = '1h') {
@@ -553,6 +516,7 @@ export function createProposalHistoryChart({
   const seriesByField = new Map();
   const seriesVisibility = new Map();
   const liveEndpointDots = new Map();
+  const boundaryDots = new Map();
   let currentTheme = chartTheme(runtime, themeRoot, theme);
   const latest = latestValues(observations);
   const firstTimestamp = Math.floor(proposalChartPointTime(points[0]) / 1_000);
@@ -574,6 +538,7 @@ export function createProposalHistoryChart({
   let interactionHandler = null;
   let launchAnchorMarkers = null;
   let currentRange = range;
+  const interaction = PROPOSAL_CHART_PRESENTATION.interaction;
   const twapStartTimestamp = unixTime(history.preTwap);
   const eventDefinitions = proposalChartBoundaryEvents(
     history.preTwap,
@@ -673,27 +638,31 @@ export function createProposalHistoryChart({
       },
     },
     handleScroll: {
-      mouseWheel: true,
-      pressedMouseMove: true,
-      horzTouchDrag: true,
-      vertTouchDrag: true,
+      mouseWheel: interaction.wheelZoom,
+      pressedMouseMove: interaction.dragPan,
+      horzTouchDrag: interaction.dragPan,
+      vertTouchDrag: interaction.dragPan,
     },
     handleScale: {
       axisPressedMouseMove: {
-        time: true,
-        price: true,
+        time: interaction.scaleDrag,
+        price: interaction.scaleDrag,
       },
       axisDoubleClickReset: {
         time: true,
         price: true,
       },
-      mouseWheel: true,
-      pinch: true,
+      mouseWheel: interaction.wheelZoom,
+      pinch: interaction.pinchZoom,
     },
     kineticScroll: {
-      mouse: true,
-      touch: true,
+      mouse: interaction.kineticScroll,
+      touch: interaction.kineticScroll,
     },
+  });
+  container.dataset.ftChartEngine = PROPOSAL_HISTORY_ENGINE;
+  Object.entries(proposalChartPresentationCssVariables()).forEach(([property, value]) => {
+    chartRoot.style.setProperty(property, value);
   });
   mountTradingViewAttribution(container, { runtime });
 
@@ -756,6 +725,30 @@ export function createProposalHistoryChart({
     line.setData(data);
     seriesByField.set(definition.field, [line]);
     seriesVisibility.set(definition.field, seriesVisible);
+
+    const boundaries = proposalChartBoundaryEndpoints(
+      points,
+      definition.field,
+      history.interval,
+    );
+    if (boundaries) {
+      ['start', 'end'].forEach((kind) => {
+        if (kind === 'end' && isLive && definition.liveEndpoint) return;
+        const dot = runtime.document.createElement('span');
+        dot.className = `ft-proposal-boundary-dot ft-proposal-boundary-dot-${kind}`;
+        dot.dataset.ftSeriesBoundary = `${definition.field}:${kind}`;
+        dot.setAttribute('aria-hidden', 'true');
+        dot.style.color = color;
+        container.appendChild(dot);
+        boundaryDots.set(`${definition.field}:${kind}`, {
+          definition,
+          element: dot,
+          endpoint: boundaries[kind],
+          motionPending: false,
+          position: null,
+        });
+      });
+    }
   });
 
   const launchAnchor = points.find(point => point.protocolLaunchAnchor === true);
@@ -771,7 +764,7 @@ export function createProposalHistoryChart({
       container.dataset.ftLaunchAnchorRenderer = 'series-marker';
     }
   }
-  function setLiveEndpoint(field, key, endpoint) {
+  function setLiveEndpoint(field, key, endpoint, animate = false) {
     if (!isLive || !endpoint) return;
     let record = liveEndpointDots.get(field);
     if (!record) {
@@ -780,9 +773,16 @@ export function createProposalHistoryChart({
       dot.dataset.ftLiveEndpoint = key;
       dot.setAttribute('aria-hidden', 'true');
       container.appendChild(dot);
-      record = { element: dot, endpoint };
+      record = {
+        animation: null,
+        element: dot,
+        endpoint,
+        motionPending: false,
+        position: null,
+      };
       liveEndpointDots.set(field, record);
     }
+    record.motionPending = animate && record.position != null;
     record.endpoint = endpoint;
   }
   proposalChartLiveEndpoints(points, history.interval)
@@ -809,6 +809,62 @@ export function createProposalHistoryChart({
     postTwapBand.setAttribute('aria-hidden', 'true');
     container.appendChild(postTwapBand);
   }
+  const reducedMotion = runtime.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  function positionEndpointDot(record, field, width, height) {
+    const { element, endpoint } = record;
+    const series = seriesByField.get(field)?.[0];
+    if (!series || seriesVisibility.get(field) === false) {
+      element.hidden = true;
+      record.motionPending = false;
+      record.position = null;
+      return;
+    }
+    const x = chart.timeScale().timeToCoordinate(endpoint.time);
+    const y = series.priceToCoordinate(endpoint.value);
+    const positioned = (
+      Number.isFinite(x)
+      && Number.isFinite(y)
+      && x >= 0
+      && x <= width
+      && y >= 0
+      && (!height || y <= height)
+    );
+    element.hidden = !positioned;
+    if (!positioned) {
+      record.motionPending = false;
+      record.position = null;
+      return;
+    }
+
+    const previous = record.position;
+    element.style.left = `${x}px`;
+    element.style.top = `${y}px`;
+    record.position = { x, y };
+    if (
+      !record.motionPending
+      || !previous
+      || reducedMotion
+      || typeof element.animate !== 'function'
+    ) {
+      record.motionPending = false;
+      return;
+    }
+
+    const deltaX = previous.x - x;
+    const deltaY = previous.y - y;
+    record.animation?.cancel?.();
+    record.animation = element.animate([
+      {
+        transform: `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`,
+      },
+      { transform: 'translate(-50%, -50%)' },
+    ], {
+      duration: PROPOSAL_CHART_PRESENTATION.liveEndpoint.motionDurationMs,
+      easing: PROPOSAL_CHART_PRESENTATION.liveEndpoint.motionEasing,
+    });
+    record.motionPending = false;
+  }
+
   function positionEvents() {
     const width = container.clientWidth;
     const rightScaleWidth = Number(chart.priceScale('right').width?.());
@@ -852,27 +908,12 @@ export function createProposalHistoryChart({
         String(visibleWidth / plotWidth),
       );
     }
-    liveEndpointDots.forEach(({ element, endpoint }, field) => {
-      const series = seriesByField.get(field)?.[0];
-      if (!series || seriesVisibility.get(field) === false) {
-        element.hidden = true;
-        return;
-      }
-      const x = chart.timeScale().timeToCoordinate(endpoint.time);
-      const y = series.priceToCoordinate(endpoint.value);
-      const height = container.clientHeight;
-      const positioned = (
-        Number.isFinite(x)
-        && Number.isFinite(y)
-        && x >= 0
-        && x <= width
-        && y >= 0
-        && (!height || y <= height)
-      );
-      element.hidden = !positioned;
-      if (!positioned) return;
-      element.style.left = `${x}px`;
-      element.style.top = `${y}px`;
+    const height = container.clientHeight;
+    boundaryDots.forEach((record, key) => {
+      positionEndpointDot(record, key.split(':')[0], width, height);
+    });
+    liveEndpointDots.forEach((record, field) => {
+      positionEndpointDot(record, field, width, height);
     });
   }
 
@@ -991,6 +1032,10 @@ export function createProposalHistoryChart({
       for (const series of seriesByField.get(definition.field) || []) {
         series.applyOptions({ color, priceLineColor: color });
       }
+      ['start', 'end'].forEach((kind) => {
+        const record = boundaryDots.get(`${definition.field}:${kind}`);
+        if (record) record.element.style.color = color;
+      });
     });
   }
 
@@ -1015,7 +1060,14 @@ export function createProposalHistoryChart({
           definition.field,
           definition.liveEndpoint,
           { time: normalized.time, value },
+          true,
         );
+      } else {
+        const boundary = boundaryDots.get(`${definition.field}:end`);
+        if (boundary) {
+          boundary.motionPending = boundary.position != null;
+          boundary.endpoint = { time: normalized.time, value };
+        }
       }
     });
     lastTimestamp = normalized.time;
@@ -1054,7 +1106,14 @@ export function createProposalHistoryChart({
   };
   chart.subscribeCrosshairMove(crosshairHandler);
   const visibleRangeHandler = () => scheduleEventPosition();
-  interactionHandler = () => scheduleEventPosition();
+  interactionHandler = () => {
+    [...boundaryDots.values(), ...liveEndpointDots.values()].forEach((record) => {
+      record.animation?.cancel?.();
+      record.animation = null;
+      record.motionPending = false;
+    });
+    scheduleEventPosition();
+  };
   chart.timeScale().subscribeVisibleTimeRangeChange(visibleRangeHandler);
   CHART_INTERACTION_EVENTS.forEach((eventName) => {
     container.addEventListener(eventName, interactionHandler, { passive: true });
@@ -1104,10 +1163,22 @@ export function createProposalHistoryChart({
           container.removeEventListener(eventName, interactionHandler);
         });
       }
-      liveEndpointDots.forEach(({ element }) => element.remove());
+      boundaryDots.forEach(({ animation, element }) => {
+        animation?.cancel?.();
+        element.remove();
+      });
+      liveEndpointDots.forEach(({ animation, element }) => {
+        animation?.cancel?.();
+        element.remove();
+      });
       launchAnchorMarkers?.detach();
       delete container.dataset.ftLaunchAnchorRenderer;
+      delete container.dataset.ftChartEngine;
       preTwapBand?.remove();
+      postTwapBand?.remove();
+      Object.keys(proposalChartPresentationCssVariables()).forEach((property) => {
+        chartRoot.style.removeProperty(property);
+      });
       chart.remove();
     },
   };
@@ -1130,9 +1201,20 @@ export function createProposalHistoryChart({
     container.querySelectorAll('[data-ft-chart-event]').forEach(element => element.remove());
     container.querySelectorAll('[data-ft-chart-band]').forEach(element => element.remove());
     container.querySelectorAll('[data-ft-chart-anchor]').forEach(element => element.remove());
-    liveEndpointDots.forEach(({ element }) => element.remove());
+    boundaryDots.forEach(({ animation, element }) => {
+      animation?.cancel?.();
+      element.remove();
+    });
+    liveEndpointDots.forEach(({ animation, element }) => {
+      animation?.cancel?.();
+      element.remove();
+    });
     launchAnchorMarkers?.detach();
     delete container.dataset.ftLaunchAnchorRenderer;
+    delete container.dataset.ftChartEngine;
+    Object.keys(proposalChartPresentationCssVariables()).forEach((property) => {
+      chartRoot.style.removeProperty(property);
+    });
     container.closest('.ft-hourly-chart')?.classList.remove(
       'ft-hourly-chart-enhanced',
       'ft-hourly-chart-pending',

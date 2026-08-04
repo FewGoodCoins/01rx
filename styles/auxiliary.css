@@ -26,24 +26,13 @@
 body.maintenance-on #maintenance-gate { display: flex; }
 body.maintenance-on .app-shell,
 body.maintenance-on .bb-tape,
-body.maintenance-on .bloomberg-status,
-body.maintenance-on #mobile-gate { display: none !important; }
+body.maintenance-on .bloomberg-status { display: none !important; }
 #maintenance-gate .mt-logo { width: 80px; height: 80px; border-radius: 50% !important; overflow: hidden; }
 #maintenance-gate .mt-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #maintenance-gate .mt-brand { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; color: var(--white); letter-spacing: -0.3px; }
 #maintenance-gate .mt-brand span { color: var(--green); }
 #maintenance-gate .mt-msg { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 400px; font-family: 'JetBrains Mono', monospace; }
 #maintenance-gate .mt-status { display: inline-block; padding: 4px 12px; border: 1px solid var(--green); color: var(--green); font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
-
-/* Mobile gate — desktop only for now */
-#mobile-gate { display: none; position: fixed; inset: 0; z-index: var(--z-mobile-gate); background: var(--bg); flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; gap: 16px; }
-#mobile-gate .mg-brand { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; color: var(--white); letter-spacing: -0.3px; }
-#mobile-gate .mg-brand span { color: var(--green); }
-#mobile-gate .mg-msg { color: var(--body); font-size: 15px; line-height: 1.5; max-width: 300px; }
-@media (max-width: 900px) {
-  #mobile-gate { display: flex; }
-  .app-shell { display: none !important; }
-}
 
 @media (max-width: 1440px) {
   .hero-sub { display: none; }

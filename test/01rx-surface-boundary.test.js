@@ -28,6 +28,10 @@ const proposalLivelineSource = fs.readFileSync(
   new URL('../src/markets/proposal-history-liveline.js', import.meta.url),
   'utf8',
 );
+const proposalPresentationSource = fs.readFileSync(
+  new URL('../src/markets/proposal-history-presentation.js', import.meta.url),
+  'utf8',
+);
 const appCoreSource = fs.readFileSync(
   new URL('../src/legacy/app-core.js', import.meta.url),
   'utf8',
@@ -51,7 +55,7 @@ const vercelConfig = JSON.parse(
 test('01RX exposes no user-facing NAVgator navigation', () => {
   assert.doesNotMatch(indexSource, /<a\b[^>]*href=["'][^"']*navgator/i);
   assert.doesNotMatch(indexSource, /site-header-navgator/);
-  assert.match(indexSource, /rel="canonical" href="https:\/\/01rx\.vercel\.app\/"/);
+  assert.match(indexSource, /rel="canonical" href="https:\/\/onrx\.trade\/"/);
 
   const redirected = new Set(
     (vercelConfig.redirects || []).map(route => route.source),
@@ -93,8 +97,10 @@ test('decision markets add the FOMO product name beside the 01RX wordmark', () =
   );
   assert.match(
     refinementCss,
-    /body\.is-market-discovery \.site-header-market-name,[\s\S]*?body\.is-token-markets:has\([\s\S]*?\.ft-live-market, \.ft-archive-market[\s\S]*?\) \.site-header-market-name\s*\{\s*display: inline-flex;/,
+    /body\.is-token-markets:has\([\s\S]*?\.ft-live-market, \.ft-archive-market[\s\S]*?\) \.site-header-market-name\s*\{\s*display: inline-flex;/,
   );
+  assert.doesNotMatch(indexSource, /decision-markets-home-root/);
+  assert.doesNotMatch(frameCss, /is-market-discovery|data-ft-mode="discovery"/);
 });
 
 test('decision and token chart readouts share one typography scale', () => {
@@ -431,13 +437,19 @@ test('decision charts reserve a compact, scrollable lower pane for TWAP window p
   );
 });
 
-test('Liveline is the default decision chart renderer without owning the history model', () => {
+test('interactive decision charts and optional Liveline share a renderer-independent presentation', () => {
   assert.match(proposalLivelineSource, /from 'liveline'/);
   assert.match(proposalLivelineSource, /proposalHistoryChartObservations/);
   assert.match(proposalLivelineSource, /PROPOSAL_HISTORY_ENGINE = 'liveline'/);
   assert.match(proposalLivelineSource, /data-ft-chart-gap/);
   assert.match(proposalLivelineSource, /label: definition\.label/);
   assert.doesNotMatch(proposalLivelineSource, /fetch\(/);
+  assert.match(proposalLivelineSource, /PROPOSAL_CHART_SERIES_PRESENTATION/);
+  assert.match(proposalChartSource, /PROPOSAL_CHART_PRESENTATION/);
+  assert.match(proposalChartSource, /PROPOSAL_CHART_SERIES_PRESENTATION/);
+  assert.match(proposalPresentationSource, /wheelZoom: true/);
+  assert.match(proposalPresentationSource, /dragPan: true/);
+  assert.match(proposalPresentationSource, /pinchZoom: true/);
   assert.match(
     frameCss,
     /\.ft-hourly-chart-liveline \.ft-hourly-readout\s*\{\s*display: none;/,
@@ -446,7 +458,14 @@ test('Liveline is the default decision chart renderer without owning the history
     frameCss,
     /\.ft-liveline-root > div:not\(\.ft-liveline-canvas\)\s*\{[\s\S]*?position: absolute;[\s\S]*?z-index: 4;[\s\S]*?top: 12px;/,
   );
-  assert.match(decisionMarketControllerSource, /data-ft-chart-engine="liveline"/);
+  assert.match(
+    decisionMarketControllerSource,
+    /data-ft-chart-engine="tradingview-lightweight"/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /drag, scroll, or pinch to navigate/,
+  );
 });
 
 test('decision chart plot starts without the exposed toolbar divider', () => {
@@ -488,19 +507,31 @@ test('decision chart endpoints keep small solid centers with sequenced pulse ban
   assert.ok(pulseStart >= 0 && pulseEnd > pulseStart);
   assert.match(
     frameCss,
-    /\.ft-proposal-live-dot\s*\{[\s\S]*?width: 5px;[\s\S]*?height: 5px;[\s\S]*?animation: none !important;/,
+    /\.ft-proposal-boundary-dot\s*\{[\s\S]*?width: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?background: currentColor;[\s\S]*?pointer-events: none;/,
+  );
+  assert.match(
+    proposalChartSource,
+    /dot\.dataset\.ftSeriesBoundary = `\$\{definition\.field\}:\$\{kind\}`/,
+  );
+  assert.match(
+    proposalChartSource,
+    /motionDurationMs[\s\S]*?motionEasing/,
   );
   assert.match(
     frameCss,
-    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse 3s ease-out infinite;[\s\S]*?animation-delay: var\(--ft-proposal-live-pulse-delay\);/,
+    /\.ft-proposal-live-dot\s*\{[\s\S]*?width: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?height: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?animation: none !important;/,
   );
   assert.match(
     frameCss,
-    /\.ft-proposal-live-dot-pass\s*\{\s*--ft-proposal-live-pulse-delay: 1s;/,
+    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse var\(--ft-proposal-live-pulse-duration, 3s\) ease-out infinite;[\s\S]*?animation-delay: var\(--ft-proposal-live-pulse-delay\);/,
   );
   assert.match(
     frameCss,
-    /\.ft-proposal-live-dot-fail\s*\{\s*--ft-proposal-live-pulse-delay: 2s;/,
+    /\.ft-proposal-live-dot-pass\s*\{\s*--ft-proposal-live-pulse-delay: var\(--ft-proposal-live-pulse-stagger, 1s\);/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-proposal-live-dot-fail\s*\{\s*--ft-proposal-live-pulse-delay: calc\(var\(--ft-proposal-live-pulse-stagger, 1s\) \* 2\);/,
   );
   assert.doesNotMatch(
     pulseKeyframes,
@@ -767,5 +798,12 @@ test('market workspace uses one canonical structural background', () => {
   assert.match(
     sharedTerminalCss,
     /\.tp-market-toolbar,[\s\S]*?#tlp-all-list[\s\S]*?background: var\(--market-surface, #101010\) !important;/,
+  );
+});
+
+test('market notices stay in document flow instead of covering the market summary', () => {
+  assert.match(
+    sharedTerminalCss,
+    /\.ft-proposal-focus\.ft-has-system-message \.ft-system-bar\s*\{[\s\S]*?display: flex;[\s\S]*?position: static;[\s\S]*?top: auto;[\s\S]*?flex: 0 0 auto;/,
   );
 });
