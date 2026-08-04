@@ -3728,10 +3728,13 @@ export function mountFutardTerminal({
   }
 
   function renderDecisionSidebar() {
-    const list = runtime.document.getElementById('tlp-decisions-list');
-    if (!list) return;
-    const section = runtime.document.getElementById('tlp-decisions-panel');
-    const count = runtime.document.getElementById('tp-live-decision-count');
+    const liveList = runtime.document.getElementById('tlp-decisions-list');
+    const pastList = runtime.document.getElementById('tlp-past-decisions-list');
+    if (!liveList || !pastList) return;
+    const liveSection = runtime.document.getElementById('tlp-decisions-panel');
+    const pastSection = runtime.document.getElementById('tlp-past-decisions-panel');
+    const liveCount = runtime.document.getElementById('tp-live-decision-count');
+    const pastCount = runtime.document.getElementById('tp-past-decision-count');
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
@@ -3740,11 +3743,13 @@ export function mountFutardTerminal({
     );
     const pulseNow = runtime.Date?.now?.() ?? Date.now();
     const pulsePhaseMs = Math.round(pulseNow) % LIVE_MARKET_PULSE_INTERVAL_MS;
-    list.style.setProperty(
-      '--tp-live-pulse-duration',
-      `${LIVE_MARKET_PULSE_INTERVAL_MS}ms`,
-    );
-    list.style.setProperty('--tp-live-pulse-delay', `${-pulsePhaseMs}ms`);
+    [liveList, pastList].forEach((list) => {
+      list.style.setProperty(
+        '--tp-live-pulse-duration',
+        `${LIVE_MARKET_PULSE_INTERVAL_MS}ms`,
+      );
+      list.style.setProperty('--tp-live-pulse-delay', `${-pulsePhaseMs}ms`);
+    });
 
     function renderSidebarMarket(market) {
       const isLive = market.proposal.statusGroup === 'live';
@@ -3819,21 +3824,43 @@ export function mountFutardTerminal({
       `;
     }
 
-    if (count) {
-      count.textContent = `${liveMarkets.length} live · ${pastMarkets.length} past`;
-    }
-    if (section) section.hidden = false;
-
-    const sidebarRows = [...liveMarkets, ...pastMarkets];
-    const activeHtml = sidebarRows.length
-      ? sidebarRows.map(market => renderSidebarMarket(market)).join('')
-      : `
-        <div class="tp-decisions-empty">
-          <strong>No decision markets</strong>
-          <span>There are no indexed live or past proposals.</span>
+    function renderSidebarGroup(list, markets, kind) {
+      const isLiveGroup = kind === 'live';
+      const unavailable = isLiveGroup ? state.liveError : state.archiveError;
+      const loading = state.loading && state.sidebarMarkets.length === 0;
+      const emptyTitle = loading
+        ? `Loading ${kind} markets`
+        : unavailable
+          ? `${isLiveGroup ? 'Live' : 'Past'} markets unavailable`
+          : `No ${kind} markets`;
+      const emptyDetail = loading
+        ? `Reading indexed ${isLiveGroup ? 'active' : 'resolved'} proposals…`
+        : unavailable
+          ? 'The indexed market service could not be reached. Retry shortly.'
+          : isLiveGroup
+            ? 'New live decision markets will appear here.'
+            : 'Resolved decision markets will appear here.';
+      list.innerHTML = `
+        ${markets.map(market => renderSidebarMarket(market)).join('')}
+        <div
+          class="tp-decisions-empty"
+          id="tp-${kind}-decisions-empty"
+          data-empty-title="${escapeHtml(emptyTitle)}"
+          data-empty-detail="${escapeHtml(emptyDetail)}"
+          ${markets.length ? 'hidden' : ''}
+        >
+          <strong>${escapeHtml(emptyTitle)}</strong>
+          <span>${escapeHtml(emptyDetail)}</span>
         </div>
       `;
-    list.innerHTML = activeHtml;
+    }
+
+    if (liveCount) liveCount.textContent = `${liveMarkets.length} live`;
+    if (pastCount) pastCount.textContent = `${pastMarkets.length} past`;
+    if (liveSection) liveSection.hidden = false;
+    if (pastSection) pastSection.hidden = false;
+    renderSidebarGroup(liveList, liveMarkets, 'live');
+    renderSidebarGroup(pastList, pastMarkets, 'past');
     runtime.applyMarketSidebarSearch?.();
   }
 

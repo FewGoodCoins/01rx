@@ -82,6 +82,21 @@ test('browser icon metadata uses only the compact cache-busted 01RX mark', () =>
   assert.equal(faviconAsset.readUInt32BE(20), 512);
 });
 
+test('decision markets add the FOMO product name beside the 01RX wordmark', () => {
+  assert.match(
+    indexSource,
+    /class="site-header-market-name" aria-hidden="true">FOMO<\/span>/,
+  );
+  assert.match(
+    refinementCss,
+    /\.site-header-market-name\s*\{[\s\S]*?display: none;[\s\S]*?color: #ffb000;[\s\S]*?font-size: 11px;/,
+  );
+  assert.match(
+    refinementCss,
+    /body\.is-market-discovery \.site-header-market-name,[\s\S]*?body\.is-token-markets:has\([\s\S]*?\.ft-live-market, \.ft-archive-market[\s\S]*?\) \.site-header-market-name\s*\{\s*display: inline-flex;/,
+  );
+});
+
 test('decision and token chart readouts share one typography scale', () => {
   assert.match(
     tokenCss,
@@ -226,7 +241,11 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
   assert.match(
     indexSource,
-    /<button[\s\S]*?tp-unified-section-toggle-live[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-decisions-panel', this\)"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?<\/button>/,
+    /<button[\s\S]*?tp-unified-section-toggle-live[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-decisions-panel', this\)"[\s\S]*?id="tp-decision-markets-title">Live Markets<\/span>[\s\S]*?<\/button>/,
+  );
+  assert.match(
+    indexSource,
+    /<button[\s\S]*?tp-unified-section-toggle-past[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-past-decisions-panel', this\)"[\s\S]*?id="tp-past-decision-markets-title">Past Markets<\/span>[\s\S]*?<\/button>/,
   );
   assert.match(
     indexSource,
@@ -523,20 +542,21 @@ test('proposal trade wallet action stays white for conditional and spot markets'
   );
 });
 
-test('market sidebar uses one unified live and resolved market section', () => {
+test('market sidebar keeps live and past decision markets independently discoverable', () => {
   assert.match(
     sharedTerminalCss,
     /#tlp-all-list,[\s\S]*?#tlp-wl-list\s*\{[\s\S]*?scrollbar-width: none;[\s\S]*?-ms-overflow-style: none;/,
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Markets<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-market"[\s\S]*?<span>Likelihood<\/span>[\s\S]*?<span>Signal<\/span>[\s\S]*?id="tp-live-decision-count">0 live · 0 past<\/span>[\s\S]*?id="tlp-all-panel"/,
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Live Markets<\/span>[\s\S]*?id="tp-live-decision-count">0 live<\/span>[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tlp-past-decisions-panel"[\s\S]*?id="tp-past-decision-markets-title">Past Markets<\/span>[\s\S]*?id="tp-past-decision-count">0 past<\/span>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"/,
   );
   assert.match(
     indexSource,
     /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Markets<\/button>/,
   );
-  assert.doesNotMatch(indexSource, /tlp-past-decisions|tp-past-decisions|tlp-decision-history-toggle-slot/);
+  assert.match(indexSource, /aria-controls="tlp-decisions-panel tlp-past-decisions-panel"/);
+  assert.doesNotMatch(indexSource, /tlp-decision-history-toggle-slot/);
   assert.doesNotMatch(indexSource, /<span>Status<\/span>/);
   assert.doesNotMatch(indexSource, /class="tp-(?:decision|token)-columns"|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
   assert.match(
@@ -565,6 +585,14 @@ test('market sidebar uses one unified live and resolved market section', () => {
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="tokens"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="watchlist"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="markets"\] \.tp-all-section\s*\{[\s\S]*?display: none !important;/);
+  assert.match(
+    refinementCss,
+    /data-market-sidebar-tab="markets"\] \.tp-decisions-section:not\(\[hidden\]\)\s*\{[\s\S]*?flex: 1 1 0;/,
+  );
+  assert.match(
+    refinementCss,
+    /#tlp-decisions-list,[\s\S]*?#tlp-past-decisions-list,[\s\S]*?#tlp-all-list\s*\{[\s\S]*?overflow-y: auto;/,
+  );
   assert.match(refinementCss, /\.tp-decision-live-dot\s*\{[\s\S]*?grid-column: 1;/);
   assert.match(
     refinementCss,
@@ -574,10 +602,7 @@ test('market sidebar uses one unified live and resolved market section', () => {
     refinementCss,
     /\.tp-decision-live-dot\[data-market-state="passed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="failed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="other"\]\s*\{[\s\S]*?animation: none;/,
   );
-  assert.match(
-    appCoreSource,
-    /var liveComparison = Number\(b\.getAttribute\('data-market-live'\)[\s\S]*?if \(liveComparison !== 0\) return liveComparison;/,
-  );
+  assert.match(appCoreSource, /\['tlp-decisions-list', 'live'\],[\s\S]*?\['tlp-past-decisions-list', 'past'\]/);
 });
 
 test('token and market metric headers show the active sort direction', () => {
@@ -588,6 +613,8 @@ test('token and market metric headers show the active sort direction', () => {
   assert.match(appCoreSource, /function sortMarketSidebarByPrice\(event\)\s*\{\s*_sortMarketSidebarTokens\('price', event\);/);
   assert.match(appCoreSource, /direction\.textContent = ascending \? '↑' : '↓';/);
   assert.match(appCoreSource, /function sortMarketSidebarDecision\(key, event\)[\s\S]*?_marketDecisionSortKey === key[\s\S]*?_marketDecisionSortAscending = !_marketDecisionSortAscending;[\s\S]*?applyMarketSidebarSearch\(\);/);
+  assert.match(appCoreSource, /var _marketDecisionSortKeys = \['default', 'likelihood', 'signal'\];/);
+  assert.match(appCoreSource, /config\.buttonSelector[\s\S]*?document\.querySelectorAll\(config\.buttonSelector\)/);
   assert.match(decisionMarketControllerSource, /data-sort-likelihood="\$\{Number\.isFinite\(likelihoodPct\)[\s\S]*?data-sort-signal="\$\{Number\.isFinite\(signalPct\)/);
   assert.match(indexSource, /id="tp-token-price-sort-direction"[^>]*hidden>↓<\/span>/);
   assert.match(indexSource, /id="tp-token-secondary-sort-direction"[^>]*hidden>↓<\/span>/);

@@ -534,8 +534,12 @@ function makeWindow(options = {}) {
   const sidebar = options.sidebar
     ? `
       <section id="tlp-decisions-panel" hidden>
-        <span id="tp-live-decision-count">0 live · 0 past</span>
+        <span id="tp-live-decision-count">0 live</span>
         <div id="tlp-decisions-list"></div>
+      </section>
+      <section id="tlp-past-decisions-panel" hidden>
+        <span id="tp-past-decision-count">0 past</span>
+        <div id="tlp-past-decisions-list"></div>
       </section>
     `
     : '';
@@ -2029,7 +2033,7 @@ test('homepage discovery uses only public stable proposal reads and canonical to
   cleanupMount(mounted);
 });
 
-test('decision sidebar includes resolved proposals in the unified market list', async () => {
+test('decision sidebar keeps an empty live section beside resolved proposal history', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const priorProposalIndex = {
     ...PROPOSAL_INDEX,
@@ -2064,13 +2068,21 @@ test('decision sidebar includes resolved proposals in the unified market list', 
   await controller.ready;
   await settle(window);
 
-  const section = window.document.getElementById('tlp-decisions-panel');
-  assert.equal(section.hidden, false);
+  const liveSection = window.document.getElementById('tlp-decisions-panel');
+  const pastSection = window.document.getElementById('tlp-past-decisions-panel');
+  assert.equal(liveSection.hidden, false);
+  assert.equal(pastSection.hidden, false);
   assert.equal(
     window.document.getElementById('tp-live-decision-count').textContent,
-    '0 live · 2 past',
+    '0 live',
   );
-  const rows = [...section.querySelectorAll('.tp-decision-item')];
+  assert.equal(
+    window.document.getElementById('tp-past-decision-count').textContent,
+    '2 past',
+  );
+  assert.equal(liveSection.querySelectorAll('.tp-decision-item').length, 0);
+  assert.match(liveSection.textContent, /No live markets/);
+  const rows = [...pastSection.querySelectorAll('.tp-decision-item')];
   assert.equal(rows.length, 2);
   assert.deepEqual(rows.map(row => row.dataset.marketState), ['passed', 'failed']);
   assert.match(rows[0].textContent, /META #41[\s\S]+Passed/);
@@ -2087,7 +2099,6 @@ test('decision sidebar includes resolved proposals in the unified market list', 
     rows[1].querySelector('.tp-decision-live-dot').getAttribute('aria-label'),
     'Failed market',
   );
-  assert.equal(window.document.getElementById('tlp-past-decisions-panel'), null);
   assert.equal(window.document.querySelector('[data-decision-sidebar-action="toggle-history"]'), null);
 
   cleanupMount(mounted);
@@ -2147,11 +2158,20 @@ test('decision sidebar follows every proposal archive page across tokens', async
   assert.deepEqual(
     [...window.document.querySelectorAll('#tlp-decisions-list .tp-decision-item')]
       .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
-    ['loyal:live', 'meta:passed', 'solo:failed'],
+    ['loyal:live'],
+  );
+  assert.deepEqual(
+    [...window.document.querySelectorAll('#tlp-past-decisions-list .tp-decision-item')]
+      .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
+    ['meta:passed', 'solo:failed'],
   );
   assert.equal(
     window.document.getElementById('tp-live-decision-count').textContent,
-    '1 live · 2 past',
+    '1 live',
+  );
+  assert.equal(
+    window.document.getElementById('tp-past-decision-count').textContent,
+    '2 past',
   );
   assert.equal(proposalRows(root).length, 1);
   assert.match(proposalRows(root)[0].textContent, /Loyal · LOYAL/);
@@ -2462,7 +2482,7 @@ test('token Markets places the live wallet control alongside the global 01RX bra
   window.close();
 });
 
-test('market sidebar pins live markets before resolved markets with outcome indicators', async () => {
+test('market sidebar separates persistent live and past markets with outcome indicators', async () => {
   const {
     mountFutardTerminal,
     shouldHandleSidebarProposalClick,
@@ -2475,6 +2495,10 @@ test('market sidebar pins live markets before resolved markets with outcome indi
     <section id="tlp-decisions-panel">
       <span id="tp-live-decision-count"></span>
       <div id="tlp-decisions-list"></div>
+    </section>
+    <section id="tlp-past-decisions-panel">
+      <span id="tp-past-decision-count"></span>
+      <div id="tlp-past-decisions-list"></div>
     </section>
     <section id="tlp-all-panel"></section>
   `;
@@ -2489,13 +2513,20 @@ test('market sidebar pins live markets before resolved markets with outcome indi
   const mounted = trackMount(controller, window);
   await controller.ready;
 
-  assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1 live · 2 past');
-  const decisions = [...window.document.querySelectorAll(
+  assert.equal(window.document.getElementById('tp-live-decision-count').textContent, '1 live');
+  assert.equal(window.document.getElementById('tp-past-decision-count').textContent, '2 past');
+  const liveDecisions = [...window.document.querySelectorAll(
     '#tlp-decisions-list .tp-decision-item',
   )];
-  assert.equal(decisions.length, 3);
-  assert.deepEqual(decisions.map(row => row.dataset.marketState), ['live', 'passed', 'failed']);
-  const [liveDecision, passedDecision, failedDecision] = decisions;
+  const pastDecisions = [...window.document.querySelectorAll(
+    '#tlp-past-decisions-list .tp-decision-item',
+  )];
+  assert.equal(liveDecisions.length, 1);
+  assert.equal(pastDecisions.length, 2);
+  assert.deepEqual(liveDecisions.map(row => row.dataset.marketState), ['live']);
+  assert.deepEqual(pastDecisions.map(row => row.dataset.marketState), ['passed', 'failed']);
+  const [liveDecision] = liveDecisions;
+  const [passedDecision, failedDecision] = pastDecisions;
   const liveDot = liveDecision.querySelector('.tp-decision-live-dot');
   const decisionList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveDecision.firstElementChild, liveDot);
@@ -2534,7 +2565,6 @@ test('market sidebar pins live markets before resolved markets with outcome indi
     'Failed market',
   );
   assert.equal(window.document.querySelector('.tp-decision-state'), null);
-  assert.equal(window.document.getElementById('tlp-past-decisions-panel'), null);
   assert.equal(window.document.querySelector('[data-decision-sidebar-action="toggle-history"]'), null);
   assert.equal(
     shouldHandleSidebarProposalClick({
@@ -2572,6 +2602,10 @@ test('live proposal sidebar navigation switches tokens without reloading the doc
     <section id="tlp-decisions-panel">
       <span id="tp-live-decision-count"></span>
       <div id="tlp-decisions-list"></div>
+    </section>
+    <section id="tlp-past-decisions-panel">
+      <span id="tp-past-decision-count"></span>
+      <div id="tlp-past-decisions-list"></div>
     </section>
     <section id="tlp-all-panel"></section>
   `;
