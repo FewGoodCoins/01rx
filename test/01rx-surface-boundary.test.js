@@ -12,6 +12,51 @@ const sharedTerminalCss = fs.readFileSync(
   new URL('../styles/terminal-shared.css', import.meta.url),
   'utf8',
 );
+const responsiveTerminalMedia = '@media (max-width: 1180px) {';
+const responsiveTerminalStart = sharedTerminalCss.lastIndexOf(responsiveTerminalMedia);
+const desktopSharedTerminalCss = responsiveTerminalStart < 0
+  ? sharedTerminalCss
+  : sharedTerminalCss.slice(0, responsiveTerminalStart);
+const responsiveTerminalCss = responsiveTerminalStart < 0
+  ? ''
+  : sharedTerminalCss.slice(responsiveTerminalStart);
+
+function extractCssBlock(source, marker) {
+  const start = source.indexOf(marker);
+  if (start < 0) return '';
+
+  let depth = 0;
+  let opened = false;
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === '{') {
+      opened = true;
+      depth += 1;
+    } else if (source[index] === '}') {
+      depth -= 1;
+      if (opened && depth === 0) return source.slice(start, index + 1);
+    }
+  }
+
+  return '';
+}
+
+const responsiveWidthCss = extractCssBlock(responsiveTerminalCss, responsiveTerminalMedia);
+const tabletTerminalCss = extractCssBlock(
+  responsiveTerminalCss,
+  '@media (min-width: 981px) and (max-width: 1180px) {',
+);
+const stackedTerminalCss = extractCssBlock(
+  responsiveTerminalCss,
+  '@media (max-width: 980px) {',
+);
+const portraitShellCss = extractCssBlock(
+  responsiveTerminalCss,
+  '@media (min-width: 761px) and (max-width: 980px) {',
+);
+const mobileTerminalCss = extractCssBlock(
+  responsiveTerminalCss,
+  '@media (max-width: 720px) {',
+);
 const refinementCss = fs.readFileSync(
   new URL('../styles/refinements.css', import.meta.url),
   'utf8',
@@ -230,6 +275,100 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.doesNotMatch(indexSource, /tp-market-search-button|tp-market-sort-button|tp-market-sort-menu/);
   assert.doesNotMatch(indexSource, /tp-market-close-button|Close asset browser/);
+});
+
+test('market workspace releases every legacy width floor below desktop', () => {
+  assert.notEqual(responsiveTerminalStart, -1);
+  assert.notEqual(responsiveWidthCss, '');
+  assert.match(
+    responsiveWidthCss,
+    /html\[data-workspace="markets"\] body\s*\{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;[\s\S]*?min-width: 0 !important;/,
+  );
+  assert.match(
+    responsiveWidthCss,
+    /html\[data-workspace="markets"\] :is\([\s\S]*?\.site-header,[\s\S]*?\.app-shell,[\s\S]*?\.app-right,[\s\S]*?\.app-content,[\s\S]*?\)\s*\{[\s\S]*?width: 100% !important;\s*max-width: 100% !important;\s*min-width: 0 !important;/,
+  );
+});
+
+test('tablet terminal gives paired metrics real height and explicit panel placement', () => {
+  assert.notEqual(tabletTerminalCss, '');
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: clamp\(480px, 58dvh, 550px\);[\s\S]*?grid-template-columns: minmax\(0, 1fr\) minmax\(280px, 0\.62fr\) !important;/,
+  );
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{\s*--ft-terminal-chart-height: 550px;/,
+  );
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-chart-market-header\s*\{\s*height: 80px !important;\s*min-height: 80px !important;\s*grid-template-rows: 80px !important;/,
+  );
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-market-chart\s*\{\s*grid-column: 1 !important;\s*grid-row: 2 !important;/,
+  );
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-ticket-column\s*\{\s*grid-column: 2 !important;\s*grid-row: 2 !important;/,
+  );
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-activity-row\s*\{[\s\S]*?grid-column: 1 \/ -1 !important;\s*grid-row: 3 !important;/,
+  );
+  assert.match(
+    tabletTerminalCss,
+    /\.ft-decision-pressure\s*\{\s*height: 76px !important;\s*min-height: 76px !important;/,
+  );
+});
+
+test('stacked market terminal expands the ticket and restores the portrait shell', () => {
+  assert.notEqual(stackedTerminalCss, '');
+  assert.notEqual(portraitShellCss, '');
+  assert.match(
+    stackedTerminalCss,
+    /\.ft-ticket-column\s*\{\s*grid-column: 1 !important;\s*grid-row: 3 !important;/,
+  );
+  assert.match(
+    stackedTerminalCss,
+    /\.ft-proposal-focus:is\([\s\S]*?\.ft-live-market,[\s\S]*?\.ft-archive-market[\s\S]*?\) \.ft-ticket-column\s*\{\s*height: auto !important;\s*contain: none;\s*overflow: visible;/,
+  );
+  assert.match(
+    stackedTerminalCss,
+    /\.ft-ticket-column > \[data-ft-region="trade-ticket"\],[\s\S]*?\.ft-ticket-column > \[data-ft-region="trade-ticket"\] > \.ft-ticket\s*\{\s*height: auto !important;/,
+  );
+  assert.match(
+    portraitShellCss,
+    /html\[data-workspace="markets"\] \.app-shell\s*\{\s*display: flex !important;/,
+  );
+});
+
+test('mobile market header keeps price full-width and each decision pair stacked', () => {
+  assert.notEqual(mobileTerminalCss, '');
+  assert.match(
+    mobileTerminalCss,
+    /\.ft-chart-market-header\s*\{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/,
+  );
+  assert.match(
+    mobileTerminalCss,
+    /\.ft-chart-market-identity\s*\{[\s\S]*?grid-column: 1 \/ -1;\s*grid-row: 1;/,
+  );
+  assert.match(
+    mobileTerminalCss,
+    /data-ft-chart-header-metric="price"\]\s*\{[\s\S]*?grid-column: 1 \/ -1;\s*grid-row: 2;/,
+  );
+  assert.match(
+    mobileTerminalCss,
+    /\.ft-chart-market-metric-group\s*\{[\s\S]*?grid-template-rows: repeat\(2, 46px\);/,
+  );
+  assert.match(
+    mobileTerminalCss,
+    /data-ft-chart-header-group="outcomes"\]\s*\{\s*grid-column: 1;\s*grid-row: 3;/,
+  );
+  assert.match(
+    mobileTerminalCss,
+    /data-ft-chart-header-group="threshold"\]\s*\{\s*grid-column: 2;\s*grid-row: 3;/,
+  );
 });
 
 test('market sidebar titles use consistent full-size click targets', () => {
@@ -713,7 +852,7 @@ test('desktop spot ticket grows to expose every control without internal scrolli
     sharedTerminalCss,
     /:has\(\[data-ft-mode="token"\]\.ft-proposal-focus\) \.app-content\s*\{\s*overflow-y: hidden !important;/,
   );
-  assert.doesNotMatch(sharedTerminalCss, /overflow-y: auto !important;/);
+  assert.doesNotMatch(desktopSharedTerminalCss, /overflow-y: auto !important;/);
   assert.match(
     sharedTerminalCss,
     /\.ft-proposal-focus \.ft-terminal-grid,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,[\s\S]*?overflow: visible;/,
@@ -764,7 +903,7 @@ test('spot and decision routes share one authoritative desktop terminal geometry
     sharedTerminalCss,
     /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-account-row\s*\{[\s\S]*?display: block;[\s\S]*?grid-row: 3;/,
   );
-  assert.equal((sharedTerminalCss.match(/grid-template-columns:/g) || []).length, 1);
+  assert.equal((desktopSharedTerminalCss.match(/grid-template-columns:/g) || []).length, 1);
 });
 
 test('desktop account activity stays inside the viewport and scrolls its body', () => {
