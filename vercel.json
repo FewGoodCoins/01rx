@@ -7,6 +7,11 @@
       "permanent": false
     },
     {
+      "source": "/widgets/chart/:path*",
+      "destination": "/?token=solo&view=markets&tab=tokens",
+      "permanent": false
+    },
+    {
       "source": "/navgator-for-agents/:path*",
       "destination": "/?token=solo&view=markets&tab=tokens",
       "permanent": false

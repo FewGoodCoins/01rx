@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const test = require('node:test');
 
 const pageEntryModulePromise = import('../../src/core/page-entry.js');
+const defaultRouteModulePromise = import('../../src/core/default-route.js');
 const marketBootModulePromise = import('../../src/core/market-boot.js');
 const shellRoutesModulePromise = import('../../src/shell/routes.js');
 const tokenRuntimeModulePromise = import('../../src/token/runtime.js');
@@ -66,7 +67,7 @@ test('page entry loader imports only the module selected by normalized route sta
     },
   });
 
-  const homeRuntime = createRuntime('?launchpad=permissionless', normalizeTokenKey);
+  const homeRuntime = createRuntime('', normalizeTokenKey);
   assert.equal(resolvePageKind(homeRuntime), 'home');
   assert.equal(await loadPageEntry(homeRuntime), homeEntry);
   assert.deepEqual(imports, ['home']);
@@ -83,14 +84,48 @@ test('page entry loader imports only the module selected by normalized route sta
   assert.deepEqual(imports, ['home']);
 });
 
-test('terminal route detection accepts canonical and built index paths only', async () => {
-  const { isFutarchyTerminalPath } = await pageEntryModulePromise;
+test('every canonical application surface selects the token page entrypoint', async () => {
+  const { default01rxDestination } = await defaultRouteModulePromise;
+  const { resolvePageKind } = await pageEntryModulePromise;
+  const { normalizeTokenKey } = await shellRoutesModulePromise;
+  const canonicalLocations = [
+    {
+      pathname: '/',
+      search: '?token=solo&view=markets&tab=tokens',
+    },
+    {
+      pathname: '/',
+      search: '?token=meta&view=markets&tab=decisions',
+    },
+    {
+      pathname: '/embed',
+      search: '?token=solo',
+    },
+    {
+      pathname: '/',
+      search: '?token=solo&frame=01rx',
+      options: { embeddedFrame: true },
+    },
+  ];
 
-  assert.equal(isFutarchyTerminalPath('/terminal'), true);
-  assert.equal(isFutarchyTerminalPath('/terminal/'), true);
-  assert.equal(isFutarchyTerminalPath('/terminal/index.html'), true);
-  assert.equal(isFutarchyTerminalPath('/'), false);
-  assert.equal(isFutarchyTerminalPath('/terminal-markets'), false);
+  canonicalLocations.forEach(({ options, ...route }) => {
+    assert.equal(default01rxDestination(route, options), null);
+    assert.equal(
+      resolvePageKind(createRuntime(route.search, normalizeTokenKey)),
+      'token',
+    );
+  });
+
+  const unknownDestination = default01rxDestination({
+    pathname: '/unexpected-page',
+    search: '',
+  });
+  const canonicalUnknown = new URL(unknownDestination, 'https://01rx.test');
+  assert.equal(canonicalUnknown.pathname, '/');
+  assert.equal(
+    resolvePageKind(createRuntime(canonicalUnknown.search, normalizeTokenKey)),
+    'token',
+  );
 });
 
 test('route helpers keep every token URL inside the 01RX market workspace', async () => {
@@ -105,19 +140,16 @@ test('route helpers keep every token URL inside the 01RX market workspace', asyn
   };
   const routes = createRouteHelpers(runtime);
 
-  assert.equal(routes.homePageUrl(), '/');
-  assert.equal(routes.marketDiscoveryUrl(), '/?view=markets&archive=1');
+  assert.equal(routes.homePageUrl(), '/?token=solo&view=markets&tab=tokens');
   assert.equal(routes.marketHomeUrl(), '/?token=solo&view=markets&tab=tokens');
   assert.equal(
-    routes.marketDiscoveryUrl({ filter: 'resolved', proposal }),
-    `/?view=markets&archive=1&filter=resolved&proposal=${proposal}`,
-  );
-  assert.equal(routes.tokenResearchUrl('MetaDAO'), '/?token=meta&view=markets&tab=tokens');
-  assert.equal(
     routes.tokenMarketUrl('MetaDAO', proposal),
-    `/?token=meta&view=markets&proposal=${proposal}`,
+    `/?token=meta&view=markets&tab=decisions&proposal=${proposal}`,
   );
-  assert.equal(routes.tokenMarketUrl('not valid', proposal), '/?view=markets&archive=1');
+  assert.equal(
+    routes.tokenMarketUrl('not valid', proposal),
+    '/?token=solo&view=markets&tab=tokens',
+  );
   assert.equal(routes.tokenTradingUrl('MetaDAO'), '/?token=meta&view=markets&tab=tokens');
   assert.equal(
     routes.tokenTradingUrl('not valid'),
@@ -141,7 +173,7 @@ test('legacy terminal URLs resolve route helpers against the canonical app root'
   });
 
   assert.equal(routes.appRootPath(), '/');
-  assert.equal(routes.marketDiscoveryUrl(), '/?view=markets&archive=1');
+  assert.equal(routes.marketHomeUrl(), '/?token=solo&view=markets&tab=tokens');
 });
 
 test('token runtime installs models, controller, and the actions bridge together', async () => {
@@ -234,22 +266,15 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.doesNotMatch(homeEntry, /token-page|token\/(?:chart-data|nav-model|proposal-model|token-controller)/);
   assert.match(tokenEntry, /token-page\.js\?url/);
   assert.match(tokenEntry, /import\('lightweight-charts'\)/);
-  assert.match(tokenEntry, /proposal-history-liveline\.js/);
-  assert.match(homeEntry, /proposal-history-liveline\.js/);
+  assert.match(tokenEntry, /proposal-history-chart\.js/);
+  assert.doesNotMatch(homeEntry, /proposal-history-chart\.js/);
+  assert.doesNotMatch(tokenEntry, /proposal-history-liveline\.js/);
+  assert.doesNotMatch(homeEntry, /proposal-history-liveline\.js/);
   assert.doesNotMatch(document, /unpkg\.com\/lightweight-charts/);
-  assert.match(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);
+  assert.doesNotMatch(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.match(tokenEntry, /\.\.\/markets\/decision-market-controller\.js/);
-  assert.match(homeEntry, /revealMarketWorkspace\(document\)/);
+  assert.doesNotMatch(homeEntry, /revealMarketWorkspace|is-market-discovery|mode: 'discovery'/);
   assert.match(tokenEntry, /revealMarketWorkspace\(document\)/);
-  assert.match(
-    homeEntry,
-    /marketWorkspace\.getState\(\)\.navigationPending\) return;/,
-  );
-  assert.ok(
-    homeEntry.indexOf('await window.NAVGATOR.marketWorkspace.ready')
-      < homeEntry.indexOf('revealMarketWorkspace(document)'),
-    'market discovery must remain guarded until its first data-backed render',
-  );
   assert.ok(
     tokenEntry.indexOf('await window.NAVGATOR.marketWorkspace.ready')
       < tokenEntry.indexOf('revealMarketWorkspace(document)'),

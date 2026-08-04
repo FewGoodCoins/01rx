@@ -2368,7 +2368,7 @@ export async function buildRecurringSchedulePlan({
     },
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: 'Manifest · NAVgator recurring vault',
+      venue: 'Manifest · 01RX recurring vault',
       action: `${side.toUpperCase()} ${outcome.toUpperCase()} · ${cycles} AUTOMATIC RUNS`,
       amountIn: `${formatRawAmount(totalFundingRaw, inputDecimals)} ${inputSymbol} total`,
       inputMint: underlyingInputMint.toBase58(),
@@ -2559,7 +2559,7 @@ export async function buildRecurringCancelPlan({
     recurring: schedule,
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: 'NAVgator recurring vault',
+      venue: '01RX recurring vault',
       action: 'CANCEL RECURRING SCHEDULE',
       amountIn: 'No trade',
       inputMint: schedule.inputMint,
@@ -2706,7 +2706,7 @@ export async function buildRecurringClaimPlan({
     recurring: schedule,
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: 'NAVgator recurring vault',
+      venue: '01RX recurring vault',
       action: `CLAIM ${normalizedOutcome} PROCEEDS`,
       amountIn: 'No trade',
       inputMint: schedule.outputMint,

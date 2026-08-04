@@ -167,7 +167,6 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           index: path.join(root, 'index.html'),
-          widgetChart: path.join(root, 'widgets/chart/index.html'),
         },
         output: {
           entryFileNames: 'assets/[name]-[hash].js',

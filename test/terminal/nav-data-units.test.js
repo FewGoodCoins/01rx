@@ -542,13 +542,9 @@ test('sidebar treats displayed zero 24-hour movement as flat', () => {
   assert.match(source, /\.tp-token-secondary\.is-flat\s*\{\s*color: var\(--dim\);/);
 });
 
-test('landing filter exposes enabled graveyard button next to permissionless', () => {
-  assert.match(source, /class="lp-filter-btn lp-filter-btn-graveyard"[^>]+data-lp="graveyard"[^>]+filterByLaunchpad\('graveyard'\)/);
-  assert.match(source, /data-lp="permissionless"[\s\S]*data-lp="graveyard"/);
-  assert.match(source, /\.lp-filter-btn\[data-lp="permissionless"\]\s*\{\s*order:\s*3;\s*\}/);
-  assert.match(source, /\.lp-filter-btn-graveyard\s*\{\s*order:\s*4;\s*margin-left:\s*0;\s*margin-right:\s*0;\s*\}/);
-  assert.doesNotMatch(source, /\.lp-filter-btn-graveyard\s*\{[^}]*margin-left:\s*auto/);
-  assert.doesNotMatch(source, /if\s*\(\s*lpKey\s*===\s*['"]graveyard['"]\s*\)\s*return/);
+test('graveyard token support remains without a retired landing filter', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /data-lp="graveyard"|lp-filter-btn/);
   assert.match(source, /const TOKENS_FALLBACK = window\.NAVGATOR\.projectMetadata;/);
   assert.doesNotMatch(source, /rngr:\s*true/);
   assert.match(source, /function graveyardIconClass\(t\) \{/);
@@ -562,7 +558,6 @@ test('landing filter exposes enabled graveyard button next to permissionless', (
   assert.match(source, /\.bb-tape-logo\.graveyard-square-icon\s*\{\s*border-radius:\s*3px;\s*background:\s*#f4f6f2;/);
   assert.match(source, /includeInactiveParam\s*=\s*\(CFG && \(CFG\.graveyard \|\| CFG\.live === false\)\)\s*\?\s*'&includeInactive=1'\s*:\s*''/);
   assert.match(source, /if\s*\(\s*!CFG\.live\s*&&\s*!CFG\.graveyard\s*\)/);
-  assert.match(source, /if\s*\(_activeFilter === 'lp:graveyard'\)\s*\{\s*if\s*\(!_isGraveyardToken\(t\)\)\s*return false;\s*\}\s*else if\s*\(_isGraveyardToken\(t\)\)\s*\{\s*return false;\s*\}/);
 });
 
 test('MetaDAO historic NAV stays disabled while other token histories retain their normal state', () => {
@@ -700,27 +695,10 @@ test('token discovery deduplicates MTN aliases and preserves ZKFG retirement', (
   assert.equal(result.zkfg.liquidatedAt, '2026-06-20');
 });
 
-test('landing hero uses stats instead of marketing copy', () => {
-  assert.doesNotMatch(source, /Ownership<\/span><span class="hero-title-main">,/);
-  assert.doesNotMatch(source, /Real-time NAV, treasury, supply, and price tracking for ownership tokens\./);
-  assert.doesNotMatch(source, /NAVgator tracks[\s\S]*ownership tokens[\s\S]*fundamentally worth/);
-  assert.doesNotMatch(source, /class="landing-blurb"/);
-  assert.match(source, /<div class="hs-label">Aggregate NAV<\/div>/);
-  assert.match(source, /<div class="hs-label">Market Value<\/div>/);
-  assert.doesNotMatch(source, /<div class="hs-label">Total Treasury<\/div>/);
-  assert.doesNotMatch(source, /<div class="hs-label">Total MCap<\/div>/);
-  assert.match(source, /id="landing-avg-discount"/);
-  assert.match(source, /id="landing-avg-premium"/);
-  assert.doesNotMatch(source, /id="landing-max-discount"/);
-  assert.doesNotMatch(source, /id="landing-max-premium"/);
-  assert.match(source, /avgDiscountEl\.innerHTML = '<span class="down">' \+ avgDiscount\.toFixed\(1\) \+ '%<\/span> <span style="color:var\(--dim\)">avg<\/span>';/);
-  assert.match(source, /avgPremiumEl\.innerHTML = '<span class="up">\+' \+ avgPremium\.toFixed\(1\) \+ '%<\/span> <span style="color:var\(--dim\)">avg<\/span>';/);
-  assert.match(source, /id="landing-curated-count"/);
-  assert.match(source, /id="landing-permissionless-count"/);
-  assert.match(source, /id="landing-discount-count"/);
-  assert.match(source, /id="landing-premium-count"/);
-  assert.match(source, /function _paintLandingHeroStats\(\) \{/);
-  assert.match(source, /var activeTokens = _activeLandingTokens\(\);/);
+test('retired aggregate landing hero is absent from the application document', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /id="landing-view"|class="hero-strip"/);
+  assert.doesNotMatch(html, /landing-avg-discount|landing-avg-premium|Aggregate NAV/);
 });
 
 test('document establishes a dark canvas before module CSS loads', () => {
@@ -950,9 +928,9 @@ test('route helpers strip index.html and preserve clean query URLs', async () =>
     emptyToken: routes.tokenPageUrl(''),
   }, {
     rootFromIndex: '/',
-    home: '/',
+    home: '/?token=solo&view=markets&tab=tokens',
     token: '/?token=nav&view=markets&tab=tokens',
-    launchpad: '/?launchpad=curated',
+    launchpad: '/?token=solo&view=markets&tab=tokens',
     emptyToken: '/?token=solo&view=markets&tab=tokens',
   });
 });
@@ -5201,12 +5179,10 @@ test('right-panel volume UI paths apply the $100 display floor', () => {
   assert.equal(source.includes('var futVolDisplay = _volumeUsdDisplayValue(CFG.volume24hUsd);'), true);
 });
 
-test('home table price column uses 24h change while trend stays 7d', () => {
-  assert.equal(source.includes('<th>Price <span style="color:var(--dim)">24H</span><span class="stat-tip below" data-tip="Current spot price.">i</span></th>'), true);
-  assert.equal(source.includes('<th style="text-align:center">Trend <span style="color:var(--dim)">7D</span></th>'), true);
-  assert.equal(source.includes("else if (currentSort === 'price') { va = a.change24h || 0; vb = b.change24h || 0; }"), true);
-  assert.equal(source.includes("else if (currentSort === 'trend') { va = a.change7d || 0; vb = b.change7d || 0; }"), true);
-  assert.equal(source.includes("(t.change24h !== undefined ? (t.change24h === 0 ?"), true);
+test('retired aggregate token table is absent from the application document', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /class="token-table-wrap"|class="token-table"/);
+  assert.doesNotMatch(html, /data-lp="permissionless"|class="lp-filter-bar"/);
 });
 
 test('sparse 24h spark history interpolates a reference price instead of dropping change', () => {

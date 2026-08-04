@@ -42,7 +42,6 @@ const EXACT_READ_POLICIES = new Map([
   ['/api/company-growth-metrics', HISTORY],
   ['/api/current', LIVE],
   ['/api/current-nav', LIVE],
-  ['/api/embed-current-nav', LIVE],
   ['/api/fee-history', HISTORY],
   ['/api/growth-metrics', HISTORY],
   ['/api/health', PRIVATE_READ],

@@ -3,28 +3,12 @@ export function createShellNavigation(options = {}) {
   const routes = options.routes;
 
   function navToAllTokens() {
-    runtime.document.querySelectorAll('.tp-lp-sublabel').forEach((element) => {
-      element.classList.remove('tp-lp-active');
-    });
-    runtime.document.querySelectorAll('.tp-item').forEach((element) => {
-      element.classList.remove('active');
-    });
-    const landingView = runtime.document.getElementById('landing-view');
-    const dashboardView = runtime.document.getElementById('dashboard-view');
-    if (landingView) landingView.classList.add('active');
-    if (dashboardView) dashboardView.classList.remove('active');
-    runtime.document.body.classList.remove('is-token');
-    runtime.document.body.classList.remove('is-dashboard');
-    if (typeof runtime.stopTxPolling === 'function') runtime.stopTxPolling();
-    runtime.history.pushState({}, '', routes.homePageUrl());
-    runtime.document.title = '01RX — Ownership and Decision Markets';
-    runtime.setBreadcrumb([{
-      label: 'All Tokens',
-      current: true,
-    }]);
-    if (typeof runtime.setLaunchpadFilter === 'function') runtime.setLaunchpadFilter(null);
-    if (typeof runtime.refreshHealthStatus === 'function') runtime.refreshHealthStatus();
-    if (typeof runtime.scheduleHealthPolling === 'function') runtime.scheduleHealthPolling();
+    const destination = routes.marketHomeUrl();
+    if (typeof runtime.location.assign === 'function') {
+      runtime.location.assign(destination);
+    } else {
+      runtime.location.href = destination;
+    }
   }
 
   return { navToAllTokens };

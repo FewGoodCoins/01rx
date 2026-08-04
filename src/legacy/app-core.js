@@ -538,25 +538,8 @@ function setBreadcrumb(crumbs) {
   });
 }
 
-function navToLaunchpad(lpKey) {
-  document.querySelectorAll('.tp-lp-sublabel').forEach(function(el) {
-    el.classList.toggle('tp-lp-active', el.dataset.lp === lpKey);
-  });
-  document.querySelectorAll('.tp-item').forEach(function(el) { el.classList.remove('active'); });
-  var landingView = document.getElementById('landing-view');
-  var dashboardView = document.getElementById('dashboard-view');
-  if (landingView) landingView.classList.add('active');
-  if (dashboardView) dashboardView.classList.remove('active');
-  document.body.classList.remove('is-token');
-  document.body.classList.remove('is-dashboard');
-  if (typeof stopTxPolling === 'function') stopTxPolling();
-  history.pushState({}, '', _launchpadPageUrl(lpKey));
-  document.title = '01RX — ' + lpKey.charAt(0).toUpperCase() + lpKey.slice(1);
-  setBreadcrumb([
-    { label: 'All Tokens', href: _homePageUrl(), handler: function() { navToAllTokens(); } },
-    { label: lpKey.charAt(0).toUpperCase() + lpKey.slice(1), current: true }
-  ]);
-  if (typeof setLaunchpadFilter === 'function') setLaunchpadFilter(lpKey);
+function navToLaunchpad() {
+  return _navgatorShell.navigation.navToAllTokens();
 }
 
 function navToAllTokens() {
@@ -1282,24 +1265,6 @@ function getAllTokens() {
   fetchBarPrices();
   setInterval(fetchBarPrices, 60000);
 
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'F1') {
-      e.preventDefault();
-      window.open('methodology.html', '_blank');
-    } else if (e.key === 'F2') {
-      e.preventDefault();
-      if (typeof window.openCommandBar === 'function') {
-        window.openCommandBar();
-      } else {
-        var overlay = document.getElementById('cmd-overlay');
-        if (overlay) {
-          overlay.classList.add('open');
-          var inp = document.getElementById('cmd-input');
-          if (inp) inp.focus();
-        }
-      }
-    }
-  });
 })();
 
 // ═══════════════════════════════════════════════════════════════════════

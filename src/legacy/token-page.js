@@ -688,28 +688,8 @@ function toggleSectionArrow(arrowEl) {
   labelEl.setAttribute('aria-expanded', !isCollapsed);
 }
 
-function navToLaunchpad(lpKey) {
-  document.querySelectorAll('.tp-lp-sublabel').forEach(function(el) {
-    el.classList.toggle('tp-lp-active', el.dataset.lp === lpKey);
-  });
-  document.querySelectorAll('.tp-item').forEach(function(el) { el.classList.remove('active'); });
-
-  document.getElementById('landing-view').classList.add('active');
-  document.getElementById('dashboard-view').classList.remove('active');
-  document.body.classList.remove('is-token');
-  document.body.classList.remove('is-dashboard');
-  stopTxPolling();
-
-  history.pushState({}, '', _launchpadPageUrl(lpKey));
-  document.title = '01RX — ' + lpKey.charAt(0).toUpperCase() + lpKey.slice(1);
-
-  setBreadcrumb([
-    { label: 'All Tokens', href: _homePageUrl(), handler: function() { navToAllTokens(); } },
-    { label: lpKey.charAt(0).toUpperCase() + lpKey.slice(1), current: true }
-  ]);
-
-  // Filter the landing table to this launchpad
-  setLaunchpadFilter(lpKey);
+function navToLaunchpad() {
+  return _navgatorShell.navigation.navToAllTokens();
 }
 
 function setBreadcrumb(crumbs) {
@@ -802,55 +782,20 @@ if (!_hasToken) {
 
 // Navigate to all-tokens view (clears launchpad filter)
 function navToAllTokens() {
-  document.querySelectorAll('.tp-lp-sublabel').forEach(function(el) { el.classList.remove('tp-lp-active'); });
-  document.querySelectorAll('.tp-item').forEach(function(el) { el.classList.remove('active'); });
-  document.getElementById('landing-view').classList.add('active');
-  document.getElementById('dashboard-view').classList.remove('active');
-  document.body.classList.remove('is-token');
-  document.body.classList.remove('is-dashboard');
-  stopTxPolling();
-  history.pushState({}, '', _homePageUrl());
-  document.title = '01RX — Ownership and Decision Markets';
-  setBreadcrumb([{ label: 'All Tokens', current: true }]);
-  setLaunchpadFilter(null);
-  refreshHealthStatus();
-  scheduleHealthPolling();
+  return _navgatorShell.navigation.navToAllTokens();
 }
 
 // popstate — handle browser back/forward
 window.addEventListener('popstate', function() {
   var p = new URLSearchParams(window.location.search);
   var tok = p.get('token');
-  var lp  = p.get('launchpad');
 
   if (tok) {
     // Token-to-token history is handled by the controller-backed listener
     // registered below. Avoid reloading before that listener can switch data.
     return;
-  } else if (lp) {
-    // Back to a launchpad view
-    document.getElementById('landing-view').classList.add('active');
-    document.getElementById('dashboard-view').classList.remove('active');
-    document.body.classList.remove('is-token');
-    document.body.classList.remove('is-dashboard');
-    setBreadcrumb([
-      { label: 'All Tokens', href: _homePageUrl(), handler: function() { navToAllTokens(); } },
-      { label: lp.charAt(0).toUpperCase() + lp.slice(1), current: true }
-    ]);
-    document.querySelectorAll('.tp-lp-sublabel').forEach(function(el) {
-      el.classList.toggle('tp-lp-active', el.dataset.lp === lp);
-    });
-    setLaunchpadFilter(lp);
-  } else {
-    // Back to all tokens
-    document.getElementById('landing-view').classList.add('active');
-    document.getElementById('dashboard-view').classList.remove('active');
-    document.body.classList.remove('is-token');
-    document.body.classList.remove('is-dashboard');
-    setBreadcrumb([{ label: 'All Tokens', current: true }]);
-    document.querySelectorAll('.tp-lp-sublabel').forEach(function(el) { el.classList.remove('tp-lp-active'); });
-    setLaunchpadFilter(null);
   }
+  navToAllTokens();
 });
 
 // Right-panel watchlist button
@@ -1148,8 +1093,6 @@ function initTokenPageUI() {
   _bindEmbedDisplayControls();
   var embedOpen = document.getElementById('embed-open-full');
   if (embedOpen && window.NAVGATOR.embed) embedOpen.href = window.NAVGATOR.embed.fullPageUrl(tokenKey);
-  var embedBuilder = document.getElementById('btn-chart-embed');
-  if (embedBuilder && window.NAVGATOR.embed) embedBuilder.href = window.NAVGATOR.embed.builderUrl(tokenKey);
   _proposalMarketTargetRows = [];
   _proposalTargetZonesEnabled = false;
   renderProposalPredictor([]);
@@ -6300,7 +6243,7 @@ function _currentNavUrl(key, opts) {
 }
 
 function _embedCurrentNavUrl(key) {
-  return API_BASE + '/api/embed-current-nav?token=' + encodeURIComponent(key);
+  return _currentNavUrl(key, { compact: true, includeDaoBreakdown: false });
 }
 
 function _fetchEmbedCurrentNav(key, requestOptions) {
@@ -17115,7 +17058,6 @@ function renderUI(isLive) {
   if (window._updateSecHeader) window._updateSecHeader(CFG);
   var navSnapshot = _buildNavSnapshot(CFG);
   window._navSnapshot = navSnapshot;
-  if (_navCalcTokenKey && _navCalcTokenKey !== (tokenKey || '')) resetNavCalculatorToLive();
   var supplyForNAV = navSnapshot.supply.effective;
   var navTreasuryUSDC = navSnapshot.treasuryUSDC;
   var _navBlocked = _navSnapshotBlocksNav(navSnapshot);
@@ -18474,7 +18416,6 @@ function _renderHistoricNavEvidence(evidence) {
   if (evidence.warnings && evidence.warnings.length) {
     h += '<div style="margin-top:12px;padding:9px 11px;border:1px solid #3a2d12;background:#100d06;border-radius:6px;font-family:IBM Plex Mono,monospace;font-size:9px;line-height:1.5;color:#c9a85b">' + evidence.warnings.map(_esc).join('<br>') + '</div>';
   }
-  h += '<div style="margin-top:15px;text-align:center"><a href="/methodology.html#' + encodeURIComponent(evidence.token || tokenKey) + '" target="_blank" rel="noopener" style="font-family:IBM Plex Mono,monospace;font-size:10px;color:#666;text-decoration:none">Full methodology →</a></div>';
   return h;
 }
 
@@ -18647,138 +18588,9 @@ function openNavBreakdown() {
     '<div style="color:#FFB000;font-weight:500">= Effective Supply</div>' +
     '<div style="color:#FFB000;font-weight:500">' + fmtT(displayEffSupply) + '</div></div>';
 
-  // Methodology link
-  h += '<div style="margin-top:16px;text-align:center"><a href="/methodology.html#' + tokenKey + '" target="_blank" rel="noopener" style="font-size:10px;color:#555;text-decoration:none;' + s + '">Full methodology →</a></div>';
-
   content.innerHTML = h;
   modal.style.display = '';
 }
-
-var _navCalcTokenKey = '';
-
-function _navCalcInputFormat(n, decimals) {
-  if (n == null || !isFinite(n)) return '';
-  return n.toLocaleString(undefined, {
-    maximumFractionDigits: decimals != null ? decimals : 4
-  });
-}
-
-function _navCalcParse(v) {
-  if (v == null) return NaN;
-  var raw = String(v).trim().toLowerCase().replace(/\$/g, '').replace(/,/g, '');
-  if (!raw) return NaN;
-  var mult = 1;
-  if (/k$/.test(raw)) { mult = 1e3; raw = raw.slice(0, -1); }
-  else if (/m$/.test(raw)) { mult = 1e6; raw = raw.slice(0, -1); }
-  else if (/b$/.test(raw)) { mult = 1e9; raw = raw.slice(0, -1); }
-  var n = Number(raw);
-  return isFinite(n) ? n * mult : NaN;
-}
-
-function _navCalcStatusText(navSnapshot) {
-  if (!navSnapshot) return 'Using live 01RX inputs.';
-  if (navSnapshot.status === 'stale') return 'Using a stale NAV snapshot from NAVgator.';
-  if (navSnapshot.status === 'unverified' || CFG.navVerified === false) return 'NAVgator marks this NAV snapshot as unverified.';
-  if (navSnapshot.status === 'partial') return 'NAVgator is using a partial live snapshot.';
-  return 'Using live 01RX inputs.';
-}
-
-function resetNavCalculatorToLive() {
-  if (!CFG) return;
-  var navSnapshot = _buildNavSnapshot(CFG);
-  var treasuryInput = document.getElementById('nav-calc-treasury');
-  var supplyInput = document.getElementById('nav-calc-supply');
-  var treasuryMeta = document.getElementById('nav-calc-treasury-meta');
-  var supplyMeta = document.getElementById('nav-calc-supply-meta');
-  var note = document.getElementById('nav-calc-note');
-  if (!treasuryInput || !supplyInput) return;
-  treasuryInput.value = navSnapshot.treasuryUSDC > 0 ? _navCalcInputFormat(navSnapshot.treasuryUSDC, 2) : '';
-  supplyInput.value = navSnapshot.supply && navSnapshot.supply.effective > 0 ? _navCalcInputFormat(navSnapshot.supply.effective, 4) : '';
-  if (treasuryMeta) treasuryMeta.textContent = navSnapshot.treasuryUSDC > 0 ? fmtM(navSnapshot.treasuryUSDC) + ' live treasury' : 'Treasury unavailable';
-  if (supplyMeta) {
-    supplyMeta.textContent = navSnapshot.supply && navSnapshot.supply.effective > 0
-      ? _navCalcInputFormat(navSnapshot.supply.effective, 0) + ' live supply'
-      : 'Effective supply unavailable';
-  }
-  if (note) note.textContent = _navCalcStatusText(navSnapshot);
-  _navCalcTokenKey = tokenKey || '';
-  recalcNavCalculator();
-}
-
-function openNavCalculator() {
-  var modal = document.getElementById('nav-calc-modal');
-  if (!modal || !CFG) return;
-  resetNavCalculatorToLive();
-  modal.style.display = '';
-}
-
-function closeNavCalculator() {
-  var modal = document.getElementById('nav-calc-modal');
-  if (modal) modal.style.display = 'none';
-}
-
-function recalcNavCalculator() {
-  var treasuryInput = document.getElementById('nav-calc-treasury');
-  var supplyInput = document.getElementById('nav-calc-supply');
-  var resultEl = document.getElementById('nav-calc-result');
-  var formulaEl = document.getElementById('nav-calc-formula');
-  var referenceEl = document.getElementById('nav-calc-reference');
-  var yourEl = document.getElementById('nav-calc-your');
-  var diffEl = document.getElementById('nav-calc-diff');
-  var statusEl = document.getElementById('nav-calc-status');
-  var noteEl = document.getElementById('nav-calc-note');
-  if (!treasuryInput || !supplyInput || !resultEl || !formulaEl || !referenceEl || !yourEl || !diffEl || !statusEl) return;
-
-  var navSnapshot = CFG ? _buildNavSnapshot(CFG) : null;
-  var treasury = _navCalcParse(treasuryInput.value);
-  var supply = _navCalcParse(supplyInput.value);
-  var referenceNav = navSnapshot ? _unitNum(navSnapshot.navPerToken) : 0;
-  var hasReference = referenceNav > 0;
-
-  referenceEl.textContent = hasReference ? fmt$(referenceNav) : '—';
-  if (noteEl) noteEl.textContent = _navCalcStatusText(navSnapshot);
-
-  if (!(treasury >= 0) || !(supply > 0)) {
-    resultEl.textContent = '—';
-    formulaEl.innerHTML = '<span class="t">Treasury</span> ÷ <span class="s">Effective Supply</span>';
-    yourEl.textContent = '—';
-    diffEl.textContent = '—';
-    statusEl.className = 'nav-calc-status neutral';
-    statusEl.textContent = supply === 0 ? 'Effective supply must be greater than zero.' : 'Enter treasury and effective supply to calculate NAV.';
-    return;
-  }
-
-  var calcNav = treasury / supply;
-  var diff = hasReference ? calcNav - referenceNav : NaN;
-  var diffPct = hasReference && referenceNav > 0 ? (diff / referenceNav) * 100 : NaN;
-  var matchThreshold = hasReference ? Math.max(0.000001, referenceNav * 0.002) : 0;
-  var matches = hasReference && Math.abs(diff) <= matchThreshold;
-  var diffSign = diff > 0 ? '+' : diff < 0 ? '-' : '';
-
-  resultEl.textContent = fmt$(calcNav);
-  formulaEl.innerHTML = '<span class="t">' + _esc(fmtM(treasury)) + '</span> ÷ <span class="s">' + _esc(_navCalcInputFormat(supply, 4)) + '</span>';
-  yourEl.textContent = fmt$(calcNav);
-  diffEl.textContent = hasReference
-    ? diffSign + fmt$(Math.abs(diff)) + ' (' + diffSign + Math.abs(diffPct).toFixed(2) + '%)'
-    : '—';
-
-  if (!hasReference) {
-    statusEl.className = 'nav-calc-status neutral';
-    statusEl.textContent = 'Comparison unavailable for this token.';
-  } else if (matches) {
-    statusEl.className = 'nav-calc-status match';
-    statusEl.textContent = 'Matches NAVgator';
-  } else {
-    statusEl.className = 'nav-calc-status diff';
-    statusEl.textContent = 'Different from NAVgator';
-  }
-}
-
-document.addEventListener('keydown', function(e) {
-  if (e.key !== 'Escape') return;
-  var calcModal = document.getElementById('nav-calc-modal');
-  if (calcModal && calcModal.style.display !== 'none') closeNavCalculator();
-});
 
 function renderBalances() {
   var ticker = CFG.ticker || '';
@@ -23988,17 +23800,6 @@ window.addEventListener('popstate', function() {
   fetchBarPrices();
   var _barPricesTimer = setInterval(fetchBarPrices, 60000);
 
-  // F-key shortcuts
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'F1') {
-      e.preventDefault();
-      window.open('methodology.html', '_blank');
-    } else if (e.key === 'F2') {
-      e.preventDefault();
-      var overlay = document.getElementById('cmd-overlay');
-      if (overlay) { overlay.classList.add('open'); var inp = document.getElementById('cmd-input'); if (inp) inp.focus(); }
-    }
-  });
 })();
 
 /* ═══════════════════════════════════════════════════════════════ */

@@ -40,15 +40,9 @@ function installTokenWorkspaceMetadata(browserWindow, token, marketTab = 'decisi
   }
 }
 
-function configureWorkspaceNavigation(browserWindow, token, markets) {
+function configureWorkspaceNavigation(browserWindow, markets) {
   const routes = browserWindow.NAVGATOR.shell.routes;
-  const researchLink = browserWindow.document.querySelector('.site-header-navgator');
   const marketsLink = browserWindow.document.querySelector('.site-header-decision');
-  if (researchLink) {
-    researchLink.href = routes.tokenResearchUrl(token);
-    if (!markets) researchLink.setAttribute('aria-current', 'page');
-    else researchLink.removeAttribute('aria-current');
-  }
   if (marketsLink) {
     marketsLink.href = routes.marketHomeUrl?.()
       || routes.tokenTradingUrl?.('solo')
@@ -93,11 +87,10 @@ export function installBrowserPage(browserWindow) {
 }
 
 export async function loadLegacyPage({ loadClassicScript }) {
-  await loadClassicScript(landingUrl);
-
   const { token, markets, marketTab } = routeState(window);
-  configureWorkspaceNavigation(window, token, markets);
+  configureWorkspaceNavigation(window, markets);
   if (!markets || !token) {
+    await loadClassicScript(landingUrl);
     await loadClassicScript(tokenPageUrl);
     return;
   }
@@ -110,7 +103,7 @@ export async function loadLegacyPage({ loadClassicScript }) {
     { createProposalHistoryChart },
   ] = await Promise.all([
     import('../markets/decision-market-controller.js'),
-    import('../markets/proposal-history-liveline.js'),
+    import('../markets/proposal-history-chart.js'),
   ]);
   root.hidden = false;
   window.NAVGATOR.marketWorkspace?.destroy?.();

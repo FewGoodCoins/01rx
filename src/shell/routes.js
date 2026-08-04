@@ -37,14 +37,11 @@ export function createRouteHelpers(browserWindow) {
   const runtime = browserWindow || globalThis.window;
 
   function appRootPath() {
-    let path = runtime.location.pathname || '/';
-    if (/\/index\.html$/.test(path)) path = path.replace(/\/index\.html$/, '/');
-    if (/\/terminal\/?$/.test(path)) path = path.replace(/terminal\/?$/, '');
-    return path || '/';
+    return '/';
   }
 
   function homePageUrl() {
-    return appRootPath();
+    return marketHomeUrl();
   }
 
   function queryPageUrl(params) {
@@ -52,21 +49,8 @@ export function createRouteHelpers(browserWindow) {
     return query ? `${appRootPath()}?${query}` : homePageUrl();
   }
 
-  function launchpadPageUrl(launchpadKey) {
-    return launchpadKey ? queryPageUrl({ launchpad: launchpadKey }) : homePageUrl();
-  }
-
-  function marketDiscoveryUrl(options = {}) {
-    const proposal = normalizeProposalAddress(options.proposal);
-    const filter = ['live', 'resolved', 'indexed'].includes(options.filter)
-      ? options.filter
-      : '';
-    return queryPageUrl({
-      view: 'markets',
-      archive: '1',
-      ...(filter ? { filter } : {}),
-      ...(proposal ? { proposal } : {}),
-    });
+  function launchpadPageUrl() {
+    return marketHomeUrl();
   }
 
   function marketHomeUrl() {
@@ -77,17 +61,14 @@ export function createRouteHelpers(browserWindow) {
     });
   }
 
-  function tokenResearchUrl(key) {
-    return tokenTradingUrl(key);
-  }
-
   function tokenMarketUrl(key, proposal) {
     const safeKey = normalizeTokenKey(key);
-    if (!safeKey) return marketDiscoveryUrl();
+    if (!safeKey) return marketHomeUrl();
     const safeProposal = normalizeProposalAddress(proposal);
     return queryPageUrl({
       token: safeKey,
       view: 'markets',
+      tab: 'decisions',
       ...(safeProposal ? { proposal: safeProposal } : {}),
     });
   }
@@ -112,7 +93,6 @@ export function createRouteHelpers(browserWindow) {
     homePageUrl,
     isMarketsView,
     launchpadPageUrl,
-    marketDiscoveryUrl,
     marketHomeUrl,
     normalizeProposalAddress,
     normalizeTokenKey,
@@ -120,7 +100,6 @@ export function createRouteHelpers(browserWindow) {
     queryPageUrl,
     tokenMarketUrl,
     tokenPageUrl,
-    tokenResearchUrl,
     tokenTradingUrl,
   };
 }

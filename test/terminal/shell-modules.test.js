@@ -78,11 +78,11 @@ test('route helpers canonicalize legacy terminal paths and preserve clean query 
   const routes = createRouteHelpers(runtime);
 
   assert.equal(routes.appRootPath(), '/');
-  assert.equal(routes.homePageUrl(), '/');
+  assert.equal(routes.homePageUrl(), '/?token=solo&view=markets&tab=tokens');
   assert.equal(routes.tokenPageUrl(' METAdao '), '/?token=meta&view=markets&tab=tokens');
   assert.equal(routes.tokenPageUrl('bad token'), '/?token=solo&view=markets&tab=tokens');
-  assert.equal(routes.launchpadPageUrl('permission less'), '/?launchpad=permission+less');
-  assert.equal(routes.launchpadPageUrl(''), '/');
+  assert.equal(routes.launchpadPageUrl('permission less'), '/?token=solo&view=markets&tab=tokens');
+  assert.equal(routes.launchpadPageUrl(''), '/?token=solo&view=markets&tab=tokens');
   assert.equal(routes.queryPageUrl({ token: 'meta', mode: 'a b' }), '/?token=meta&mode=a+b');
 
   runtime.location.pathname = '/';
@@ -150,55 +150,25 @@ test('panel controller pins both workspace rails open', async () => {
   assert.equal(timers.length, 0);
 });
 
-test('all-token navigation preserves view, URL, title, breadcrumb, and lifecycle callbacks', async () => {
+test('all-token navigation hands off to the canonical ownership market', async () => {
   const { createShellNavigation } = await importShell('navigation.js');
-  const launchpadLabel = { classList: createClassList(['tp-lp-active']) };
-  const tokenItem = { classList: createClassList(['active']) };
-  const landingView = { classList: createClassList() };
-  const dashboardView = { classList: createClassList(['active']) };
-  const bodyClasses = createClassList(['is-token', 'is-dashboard']);
   const calls = [];
   const runtime = {
-    document: {
-      body: { classList: bodyClasses },
-      getElementById(id) {
-        if (id === 'landing-view') return landingView;
-        if (id === 'dashboard-view') return dashboardView;
-        return null;
+    location: {
+      assign(destination) {
+        calls.push(destination);
       },
-      querySelectorAll(selector) {
-        if (selector === '.tp-lp-sublabel') return [launchpadLabel];
-        if (selector === '.tp-item') return [tokenItem];
-        return [];
-      },
-      title: '',
     },
-    history: {
-      pushState(state, title, url) { calls.push(['history', state, title, url]); },
-    },
-    refreshHealthStatus() { calls.push(['health']); },
-    scheduleHealthPolling() { calls.push(['schedule']); },
-    setBreadcrumb(crumbs) { calls.push(['breadcrumb', crumbs]); },
-    setLaunchpadFilter(value) { calls.push(['filter', value]); },
-    stopTxPolling() { calls.push(['stop']); },
   };
   const navigation = createShellNavigation({
-    routes: { homePageUrl: () => '/terminal/' },
+    routes: {
+      marketHomeUrl: () => '/?token=solo&view=markets&tab=tokens',
+    },
     window: runtime,
   });
 
   navigation.navToAllTokens();
-  assert.equal(launchpadLabel.classList.contains('tp-lp-active'), false);
-  assert.equal(tokenItem.classList.contains('active'), false);
-  assert.equal(landingView.classList.contains('active'), true);
-  assert.equal(dashboardView.classList.contains('active'), false);
-  assert.equal(bodyClasses.contains('is-token'), false);
-  assert.equal(bodyClasses.contains('is-dashboard'), false);
-  assert.equal(runtime.document.title, '01RX — Ownership and Decision Markets');
-  assert.deepEqual(calls[0], ['stop']);
-  assert.deepEqual(calls[1], ['history', {}, '', '/terminal/']);
-  assert.deepEqual(calls[2], ['breadcrumb', [{ label: 'All Tokens', current: true }]]);
-  assert.deepEqual(calls.slice(3), [['filter', null], ['health'], ['schedule']]);
+  assert.deepEqual(calls, ['/?token=solo&view=markets&tab=tokens']);
 });
 
 test('browser shell installs before classic boot and legacy globals remain thin facades', async () => {
