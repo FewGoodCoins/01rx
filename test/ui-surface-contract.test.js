@@ -34,7 +34,7 @@ test('retired standalone pages cannot return as deployment entrypoints', () => {
   const sitemapLocations = [...read('public/sitemap.xml').matchAll(
     /<loc>([^<]+)<\/loc>/g,
   )].map(match => match[1]);
-  assert.deepEqual(sitemapLocations, ['https://onrx.trade/']);
+  assert.deepEqual(sitemapLocations, ['https://fewgoodcoins.xyz/']);
 });
 
 test('every retired public route hands off to the same regular market view', () => {

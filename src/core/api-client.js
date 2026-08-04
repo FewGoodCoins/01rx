@@ -78,7 +78,7 @@ export function resolveApiBase(browserWindow) {
       if (runtime.location.port === '3000' || params.has('localApi')) {
         return LOCAL_API_BASE;
       }
-      // Vite previews expose reviewed same-origin 01RX handlers. Unsupported
+      // Vite previews expose reviewed same-origin 01R.Trade handlers. Unsupported
       // data returns an explicit 01Resolved coverage gap instead of falling
       // back to a retired provider.
       return runtime.location.origin.replace(/\/+$/, '');
@@ -112,7 +112,7 @@ function configuredApiOrigin(value, runtime, fallback) {
 }
 
 /**
- * Stable futarchy reads and guarded transaction routes remain on reviewed 01RX
+ * Stable futarchy reads and guarded transaction routes remain on reviewed 01R.Trade
  * browser boundaries. Upstream 01Resolved origins are server-only: the typed
  * client builds /api routes, not upstream /v1 routes.
  */

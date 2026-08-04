@@ -1,3 +1,5 @@
+import { PRODUCT_BRAND } from '../shell/brand.js';
+
 const OFFICIAL_PLAYGROUND_LIBRARY_PATH = '/__tradingview/charting_library/';
 
 export const ADVANCED_CUSTOM_SERIES_STYLE = Object.freeze({
@@ -466,8 +468,8 @@ export function create01rxAdvancedChartsDatafeed({
         type: 'crypto',
         session: '24x7',
         timezone: 'Etc/UTC',
-        exchange: '01RX',
-        listed_exchange: '01RX',
+        exchange: PRODUCT_BRAND.displayName,
+        listed_exchange: PRODUCT_BRAND.displayName,
         format: 'price',
         minmov: 1,
         pricescale: priceScaleForBars(sampleBars),
@@ -482,7 +484,7 @@ export function create01rxAdvancedChartsDatafeed({
         tokenKey: parsed.tokenKey,
       }));
     } catch (error) {
-      nextTask(runtime, () => onError(error?.message || 'Unable to resolve 01RX symbol'));
+      nextTask(runtime, () => onError(error?.message || `Unable to resolve ${PRODUCT_BRAND.displayName} symbol`));
     }
   }
 
@@ -495,7 +497,11 @@ export function create01rxAdvancedChartsDatafeed({
         supports_timescale_marks: false,
         supports_time: true,
         supported_resolutions: [...SUPPORTED_RESOLUTIONS],
-        exchanges: [{ value: '01RX', name: '01RX', desc: '01RX markets' }],
+        exchanges: [{
+          value: PRODUCT_BRAND.displayName,
+          name: PRODUCT_BRAND.displayName,
+          desc: `${PRODUCT_BRAND.displayName} markets`,
+        }],
         symbols_types: [{ name: 'Ownership token', value: 'crypto' }],
       }));
     },
@@ -514,7 +520,7 @@ export function create01rxAdvancedChartsDatafeed({
                 ? 'Projected NAV'
                 : 'Growth'
         }`,
-        exchange: '01RX',
+        exchange: PRODUCT_BRAND.displayName,
         type: 'crypto',
       })).filter(item => !query || `${item.symbol} ${item.description}`.includes(query));
       nextTask(runtime, () => onResult(symbols));
@@ -527,7 +533,7 @@ export function create01rxAdvancedChartsDatafeed({
         const bars = await barsFor(symbolInfo, resolution, periodParams);
         nextTask(runtime, () => onHistory(bars, { noData: bars.length === 0 }));
       } catch (error) {
-        nextTask(runtime, () => onError(error?.message || 'Unable to load 01RX bars'));
+        nextTask(runtime, () => onError(error?.message || `Unable to load ${PRODUCT_BRAND.displayName} bars`));
       }
     },
 
@@ -648,11 +654,11 @@ export function growthStudyLabel(meta) {
 }
 
 function growthIndicatorName(meta) {
-  return `01RX ${growthStudyLabel(meta)}`;
+  return `${PRODUCT_BRAND.displayName} ${growthStudyLabel(meta)}`;
 }
 
 function growthIndicatorDefinition(PineJS, symbol, label) {
-  const name = `01RX ${label}`;
+  const name = `${PRODUCT_BRAND.displayName} ${label}`;
   const id = `RXGrowth${label.replace(/[^A-Za-z0-9]/g, '')}@tv-basicstudies-1`;
   return {
     name,
@@ -2406,7 +2412,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
         mountState.error = error;
         mountState.container?.remove();
         runtime.document.documentElement.dataset.chartEngine = 'lightweight';
-        console.warn('[01RX] Advanced Charts unavailable; keeping Lightweight Charts.', error);
+        console.warn('[01R.Trade] Advanced Charts unavailable; keeping Lightweight Charts.', error);
         return null;
       });
 
@@ -2531,7 +2537,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           );
           mountState.growthStudyName = mountState.growthStudy ? studyName : '';
         } catch (error) {
-          console.warn('[01RX] Unable to add Growth pane to Advanced Charts.', error);
+          console.warn('[01R.Trade] Unable to add Growth pane to Advanced Charts.', error);
         }
       } else if (!visible && mountState.growthStudy) {
         await removeEntity(chart, mountState.growthStudy);
@@ -2575,7 +2581,7 @@ export function installBrowserAdvancedCharts(browserWindow) {
           },
         );
       } catch (error) {
-        console.warn('[01RX] Unable to add NAV overlay to Advanced Charts.', error);
+        console.warn('[01R.Trade] Unable to add NAV overlay to Advanced Charts.', error);
       }
     } else if (!visibility.historicNav && mountState.overlayStudies.nav) {
       await removeEntity(chart, mountState.overlayStudies.nav);

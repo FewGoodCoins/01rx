@@ -7,6 +7,8 @@ import {
   proposalDecisionEdge,
   proposalHistoryChartObservations,
 } from './proposal-history-model.js';
+import { PRODUCT_BRAND } from '../shell/brand.js';
+import { createTerminalShell } from '../shell/terminal-shell.js';
 // Shared by the token-scoped and standalone Markets renderers.
 const THEME_STORAGE_KEY = 'navgator-terminal-theme';
 const TRANSACTION_STORAGE_KEY = 'navgator-futarchy-transactions-v1';
@@ -1472,7 +1474,7 @@ async function hydrateMarketTokenSidebar(runtime, currentPayload) {
     return await hydrate(currentPayload) === true;
   } catch (error) {
     runtime.console?.warn?.(
-      '[01RX] Market token sidebar could not apply the current-NAV snapshot.',
+      '[01R.Trade] Market token sidebar could not apply the current-NAV snapshot.',
       error,
     );
     return false;
@@ -2353,7 +2355,7 @@ function bestExecutionEstimate(market, book, outcome, side, amount, slippageBps)
 }
 
 /**
- * Mount 01RX's shared decision-market workspace.
+ * Mount 01R.Trade's shared decision-market workspace.
  *
  * Proposal browsing and market data remain public. Wallet connection is only
  * required when a user chooses to review and submit an on-chain action.
@@ -2412,7 +2414,7 @@ export function mountFutardTerminal({
   });
   const executionEnabled = executionRelease?.enabled === true;
   const executionPauseMessage = boundedText(executionRelease?.message, 220)
-    || 'Trading is paused while 01RX completes independent security review.';
+    || `Trading is paused while ${PRODUCT_BRAND.displayName} completes independent security review.`;
   const routes = runtime.NAVGATOR?.shell?.routes || {};
   if (mode === 'discovery') {
     throw new TypeError('The standalone decision-market discovery surface has been removed');
@@ -2684,143 +2686,18 @@ export function mountFutardTerminal({
   root.setAttribute('data-01r-theme-scope', '');
   root.setAttribute('data-navgator-app', 'decision-markets');
   const initialTransitionId = beginWorkspaceTransition();
-  root.innerHTML = `
-    <div
-      class="ft-shell"
-      data-ft-role="terminal"
-      style="visibility: hidden"
-      aria-hidden="true"
-    >
-      <header class="ft-header">
-        <div class="ft-header-inner">
-          <a class="ft-brand" href="/?token=solo&view=markets&tab=tokens" aria-label="01RX market home">
-            <span class="ft-brand-mark" aria-hidden="true"><img src="/logos/01rx.png?v=5" alt=""></span>
-            <span class="ft-brand-copy">
-              <strong>01RX</strong>
-              <span>Ownership + decision markets</span>
-            </span>
-          </a>
-
-          <div class="ft-header-network" title="Onchain proposal data is read from Solana mainnet">
-            <span class="ft-live-dot" aria-hidden="true"></span>
-            <span>Solana mainnet</span>
-            <strong>LIVE</strong>
-          </div>
-
-          <div class="ft-header-actions">
-            <span class="ft-header-updated" data-ft-region="header-updated">Connecting…</span>
-            <button class="ft-icon-button" type="button" data-ft-action="toggle-theme" aria-label="Toggle color theme" title="Toggle color theme">
-              <span aria-hidden="true">◐</span>
-            </button>
-            <div class="ft-wallet-control" data-ft-role="wallet-status">
-              <button class="ft-wallet-button" type="button" data-ft-action="connect-wallet">Connect wallet</button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div class="ft-system-bar">
-        <div class="ft-system-message" data-ft-role="status" role="status" aria-live="polite">Loading validated proposal markets…</div>
-        <div class="ft-system-meta">
-          <span>RPC <strong data-ft-region="rpc-status">CONNECTING</strong></span>
-          <span>PROGRAMS <strong data-ft-region="program-status">CHECKING</strong></span>
-          <span>SLOT <strong data-ft-region="slot">—</strong></span>
-        </div>
-      </div>
-
-      <main class="ft-main">
-        <section class="ft-terminal-grid">
-          <aside class="ft-market-rail" aria-labelledby="${uid}-market-list-title">
-            <div class="ft-rail-header">
-              <div>
-                <span class="ft-kicker">Futarchy governance</span>
-                <h1 id="${uid}-market-list-title" data-ft-region="market-list-title">Decision markets</h1>
-              </div>
-              <span class="ft-count" data-ft-role="market-count">0</span>
-            </div>
-
-            <label class="ft-search">
-              <span class="ft-search-icon" aria-hidden="true">⌕</span>
-              <span class="ft-sr-only">Search governance proposals</span>
-              <input
-                type="search"
-                data-ft-role="search"
-                placeholder="Title, token, or address"
-                autocomplete="off"
-                spellcheck="false"
-              >
-              <kbd>⌘K</kbd>
-            </label>
-
-            <div
-              class="ft-filter-row"
-              data-ft-role="status-filters"
-              role="group"
-              aria-label="Filter proposals by status"
-            ></div>
-
-            <div class="ft-market-list" data-ft-role="market-list" aria-live="polite"></div>
-            <div class="ft-pagination" data-ft-role="proposal-pagination"></div>
-
-            <div class="ft-rail-source">
-              <span>Proposal index + validated live and resolved observations</span>
-            </div>
-          </aside>
-
-          <section
-            class="ft-market-chart-header-region"
-            data-ft-region="market-chart-header"
-            aria-live="polite"
-          ></section>
-
-          <section class="ft-market-chart" data-ft-region="market-chart" aria-live="polite"></section>
-
-          <section
-            class="ft-account-row"
-            data-ft-region="ownership-account"
-            aria-live="polite"
-          ></section>
-
-          <section class="ft-market-stage" data-ft-region="market-stage" aria-live="polite"></section>
-
-          <aside class="ft-ticket-column" data-ft-role="trade-ticket" aria-label="Trade intent and positions">
-            <div data-ft-region="trade-ticket"></div>
-          </aside>
-          <section class="ft-activity-row" data-ft-role="positions" aria-label="Orders and recent trades"></section>
-        </section>
-      </main>
-
-      <footer class="ft-footer">
-        <span>Decision-market execution is experimental. Verify every wallet transaction.</span>
-        <nav aria-label="Terminal links">
-          <a href="/?token=solo&view=markets&tab=tokens">Market home</a>
-        </nav>
-      </footer>
-      <div class="ft-modal-region" data-ft-region="modal"></div>
-    </div>
-  `;
-
-  const regions = {
-    headerUpdated: root.querySelector('[data-ft-region="header-updated"]'),
-    status: root.querySelector('[data-ft-role="status"]'),
-    rpcStatus: root.querySelector('[data-ft-region="rpc-status"]'),
-    programStatus: root.querySelector('[data-ft-region="program-status"]'),
-    slot: root.querySelector('[data-ft-region="slot"]'),
-    marketListTitle: root.querySelector('[data-ft-region="market-list-title"]'),
-    marketCount: root.querySelector('[data-ft-role="market-count"]'),
-    statusFilters: root.querySelector('[data-ft-role="status-filters"]'),
-    marketList: root.querySelector('[data-ft-role="market-list"]'),
-    pagination: root.querySelector('[data-ft-role="proposal-pagination"]'),
-    marketChartHeader: root.querySelector('[data-ft-region="market-chart-header"]'),
-    marketChart: root.querySelector('[data-ft-region="market-chart"]'),
-    ownershipAccount: root.querySelector('[data-ft-region="ownership-account"]'),
-    marketStage: root.querySelector('[data-ft-region="market-stage"]'),
-    tradeTicket: root.querySelector('[data-ft-region="trade-ticket"]'),
-    positions: root.querySelector('[data-ft-role="positions"]'),
-    modal: root.querySelector('[data-ft-region="modal"]'),
-    walletStatus: root.querySelector('[data-ft-role="wallet-status"]'),
-    search: root.querySelector('[data-ft-role="search"]'),
-  };
+  const terminalShell = createTerminalShell({
+    root,
+    brand: PRODUCT_BRAND,
+    mode: hostMode,
+    uid,
+    externalPanels: {
+      marketExplorer: hostMode === 'token'
+        ? runtime.document.getElementById?.('app-left')
+        : null,
+    },
+  });
+  const { regions } = terminalShell;
   const walletHeaderSlot = hostMode === 'token'
     ? runtime.document.querySelector?.('[data-01rx-market-wallet-slot]')
     : null;
@@ -3168,7 +3045,7 @@ export function mountFutardTerminal({
     const canonical = runtime.document.querySelector('link[rel="canonical"]');
     if (!canonical) return;
     try {
-      canonical.setAttribute('href', new runtime.URL(destination, runtime.location.origin).href);
+      canonical.setAttribute('href', new runtime.URL(destination, PRODUCT_BRAND.canonicalOrigin).href);
     } catch (_) {
       // A restricted document can still navigate without mutable metadata.
     }
@@ -3679,8 +3556,7 @@ export function mountFutardTerminal({
       ['error', 'warning', 'notice'].includes(kind)
         && !(isOwnershipWorkspace() && decisionFeedWarning),
     );
-    regions.status.className = `ft-system-message ft-system-message-${kind}`;
-    regions.status.textContent = message;
+    terminalShell.setStatus(kind, message);
     const rpcOffline = (state.error && !state.markets.length) || state.liveError;
     const rpcDegraded = hasFutarchyRpcDegradation(state.degraded);
     regions.rpcStatus.textContent = rpcOffline
@@ -3979,7 +3855,7 @@ export function mountFutardTerminal({
         <h2>${state.loading ? 'Loading governance history' : 'No proposal to select'}</h2>
         <p>${state.error
           ? escapeHtml(state.error)
-          : '01RX combines indexed proposals with validated onchain data for markets that remain live.'}</p>
+          : `${PRODUCT_BRAND.displayName} combines indexed proposals with validated onchain data for markets that remain live.`}</p>
         ${issues.length ? `
           <details class="ft-issue-details">
             <summary>${issues.length} incomplete market join${issues.length === 1 ? '' : 's'}</summary>
@@ -4808,7 +4684,7 @@ export function mountFutardTerminal({
         ? 'USDC'
         : market?.ticker || 'TOKEN',
       routeLabel: state.order.type === 'swap'
-        ? `${estimate?.routeLabel || 'Verified route'} · no 01RX fee`
+        ? `${estimate?.routeLabel || 'Verified route'} · no ${PRODUCT_BRAND.displayName} fee`
         : state.order.type === 'limit'
           ? 'Manifest limit order'
           : 'Manifest automatic order',
@@ -4962,7 +4838,7 @@ export function mountFutardTerminal({
                 <option value="200"${state.ownershipOrder.slippageBps === 200 ? ' selected' : ''}>2.0%</option>
               </select>
             </label>
-            <p>Route: ${escapeHtml(routeLabel)}. 01RX verifies and simulates the exact spot transaction before wallet approval.</p>
+            <p>Route: ${escapeHtml(routeLabel)}. ${PRODUCT_BRAND.displayName} verifies and simulates the exact spot transaction before wallet approval.</p>
           </details>
         </div>
         <div class="ft-decision-action" data-ft-role="trade-action">
@@ -5408,7 +5284,7 @@ export function mountFutardTerminal({
               : 'the capped total'}</strong> for scheduled execution.`
             : isLimit
               ? 'Limit orders require a unique verified Manifest market and split only the conditional funding shortfall.'
-              : '01RX compares verified routes, enforces minimum output, and simulates the exact transaction before wallet approval.'}</p>
+              : `${PRODUCT_BRAND.displayName} compares verified routes, enforces minimum output, and simulates the exact transaction before wallet approval.`}</p>
         </details>
         </div>
         <div class="ft-decision-action" data-ft-role="trade-action">
@@ -5800,7 +5676,7 @@ export function mountFutardTerminal({
         <section class="ft-ticket ft-ticket-empty">
           <span class="ft-kicker">Live proposal</span>
           <h2>Validated market unavailable</h2>
-          <p>This proposal remains pending, but 01RX does not have a validated tradable FutAMM market state. No execution action is shown.</p>
+          <p>This proposal remains pending, but ${PRODUCT_BRAND.displayName} does not have a validated tradable FutAMM market state. No execution action is shown.</p>
           ${market.proposal.sourceUrl ? `
             <a class="ft-archive-source-link" href="${escapeHtml(market.proposal.sourceUrl)}" target="_blank" rel="noreferrer">Open proposal source ↗</a>
           ` : ''}
@@ -6680,7 +6556,7 @@ export function mountFutardTerminal({
               ? `<div><dt>Unused keeper budget returned</dt><dd>${summary.keeperBudgetRefundSol} SOL</dd></div>`
               : ''}
             ${plan.kind === 'swap'
-              ? `<div><dt>01RX fee</dt><dd>${Number.isFinite(summary.platformFeeBps)
+              ? `<div><dt>${PRODUCT_BRAND.displayName} fee</dt><dd>${Number.isFinite(summary.platformFeeBps)
                 ? `${(summary.platformFeeBps / 100).toFixed(2)}%`
                 : 'Unavailable'}</dd></div>`
               : ''}
@@ -6691,7 +6567,7 @@ export function mountFutardTerminal({
               : ''}
             ${plan.kind === 'swap'
               ? `<div><dt>On-chain attribution</dt><dd>${summary.attributionAuthority
-                ? `01RX co-signed · ${escapeHtml(shortenAddress(summary.attributionAuthority, 5))}`
+                ? `${PRODUCT_BRAND.displayName} co-signed · ${escapeHtml(shortenAddress(summary.attributionAuthority, 5))}`
                 : 'Unavailable'}</dd></div>`
               : ''}
             <div><dt>${isSpotPlan ? 'Route authenticity' : 'Program revisions'}</dt><dd>${isSpotPlan
@@ -6722,7 +6598,7 @@ export function mountFutardTerminal({
               `).join('')}
               ${summary.inputAccount ? `<p><span>Input account</span><code>${escapeHtml(summary.inputAccount)}</code></p>` : ''}
               ${summary.outputMint ? `<p><span>Output mint</span><code>${escapeHtml(summary.outputMint)}</code></p>` : ''}
-              ${summary.attributionAuthority ? `<p><span>01RX attribution authority</span><code>${escapeHtml(summary.attributionAuthority)}</code></p>` : ''}
+              ${summary.attributionAuthority ? `<p><span>${PRODUCT_BRAND.displayName} attribution authority</span><code>${escapeHtml(summary.attributionAuthority)}</code></p>` : ''}
               ${summary.attributionMarker ? `<p><span>Attribution marker</span><code>${escapeHtml(summary.attributionMarker)}</code></p>` : ''}
               ${simulation?.transactionFingerprint ? `<p><span>Review fingerprint</span><code title="${escapeHtml(simulation.transactionFingerprint)}">${escapeHtml(`${simulation.transactionFingerprint.slice(0, 16)}…${simulation.transactionFingerprint.slice(-8)}`)}</code></p>` : ''}
             </div>
@@ -7715,7 +7591,7 @@ export function mountFutardTerminal({
       return;
     }
     if (!state.wallet.canSignTransaction) {
-      state.ownershipOrder.quoteError = 'This wallet cannot return a signed transaction for 01RX validation.';
+      state.ownershipOrder.quoteError = `This wallet cannot return a signed transaction for ${PRODUCT_BRAND.displayName} validation.`;
       renderTradeTicket();
       return;
     }
@@ -8361,7 +8237,7 @@ export function mountFutardTerminal({
       state.proposalFocus = false;
       state.selectedId = '';
       state.requestedProposalId = '';
-      state.routeNotice = `${unknownToken.toUpperCase()} is not an indexed 01RX asset. Showing SOLO.`;
+      state.routeNotice = `${unknownToken.toUpperCase()} is not an indexed ${PRODUCT_BRAND.displayName} asset. Showing SOLO.`;
       const destination = tokenTradingUrl('solo');
       runtime.history?.replaceState?.(null, '', destination);
       syncCanonicalUrl(destination);
@@ -8692,7 +8568,7 @@ export function mountFutardTerminal({
     try {
       runtime.history?.pushState?.(null, '', destination);
       syncCanonicalUrl(destination);
-      runtime.document.title = `${token.toUpperCase()} Spot Market — 01RX`;
+      runtime.document.title = `${token.toUpperCase()} Spot Market — ${PRODUCT_BRAND.displayName}`;
     } catch (_) {
       // Token selection remains functional when history access is restricted.
     }
@@ -9357,7 +9233,7 @@ export function mountFutardTerminal({
     activeWorkspaceTransitionPromise = null;
     root.removeAttribute('data-ft-transition');
     root.removeAttribute('aria-busy');
-    root.innerHTML = '';
+    terminalShell.destroy();
     root.classList.remove('ft-proposal-focus');
     activeMounts.delete(root);
   }

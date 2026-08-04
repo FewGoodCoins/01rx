@@ -709,7 +709,7 @@ test('document establishes a dark canvas before module CSS loads', () => {
   assert.ok(criticalPaint > 0 && criticalPaint < moduleEntry);
   assert.match(html, /<html lang="en" class="app-css-pending">/);
   assert.match(html, /<meta name="color-scheme" content="dark">/);
-  assert.match(html, /<meta name="theme-color" content="#101010">/);
+  assert.match(html, /<meta name="theme-color" content="#0b0c0c">/);
   assert.match(html, /html \{[\s\S]*background: #101010;[\s\S]*color-scheme: dark;/);
   assert.match(html, /body \{[\s\S]*background: #101010;[\s\S]*color: #bbbbbb;/);
   assert.match(
@@ -724,7 +724,7 @@ test('document establishes a dark canvas before module CSS loads', () => {
     html,
     /html\[data-market-navigation="pending"\]::before,[\s\S]*position: fixed;[\s\S]*inset: 0;[\s\S]*background: #101010;/,
   );
-  assert.match(html, /content: "01RX  ·  LOADING MARKET";/);
+  assert.match(html, /content: "01R\.Trade  ·  LOADING MARKET";/);
   assert.match(
     html,
     /setAttribute\('data-market-boot', 'pending'\)/,

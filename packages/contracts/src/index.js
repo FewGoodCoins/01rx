@@ -23,7 +23,7 @@ export const DECISION_ATTRIBUTION = Object.freeze({
 export const EXECUTION_RELEASE = Object.freeze({
   code: 'AUDIT_REVIEW_REQUIRED',
   enabled: false,
-  message: 'Trading is paused while 01RX completes independent security review.',
+  message: 'Trading is paused while 01R.Trade completes independent security review.',
   phase: 'audit-readiness-v1',
 });
 

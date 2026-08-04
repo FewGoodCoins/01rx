@@ -1085,7 +1085,7 @@ function _renderIdentityLaunchpadLogo() {
 function initTokenPageUI() {
   if (!CFG) return;
   document.body.classList.add('is-dashboard');
-  document.title = '01RX · ' + CFG.ticker + '/USD';
+  document.title = '01R.Trade · ' + CFG.ticker + '/USD';
   _setEmbedGradientEnabled(_embedGradientEnabled);
   _setEmbedExtrasEnabled(_embedExtrasEnabled);
   _renderEmbedSummary();
@@ -7991,7 +7991,7 @@ function _syncAdvancedGrowthChart() {
     meta: _growthMetricMeta,
     visible: _growthChartHasData() && _growthChartOpen,
   }).catch(function(error) {
-    console.warn('[01RX] Unable to update Advanced Charts growth pane.', error);
+    console.warn('[01R.Trade] Unable to update Advanced Charts growth pane.', error);
   });
 }
 
@@ -9037,7 +9037,7 @@ function _syncStatsCollapseButton() {
   btn.setAttribute('aria-label', btn.title);
 }
 
-// The 01RX frame hides the overlay controls, so its core Treasury and Effective
+// The 01R.Trade frame hides the overlay controls, so its core Treasury and Effective
 // Supply rows must remain expanded by default or users have no way to reveal them.
 var _overlayRowsCollapsed = false;
 function toggleStatsCollapse() {
@@ -10909,7 +10909,7 @@ function initLWChart() {
   });
   _applyPriceScaleOptions();
 
-  // Shared 01RX TradingView attribution. The fallback keeps this classic
+  // Shared 01R.Trade TradingView attribution. The fallback keeps this classic
   // bundle usable in isolation while the app entrypoint owns the canonical UI.
   var attributionMount = window.NAVGATOR
     && window.NAVGATOR.chartUi
@@ -10963,7 +10963,7 @@ function initLWChart() {
   // Price area series
   var embedPriceArea = _embedPriceAreaOptions(_embedGradientEnabled);
   _lwPrice = _lwChart.addSeries(LightweightCharts.AreaSeries, {
-    // Native series own coordinates and autoscaling only. The 01RX primitive
+    // Native series own coordinates and autoscaling only. The 01R.Trade primitive
     // below is the single visual owner of each historic stroke.
     lineColor: 'rgba(0,0,0,0)',
     topColor: _isChartEmbed
@@ -16388,7 +16388,7 @@ function setChartData(candles, navPerToken) {
         growth: _growthChartHasData() && _growthChartOpen,
       },
     }).catch(function(error) {
-      console.warn('[01RX] Advanced Charts update failed; keeping Lightweight Charts.', error);
+      console.warn('[01R.Trade] Advanced Charts update failed; keeping Lightweight Charts.', error);
     });
   }
   requestAnimationFrame(function() {

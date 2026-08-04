@@ -10,7 +10,7 @@ const TRADINGVIEW_MARKUP = `
 `;
 
 /**
- * Mount the shared TradingView attribution used by every 01RX chart surface.
+ * Mount the shared TradingView attribution used by every 01R.Trade chart surface.
  * Keeping this outside either renderer prevents the Lightweight Charts and
  * Advanced Charts adapters from developing separate visual treatments.
  */

@@ -3,6 +3,7 @@ import { DECISION_ATTRIBUTION } from '@01resolved/contracts';
 import {
   loadAndValidateSolanaRestartSafety,
 } from '../core/solana-execution-safety.js';
+import { PRODUCT_BRAND } from '../shell/brand.js';
 import {
   DECISION_EXECUTION_PROGRAMS,
   loadAndValidateDecisionExecutionSafety,
@@ -1949,7 +1950,7 @@ export async function buildConditionalSwapPlan({
         setupRequired: true,
         networkFeeSol: setupFinalized.networkFeeSol,
         accountRentSol: accountRentLamports / 1_000_000_000,
-        note: 'Creates only the missing conditional token accounts. After confirmation, 01RX prepares the zero-fee attributed MetaDAO swap for a separate review.',
+        note: `Creates only the missing conditional token accounts. After confirmation, ${PRODUCT_BRAND.displayName} prepares the zero-fee attributed MetaDAO swap for a separate review.`,
       },
     };
   }
@@ -2353,7 +2354,7 @@ export async function buildRecurringSchedulePlan({
     },
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: 'Manifest · 01RX recurring vault',
+      venue: `Manifest · ${PRODUCT_BRAND.displayName} recurring vault`,
       action: `${side.toUpperCase()} ${outcome.toUpperCase()} · ${cycles} AUTOMATIC RUNS`,
       amountIn: `${formatRawAmount(totalFundingRaw, inputDecimals)} ${inputSymbol} total`,
       inputMint: underlyingInputMint.toBase58(),
@@ -2544,7 +2545,7 @@ export async function buildRecurringCancelPlan({
     recurring: schedule,
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: '01RX recurring vault',
+      venue: `${PRODUCT_BRAND.displayName} recurring vault`,
       action: 'CANCEL RECURRING SCHEDULE',
       amountIn: 'No trade',
       inputMint: schedule.inputMint,
@@ -2691,7 +2692,7 @@ export async function buildRecurringClaimPlan({
     recurring: schedule,
     summary: {
       cluster: MAINNET_CHAIN,
-      venue: '01RX recurring vault',
+      venue: `${PRODUCT_BRAND.displayName} recurring vault`,
       action: `CLAIM ${normalizedOutcome} PROCEEDS`,
       amountIn: 'No trade',
       inputMint: schedule.outputMint,
@@ -3335,7 +3336,7 @@ export function decisionAttributionRequest(plan) {
     || !(plan.transaction instanceof Transaction)
     || !['futarchy_amm', 'manifest'].includes(plan.attributionIntent?.venue)
   ) {
-    throw new Error('A reviewed decision swap is required for 01RX attribution');
+    throw new Error(`A reviewed decision swap is required for ${PRODUCT_BRAND.displayName} attribution`);
   }
   const transaction = plan.transaction;
   if (
@@ -3379,7 +3380,7 @@ export async function applyDecisionAttribution(connection, plan, payload) {
     || payload?.minimumOutputAmountRaw !== intent.minimumOutputAmountRaw
     || payload?.venue !== intent.venue
   ) {
-    throw new Error('01RX attribution does not match the reviewed decision swap');
+    throw new Error(`${PRODUCT_BRAND.displayName} attribution does not match the reviewed decision swap`);
   }
   const encoded = String(payload?.transaction || '').trim();
   let attributed;
@@ -3394,7 +3395,7 @@ export async function applyDecisionAttribution(connection, plan, payload) {
     }
     attributed = Transaction.from(wireBytes);
   } catch (_) {
-    throw new Error('01RX returned an invalid attributed transaction');
+    throw new Error(`${PRODUCT_BRAND.displayName} returned an invalid attributed transaction`);
   }
   const original = Transaction.from(Buffer.from(request.transaction, 'base64'));
   const authority = new PublicKey(authorityAddress);
@@ -3419,7 +3420,7 @@ export async function applyDecisionAttribution(connection, plan, payload) {
     || !attributed.signatures[1].signature
     || !attributed.verifySignatures(false)
   ) {
-    throw new Error('01RX attribution signature or transaction binding is invalid');
+    throw new Error(`${PRODUCT_BRAND.displayName} attribution signature or transaction binding is invalid`);
   }
   const feeResponse = await connection.getFeeForMessage(
     attributed.compileMessage(),
@@ -3449,7 +3450,7 @@ export async function applyDecisionAttribution(connection, plan, payload) {
       ...(plan.summary?.programIds || []),
       MEMO_PROGRAM_ID.toBase58(),
     ],
-    note: `${plan.summary?.note || ''} 01RX co-signs a zero-fee on-chain attribution marker so this volume can be independently indexed.`,
+    note: `${plan.summary?.note || ''} ${PRODUCT_BRAND.displayName} co-signs a zero-fee on-chain attribution marker so this volume can be independently indexed.`,
   };
   return plan;
 }
@@ -3603,7 +3604,7 @@ export function buildDflowSpotPlan(payload, walletAddress) {
     summary: {
       action: `${String(payload.side || 'buy').toUpperCase()} ${String(payload.ticker || 'TOKEN')}`,
       venue: route.map(leg => String(leg.venue || '')).filter(Boolean).join(' → ') || 'DFlow',
-      note: 'DFlow signed this route response; 01RX verified and simulated the exact transaction.',
+      note: `DFlow signed this route response; ${PRODUCT_BRAND.displayName} verified and simulated the exact transaction.`,
       feePayer: owner,
       amountIn: `${quote.amountIn} ${inputSymbol}`,
       inputMint,
