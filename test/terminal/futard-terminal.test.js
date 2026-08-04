@@ -557,7 +557,7 @@ function makeWindow(options = {}) {
   const marketWalletSlot = options.marketWalletSlot
     ? `
       <header class="site-header">
-        <span data-test-brand>01R.Trade</span>
+        <span data-test-brand>Trivium</span>
         <div
           data-01rx-market-wallet-slot
           data-01r-theme-scope
@@ -967,12 +967,12 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     'noopener noreferrer',
   );
   assert.equal(
-    chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
+    chart.querySelector('[data-ft-role="proposal-history-liveline"]')
       .dataset.ftChartEngine,
-    'tradingview-lightweight',
+    'liveline',
   );
   assert.match(
-    chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
+    chart.querySelector('[data-ft-role="proposal-history-liveline"]')
       .getAttribute('aria-label'),
     /indexed PASS and FAIL TWAP series/,
   );
@@ -1065,7 +1065,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   dom.window.close();
 });
 
-test('TradingView chart adapter splits null values and missing hours into honest segments', async () => {
+test('Liveline chart adapter splits null values and missing hours into honest segments', async () => {
   const {
     PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE,
     PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
@@ -1430,7 +1430,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.ok(byRole(root, 'terminal'));
   assert.equal(
     root.querySelector('.product-wordmark')?.textContent.replace(/\s+/g, ''),
-    '01R.Trade',
+    'Trivium',
   );
   assert.equal(root.getAttribute('data-navgator-app'), 'decision-markets');
   assert.ok(byRole(root, 'market-list'));
@@ -1580,7 +1580,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   const proposalChartPlaceholders = Array.from(
     byRole(root, 'proposal-history-chart')
-      .querySelectorAll('.chart-tv-placeholder-button'),
+      .querySelectorAll('.chart-display-button'),
   );
   assert.equal(proposalChartPlaceholders.length, 1);
   assert.equal(proposalChartPlaceholders.filter(button => button.disabled).length, 0);
@@ -2299,7 +2299,7 @@ test('token Markets replaces an unknown token with the canonical SOLO spot works
   assert.equal(controller.getState().workspaceTab, 'tokens');
   assert.equal(window.location.search, '?token=solo&view=markets&tab=tokens');
   assert.equal(byRole(root, 'market-title').textContent, 'SOLO');
-  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed 01R\.Trade asset/i);
+  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed Trivium asset/i);
   assert.equal(root.classList.contains('ft-has-system-message'), true);
 
   cleanupMount(mounted);
@@ -2430,7 +2430,7 @@ test('token Markets ignores the retired implicit-live marker and preserves the r
   cleanupMount(mounted);
 });
 
-test('token Markets places the live wallet control alongside the global 01R.Trade brand', async () => {
+test('token Markets places the live wallet control alongside the global Trivium brand', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const provider = {
     publicKey: WALLET_ADDRESS,
@@ -2457,7 +2457,7 @@ test('token Markets places the live wallet control alongside the global 01R.Trad
   const walletStatus = headerSlot.querySelector('[data-ft-role="wallet-status"]');
   assert.ok(walletStatus);
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
-  assert.match(headerSlot.parentElement.textContent, /01R\.Trade[\s\S]+Connect wallet/);
+  assert.match(headerSlot.parentElement.textContent, /Trivium[\s\S]+Connect wallet/);
 
   walletStatus.querySelector('[data-ft-action="connect-wallet"]').click();
   await settleUntil(window, () => controller.getState().walletAddress === WALLET_ADDRESS);
@@ -2759,7 +2759,7 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
   assert.equal(readyChart.getAttribute('aria-busy'), 'false');
   assert.ok(readyChart.classList.contains('ft-hourly-chart-enhanced'));
   assert.ok(
-    readyChart.querySelector('[data-ft-role="proposal-history-tradingview"]'),
+    readyChart.querySelector('[data-ft-role="proposal-history-liveline"]'),
   );
   assert.equal(chartMounts[0].isLive, false);
   const resultMetric = byRole(root, 'proposal-chart-header')
@@ -4023,7 +4023,7 @@ test('audit release stays read-only without hiding public market data', async ()
     executionRelease: {
       code: 'AUDIT_REVIEW_REQUIRED',
       enabled: false,
-      message: 'Trading is paused while 01R.Trade completes independent security review.',
+      message: 'Trading is paused while Trivium completes independent security review.',
       phase: 'audit-readiness-v1',
     },
     window: terminal.window,

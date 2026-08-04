@@ -721,14 +721,14 @@ html[data-workspace="markets"] :is(
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-series-control,
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-growth-control,
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-display-controls-primary {
   width: 42px;
   min-width: 42px;
   height: 42px;
   flex: 0 0 42px;
 }
 
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-display-controls-primary {
   order: -1;
 }
 
@@ -740,7 +740,7 @@ html[data-workspace="markets"] :is(
   flex: 0 0 74px;
 }
 
-[data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market) .ft-hourly-toolbar .chart-tv-placeholder-controls-primary {
+[data-ft-mode="token"].ft-proposal-focus:is(.ft-live-market, .ft-archive-market) .ft-hourly-toolbar .chart-display-controls-primary {
   width: 50px;
   min-width: 50px;
   flex: 0 0 50px;
@@ -759,16 +759,16 @@ html[data-workspace="markets"] :is(
   height: 18px;
 }
 
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary {
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-display-controls-secondary {
   margin-left: auto;
 }
 
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button {
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-display-controls-secondary .chart-display-button {
   cursor: pointer;
 }
 
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button:hover,
-[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-tv-placeholder-controls-secondary .chart-tv-placeholder-button.active {
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-display-controls-secondary .chart-display-button:hover,
+[data-ft-mode="token"].ft-proposal-focus .ft-hourly-toolbar .chart-display-controls-secondary .chart-display-button.active {
   background: #202020;
   color: #fff;
 }

@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 var _navgatorApi = window.NAVGATOR && window.NAVGATOR.api;
 var _navgatorShell = window.NAVGATOR && window.NAVGATOR.shell;
+var _productBrand = _navgatorShell.brand;
 var _navgatorWatchlist = _navgatorShell.watchlist;
 var API_BASE = _navgatorApi.baseUrl;
 var API_FETCH_TIMEOUT_MS = _navgatorApi.defaultTimeoutMs;
@@ -13,27 +14,27 @@ function _renderBackendHealth() { return _navgatorApi.renderBackendHealth(); }
 function _captureBackendHealth(res) { return _navgatorApi.captureBackendHealth(res); }
 function _apiFetch(url, options) { return _navgatorApi.fetch(url, options); }
 function _apiJson(url, options) { return _navgatorApi.json(url, options); }
-var _lightweightChartsPromise = null;
+var _livelineChartsPromise = null;
 
-function _loadLightweightCharts() {
-  if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
-  if (_lightweightChartsPromise) return _lightweightChartsPromise;
-  var localPromise = window.NAVGATOR && window.NAVGATOR.lightweightChartsPromise;
+function _loadLivelineCharts() {
+  if (window.LivelineCharts) return Promise.resolve(window.LivelineCharts);
+  if (_livelineChartsPromise) return _livelineChartsPromise;
+  var localPromise = window.NAVGATOR && window.NAVGATOR.livelineChartsPromise;
   if (localPromise) {
-    _lightweightChartsPromise = Promise.resolve(localPromise).then(function(library) {
-      if (!library) throw new Error('Bundled Lightweight Charts unavailable');
+    _livelineChartsPromise = Promise.resolve(localPromise).then(function(library) {
+      if (!library) throw new Error('Bundled Liveline chart engine unavailable');
       return library;
     }).catch(function(error) {
-      _lightweightChartsPromise = null;
+      _livelineChartsPromise = null;
       throw error;
     });
-    return _lightweightChartsPromise;
+    return _livelineChartsPromise;
   }
-  return Promise.reject(new Error('Bundled Lightweight Charts unavailable'));
+  return Promise.reject(new Error('Bundled Liveline chart engine unavailable'));
 }
 
 async function _initChartWhenReady(rawCandles, navPerToken, canInitialize) {
-  await _loadLightweightCharts();
+  await _loadLivelineCharts();
   if (typeof canInitialize === 'function' && !canInitialize()) return false;
   initChart(rawCandles, navPerToken);
   return true;
@@ -49,7 +50,7 @@ async function _initChartWhenReady(rawCandles, navPerToken, canInitialize) {
     if (d && (d.maintenance || d.api_maintenance)) {
       var gate = document.getElementById('maintenance-gate');
       if (gate && !gate.innerHTML) {
-        gate.innerHTML = '<div class="mt-logo"><img src="logos/01r-mark.png?v=1" alt="01R" width="80" height="80"></div><div class="mt-brand">01R.Trade</div><div class="mt-status">Updates in progress</div><div class="mt-msg">The terminal is temporarily offline while updates are applied.</div>';
+        gate.innerHTML = '<div class="mt-logo"><img src="' + _productBrand.iconPath + '" alt="" width="80" height="80"></div><div class="mt-brand">' + _productBrand.displayName + '</div><div class="mt-status">Updates in progress</div><div class="mt-msg">The terminal is temporarily offline while updates are applied.</div>';
       }
       if (gate) {
         gate.hidden = false;
@@ -779,12 +780,12 @@ _refreshShellPanelControls();
 
 if (_hasToken) {
   document.getElementById('dashboard-view').classList.add('active');
-  document.title = '01R.Trade · Dashboard';
+  document.title = _productBrand.displayName + ' · Dashboard';
   document.body.classList.add('is-token');
   document.getElementById('token-switch-loader').classList.add('active');
 } else {
   document.getElementById('landing-view').classList.add('active');
-  document.title = '01R.Trade — Ownership and Decision Markets';
+  document.title = _productBrand.displayName + ' — Ownership and Decision Markets';
   var _ll = document.getElementById('token-switch-loader');
   _ll.querySelector('.token-switch-label').textContent = 'Loading tokens…';
   _ll.classList.add('active');

@@ -2,7 +2,7 @@
   "name": "@01resolved/contracts",
   "version": "0.1.0",
   "private": true,
-  "description": "Versioned runtime and TypeScript contracts shared by 01Resolved and 01Rx.",
+  "description": "Versioned runtime and TypeScript contracts shared by 01Resolved and Trivium.",
   "type": "module",
   "main": "./src/index.cjs",
   "module": "./src/index.js",

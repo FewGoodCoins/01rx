@@ -9,6 +9,7 @@ import {
 } from './core/market-boot.js';
 import { bootPageApplication, createPageEntryLoader } from './core/page-entry.js';
 import projectMetadata from './generated/project-metadata.js';
+import { PRODUCT_BRAND } from './shell/brand.js';
 import { installBrowserShell } from './shell/index.js';
 import appCoreUrl from './legacy/app-core.js?url';
 
@@ -47,6 +48,6 @@ const loadPageEntry = createPageEntryLoader();
 window.NAVGATOR.ready = bootLegacyApplication();
 window.NAVGATOR.ready.catch((error) => {
   failMarketWorkspaceBoot(document);
-  console.error('[01R.Trade] Frontend boot failed', error);
+  console.error(`[${PRODUCT_BRAND.displayName}] Frontend boot failed`, error);
   window.dispatchEvent(new CustomEvent('01rx:boot-error', { detail: error }));
 });

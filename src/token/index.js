@@ -2,8 +2,7 @@ import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
 import '../../styles/terminal-shared.css';
 import '../../styles/terminal-shell.css';
-import { installBrowserTradingViewAttribution } from '../chart/tradingview-attribution.js';
-import { installBrowserAdvancedCharts } from '../charting/advanced-charts.js';
+import { installBrowserLivelineCharts } from '../chart/liveline-chart-engine.js';
 import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';
 import tokenPageUrl from '../legacy/token-page.js?url';
@@ -55,19 +54,6 @@ function configureWorkspaceNavigation(browserWindow, markets) {
   }
 }
 
-function beginLocalChartLibraryLoad(browserWindow) {
-  const navgator = browserWindow.NAVGATOR = browserWindow.NAVGATOR || {};
-  if (browserWindow.LightweightCharts) {
-    navgator.lightweightChartsPromise = Promise.resolve(browserWindow.LightweightCharts);
-    return;
-  }
-  if (navgator.lightweightChartsPromise) return;
-  navgator.lightweightChartsPromise = import('lightweight-charts').then((library) => {
-    browserWindow.LightweightCharts = library;
-    return library;
-  });
-}
-
 function activateDecisionWorkspace(browserWindow) {
   browserWindow.document.getElementById('landing-view')?.classList.remove('active');
   browserWindow.document.getElementById('dashboard-view')?.classList.add('active');
@@ -77,10 +63,8 @@ function activateDecisionWorkspace(browserWindow) {
 
 export function installBrowserPage(browserWindow) {
   const bridge = installBrowserTokenPage(browserWindow);
-  installBrowserTradingViewAttribution(browserWindow);
-  installBrowserAdvancedCharts(browserWindow);
+  installBrowserLivelineCharts(browserWindow);
   const { markets } = routeState(browserWindow);
-  if (!markets) beginLocalChartLibraryLoad(browserWindow);
   if (markets) installBrowserMarketTokenSidebar(browserWindow);
   browserWindow.document.documentElement.classList.toggle(
     'is-framed-token',
@@ -107,7 +91,7 @@ export async function loadLegacyPage({ loadClassicScript }) {
     { createProposalHistoryChart },
   ] = await Promise.all([
     import('../markets/decision-market-controller.js'),
-    import('../markets/proposal-history-chart.js'),
+    import('../markets/proposal-history-liveline.js'),
   ]);
   root.hidden = false;
   window.NAVGATOR.marketWorkspace?.destroy?.();

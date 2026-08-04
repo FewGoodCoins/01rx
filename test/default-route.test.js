@@ -136,7 +136,7 @@ test('route installation uses the effective destination with simple window mocks
   }, {
     dataset: {
       '01rxChartFrame': 'true',
-      chartEngine: 'advanced-loading',
+      chartEngine: 'stale',
       defaultMarketSelection: 'legacy',
       marketBoot: 'pending',
       marketSidebarTab: 'all',
@@ -162,7 +162,7 @@ test('route installation clears stale embed and frame attributes for regular vie
   }, {
     dataset: {
       '01rxChartFrame': 'true',
-      chartEngine: 'advanced-loading',
+      chartEngine: 'stale',
       embed: 'chart',
       embedOutlined: 'true',
       embedTheme: 'dark',
@@ -201,6 +201,6 @@ test('route installation exposes only frame attributes for an iframe chart frame
   assert.deepEqual(calls, [[null, '', '/?token=solo&frame=01rx']]);
   assert.deepEqual(runtime.document.documentElement.dataset, {
     '01rxChartFrame': 'true',
-    chartEngine: 'advanced-loading',
+    chartEngine: 'liveline',
   });
 });

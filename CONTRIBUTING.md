@@ -1,6 +1,6 @@
-# Contributing to 01RX
+# Contributing to Trivium
 
-01RX is publicly visible proprietary software. Public access to the source does
+Trivium is publicly visible proprietary software. Public access to the source does
 not grant a license to copy, distribute, or deploy it. Coordinate substantive
 contributions with the repository owner before beginning work.
 

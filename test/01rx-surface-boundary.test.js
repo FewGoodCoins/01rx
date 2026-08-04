@@ -5,7 +5,10 @@ import { JSDOM } from 'jsdom';
 
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const faviconAsset = fs.readFileSync(
-  new URL('../public/logos/01r-mark.png', import.meta.url),
+  new URL('../public/logos/trivium-mark.png', import.meta.url),
+);
+const socialAsset = fs.readFileSync(
+  new URL('../public/logos/trivium-social.png', import.meta.url),
 );
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
@@ -49,10 +52,6 @@ const landingSource = fs.readFileSync(
   new URL('../src/legacy/landing.js', import.meta.url),
   'utf8',
 );
-const advancedChartsSource = fs.readFileSync(
-  new URL('../src/charting/advanced-charts.js', import.meta.url),
-  'utf8',
-);
 const tradingContractSource = fs.readFileSync(
   new URL('../packages/contracts/src/index.js', import.meta.url),
   'utf8',
@@ -61,7 +60,7 @@ const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
 
-test('01R.Trade exposes no user-facing NAVgator navigation', () => {
+test('Trivium exposes no user-facing NAVgator navigation', () => {
   assert.doesNotMatch(indexSource, /<a\b[^>]*href=["'][^"']*navgator/i);
   assert.doesNotMatch(indexSource, /site-header-navgator/);
   assert.match(indexSource, /rel="canonical" href="https:\/\/fewgoodcoins\.xyz\/"/);
@@ -80,22 +79,36 @@ test('01R.Trade exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('browser icon metadata uses only the compact cache-busted 01R mark', () => {
+test('browser icon metadata uses only the compact cache-busted Trivium mark', () => {
   const iconLinks = [...indexSource.matchAll(
     /<link\b[^>]*rel="(?:icon|shortcut icon|apple-touch-icon)"[^>]*>/g,
   )].map(match => match[0]);
 
   assert.equal(iconLinks.length, 3);
   iconLinks.forEach((link) => {
-    assert.match(link, /href="\/logos\/01r-mark\.png\?v=1"/);
+    assert.match(link, /href="\/logos\/trivium-mark\.png\?v=1"/);
     assert.doesNotMatch(link, /navgator|favicon\.ico/i);
   });
   assert.equal(faviconAsset.subarray(1, 4).toString('ascii'), 'PNG');
   assert.equal(faviconAsset.readUInt32BE(16), 512);
   assert.equal(faviconAsset.readUInt32BE(20), 512);
+  assert.equal(socialAsset.subarray(1, 4).toString('ascii'), 'PNG');
+  assert.equal(socialAsset.readUInt32BE(16), 1200);
+  assert.equal(socialAsset.readUInt32BE(20), 630);
+  assert.match(indexSource, /logos\/trivium-social\.png\?v=1/);
+  [
+    '01r-mark.png',
+    '01r-mark.svg',
+    '01r-trade-social.png',
+    '01r-trade-social.svg',
+    '01rx-favicon.png',
+    '01rx.png',
+  ].forEach((asset) => {
+    assert.equal(fs.existsSync(new URL(`../public/logos/${asset}`, import.meta.url)), false, asset);
+  });
 });
 
-test('product metadata and accessible copy use only the 01R.Trade brand', () => {
+test('product metadata and accessible copy use only the Trivium brand', () => {
   const dom = new JSDOM(indexSource);
   dom.window.document.querySelectorAll('script, style').forEach(node => node.remove());
   const accessibleCopy = [
@@ -107,21 +120,21 @@ test('product metadata and accessible copy use only the 01R.Trade brand', () => 
       .map(node => node.getAttribute('content') || ''),
   ].join('\n');
 
-  assert.match(accessibleCopy, /01R\.Trade/);
-  assert.doesNotMatch(accessibleCopy, /FOMO|01RX/);
+  assert.match(accessibleCopy, /Trivium/);
+  assert.doesNotMatch(accessibleCopy, /FOMO|01RX|01R\.Trade/);
   assert.match(
     indexSource,
-    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?01R[\s\S]*?\.Trade/,
+    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?Trivium/,
   );
   assert.match(
     refinementCss,
     /\.product-wordmark\s*\{[\s\S]*?font-family:[\s\S]*?font-weight: 780;/,
   );
-  assert.doesNotMatch(indexSource, /FOMO|onrx\.trade|01rx-favicon/);
+  assert.doesNotMatch(indexSource, /FOMO|01R\.Trade|onrx\.trade|01rx-favicon/);
   assert.doesNotMatch(refinementCss, /site-header-market-name|FOMO/);
-  assert.match(indexSource, /property="og:site_name" content="01R\.Trade"/);
+  assert.match(indexSource, /property="og:site_name" content="Trivium"/);
   assert.match(indexSource, /property="og:url" content="https:\/\/fewgoodcoins\.xyz\/"/);
-  assert.match(indexSource, /"name": "01R\.Trade"/);
+  assert.match(indexSource, /"name": "Trivium"/);
   assert.match(indexSource, /"url": "https:\/\/fewgoodcoins\.xyz\/"/);
   assert.doesNotMatch(indexSource, /decision-markets-home-root/);
   assert.doesNotMatch(frameCss, /is-market-discovery|data-ft-mode="discovery"/);
@@ -130,8 +143,6 @@ test('product metadata and accessible copy use only the 01R.Trade brand', () => 
 
 test('protected internal market identifiers remain stable through the brand change', () => {
   assert.match(indexSource, /get\('frame'\) === '01rx'/);
-  assert.match(advancedChartsSource, /`01RX:\$\{symbolTicker\}`/);
-  assert.match(advancedChartsSource, /raw\.startsWith\('01RX:'\)/);
   assert.match(tradingContractSource, /marker: '01RX:D1:0'/);
 });
 
@@ -154,7 +165,7 @@ test('decision and token chart readouts share one typography scale', () => {
   );
 });
 
-test('01RX hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
+test('Trivium hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
   assert.doesNotMatch(indexSource, /id="chart-nav-trigger"/);
   assert.doesNotMatch(indexSource, /id="btn-growth-chart-toolbar"/);
   assert.doesNotMatch(indexSource, /TradingView weekly timeframe placeholder/);
@@ -460,8 +471,8 @@ test('decision charts reserve a compact, scrollable lower pane for TWAP window p
     /\.ft-twap-window-pane\s*\{[\s\S]*?padding: 0 calc\(12px \+ var\(--ft-chart-right-scale-width, 52px\)\) 0 12px;/,
   );
   assert.match(
-    proposalChartSource,
-    /chart\.priceScale\('right'\)\.width\?\.\(\)/,
+    proposalLivelineSource,
+    /const PLOT_PADDING = Object\.freeze\(\{[\s\S]*?top: PLOT_TOP_PADDING,[\s\S]*?right: 72,[\s\S]*?bottom: 30,[\s\S]*?left: 12,[\s\S]*?\}\);[\s\S]*?padding: PLOT_PADDING/,
   );
   assert.match(
     frameCss,
@@ -469,7 +480,7 @@ test('decision charts reserve a compact, scrollable lower pane for TWAP window p
   );
 });
 
-test('interactive decision charts and optional Liveline share a renderer-independent presentation', () => {
+test('interactive decision charts use Liveline through a renderer-independent presentation', () => {
   assert.match(proposalLivelineSource, /from 'liveline'/);
   assert.match(proposalLivelineSource, /proposalHistoryChartObservations/);
   assert.match(proposalLivelineSource, /PROPOSAL_HISTORY_ENGINE = 'liveline'/);
@@ -492,8 +503,11 @@ test('interactive decision charts and optional Liveline share a renderer-indepen
   );
   assert.match(
     decisionMarketControllerSource,
-    /data-ft-chart-engine="tradingview-lightweight"/,
+    /data-ft-chart-engine="liveline"/,
   );
+  assert.match(decisionMarketControllerSource, /data-ft-role="proposal-history-liveline"/);
+  assert.match(proposalLivelineSource, /addEventListener\('wheel', onWheel/);
+  assert.match(proposalLivelineSource, /pinch\.distance \/ distance/);
   assert.match(
     decisionMarketControllerSource,
     /drag, scroll, or pinch to navigate/,
@@ -521,65 +535,37 @@ test('decision chart uses TWAP background context without vertical boundary line
     /\.ft-hourly-post-twap-band\s*\{[\s\S]*?scaleX\(var\(--ft-post-twap-scale, 0\)\);[\s\S]*?transform-origin: right center;/,
   );
   assert.match(
-    proposalChartSource,
-    /postTwapBoundary[\s\S]*?ft-hourly-post-twap-band[\s\S]*?dataset\.ftChartBand = 'post-twap'/,
+    proposalLivelineSource,
+    /phaseBandElements[\s\S]*?key: 'post-twap'/,
   );
   assert.match(
-    proposalChartSource,
-    /const displayRange = proposalChartDisplayRange\(\s*plottedTimes,\s*eventDefinitions,/,
+    proposalLivelineSource,
+    /prepared\.viewportEnd = prepared\.lastTime - panOffsetSeconds/,
   );
   assert.doesNotMatch(frameCss, /\.ft-hourly-event-line\s*\{/);
-  assert.doesNotMatch(proposalChartSource, /ft-hourly-event-line|data\.ftChartEvent/);
+  assert.doesNotMatch(proposalLivelineSource, /ft-hourly-event-line|data\.ftChartEvent/);
 });
 
-test('decision chart endpoints keep small solid centers with sequenced pulse bands', () => {
-  const pulseStart = frameCss.indexOf('@keyframes ft-proposal-live-pulse');
-  const pulseEnd = frameCss.indexOf('\n}\n\n.ft-hourly-live', pulseStart);
-  const pulseKeyframes = frameCss.slice(pulseStart, pulseEnd + 2);
-  assert.ok(pulseStart >= 0 && pulseEnd > pulseStart);
+test('decision chart keeps explicit starting points and animated Liveline endpoints', () => {
   assert.match(
     frameCss,
-    /\.ft-proposal-boundary-dot\s*\{[\s\S]*?width: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?background: currentColor;[\s\S]*?pointer-events: none;/,
+    /\.ft-liveline-start-point\s*\{[\s\S]*?width: 7px;[\s\S]*?border-radius: 50%;[\s\S]*?pointer-events: none;/,
   );
   assert.match(
-    proposalChartSource,
-    /dot\.dataset\.ftSeriesBoundary = `\$\{definition\.field\}:\$\{kind\}`/,
+    proposalLivelineSource,
+    /className: 'ft-liveline-start-point'/,
   );
   assert.match(
-    proposalChartSource,
-    /motionDurationMs[\s\S]*?motionEasing/,
+    proposalLivelineSource,
+    /pulse: playback\.pulse/,
   );
   assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot\s*\{[\s\S]*?width: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?height: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?animation: none !important;/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse var\(--ft-proposal-live-pulse-duration, 3s\) ease-out infinite;[\s\S]*?animation-delay: var\(--ft-proposal-live-pulse-delay\);/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot-pass\s*\{\s*--ft-proposal-live-pulse-delay: var\(--ft-proposal-live-pulse-stagger, 1s\);/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot-fail\s*\{\s*--ft-proposal-live-pulse-delay: calc\(var\(--ft-proposal-live-pulse-stagger, 1s\) \* 2\);/,
-  );
-  assert.doesNotMatch(
-    pulseKeyframes,
-    /box-shadow:/,
-  );
-  assert.match(
-    proposalChartSource,
-    /pointMarkersVisible: false,/,
-  );
-  assert.doesNotMatch(
-    proposalChartSource,
-    /pointMarkersVisible:\s*valueCount === 1/,
+    proposalLivelineSource,
+    /series\.map\(\(definition\) => \{[\s\S]*?const first = definition\.data\.find/,
   );
 });
 
-test('global wallet control uses the white 01R.Trade header treatment', () => {
+test('global wallet control uses the white Trivium header treatment', () => {
   assert.match(
     frameCss,
     /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #eeeeea;[\s\S]*?--ft-focus: #ffffff;/,
@@ -717,7 +703,7 @@ test('sidebar display customization remains removed', () => {
 test('spot chart keeps its expansion control aligned after temporary controls are removed', () => {
   assert.match(
     frameCss,
-    /\.chart-tv-placeholder-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,
+    /\.chart-display-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,
   );
 });
 

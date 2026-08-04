@@ -156,7 +156,7 @@ export async function readBoundedResponse(upstream, maxBytes) {
       const chunk = Buffer.from(value);
       size += chunk.length;
       if (size > maxBytes) {
-        await reader.cancel('01RX upstream response size limit exceeded').catch(() => {});
+        await reader.cancel('Upstream response size limit exceeded').catch(() => {});
         throw relayError(
           'Upstream response exceeds its reviewed size limit',
           502,
@@ -246,7 +246,7 @@ export async function relayApiRequest(request, response, options = {}) {
     }
     if (upstream.status >= 500) {
       if (typeof upstream.body?.cancel === 'function') {
-        await upstream.body.cancel('01RX replaces upstream server diagnostics').catch(() => {});
+        await upstream.body.cancel('Replacing upstream server diagnostics').catch(() => {});
       }
       clearCopiedResponseHeaders(response);
       response.setHeader('Cache-Control', PRIVATE_NO_STORE);
@@ -254,7 +254,7 @@ export async function relayApiRequest(request, response, options = {}) {
       response.end(Buffer.from(JSON.stringify({
         ok: false,
         code: 'UPSTREAM_UNAVAILABLE',
-        error: '01RX upstream is temporarily unavailable',
+        error: 'Upstream service is temporarily unavailable',
       })));
       return;
     }
@@ -278,10 +278,10 @@ export async function relayApiRequest(request, response, options = {}) {
         : status === 413
           ? 'Request body is too large'
           : timedOut
-            ? '01RX upstream timed out'
+            ? 'Upstream service timed out'
             : error?.code === 'UPSTREAM_RESPONSE_TOO_LARGE'
-              ? '01RX upstream response is too large'
-              : '01RX upstream is temporarily unavailable',
+              ? 'Upstream response is too large'
+              : 'Upstream service is temporarily unavailable',
       ...(error?.code === 'DATA_NOT_AVAILABLE_FROM_01RESOLVED'
         ? { missingPath: new URL(restoredUrl, 'https://01rx.invalid').pathname }
         : {}),

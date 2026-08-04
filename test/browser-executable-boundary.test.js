@@ -11,7 +11,8 @@ test('trading origin ships no mutable third-party executable loader', () => {
   assert.doesNotMatch(appCore, /unpkg\.com|cdn\.jsdelivr\.net|supabase-js/i);
   assert.doesNotMatch(appCore, /SUPABASE_(?:URL|ANON_KEY)|_loadSupabase/);
   assert.doesNotMatch(main, /installBrowserAuth|installBrowserTelemetry/);
-  assert.match(appCore, /Bundled Lightweight Charts unavailable/);
+  assert.match(appCore, /Bundled Liveline chart engine unavailable/);
+  assert.doesNotMatch(appCore, /LightweightCharts|TradingView/);
 });
 
 test('local watchlists retain storage behavior without a remote persistence client', () => {

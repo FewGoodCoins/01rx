@@ -603,7 +603,7 @@ export function createFutarchyService(options = {}) {
         ? [{
           code: 'LIVE_MARKET_VALIDATION_FAILED',
           proposalId: indexed[index]?.proposalId || null,
-          message: 'A live proposal failed 01RX account validation.',
+          message: 'A live proposal failed account validation.',
         }]
         : []);
       if (!markets.length && indexed.length) {

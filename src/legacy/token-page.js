@@ -1085,7 +1085,7 @@ function _renderIdentityLaunchpadLogo() {
 function initTokenPageUI() {
   if (!CFG) return;
   document.body.classList.add('is-dashboard');
-  document.title = '01R.Trade · ' + CFG.ticker + '/USD';
+  document.title = _productBrand.displayName + ' · ' + CFG.ticker + '/USD';
   _setEmbedGradientEnabled(_embedGradientEnabled);
   _setEmbedExtrasEnabled(_embedExtrasEnabled);
   _renderEmbedSummary();
@@ -2233,7 +2233,7 @@ async function _fetchCandlesImpl(tf, requestOptions) {
   var _apiNativeTf = { '1m': true, '5m': true, '15m': true, '30m': true, '1H': true, '6H': true, '1D': true };
   var apiTf = _apiNativeTf[tf] ? tf : (_aggSourceTf[tf] || tf);
   try {
-    // Keep 5m/1m lightweight initially, but load full history for 15m+.
+    // Keep 5m/1m compact initially, but load full history for 15m+.
     var lookbackDays = _fetchTokenKey === 'meta' ? 1100 : 730;
     var lookbackMs = (apiTf === '5m' || apiTf === '1m') ? 7 * 24 * 60 * 60 * 1000 : lookbackDays * 24 * 60 * 60 * 1000;
     var lookbackStart = new Date(now.getTime() - lookbackMs);
@@ -2251,7 +2251,7 @@ async function _fetchCandlesImpl(tf, requestOptions) {
   }
   if (_fetchTokenKey !== tokenKey) return [];
 
-  // For 5m, avoid rendering a blank chart on first open if the lightweight
+  // For 5m, avoid rendering a blank chart on first open if the interactive
   // recent-window request comes back empty. Fall back to the full-history
   // loader immediately in that case.
   if (tf === '5m' && candles.length === 0 && !apiTimedOut) {
@@ -7060,7 +7060,7 @@ function _createPnavCheckpointLines(host, navSnapshot, monthlyBurn, multiplier) 
         price: checkpoint.value,
         color: '#ffcc00',
         lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.SparseDotted,
+        lineStyle: LivelineCharts.LineStyle.SparseDotted,
         lineVisible: true,
         axisLabelVisible: true,
         axisLabelTextColor: '#111111',
@@ -7849,7 +7849,7 @@ function _syncGrowthPaneOverlayPosition() {
   if (!container) return;
   try {
     // Keep the histogram in auto-scale after any pointer/trackpad gesture on
-    // its price axis. Otherwise Lightweight Charts can switch this pane to a
+    // its price axis. Otherwise the chart can switch this pane to a
     // manually shifted range, which lifts the zero baseline off the floor.
     var growthScale = _lwChart.priceScale('right', 1);
     if (growthScale && typeof growthScale.options === 'function') {
@@ -7919,7 +7919,7 @@ function _initGrowthChartSeries(config) {
     _renderGrowthChartReadout(null);
     return null;
   }
-  _lwGrowth = _lwChart.addSeries(LightweightCharts.HistogramSeries, {
+  _lwGrowth = _lwChart.addSeries(LivelineCharts.HistogramSeries, {
     color: config.color || _GROWTH_CHART_DEFAULT_COLOR,
     base: 0,
     autoscaleInfoProvider: function(original) {
@@ -7977,24 +7977,6 @@ function _repaintGrowthChartLayout() {
   requestAnimationFrame(repaint);
 }
 
-function _syncAdvancedGrowthChart() {
-  var bridge = window.NAVGATOR
-    && window.NAVGATOR.chartEngines
-    && window.NAVGATOR.chartEngines.advanced;
-  if (!bridge || !bridge.enabled || typeof bridge.updateGrowthChart !== 'function') return;
-  bridge.updateGrowthChart({
-    container: document.getElementById('lw-chart-container'),
-    tokenKey: tokenKey,
-    ticker: (CFG && CFG.ticker) || String(tokenKey || '').toUpperCase(),
-    timeframe: _chartTF,
-    bars: _growthMetricData,
-    meta: _growthMetricMeta,
-    visible: _growthChartHasData() && _growthChartOpen,
-  }).catch(function(error) {
-    console.warn('[01R.Trade] Unable to update Advanced Charts growth pane.', error);
-  });
-}
-
 function _setGrowthChartOpen(open, rememberPreference) {
   _growthChartOpen = !!open;
   if (rememberPreference) _rememberGrowthChartOpen();
@@ -8033,7 +8015,6 @@ function _setGrowthChartOpen(open, rememberPreference) {
   _syncGrowthChartToggle();
   _renderGrowthChartReadout(null);
   _repaintGrowthChartLayout();
-  _syncAdvancedGrowthChart();
 }
 
 function toggleGrowthChart() {
@@ -8098,7 +8079,6 @@ function _selectGrowthChartMetric(metricKey, rememberSelection) {
   _sizeGrowthChartPane();
   _renderGrowthMetricSelector();
   _renderGrowthChartReadout(null);
-  _syncAdvancedGrowthChart();
   if (rememberSelection) _rememberGrowthMetricKey(_growthMetricProjectKey, selected.key);
   return metric;
 }
@@ -8111,7 +8091,6 @@ async function _loadGrowthChartMetric(key) {
   _growthMetricMeta = null;
   _clearGrowthMetricChoices();
   _renderGrowthChartReadout(null);
-  _syncAdvancedGrowthChart();
   try {
     var data = await _fetchGrowthMetricResponse(key);
     if (requestSeq !== _growthMetricRequestSeq || String(tokenKey) !== String(key)) return null;
@@ -8141,7 +8120,6 @@ async function _loadGrowthChartMetric(key) {
       }
       _renderGrowthStatsSection(null);
       _renderGrowthChartReadout(null);
-      _syncAdvancedGrowthChart();
     }
     return null;
   }
@@ -8363,7 +8341,7 @@ function _syncForecastSeriesData() {
     if (_lwForecastMarkers) {
       _lwForecastMarkers.setMarkers(forecastMarkers);
     } else if (showForecastSeries && forecastMarkers.length > 0) {
-      _lwForecastMarkers = LightweightCharts.createSeriesMarkers(_lwNavForecast, forecastMarkers);
+      _lwForecastMarkers = LivelineCharts.createSeriesMarkers(_lwNavForecast, forecastMarkers);
     }
   } catch(e) {}
 }
@@ -9037,7 +9015,7 @@ function _syncStatsCollapseButton() {
   btn.setAttribute('aria-label', btn.title);
 }
 
-// The 01R.Trade frame hides the overlay controls, so its core Treasury and Effective
+// The Trivium frame hides the overlay controls, so its core Treasury and Effective
 // Supply rows must remain expanded by default or users have no way to reveal them.
 var _overlayRowsCollapsed = false;
 function toggleStatsCollapse() {
@@ -10811,7 +10789,7 @@ function _overlaySupplySplitHtml(span, M, W, tSnap, supplyFlow, migrationFlow, t
   return html;
 }
 
-function initLWChart() {
+function initLivelineChart() {
   var container = document.getElementById('lw-chart-container');
   if (!container) return;
   _activateFitView();
@@ -10872,7 +10850,7 @@ function initLWChart() {
       : 'rgba(255,255,255,0.045)';
   var chartCrosshair = embedLight ? '#a2aab2' : is01rxChartFrame ? '#7e7e78' : '#3d4852';
 
-  _lwChart = LightweightCharts.createChart(container, {
+  _lwChart = LivelineCharts.createChart(container, {
     layout:    {
       background: { color: chartBackground },
       textColor: chartText,
@@ -10883,7 +10861,7 @@ function initLWChart() {
       }
     },
     grid:      { vertLines: { color: chartGridVertical }, horzLines: { color: chartGridHorizontal } },
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal, vertLine: { color: chartCrosshair, width: 1, style: 4, labelVisible: false }, horzLine: { color: chartCrosshair, width: 1, style: 4 } },
+    crosshair: { mode: LivelineCharts.CrosshairMode.Normal, vertLine: { color: chartCrosshair, width: 1, style: 4, labelVisible: false }, horzLine: { color: chartCrosshair, width: 1, style: 4 } },
     localization: {
       timeFormatter: function(time) {
         return _fmtChTime(time);
@@ -10909,28 +10887,7 @@ function initLWChart() {
   });
   _applyPriceScaleOptions();
 
-  // Shared 01R.Trade TradingView attribution. The fallback keeps this classic
-  // bundle usable in isolation while the app entrypoint owns the canonical UI.
-  var attributionMount = window.NAVGATOR
-    && window.NAVGATOR.chartUi
-    && window.NAVGATOR.chartUi.mountTradingViewAttribution;
-  var tvLogo = typeof attributionMount === 'function'
-    ? attributionMount(container, { runtime: window })
-    : null;
-  if (!tvLogo && !container.querySelector('.tv-logo-circle')) {
-    var tvLogo = document.createElement('a');
-    tvLogo.className = 'tv-logo-circle';
-    tvLogo.href = 'https://www.tradingview.com/?utm_medium=lwc-link&utm_campaign=lwc-chart';
-    tvLogo.target = '_blank';
-    tvLogo.rel = 'noreferrer';
-    tvLogo.title = 'Charting by TradingView';
-    tvLogo.setAttribute('aria-label', 'Charting by TradingView');
-    tvLogo.setAttribute('data-01rx-tradingview-attribution', '');
-    tvLogo.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 19" fill="none"><g fill-rule="evenodd" clip-rule="evenodd"><path fill="#D1D4DC" d="M14 2H2v6h6v9h6V2Zm12 15h-7l6-15h7l-6 15Zm-7-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></g></svg>';
-    container.appendChild(tvLogo);
-  }
-
-  // Custom time-axis label for empty zones (where LWC's native label disappears)
+  // Custom time-axis label for empty zones where the native label is absent.
   var _chTimeLbl = document.createElement('div');
   _chTimeLbl.id = 'ch-time-label';
   _chTimeLbl.style.cssText = 'position:absolute;bottom:-24px;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-family:"IBM Plex Mono",monospace;font-size:13px;padding:4px 9px;border-radius:2px;z-index:4;display:none;pointer-events:none;white-space:nowrap;';
@@ -10939,7 +10896,7 @@ function initLWChart() {
   container.onpointerleave = _handleChartContainerLeave;
 
   // Volume pane (bottom 18%)
-  _lwVolume = _lwChart.addSeries(LightweightCharts.HistogramSeries, {
+  _lwVolume = _lwChart.addSeries(LivelineCharts.HistogramSeries, {
     color: 'rgba(100,140,170,0.25)',
     priceFormat: { type: 'volume' },
     priceScaleId: 'vol',
@@ -10950,7 +10907,8 @@ function initLWChart() {
   _lwChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
   // Candlestick series
-  _lwCandle = _lwChart.addSeries(LightweightCharts.CandlestickSeries, {
+  _lwCandle = _lwChart.addSeries(LivelineCharts.CandlestickSeries, {
+    livelineLabel: 'Price',
     upColor: '#00cc66', downColor: '#ff3333',
     borderUpColor: '#00cc66', borderDownColor: '#ff3333',
     wickUpColor: '#00cc66', wickDownColor: '#ff3333',
@@ -10962,8 +10920,10 @@ function initLWChart() {
 
   // Price area series
   var embedPriceArea = _embedPriceAreaOptions(_embedGradientEnabled);
-  _lwPrice = _lwChart.addSeries(LightweightCharts.AreaSeries, {
-    // Native series own coordinates and autoscaling only. The 01R.Trade primitive
+  _lwPrice = _lwChart.addSeries(LivelineCharts.AreaSeries, {
+    livelineColor: '#5b8cff',
+    livelineLabel: 'Price',
+    // Native series own coordinates and autoscaling only. The Trivium primitive
     // below is the single visual owner of each historic stroke.
     lineColor: 'rgba(0,0,0,0)',
     topColor: _isChartEmbed
@@ -10981,7 +10941,9 @@ function initLWChart() {
   });
 
   // NAV line — solid yellow line from historical snapshots
-  _lwNav = _lwChart.addSeries(LightweightCharts.LineSeries, {
+  _lwNav = _lwChart.addSeries(LivelineCharts.LineSeries, {
+    livelineColor: '#ffcc00',
+    livelineLabel: 'NAV',
     color: 'rgba(0,0,0,0)',
     lineWidth: 0,
     crosshairMarkerVisible: false,
@@ -10993,10 +10955,12 @@ function initLWChart() {
   // Embeds show one current 01Resolved NAV observation as a bounded dashed
   // segment. It matches the projected series' dash cadence and ends at the
   // shared anchor where that series begins.
-  _lwEmbedNavReference = _lwChart.addSeries(LightweightCharts.LineSeries, {
+  _lwEmbedNavReference = _lwChart.addSeries(LivelineCharts.LineSeries, {
+    livelineColor: _isChartEmbed ? _embedChartInk() : '#ffcc00',
+    livelineLabel: 'Current NAV',
     color: _embedChartInk(),
     lineWidth: 2,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lineStyle: LivelineCharts.LineStyle.Dashed,
     crosshairMarkerVisible: false,
     visible: false,
     lastValueVisible: false,
@@ -11004,10 +10968,12 @@ function initLWChart() {
   });
 
   // NAV forecast line — dashed yellow, extends NAV 12 months into the future
-  _lwNavForecast = _lwChart.addSeries(LightweightCharts.LineSeries, {
+  _lwNavForecast = _lwChart.addSeries(LivelineCharts.LineSeries, {
+    livelineColor: _isChartEmbed ? _embedChartInk() : '#ff9f43',
+    livelineLabel: 'Projected NAV',
     color: _isChartEmbed ? _embedChartInk() : 'rgba(0,0,0,0)',
     lineWidth: _isChartEmbed ? 2 : 0,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lineStyle: LivelineCharts.LineStyle.Dashed,
     lineType: _isChartEmbed ? _lwLineTypeValue('WithSteps', 1) : _lwLineTypeValue('Simple', 0),
     crosshairMarkerVisible: false,
     visible: false,
@@ -11016,10 +10982,12 @@ function initLWChart() {
   });
 
   // BS put value line — dashed purple (hidden by default)
-  _lwBsPut = _lwChart.addSeries(LightweightCharts.LineSeries, {
+  _lwBsPut = _lwChart.addSeries(LivelineCharts.LineSeries, {
+    livelineColor: '#b07aff',
+    livelineLabel: 'Put value',
     color: '#b07aff',
     lineWidth: 1,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lineStyle: LivelineCharts.LineStyle.Dashed,
     crosshairMarkerVisible: false,
     visible: false,
     lastValueVisible: false,
@@ -11046,7 +11014,8 @@ function initLWChart() {
   _lwPrice.attachPrimitive(_liveDotPrimitive);
 
   // Pulsating live dots at end of price & NAV lines
-  // Place live dots on container's PARENT so LW Charts can't override styles
+  // The compatibility elements remain for the existing value-overlay logic;
+  // Liveline owns the visible start and end points.
   // Wrapped in a clip container sized to the plot area so dots don't bleed over axis labels
   var dotHost = container.parentElement;
   if (!dotHost.style.position || dotHost.style.position === 'static') dotHost.style.position = 'relative';
@@ -14353,8 +14322,8 @@ function _metricAggregateLineVisible(mode) {
 
 function _lwLineTypeValue(name, fallback) {
   try {
-    if (typeof LightweightCharts !== 'undefined' && LightweightCharts.LineType && LightweightCharts.LineType[name] != null) {
-      return LightweightCharts.LineType[name];
+    if (typeof LivelineCharts !== 'undefined' && LivelineCharts.LineType && LivelineCharts.LineType[name] != null) {
+      return LivelineCharts.LineType[name];
     }
   } catch(e) {}
   return fallback;
@@ -15490,7 +15459,7 @@ function _syncTreasuryComponentSeries(priceFormat) {
   var stepLineType = _lwLineTypeValue('WithSteps', 1);
   while (_lwTreasuryComponentSeries.length < active.length) {
     var idx = _lwTreasuryComponentSeries.length;
-    var s = _lwChart.addSeries(LightweightCharts.LineSeries, {
+    var s = _lwChart.addSeries(LivelineCharts.LineSeries, {
       color: _treasuryComponentColor(idx, ''),
       lineWidth: 1.35,
       lineType: stepLineType,
@@ -15518,8 +15487,10 @@ function _syncTreasuryComponentSeries(priceFormat) {
         holder.suppressedStackTopLine = suppressStackTopLine;
         holder.series.applyOptions({
           color: lineColor,
+          livelineColor: lineColor,
+          livelineLabel: item.label || item.key,
           lineWidth: isSupplyTotalLine ? 3 : (isAggregateLine ? 2 : 1.45),
-          lineStyle: isSupplyTotalLine ? LightweightCharts.LineStyle.Solid : (isAggregateLine ? LightweightCharts.LineStyle.LargeDashed : LightweightCharts.LineStyle.Solid),
+          lineStyle: isSupplyTotalLine ? LivelineCharts.LineStyle.Solid : (isAggregateLine ? LivelineCharts.LineStyle.LargeDashed : LivelineCharts.LineStyle.Solid),
           lineType: stepLineType,
           visible: showComponentLines && !suppressStackTopLine,
           priceFormat: priceFormat || _chartModePriceFormat(_chartMode, 1)
@@ -16264,7 +16235,7 @@ function setChartData(candles, navPerToken) {
       price: spotVal,
       color: priceLineColor,
       lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.SparseDotted,
+      lineStyle: LivelineCharts.LineStyle.SparseDotted,
       lineVisible: !_isChartEmbed,
       axisLabelVisible: true,
       axisLabelTextColor: _priceAxisLabelTextColor(priceLineColor),
@@ -16279,7 +16250,7 @@ function setChartData(candles, navPerToken) {
       price: navAxisVal,
       color: _isChartEmbed ? '#111111' : '#ffcc00',
       lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.SparseDotted,
+      lineStyle: LivelineCharts.LineStyle.SparseDotted,
       lineVisible: !_isChartEmbed,
       axisLabelVisible: true,
       axisLabelTextColor: _isChartEmbed ? '#ffffff' : '#111111',
@@ -16346,51 +16317,6 @@ function setChartData(candles, navPerToken) {
 
   // Restore overlay according to its last mode rather than always forcing live values.
   _refreshChartOverlayForCurrentMode();
-  var _advancedChartsBridge = window.NAVGATOR
-    && window.NAVGATOR.chartEngines
-    && window.NAVGATOR.chartEngines.advanced;
-  if (_advancedChartsBridge && _advancedChartsBridge.enabled) {
-    var _advancedNavSnapshot = _buildNavSnapshot(CFG);
-    _advancedChartsBridge.updateTokenChart({
-      container: document.getElementById('lw-chart-container'),
-      tokenKey: tokenKey,
-      ticker: (CFG && CFG.ticker) || String(tokenKey || '').toUpperCase(),
-      timeframe: _chartTF,
-      priceBars: candleDisplayData,
-      navBars: navDisplayData,
-      projectedNavBars: _lwNavForecastData,
-      growthBars: _growthMetricData,
-      growthMeta: _growthMetricMeta,
-      currentPrice: spotVal,
-      currentNav: navAxisVal,
-      treasury: _advancedNavSnapshot.treasuryUSDC,
-      effectiveSupply: _advancedNavSnapshot.supply.effective,
-      fundamentalBars: navDisplayData.map(function(point) {
-        var historicFundamentals = _lwTreasuryLookup(Number(point && point.time));
-        if (!historicFundamentals) return null;
-        return {
-          time: point.time,
-          treasury: Number(historicFundamentals.treasury),
-          effectiveSupply: Number(historicFundamentals.effSupply)
-        };
-      }).filter(function(point) {
-        return point
-          && Number(point.time) > 0
-          && (isFinite(point.treasury) || isFinite(point.effectiveSupply));
-      }),
-      visibility: {
-        currentPrice: !_isMetricChartMode() && _priceEnabled && _showPriceLine,
-        historicPrice: !_isMetricChartMode() && _priceEnabled,
-        currentNav: !_isMetricChartMode() && _layerNav && _showCurrentNavLine,
-        historicNav: !_isMetricChartMode() && _layerNav && navSeriesData.length > 0,
-        projectedNav: !_isMetricChartMode() && _layerNavForecast,
-        gradient: !_isMetricChartMode() && _showGradient === true,
-        growth: _growthChartHasData() && _growthChartOpen,
-      },
-    }).catch(function(error) {
-      console.warn('[01R.Trade] Advanced Charts update failed; keeping Lightweight Charts.', error);
-    });
-  }
   requestAnimationFrame(function() {
     _chartDataRangeApplying = Math.max(0, _chartDataRangeApplying - 1);
   });
@@ -16876,7 +16802,7 @@ function initChart(rawCandles, navPerToken) {
   if (_chartTF === '1D') _allCandles['1D'] = rawCandles;
   _navPerToken = navPerToken;
 
-  initLWChart();
+  initLivelineChart();
 
   var _noCandlesToken = false;
   if (_noCandlesToken) {
@@ -21783,7 +21709,7 @@ async function _loadInitialTokenImplementation(initialTokenKey, loadContext) {
     var _configP2 = tokenKey ? fetchTokenConfig(tokenKey, loadRequestOptions) : Promise.resolve(null);
     // API + NAV fetches were started early (in parallel with discoverTokens).
     // The full token overview renders after chart/NAV history so its headline
-    // metrics leave the loading state together. The lightweight embed keeps
+    // metrics leave the loading state together. The compact embed keeps
     // its fast current-price path.
     var _apiP2 = fetchFromAPI(_earlyApiP);
     var _currentReadyP2 = _isChartEmbed
@@ -21911,7 +21837,7 @@ var _refreshCount = 0;
       // Re-fetch live token data
       var apiOk = await fetchFromAPI();
 
-      // Re-render the terminal panels only outside the lightweight widget.
+      // Re-render the terminal panels only outside the chart widget.
       if (!_isChartEmbed) {
         renderUI(!!apiOk);
         renderBalances();
@@ -22861,7 +22787,7 @@ function _applyLayers() {
           try { _lwNavLineHost.removePriceLine(_lwNavLine); } catch(e2) {}
           _lwNavLine = _navWantHost.createPriceLine({
             price: _navPLVal2, color: _isChartEmbed ? '#111111' : '#ffcc00', lineWidth: 1,
-            lineStyle: LightweightCharts.LineStyle.SparseDotted,
+            lineStyle: LivelineCharts.LineStyle.SparseDotted,
             lineVisible: !_isChartEmbed, axisLabelVisible: true,
             axisLabelTextColor: _isChartEmbed ? '#ffffff' : '#111111', title: '',
           });
@@ -22876,7 +22802,7 @@ function _applyLayers() {
       }
       _lwNavLine = _navPLHost.createPriceLine({
         price: _activeNavAxisPrice(_navPLVal), color: _isChartEmbed ? '#111111' : '#ffcc00', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.SparseDotted,
+        lineStyle: LivelineCharts.LineStyle.SparseDotted,
         lineVisible: !_isChartEmbed, axisLabelVisible: true,
         axisLabelTextColor: _isChartEmbed ? '#ffffff' : '#111111', title: '',
       });
@@ -22936,7 +22862,7 @@ function _applyLayers() {
         try { _lwPriceLineHost.removePriceLine(_lwPriceLine); } catch(e2) {}
         _lwPriceLine = wantHost.createPriceLine({
           price: pVal, color: plColor, lineWidth: 1,
-          lineStyle: LightweightCharts.LineStyle.SparseDotted,
+          lineStyle: LivelineCharts.LineStyle.SparseDotted,
           lineVisible: !_isChartEmbed, axisLabelVisible: true,
           axisLabelTextColor: _priceAxisLabelTextColor(plColor),
           title: '',
@@ -22945,7 +22871,7 @@ function _applyLayers() {
       } else if (!_lwPriceLine && wantHost && isFinite(pVal) && pVal > 0) {
         _lwPriceLine = wantHost.createPriceLine({
           price: pVal, color: plColor, lineWidth: 1,
-          lineStyle: LightweightCharts.LineStyle.SparseDotted,
+          lineStyle: LivelineCharts.LineStyle.SparseDotted,
           lineVisible: !_isChartEmbed, axisLabelVisible: true,
           axisLabelTextColor: _priceAxisLabelTextColor(plColor),
           title: '',

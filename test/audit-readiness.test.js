@@ -11,7 +11,7 @@ test('mainnet execution defaults to a frozen code-owned audit pause', () => {
   assert.deepEqual(EXECUTION_RELEASE, {
     code: 'AUDIT_REVIEW_REQUIRED',
     enabled: false,
-    message: 'Trading is paused while 01R.Trade completes independent security review.',
+    message: 'Trading is paused while Trivium completes independent security review.',
     phase: 'audit-readiness-v1',
   });
   assert.equal(CONTRACT_HEADERS.execution, 'X-01R-Execution');

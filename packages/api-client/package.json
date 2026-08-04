@@ -2,7 +2,7 @@
   "name": "@01resolved/api-client",
   "version": "0.1.0",
   "private": true,
-  "description": "Contract-driven client used by 01Resolved and 01Rx applications.",
+  "description": "Contract-driven client used by 01Resolved and Trivium applications.",
   "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",

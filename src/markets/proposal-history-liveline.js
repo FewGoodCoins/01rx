@@ -5,7 +5,6 @@ import {
   proposalChartPointTime,
   proposalHistoryChartObservations,
 } from './proposal-history-model.js';
-import { createProposalHistoryChart as createLightweightProposalHistoryChart } from './proposal-history-chart.js';
 import { PROPOSAL_CHART_SERIES_PRESENTATION } from './proposal-history-presentation.js';
 
 const INTERVAL_SECONDS = Object.freeze({
@@ -22,6 +21,12 @@ const PLOT_TOP_PADDING = 54;
 // Liveline adds up to 0.2 of adaptive easing internally. Leave enough
 // headroom to keep the effective coefficient at or below 1.
 const RESOLVED_LERP_SPEED = 0.75;
+const PLOT_PADDING = Object.freeze({
+  top: PLOT_TOP_PADDING,
+  right: 72,
+  bottom: 30,
+  left: 12,
+});
 
 export const PROPOSAL_HISTORY_ENGINE = 'liveline';
 export const PROPOSAL_LIVELINE_SERIES = Object.freeze(
@@ -79,6 +84,12 @@ function formatUtcTime(seconds) {
     timeZone: 'UTC',
   });
   return `${dateLabel} ${timeLabel}`;
+}
+
+function plotPosition(ratio, startPadding, endPadding) {
+  const normalized = Math.max(0, Math.min(1, Number(ratio) || 0));
+  const pixelOffset = startPadding - normalized * (startPadding + endPadding);
+  return `calc(${normalized * 100}% + ${pixelOffset}px)`;
 }
 
 function mergeRanges(ranges) {
@@ -179,7 +190,8 @@ export function proposalLivelineDataset(history, options = {}) {
 }
 
 function gapMaskElements(dataset) {
-  const visibleTo = dataset.lastTime + dataset.windowSeconds * 0.015;
+  const visibleTo = (dataset.viewportEnd ?? dataset.lastTime)
+    + dataset.windowSeconds * 0.015;
   const visibleFrom = visibleTo - dataset.windowSeconds;
   const duration = Math.max(1, visibleTo - visibleFrom);
   return dataset.gapRanges.map((gap, index) => {
@@ -202,7 +214,8 @@ function gapMaskElements(dataset) {
 }
 
 function phaseBandElements(dataset, preTwap, windowEndedAt) {
-  const visibleTo = dataset.lastTime + dataset.windowSeconds * 0.015;
+  const visibleTo = (dataset.viewportEnd ?? dataset.lastTime)
+    + dataset.windowSeconds * 0.015;
   const visibleFrom = visibleTo - dataset.windowSeconds;
   const duration = Math.max(1, visibleTo - visibleFrom);
   const ranges = [
@@ -234,9 +247,52 @@ function phaseBandElements(dataset, preTwap, windowEndedAt) {
   }).filter(Boolean);
 }
 
+function startPointElements(dataset, series) {
+  const visibleTo = (dataset.viewportEnd ?? dataset.lastTime)
+    + dataset.timeOffset
+    + dataset.windowSeconds * 0.015;
+  const visibleFrom = visibleTo - dataset.windowSeconds;
+  const visiblePoints = series.flatMap(definition => definition.data.filter(point => (
+    point.time >= visibleFrom && point.time <= visibleTo
+  )));
+  const values = visiblePoints.map(point => point.value).filter(Number.isFinite);
+  if (!values.length) return [];
+  let minimum = Math.min(...values);
+  let maximum = Math.max(...values);
+  if (!(maximum > minimum)) {
+    const padding = Math.max(Math.abs(maximum) * 0.02, 1);
+    minimum -= padding;
+    maximum += padding;
+  } else {
+    const padding = (maximum - minimum) * 0.12;
+    minimum -= padding;
+    maximum += padding;
+  }
+  const duration = Math.max(1, visibleTo - visibleFrom);
+  const valueRange = Math.max(Number.EPSILON, maximum - minimum);
+  return series.map((definition) => {
+    const first = definition.data.find(point => (
+      point.time >= visibleFrom && point.time <= visibleTo
+    ));
+    if (!first) return null;
+    const x = (first.time - visibleFrom) / duration;
+    const y = (maximum - first.value) / valueRange;
+    return createElement('span', {
+      'aria-hidden': 'true',
+      className: 'ft-liveline-start-point',
+      key: `start-${definition.id}-${first.time}`,
+      style: {
+        '--ft-liveline-point-color': definition.color,
+        left: plotPosition(x, PLOT_PADDING.left, PLOT_PADDING.right),
+        top: plotPosition(y, PLOT_PADDING.top, PLOT_PADDING.bottom),
+      },
+    });
+  }).filter(Boolean);
+}
+
 /**
  * Default decision-market chart adapter. Liveline owns rendering while the
- * 01R.Trade proposal-history model continues to own timestamps, nulls, and gaps.
+ * Trivium's proposal-history model continues to own timestamps, nulls, and gaps.
  */
 export function createProposalHistoryChart(options = {}) {
   const {
@@ -258,7 +314,14 @@ export function createProposalHistoryChart(options = {}) {
     series: history.series.map(point => ({ ...point })),
   };
   let zoomScale = 1;
+  let panOffsetSeconds = 0;
   let root = null;
+  let drag = null;
+  const pointers = new Map();
+  let pinch = null;
+  let interactionActive = false;
+  let interactionTimer = 0;
+  let staticRevision = 0;
   const chartRoot = container.closest('.ft-hourly-chart') || container;
   const readoutTime = chartRoot.querySelector('[data-ft-role="hourly-readout-time"]');
 
@@ -267,37 +330,90 @@ export function createProposalHistoryChart(options = {}) {
       range: currentRange,
       visibility,
     });
-    if (prepared) prepared.windowSeconds *= zoomScale;
+    if (prepared) {
+      prepared.windowSeconds *= zoomScale;
+      const fullDuration = Math.max(
+        prepared.windowSeconds,
+        prepared.lastTime - prepared.firstTime,
+      );
+      const maximumPan = Math.max(0, fullDuration - prepared.windowSeconds * 0.35);
+      panOffsetSeconds = Math.max(0, Math.min(maximumPan, panOffsetSeconds));
+      prepared.viewportEnd = prepared.lastTime - panOffsetSeconds;
+      if (panOffsetSeconds > 0) {
+        prepared.timeOffset += panOffsetSeconds;
+        prepared.series = prepared.series.map(definition => ({
+          ...definition,
+          data: definition.data.map(point => ({
+            ...point,
+            time: point.time + panOffsetSeconds,
+          })),
+        }));
+      }
+    }
     return prepared;
   }
 
   const initialDataset = dataset();
   if (!initialDataset?.series?.length) {
-    container.dataset.ftChartEngine = 'tradingview-lightweight';
-    return createLightweightProposalHistoryChart(options);
+    container.dataset.ftChartEngine = PROPOSAL_HISTORY_ENGINE;
+    return null;
   }
 
   root = createRoot(container);
   container.dataset.ftChartEngine = PROPOSAL_HISTORY_ENGINE;
 
+  function beginInteraction() {
+    if (interactionTimer) {
+      runtime.clearTimeout(interactionTimer);
+      interactionTimer = 0;
+    }
+    if (!interactionActive) {
+      interactionActive = true;
+      render();
+    }
+  }
+
+  function endInteraction(delay = 32) {
+    if (interactionTimer) runtime.clearTimeout(interactionTimer);
+    interactionTimer = runtime.setTimeout(() => {
+      interactionTimer = 0;
+      interactionActive = false;
+      staticRevision += 1;
+      render();
+    }, delay);
+  }
+
+  function renderStaticChange() {
+    staticRevision += 1;
+    render();
+  }
+
   function render() {
     const prepared = dataset();
     if (!prepared?.series?.length) return;
-    const playback = proposalLivelinePlaybackOptions(isLive);
-    const series = prepared.series.map(definition => ({
-      id: definition.id,
-      data: definition.data,
-      value: definition.value,
-      color: cssColor(
-        runtime,
-        themeRoot,
-        definition.colorVariable,
-        definition.fallbackColor,
-      ),
-      // Liveline owns the visible series identity, endpoint labels, and hover
-      // values. The renderer-neutral 01R.Trade readout remains only as a fallback.
-      label: definition.label,
-    }));
+    const playback = proposalLivelinePlaybackOptions(
+      isLive && panOffsetSeconds === 0,
+    );
+    const displayNow = prepared.viewportEnd + prepared.timeOffset;
+    const series = prepared.series.map((definition) => {
+      const data = definition.data.filter(point => point.time <= displayNow);
+      return {
+        id: definition.id,
+        data,
+        value: data[data.length - 1]?.value,
+        color: cssColor(
+          runtime,
+          themeRoot,
+          definition.colorVariable,
+          definition.fallbackColor,
+        ),
+        // Liveline owns the visible series identity, endpoint labels, and hover
+        // values. The renderer-neutral Trivium readout remains only as a fallback.
+        label: definition.label,
+      };
+    }).filter(definition => (
+      definition.data.length >= 2 && Number.isFinite(definition.value)
+    ));
     root.render(createElement(
       'div',
       {
@@ -305,6 +421,7 @@ export function createProposalHistoryChart(options = {}) {
         'data-ft-role': 'proposal-history-liveline',
       },
       createElement(Liveline, {
+        key: playback.paused ? `resolved-${staticRevision}` : 'live',
         badge: false,
         className: 'ft-liveline-canvas',
         data: [],
@@ -315,8 +432,8 @@ export function createProposalHistoryChart(options = {}) {
         grid: true,
         lerpSpeed: playback.lerpSpeed,
         momentum: false,
-        padding: { top: PLOT_TOP_PADDING, right: 72, bottom: 30, left: 12 },
-        paused: playback.paused,
+        padding: PLOT_PADDING,
+        paused: playback.paused && !interactionActive,
         pulse: playback.pulse,
         scrub: true,
         series,
@@ -333,10 +450,82 @@ export function createProposalHistoryChart(options = {}) {
       }),
       ...phaseBandElements(prepared, currentHistory.preTwap, options.windowEndedAt),
       ...gapMaskElements(prepared),
+      ...startPointElements(prepared, series),
     ));
   }
 
   render();
+  function zoomBy(factor) {
+    zoomScale = Math.max(0.15, Math.min(4, zoomScale * factor));
+    render();
+  }
+
+  function onWheel(event) {
+    event.preventDefault();
+    beginInteraction();
+    zoomBy(event.deltaY > 0 ? 1.18 : 0.82);
+    endInteraction(140);
+  }
+
+  function onPointerDown(event) {
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    container.setPointerCapture?.(event.pointerId);
+    beginInteraction();
+    if (pointers.size >= 2) {
+      const [first, second] = [...pointers.values()];
+      pinch = {
+        distance: Math.hypot(second.x - first.x, second.y - first.y),
+        zoomScale,
+      };
+      drag = null;
+      return;
+    }
+    if (event.button !== 0) return;
+    drag = {
+      panOffsetSeconds,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+    };
+  }
+
+  function onPointerMove(event) {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch && pointers.size >= 2) {
+      const [first, second] = [...pointers.values()];
+      const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
+      zoomScale = Math.max(
+        0.15,
+        Math.min(4, pinch.zoomScale * (pinch.distance / distance)),
+      );
+      event.preventDefault();
+      render();
+      return;
+    }
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const prepared = dataset();
+    if (!prepared) return;
+    const delta = event.clientX - drag.startX;
+    if (Math.abs(delta) < 3) return;
+    panOffsetSeconds = drag.panOffsetSeconds
+      + (delta / Math.max(1, container.clientWidth)) * prepared.windowSeconds;
+    event.preventDefault();
+    render();
+  }
+
+  function onPointerUp(event) {
+    pointers.delete(event.pointerId);
+    container.releasePointerCapture?.(event.pointerId);
+    if (drag?.pointerId === event.pointerId) drag = null;
+    if (pointers.size < 2) pinch = null;
+    if (!pointers.size) endInteraction();
+  }
+
+  container.addEventListener('wheel', onWheel, { passive: false });
+  container.addEventListener('pointerdown', onPointerDown);
+  container.addEventListener('pointermove', onPointerMove);
+  container.addEventListener('pointerup', onPointerUp);
+  container.addEventListener('pointercancel', onPointerUp);
   chartRoot.classList.remove('ft-hourly-chart-pending');
   chartRoot.classList.add('ft-hourly-chart-enhanced', 'ft-hourly-chart-liveline');
   chartRoot.dataset.ftChartState = 'ready';
@@ -345,21 +534,23 @@ export function createProposalHistoryChart(options = {}) {
   return {
     applyTheme(nextTheme) {
       currentTheme = nextTheme === 'light' ? 'light' : 'dark';
-      render();
+      renderStaticChange();
     },
     resetView() {
       currentRange = options.range || 'all';
       zoomScale = 1;
-      render();
+      panOffsetSeconds = 0;
+      renderStaticChange();
     },
     setRange(nextRange) {
       currentRange = RANGE_SECONDS[nextRange] ? nextRange : 'all';
       zoomScale = 1;
-      render();
+      panOffsetSeconds = 0;
+      renderStaticChange();
     },
     setSeriesVisible(field, visible) {
       visibility = { ...visibility, [field]: visible !== false };
-      render();
+      renderStaticChange();
     },
     updateLivePoint(point) {
       if (!isLive || !point || typeof point !== 'object') return false;
@@ -377,17 +568,23 @@ export function createProposalHistoryChart(options = {}) {
       return true;
     },
     zoomIn() {
-      zoomScale = Math.max(0.15, zoomScale * 0.72);
-      render();
+      zoomScale = Math.max(0.15, Math.min(4, zoomScale * 0.72));
+      renderStaticChange();
     },
     zoomOut() {
-      zoomScale = Math.min(4, zoomScale * 1.38);
-      render();
+      zoomScale = Math.max(0.15, Math.min(4, zoomScale * 1.38));
+      renderStaticChange();
     },
     resize() {
       render();
     },
     destroy() {
+      if (interactionTimer) runtime.clearTimeout(interactionTimer);
+      container.removeEventListener('wheel', onWheel);
+      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointermove', onPointerMove);
+      container.removeEventListener('pointerup', onPointerUp);
+      container.removeEventListener('pointercancel', onPointerUp);
       root?.unmount();
       delete container.dataset.ftChartEngine;
       chartRoot.classList.remove('ft-hourly-chart-enhanced', 'ft-hourly-chart-liveline');

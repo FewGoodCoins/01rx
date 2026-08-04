@@ -1,5 +1,5 @@
 /*
- * 01R.Trade terminal composition.
+ * Trivium terminal composition.
  *
  * The shell owns placement and panel chrome. Market renderers continue to own
  * their content, data state, and interaction behavior.

@@ -7,7 +7,7 @@ import { PRODUCT_BRAND } from '../shell/brand.js';
 import { createTerminalShell } from '../shell/terminal-shell.js';
 
 if (!import.meta.env.DEV) {
-  document.body.textContent = 'The 01R.Trade UI Lab is available only from the development server.';
+  document.body.textContent = 'The Trivium UI Lab is available only from the development server.';
 } else {
   const query = new URLSearchParams(window.location.search);
   const captureMode = query.get('capture') === '1';
