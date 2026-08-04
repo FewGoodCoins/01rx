@@ -1,6 +1,7 @@
 import {
   CONTRACT_HEADERS,
   CONTRACT_RELEASE,
+  EXECUTION_RELEASE,
   getEndpoint,
 } from '@01resolved/contracts';
 import {
@@ -186,9 +187,15 @@ export function createTradingHandler(options = {}) {
   const service = options.service || defaultService;
   const now = options.now || (() => Date.now());
   const logger = options.logger || console;
+  const executionRelease = options.executionRelease || EXECUTION_RELEASE;
+  const executionEnabled = executionRelease?.enabled === true;
 
   return async function tradingHandler(request, response) {
     response.setHeader('Cache-Control', 'private, no-store');
+    response.setHeader(
+      CONTRACT_HEADERS.execution,
+      executionEnabled ? 'enabled' : 'paused',
+    );
     if (String(request.method || 'GET').toUpperCase() === 'OPTIONS') {
       response.setHeader('Allow', 'POST, OPTIONS');
       responseStatus(response, 204).end();
@@ -229,6 +236,17 @@ export function createTradingHandler(options = {}) {
       return;
     }
     setContractHeaders(response, endpoint);
+    if (!executionEnabled) {
+      sendJson(
+        response,
+        503,
+        failure(
+          executionRelease?.message || 'Trading is paused for security review',
+          'EXECUTION_PAUSED',
+        ),
+      );
+      return;
+    }
     const rateLimit = takeRateLimit(request, view, now());
     setRateLimitHeaders(response, rateLimit);
     if (!rateLimit.allowed) {

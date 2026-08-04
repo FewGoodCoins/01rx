@@ -183,6 +183,7 @@ export function createFutarchyHandler(options = {}) {
   const service = options.service || createFutarchyService(options);
   const rpcRelay = options.rpcRelay || createFutarchyRpcRelay({
     env: options.env || process.env,
+    executionRelease: options.executionRelease,
     fetchImpl: options.fetchImpl || fetch,
     programIntegrity: service.programIntegrity,
   });

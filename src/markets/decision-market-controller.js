@@ -1,4 +1,5 @@
 import { create01ResolvedClient } from '@01resolved/api-client';
+import { EXECUTION_RELEASE } from '@01resolved/contracts';
 import base58Module from 'bs58';
 import { proposalRemainingSpreadProjection } from './decision-analysis-model.js';
 import {
@@ -18,6 +19,16 @@ const LIVE_MARKET_PULSE_INTERVAL_MS = 1_000;
 const POLL_INTERVAL_MS = 30_000;
 const MAX_PROPOSAL_HISTORY_POINTS = 1_000;
 const REVIEWED_PROGRAM_COUNT = 4;
+const EXECUTION_ACTIONS = new Set([
+  'approve-transaction',
+  'cancel-order',
+  'cancel-recurring',
+  'claim-recurring',
+  'execute-trade',
+  'review-ownership-trade',
+  'review-redeem',
+  'withdraw-manifest',
+]);
 const DEFAULT_HISTORY_INTERVAL = '15m';
 const HISTORY_INTERVAL_MS = Object.freeze({
   '15m': 15 * 60 * 1_000,
@@ -2381,6 +2392,7 @@ export function mountFutardTerminal({
   window: runtime = globalThis.window,
   root,
   createProposalHistoryChart = null,
+  executionRelease = EXECUTION_RELEASE,
   mode = 'standalone',
   token = '',
 } = {}) {
@@ -2400,6 +2412,9 @@ export function mountFutardTerminal({
       json: api.json?.bind(api),
     },
   });
+  const executionEnabled = executionRelease?.enabled === true;
+  const executionPauseMessage = boundedText(executionRelease?.message, 220)
+    || `Trading is paused while ${PRODUCT_BRAND.displayName} completes independent security review.`;
   const routes = runtime.NAVGATOR?.shell?.routes || {};
   if (mode === 'discovery') {
     throw new TypeError('The standalone decision-market discovery surface has been removed');
@@ -2942,6 +2957,7 @@ export function mountFutardTerminal({
   async function loadOwnershipQuote() {
     if (
       state.destroyed
+      || !executionEnabled
       || !isSpotOrderWorkspace()
       || state.ownershipOrder.type !== 'market'
       || !(firstNumber(state.ownershipOrder.amount) > 0)
@@ -3012,7 +3028,8 @@ export function mountFutardTerminal({
     state.ownershipOrder.quote = null;
     state.ownershipOrder.quoteError = '';
     state.ownershipOrder.quoteLoading = (
-      isSpotOrderWorkspace()
+      executionEnabled
+      && isSpotOrderWorkspace()
       && state.ownershipOrder.type === 'market'
       && firstNumber(state.ownershipOrder.amount) > 0
     );
@@ -3496,6 +3513,7 @@ export function mountFutardTerminal({
     const coverageCopy = `${counts.live} live · ${resolvedCount} resolved${indexedCopy}`;
     let message = '';
     let kind = 'live';
+    let decisionFeedWarning = false;
     if (state.error && !state.markets.length) {
       kind = 'error';
       message = state.error;
@@ -3510,6 +3528,7 @@ export function mountFutardTerminal({
       message = state.notice;
     } else if (state.liveError || state.archiveError) {
       kind = 'warning';
+      decisionFeedWarning = true;
       if (state.liveError && state.archiveError) {
         message = 'Live market reads and proposal history are temporarily degraded.';
       } else if (state.liveError) {
@@ -3534,7 +3553,8 @@ export function mountFutardTerminal({
     }
     root.classList.toggle(
       'ft-has-system-message',
-      ['error', 'warning', 'notice'].includes(kind),
+      ['error', 'warning', 'notice'].includes(kind)
+        && !(isOwnershipWorkspace() && decisionFeedWarning),
     );
     terminalShell.setStatus(kind, message);
     const rpcOffline = (state.error && !state.markets.length) || state.liveError;
@@ -4701,7 +4721,9 @@ export function mountFutardTerminal({
       ? routedQuote.route.map(leg => leg.venue).join(' → ')
       : 'DFlow';
     let cta = '';
-    if (!state.wallet.address) {
+    if (!executionEnabled) {
+      cta = '<button class="ft-primary-button" type="button" disabled>Trading unavailable during review</button>';
+    } else if (!state.wallet.address) {
       cta = '<button class="ft-primary-button ft-connect-trade-button" type="button" data-ft-action="connect-wallet">Connect wallet to trade</button>';
     } else if (!state.wallet.canSignTransaction) {
       cta = '<button class="ft-primary-button" type="button" disabled>Wallet cannot return a reviewed signature</button>';
@@ -4951,6 +4973,38 @@ export function mountFutardTerminal({
     current.outerHTML = renderDecisionPressure(market);
   }
 
+  function renderExecutionPauseTicket(context = 'Market') {
+    regions.tradeTicket.innerHTML = `
+      <section
+        class="ft-ticket ft-ticket-empty ft-execution-paused"
+        data-ft-role="execution-paused"
+        data-ft-execution-phase="${escapeHtml(executionRelease?.phase || 'security-review')}"
+      >
+        <span class="ft-kicker">Read-only release</span>
+        <h2>Trading is temporarily paused</h2>
+        <p>${escapeHtml(executionPauseMessage)} ${escapeHtml(context)} data, charts, and wallet balance reads remain available.</p>
+        <button
+          class="ft-primary-button"
+          type="button"
+          data-ft-role="execution-paused-cta"
+          disabled
+        >Trading unavailable during review</button>
+      </section>
+    `;
+  }
+
+  function pauseExecutionAttempt() {
+    state.execution.building = false;
+    state.execution.submitting = false;
+    state.execution.error = executionPauseMessage;
+    state.execution.plan = null;
+    state.execution.simulation = null;
+    state.execution.reviewOpen = false;
+    setNotice(executionPauseMessage);
+    renderTradeTicket();
+    renderModal();
+  }
+
   function renderExecutionTicket(market) {
     const automaticReady = state.recurring.enabled
       && state.recurring.keeperReady
@@ -4995,7 +5049,9 @@ export function mountFutardTerminal({
       && recurringFinalRun < proposalEndsAtSeconds - 30;
     const preview = decisionTicketPreview(market);
     let cta = '';
-    if (isRecurring && (!state.recurring.enabled || !state.recurring.programId)) {
+    if (!executionEnabled) {
+      cta = '<button class="ft-primary-button" type="button" disabled>Trading unavailable during review</button>';
+    } else if (isRecurring && (!state.recurring.enabled || !state.recurring.programId)) {
       cta = '<button class="ft-primary-button" type="button" disabled>Automatic vault deployment pending</button>';
     } else if (isRecurring && !state.recurring.keeperReady) {
       cta = '<button class="ft-primary-button" type="button" disabled>Automatic keeper is not ready</button>';
@@ -5363,6 +5419,10 @@ export function mountFutardTerminal({
 
   function renderTradeTicket() {
     syncExecutionLock();
+    if (isOwnershipWorkspace() && !executionEnabled) {
+      renderExecutionPauseTicket('Ownership market');
+      return;
+    }
     if (isOwnershipWorkspace()) {
       const asset = ownershipTokenSnapshot();
       const isBuy = state.ownershipOrder.side !== 'sell';
@@ -5375,7 +5435,9 @@ export function mountFutardTerminal({
       const inputLogo = isBuy ? usdcLogo : assetLogo;
       const outputLogo = isBuy ? assetLogo : usdcLogo;
       let connectCta = '';
-      if (!state.wallet.address) {
+      if (!executionEnabled) {
+        connectCta = '<button class="ft-ownership-connect" type="button" disabled>Trading unavailable during review</button>';
+      } else if (!state.wallet.address) {
         connectCta = '<button class="ft-ownership-connect" type="button" data-ft-action="connect-wallet">Connect Wallet</button>';
       } else if (!state.wallet.canSignTransaction) {
         connectCta = '<button class="ft-ownership-connect" type="button" disabled>Wallet cannot return a reviewed signature</button>';
@@ -5495,6 +5557,14 @@ export function mountFutardTerminal({
       `;
       return;
     }
+    if (
+      !executionEnabled
+      && market.proposal.statusGroup === 'live'
+      && market.proposal.tradable
+    ) {
+      renderExecutionPauseTicket(`${market.ticker} market`);
+      return;
+    }
     if (state.proposalTradeMarket === 'spot' && state.hostMode === 'token') {
       renderProposalSpotTicket(market);
       return;
@@ -5510,7 +5580,9 @@ export function mountFutardTerminal({
         .map(claim => `${claim.estimatedAmount} ${claim.symbol}`)
         .join(' + ');
       let settlementAction = '';
-      if (isResolvedOutcome && !state.wallet.address) {
+      if (isResolvedOutcome && !executionEnabled) {
+        settlementAction = '<button class="ft-primary-button" type="button" disabled>Redemption unavailable during review</button>';
+      } else if (isResolvedOutcome && !state.wallet.address) {
         settlementAction = `
           <button class="ft-primary-button" type="button" data-ft-action="connect-wallet">
             Connect wallet to check claims
@@ -5694,14 +5766,18 @@ export function mountFutardTerminal({
                     <button
                       class="ft-recurring-claim"
                       type="button"
-                      data-ft-action="claim-recurring"
+                      ${executionEnabled
+                        ? 'data-ft-action="claim-recurring"'
+                        : 'disabled title="Trading is paused during security review"'}
                       data-ft-schedule="${escapeHtml(schedule.address)}"
                       data-ft-outcome="${escapeHtml(branch || 'prop')}"
                     >Claim</button>
                   ` : ''}
                   <button
                     type="button"
-                    data-ft-action="cancel-recurring"
+                    ${executionEnabled
+                      ? 'data-ft-action="cancel-recurring"'
+                      : 'disabled title="Trading is paused during security review"'}
                     data-ft-schedule="${escapeHtml(schedule.address)}"
                   >Cancel & withdraw</button>
                 </div>
@@ -5770,7 +5846,9 @@ export function mountFutardTerminal({
                     <button
                       class="ft-order-cancel"
                       type="button"
-                      data-ft-action="cancel-order"
+                      ${executionEnabled
+                        ? 'data-ft-action="cancel-order"'
+                        : 'disabled title="Trading is paused during security review"'}
                       data-ft-market="${escapeHtml(order.market)}"
                       data-ft-client-order-id="${escapeHtml(order.clientOrderId)}"
                       data-ft-outcome="${escapeHtml(order.branch)}"
@@ -5855,7 +5933,9 @@ export function mountFutardTerminal({
                 </span>
                 <button
                   type="button"
-                  data-ft-action="withdraw-manifest"
+                  ${executionEnabled
+                    ? 'data-ft-action="withdraw-manifest"'
+                    : 'disabled title="Trading is paused during security review"'}
                   data-ft-market="${escapeHtml(book.address)}"
                   data-ft-outcome="${escapeHtml(branch)}"
                 >Withdraw</button>
@@ -6544,9 +6624,13 @@ export function mountFutardTerminal({
             <button
               class="ft-primary-button"
               type="button"
-              data-ft-action="approve-transaction"
-              ${!simulation?.ok || (!isSpotPlan && !state.programIntegrity.canTransact) || state.execution.submitting ? 'disabled' : ''}
-            >${state.execution.submitting ? 'Waiting for wallet…' : 'Approve in wallet'}</button>
+              ${executionEnabled ? 'data-ft-action="approve-transaction"' : ''}
+              ${!executionEnabled || !simulation?.ok || (!isSpotPlan && !state.programIntegrity.canTransact) || state.execution.submitting ? 'disabled' : ''}
+            >${!executionEnabled
+              ? 'Trading unavailable during review'
+              : state.execution.submitting
+                ? 'Waiting for wallet…'
+                : 'Approve in wallet'}</button>
           </div>
         </section>
       </div>
@@ -7272,11 +7356,8 @@ export function mountFutardTerminal({
 
   async function executionConnection(trading) {
     if (state.execution.connection) return state.execution.connection;
-    const configured = firstText(runtime.NAVGATOR?.solanaRpcUrl);
     const relayUrl = client.futarchy.solanaRpcUrl();
-    state.execution.connection = trading.createMainnetConnection(
-      configured || relayUrl,
-    );
+    state.execution.connection = trading.createMainnetConnection(relayUrl);
     return state.execution.connection;
   }
 
@@ -7317,6 +7398,10 @@ export function mountFutardTerminal({
     // Routine decision trades use the populated ticket as their explicit review
     // surface. The same click may request wallet approval only after the exact
     // transaction has been built, simulated, and fingerprint-bound.
+    if (!executionEnabled) {
+      pauseExecutionAttempt();
+      return null;
+    }
     const requestWalletApproval = options.requestWalletApproval === true;
     let trading = null;
     const integrity = await refreshProgramIntegrity();
@@ -7408,6 +7493,10 @@ export function mountFutardTerminal({
   }
 
   async function executeTrade() {
+    if (!executionEnabled) {
+      pauseExecutionAttempt();
+      return;
+    }
     const market = selectedMarket();
     if (!market || !state.wallet.address || !state.wallet.canTransact) {
       connectWallet();
@@ -7492,6 +7581,10 @@ export function mountFutardTerminal({
   }
 
   async function reviewOwnershipTrade() {
+    if (!executionEnabled) {
+      pauseExecutionAttempt();
+      return;
+    }
     if (!isSpotOrderWorkspace()) return;
     if (!state.wallet.address) {
       connectWallet();
@@ -7781,6 +7874,10 @@ export function mountFutardTerminal({
   }
 
   async function approveTransaction() {
+    if (!executionEnabled) {
+      pauseExecutionAttempt();
+      return;
+    }
     const plan = state.execution.plan;
     if (
       state.execution.submitting
@@ -8531,6 +8628,11 @@ export function mountFutardTerminal({
       )
     ) return;
     const action = target.dataset.ftAction;
+    if (!executionEnabled && EXECUTION_ACTIONS.has(action)) {
+      event.preventDefault();
+      pauseExecutionAttempt();
+      return;
+    }
     if (
       (state.execution.building || state.execution.submitting)
       && action !== 'copy-signature'

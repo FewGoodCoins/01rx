@@ -1,12 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+} from '@solana/web3.js';
+import {
   createFutarchyRpcRelay,
   validateRpcCall,
   validateRpcPayload,
 } from '../api/_lib/futarchy-rpc-relay.js';
 
 const ADDRESS = '11111111111111111111111111111111';
+const FUTARCHY_PROGRAM = 'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq';
+
+function reviewedTransaction() {
+  const transaction = new Transaction({
+    feePayer: new PublicKey(ADDRESS),
+    recentBlockhash: ADDRESS,
+  });
+  transaction.add(new TransactionInstruction({
+    data: Buffer.from([1]),
+    keys: [],
+    programId: new PublicKey(FUTARCHY_PROGRAM),
+  }));
+  return transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  }).toString('base64');
+}
 
 test('futarchy RPC validation allowlists bounded read calls', () => {
   assert.equal(validateRpcCall({
@@ -65,4 +87,46 @@ test('futarchy RPC relay rejects unsafe upstream configuration before fetch', as
     error => error?.code === 'SOLANA_RPC_UNAVAILABLE' && error.statusCode === 503,
   );
   assert.equal(calls, 0);
+});
+
+test('futarchy RPC relay blocks submission while preserving reviewed simulation', async () => {
+  const calls = [];
+  let integrityCalls = 0;
+  const relay = createFutarchyRpcRelay({
+    env: { HELIUS_URL: 'https://rpc.example' },
+    async fetchImpl(url, options) {
+      calls.push({ url: String(url), payload: JSON.parse(options.body) });
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: {} }), {
+        status: 200,
+      });
+    },
+    async programIntegrity() {
+      integrityCalls += 1;
+      return { status: 'verified', canTransact: true, rpcSlot: 42 };
+    },
+  });
+  const transaction = reviewedTransaction();
+
+  await assert.rejects(
+    relay({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'sendTransaction',
+      params: [transaction, { encoding: 'base64' }],
+    }),
+    error => error?.code === 'EXECUTION_PAUSED' && error.statusCode === 503,
+  );
+  assert.equal(calls.length, 0);
+  assert.equal(integrityCalls, 0);
+
+  await relay({
+    jsonrpc: '2.0',
+    id: 2,
+    method: 'simulateTransaction',
+    params: [transaction, { encoding: 'base64' }],
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(integrityCalls, 1);
+  assert.equal(calls[0].payload.method, 'simulateTransaction');
+  assert.equal(calls[0].payload.params[1].minContextSlot, 42);
 });

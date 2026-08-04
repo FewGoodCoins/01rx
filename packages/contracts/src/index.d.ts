@@ -242,13 +242,21 @@ export interface EndpointResponseMap {
 }
 
 export const CONTRACT_RELEASE: string;
-export const CONTRACT_HEADERS: Readonly<Record<'contract' | 'release' | 'surface', string>>;
+export const CONTRACT_HEADERS: Readonly<
+  Record<'contract' | 'execution' | 'release' | 'surface', string>
+>;
 export const API_SURFACES: Readonly<Record<'STABLE' | 'BETA', ApiSurface>>;
 export const DECISION_ATTRIBUTION: Readonly<{
   feeBps: 0;
   marker: string;
   memoProgramId: string;
   version: 1;
+}>;
+export const EXECUTION_RELEASE: Readonly<{
+  code: 'AUDIT_REVIEW_REQUIRED';
+  enabled: false;
+  message: string;
+  phase: 'audit-readiness-v1';
 }>;
 export const API_ENDPOINTS: Readonly<Record<EndpointId, EndpointDefinition>>;
 export const FUTARCHY_STABLE_V1_VIEWS: readonly string[];

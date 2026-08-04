@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "scope": "read-only-audit-candidate",
+  "releaseGate": {
+    "code": "AUDIT_REVIEW_REQUIRED",
+    "enabled": false,
+    "phase": "audit-readiness-v1",
+    "sources": [
+      "packages/contracts/src/index.js",
+      "packages/contracts/src/index.cjs",
+      "packages/contracts/src/index.d.ts"
+    ]
+  },
+  "browser": {
+    "controller": "src/markets/decision-market-controller.js",
+    "productionEntrypoints": [
+      "src/token/index.js"
+    ],
+    "transactionModule": "src/markets/solana-trading.js",
+    "executionActions": [
+      "approve-transaction",
+      "cancel-order",
+      "cancel-recurring",
+      "claim-recurring",
+      "execute-trade",
+      "review-ownership-trade",
+      "review-redeem",
+      "withdraw-manifest"
+    ],
+    "requiredWalletCapability": "solana:signTransaction",
+    "forbiddenSubmissionCapabilities": [
+      "solana:signAndSendTransaction",
+      "signAndSendTransaction"
+    ],
+    "finalBoundaries": [
+      "simulatePlan",
+      "signReviewedPlan",
+      "sendPlan"
+    ],
+    "rpcEndpointContract": "futarchy.solanaRpc"
+  },
+  "transactionFamilies": [
+    {
+      "builder": "buildConditionalRedeemPlan",
+      "kinds": ["redeem"]
+    },
+    {
+      "builder": "buildConditionalSwapPlan",
+      "kinds": ["conditional-setup", "swap"]
+    },
+    {
+      "builder": "buildRecurringSchedulePlan",
+      "kinds": ["recurring-create"]
+    },
+    {
+      "builder": "buildRecurringCancelPlan",
+      "kinds": ["recurring-cancel"]
+    },
+    {
+      "builder": "buildRecurringClaimPlan",
+      "kinds": ["recurring-claim"]
+    },
+    {
+      "builder": "buildManifestLimitPlan",
+      "kinds": ["manifest-setup", "limit"]
+    },
+    {
+      "builder": "buildManifestCancelPlan",
+      "kinds": ["cancel"]
+    },
+    {
+      "builder": "buildManifestWithdrawPlan",
+      "kinds": ["withdraw"]
+    },
+    {
+      "builder": "buildDflowSpotPlan",
+      "kinds": ["spot"]
+    }
+  ],
+  "server": {
+    "tradingRoute": "api/beta/trading.js",
+    "tradingViews": [
+      "decision-attest",
+      "spot-order",
+      "spot-submit"
+    ],
+    "rpcRelay": "api/_lib/futarchy-rpc-relay.js",
+    "allowedRpcMethods": [
+      "getAccountInfo",
+      "getBalance",
+      "getFeeForMessage",
+      "getLatestBlockhash",
+      "getMinimumBalanceForRentExemption",
+      "getMultipleAccounts",
+      "getProgramAccounts",
+      "getSignatureStatuses",
+      "getSlot",
+      "getTokenAccountBalance",
+      "sendTransaction",
+      "simulateTransaction"
+    ],
+    "submissionRpcMethods": [
+      "sendTransaction"
+    ],
+    "simulationRpcMethods": [
+      "simulateTransaction"
+    ]
+  },
+  "reviewedPolicySources": [
+    {
+      "path": "src/core/solana-execution-safety.js",
+      "requiredSymbols": [
+        "loadAndValidateSolanaExecutionSafety",
+        "validateUpgradeableProgramAccounts"
+      ]
+    },
+    {
+      "path": "src/markets/solana-program-policy.js",
+      "requiredSymbols": [
+        "DECISION_EXECUTION_PROGRAMS",
+        "programDataAddress",
+        "deploymentSlot",
+        "upgradeAuthority"
+      ]
+    },
+    {
+      "path": "api/_lib/dflow-transaction-policy.js",
+      "requiredSymbols": [
+        "DFLOW_POLICY_PROGRAM_ID",
+        "DFLOW_IDL_JSON_SHA256",
+        "DFLOW_ROUTE_PROGRAM_POLICIES",
+        "loadAndValidateDflowExecutionSafety"
+      ]
+    },
+    {
+      "path": "api/_lib/ownership-token-registry.js",
+      "requiredSymbols": [
+        "ACTIVE_OWNERSHIP_TOKENS",
+        "getTradableOwnershipTokens"
+      ]
+    }
+  ],
+  "browserSourceRoots": [
+    "src",
+    "packages/api-client/src"
+  ],
+  "serverOnlyIdentifiers": [
+    "DFLOW_API_KEY",
+    "DFLOW_TRADE_API_URL",
+    "HELIUS_API_KEY",
+    "HELIUS_RPC_URL",
+    "HELIUS_URL",
+    "O1RX_ATTRIBUTION_SIGNING_KEY",
+    "ONE_RESOLVED_API_KEY",
+    "RESOLVED_01_API_KEY",
+    "SOLANA_RPC_URL",
+    "ZERO_ONE_RESOLVED_API_KEY"
+  ],
+  "serverOnlyUrlFragments": [
+    "quote-api.dflow.net"
+  ],
+  "evidenceTests": [
+    "test/audit-candidate-evidence.test.js",
+    "test/audit-readiness.test.js",
+    "test/audit-smoke.test.js",
+    "test/futarchy-rpc-relay.test.js",
+    "test/security-invariants.test.js",
+    "test/terminal/futarchy-solana-trading.test.js",
+    "test/trading-route.test.js"
+  ],
+  "criticalFiles": [
+    ".github/CODEOWNERS",
+    ".github/dependabot.yml",
+    ".github/pull_request_template.md",
+    ".github/workflows/audit-candidate.yml",
+    ".github/workflows/audit-smoke.yml",
+    ".github/workflows/ci.yml",
+    ".github/workflows/codeql.yml",
+    "api/_lib/dflow-transaction-policy.js",
+    "api/_lib/decision-attribution.js",
+    "api/_lib/dflow-spot-order.js",
+    "api/_lib/futarchy-handler.js",
+    "api/_lib/futarchy-rpc-relay.js",
+    "api/_lib/futarchy-service.js",
+    "api/_lib/ownership-token-registry.js",
+    "api/beta/trading.js",
+    "docs/audits/audit-readiness-v1.md",
+    "docs/audits/control-matrix-v1.md",
+    "package-lock.json",
+    "package.json",
+    "packages/api-client/src/index.js",
+    "packages/contracts/src/index.cjs",
+    "packages/contracts/src/index.d.ts",
+    "packages/contracts/src/index.js",
+    "scripts/audit-candidate-evidence.mjs",
+    "scripts/audit-smoke.mjs",
+    "scripts/security-invariants.mjs",
+    "security/execution-boundaries.json",
+    "src/core/solana-execution-safety.js",
+    "src/markets/decision-market-controller.js",
+    "src/markets/solana-program-policy.js",
+    "src/markets/solana-trading.js",
+    "test/audit-candidate-evidence.test.js",
+    "test/audit-readiness.test.js",
+    "test/audit-smoke.test.js",
+    "test/futarchy-rpc-relay.test.js",
+    "test/security-invariants.test.js",
+    "test/terminal/futarchy-solana-trading.test.js",
+    "test/trading-route.test.js",
+    "vercel.json"
+  ]
+}
