@@ -155,7 +155,7 @@ try {
     }
   } else if (_bootFrame) {
     document.documentElement.setAttribute('data-01rx-chart-frame', 'true');
-    document.documentElement.setAttribute('data-chart-engine', 'advanced-loading');
+    document.documentElement.setAttribute('data-chart-engine', 'liveline');
   } else {
     document.documentElement.setAttribute('data-workspace', 'markets');
     document.documentElement.setAttribute('data-market-boot', 'pending');
@@ -783,11 +783,11 @@ window.toggleChartFeatureMenu = function(trigger, event) {
                   </div>
                 </div>
                 <div
-                  class="chart-tv-placeholder-controls chart-tv-placeholder-controls-secondary"
-                  aria-label="TradingView premium view toolbar preview"
+                  class="chart-display-controls chart-display-controls-secondary"
+                  aria-label="Chart display controls"
                 >
                   <button
-                    class="chart-tv-placeholder-button"
+                    class="chart-display-button"
                      id="btn-fullscreen-toolbar"
                      type="button"
                      onclick="toggleChartFullscreen()"

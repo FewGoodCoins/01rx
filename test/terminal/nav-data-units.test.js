@@ -4767,34 +4767,34 @@ test('chart topbar controls do not show focus outlines after click', () => {
   assert.equal(source.includes('.chart-topbar .layer-btn:focus,\n.chart-topbar .layer-btn:focus-visible,\n.chart-topbar .cbtn:focus,\n.chart-topbar .cbtn:focus-visible {\n  outline: none;\n  box-shadow: none;\n}'), true);
 });
 
-test('lightweight chart keeps NAV variant state without exposing the unavailable toolbar control', () => {
+test('chart keeps NAV variant state without exposing the unavailable toolbar control', () => {
   assert.equal(source.includes('id="chart-nav-trigger"'), false);
   assert.equal(source.includes('id="chart-nav-menu"'), false);
   assert.equal(source.includes('function _setChartNavMenuOpen(open, focusSelection)'), true);
   assert.equal(source.includes("var navControls = document.getElementById('chart-nav-control');"), true);
 });
 
-test('lightweight chart keeps Growth state without exposing the unavailable toolbar icon', () => {
+test('chart keeps Growth state without exposing the unavailable toolbar icon', () => {
   assert.equal(source.includes('id="btn-growth-chart-toolbar"'), false);
   assert.equal(source.includes("document.getElementById('btn-growth-chart-toolbar')"), true);
 });
 
-test('lightweight price line uses the blue to purple vertical gradient', () => {
+test('price line model uses the blue to purple vertical gradient', () => {
   assert.equal(source.includes('function _priceLineVerticalGradient(ctx, pts, opacity)'), true);
   assert.equal(source.includes("gradient.addColorStop(0, 'rgba(168,85,247,' + opacity + ')');"), true);
   assert.equal(source.includes("gradient.addColorStop(1, 'rgba(47,143,255,' + opacity + ')');"), true);
   assert.equal(source.includes("var priceDot = _makeLiveDot('live-dot-price', _isChartEmbed ? _embedChartInk() : '#2f8fff');"), true);
 });
 
-test('lightweight NAV line uses a yellow to orange vertical gradient', () => {
+test('NAV line model uses a yellow to orange vertical gradient', () => {
   assert.equal(source.includes('function _navLineVerticalGradient(ctx, pts, opacity)'), true);
   assert.equal(source.includes("gradient.addColorStop(0, 'rgba(255,228,92,' + opacity + ')');"), true);
   assert.equal(source.includes("gradient.addColorStop(1, 'rgba(255,138,0,' + opacity + ')');"), true);
 });
 
-test('lightweight Price and NAV histories have one consistent stroke owner', () => {
-  assert.match(source, /_lwPrice = _lwChart\.addSeries\(LightweightCharts\.AreaSeries, \{[\s\S]*?lineColor: 'rgba\(0,0,0,0\)',[\s\S]*?lineWidth: 0,/);
-  assert.match(source, /_lwNav = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*?color: 'rgba\(0,0,0,0\)',[\s\S]*?lineWidth: 0,/);
+test('Liveline Price and NAV histories keep one semantic series owner', () => {
+  assert.match(source, /_lwPrice = _lwChart\.addSeries\(LivelineCharts\.AreaSeries, \{[\s\S]*?livelineLabel: 'Price',[\s\S]*?lineColor: 'rgba\(0,0,0,0\)',[\s\S]*?lineWidth: 0,/);
+  assert.match(source, /_lwNav = _lwChart\.addSeries\(LivelineCharts\.LineSeries, \{[\s\S]*?livelineLabel: 'NAV',[\s\S]*?color: 'rgba\(0,0,0,0\)',[\s\S]*?lineWidth: 0,/);
   assert.match(source, /_drawSmoothStroke\(ctx, pricePts, \{[\s\S]*?width: 2,[\s\S]*?smoothness: 0/);
   assert.match(source, /_drawSmoothStroke\(ctx, navPts, \{[\s\S]*?width: 2,[\s\S]*?smoothness: 0/);
   const priceStroke = source.slice(
@@ -5998,8 +5998,8 @@ test('chart shows NAV and projected NAV badges as mutually exclusive states', ()
 });
 
 test('embed renders current and projected NAV as one continuous dashed series', () => {
-  assert.match(source, /_lwEmbedNavReference = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*lineWidth: 2,[\s\S]*lineStyle: LightweightCharts\.LineStyle\.Dashed,/);
-  assert.match(source, /_lwNavForecast = _lwChart\.addSeries\(LightweightCharts\.LineSeries, \{[\s\S]*lineWidth: _isChartEmbed \? 2 : 0,[\s\S]*lineStyle: LightweightCharts\.LineStyle\.Dashed,/);
+  assert.match(source, /_lwEmbedNavReference = _lwChart\.addSeries\(LivelineCharts\.LineSeries, \{[\s\S]*lineWidth: 2,[\s\S]*lineStyle: LivelineCharts\.LineStyle\.Dashed,/);
+  assert.match(source, /_lwNavForecast = _lwChart\.addSeries\(LivelineCharts\.LineSeries, \{[\s\S]*lineWidth: _isChartEmbed \? 2 : 0,[\s\S]*lineStyle: LivelineCharts\.LineStyle\.Dashed,/);
   assert.equal(source.includes('var _lwEmbedJoinedNavData = []; // one continuous current + projected NAV display path'), true);
   assert.equal(source.includes('_lwEmbedJoinedNavData = _lwEmbedNavReferenceData.slice();'), true);
   assert.equal(source.includes('forecastData = showEmbedNavSeries ? _lwEmbedJoinedNavData : [];'), true);

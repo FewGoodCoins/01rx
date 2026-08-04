@@ -49,10 +49,6 @@ const landingSource = fs.readFileSync(
   new URL('../src/legacy/landing.js', import.meta.url),
   'utf8',
 );
-const advancedChartsSource = fs.readFileSync(
-  new URL('../src/charting/advanced-charts.js', import.meta.url),
-  'utf8',
-);
 const tradingContractSource = fs.readFileSync(
   new URL('../packages/contracts/src/index.js', import.meta.url),
   'utf8',
@@ -130,8 +126,6 @@ test('product metadata and accessible copy use only the 01R.Trade brand', () => 
 
 test('protected internal market identifiers remain stable through the brand change', () => {
   assert.match(indexSource, /get\('frame'\) === '01rx'/);
-  assert.match(advancedChartsSource, /`01RX:\$\{symbolTicker\}`/);
-  assert.match(advancedChartsSource, /raw\.startsWith\('01RX:'\)/);
   assert.match(tradingContractSource, /marker: '01RX:D1:0'/);
 });
 
@@ -460,8 +454,8 @@ test('decision charts reserve a compact, scrollable lower pane for TWAP window p
     /\.ft-twap-window-pane\s*\{[\s\S]*?padding: 0 calc\(12px \+ var\(--ft-chart-right-scale-width, 52px\)\) 0 12px;/,
   );
   assert.match(
-    proposalChartSource,
-    /chart\.priceScale\('right'\)\.width\?\.\(\)/,
+    proposalLivelineSource,
+    /const PLOT_PADDING = Object\.freeze\(\{[\s\S]*?top: PLOT_TOP_PADDING,[\s\S]*?right: 72,[\s\S]*?bottom: 30,[\s\S]*?left: 12,[\s\S]*?\}\);[\s\S]*?padding: PLOT_PADDING/,
   );
   assert.match(
     frameCss,
@@ -469,7 +463,7 @@ test('decision charts reserve a compact, scrollable lower pane for TWAP window p
   );
 });
 
-test('interactive decision charts and optional Liveline share a renderer-independent presentation', () => {
+test('interactive decision charts use Liveline through a renderer-independent presentation', () => {
   assert.match(proposalLivelineSource, /from 'liveline'/);
   assert.match(proposalLivelineSource, /proposalHistoryChartObservations/);
   assert.match(proposalLivelineSource, /PROPOSAL_HISTORY_ENGINE = 'liveline'/);
@@ -492,8 +486,11 @@ test('interactive decision charts and optional Liveline share a renderer-indepen
   );
   assert.match(
     decisionMarketControllerSource,
-    /data-ft-chart-engine="tradingview-lightweight"/,
+    /data-ft-chart-engine="liveline"/,
   );
+  assert.match(decisionMarketControllerSource, /data-ft-role="proposal-history-liveline"/);
+  assert.match(proposalLivelineSource, /addEventListener\('wheel', onWheel/);
+  assert.match(proposalLivelineSource, /pinch\.distance \/ distance/);
   assert.match(
     decisionMarketControllerSource,
     /drag, scroll, or pinch to navigate/,
@@ -521,61 +518,33 @@ test('decision chart uses TWAP background context without vertical boundary line
     /\.ft-hourly-post-twap-band\s*\{[\s\S]*?scaleX\(var\(--ft-post-twap-scale, 0\)\);[\s\S]*?transform-origin: right center;/,
   );
   assert.match(
-    proposalChartSource,
-    /postTwapBoundary[\s\S]*?ft-hourly-post-twap-band[\s\S]*?dataset\.ftChartBand = 'post-twap'/,
+    proposalLivelineSource,
+    /phaseBandElements[\s\S]*?key: 'post-twap'/,
   );
   assert.match(
-    proposalChartSource,
-    /const displayRange = proposalChartDisplayRange\(\s*plottedTimes,\s*eventDefinitions,/,
+    proposalLivelineSource,
+    /prepared\.viewportEnd = prepared\.lastTime - panOffsetSeconds/,
   );
   assert.doesNotMatch(frameCss, /\.ft-hourly-event-line\s*\{/);
-  assert.doesNotMatch(proposalChartSource, /ft-hourly-event-line|data\.ftChartEvent/);
+  assert.doesNotMatch(proposalLivelineSource, /ft-hourly-event-line|data\.ftChartEvent/);
 });
 
-test('decision chart endpoints keep small solid centers with sequenced pulse bands', () => {
-  const pulseStart = frameCss.indexOf('@keyframes ft-proposal-live-pulse');
-  const pulseEnd = frameCss.indexOf('\n}\n\n.ft-hourly-live', pulseStart);
-  const pulseKeyframes = frameCss.slice(pulseStart, pulseEnd + 2);
-  assert.ok(pulseStart >= 0 && pulseEnd > pulseStart);
+test('decision chart keeps explicit starting points and animated Liveline endpoints', () => {
   assert.match(
     frameCss,
-    /\.ft-proposal-boundary-dot\s*\{[\s\S]*?width: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?background: currentColor;[\s\S]*?pointer-events: none;/,
+    /\.ft-liveline-start-point\s*\{[\s\S]*?width: 7px;[\s\S]*?border-radius: 50%;[\s\S]*?pointer-events: none;/,
   );
   assert.match(
-    proposalChartSource,
-    /dot\.dataset\.ftSeriesBoundary = `\$\{definition\.field\}:\$\{kind\}`/,
+    proposalLivelineSource,
+    /className: 'ft-liveline-start-point'/,
   );
   assert.match(
-    proposalChartSource,
-    /motionDurationMs[\s\S]*?motionEasing/,
+    proposalLivelineSource,
+    /pulse: playback\.pulse/,
   );
   assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot\s*\{[\s\S]*?width: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?height: var\(--ft-proposal-live-dot-size, 5px\);[\s\S]*?animation: none !important;/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot::after\s*\{[\s\S]*?border: 1px solid currentColor;[\s\S]*?animation: ft-proposal-live-pulse var\(--ft-proposal-live-pulse-duration, 3s\) ease-out infinite;[\s\S]*?animation-delay: var\(--ft-proposal-live-pulse-delay\);/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot-pass\s*\{\s*--ft-proposal-live-pulse-delay: var\(--ft-proposal-live-pulse-stagger, 1s\);/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-proposal-live-dot-fail\s*\{\s*--ft-proposal-live-pulse-delay: calc\(var\(--ft-proposal-live-pulse-stagger, 1s\) \* 2\);/,
-  );
-  assert.doesNotMatch(
-    pulseKeyframes,
-    /box-shadow:/,
-  );
-  assert.match(
-    proposalChartSource,
-    /pointMarkersVisible: false,/,
-  );
-  assert.doesNotMatch(
-    proposalChartSource,
-    /pointMarkersVisible:\s*valueCount === 1/,
+    proposalLivelineSource,
+    /series\.map\(\(definition\) => \{[\s\S]*?const first = definition\.data\.find/,
   );
 });
 
@@ -717,7 +686,7 @@ test('sidebar display customization remains removed', () => {
 test('spot chart keeps its expansion control aligned after temporary controls are removed', () => {
   assert.match(
     frameCss,
-    /\.chart-tv-placeholder-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,
+    /\.chart-display-controls-secondary\s*\{\s*flex: 0 0 56px;\s*margin-left: auto;\s*\}/,
   );
 });
 

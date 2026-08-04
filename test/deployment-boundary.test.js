@@ -158,9 +158,10 @@ test('browser trading code cannot call DFlow or read server credentials directly
 test('chart data boundaries are 01Resolved-only and expose unsupported history as a gap', () => {
   const browserCharts = [
     'src/chart/data-client.js',
-    'src/charting/advanced-charts.js',
+    'src/chart/liveline-chart-engine.js',
     'src/legacy/token-page.js',
     'src/markets/decision-market-controller.js',
+    'src/markets/proposal-history-liveline.js',
   ].map(path => fs.readFileSync(path, 'utf8')).join('\n');
   const futarchy = fs.readFileSync('api/_lib/futarchy-service.js', 'utf8');
   const relay = fs.readFileSync('api/[...path].js', 'utf8');

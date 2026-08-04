@@ -117,21 +117,25 @@ for its scope and the upgrade policy.
 - interpolated values for crosshair hover.
 
 Decision history uses an engine-neutral presentation contract shared by its
-renderers. Lightweight Charts is the current interactive renderer; the
-optional Liveline adapter consumes the same normalized series. Both preserve
-native observations and gaps instead of inventing values between incomplete
-intervals. A future approved Advanced Charts adapter can consume the same 01RX
-data and presentation models without changing the route or API contracts.
+renderers. Liveline is the current interactive renderer for ownership and
+decision charts. The 01R.Trade interaction layer adds wheel zoom, drag pan,
+pinch zoom, and explicit starting points while Liveline owns the animated
+endpoints. Native observations and gaps are preserved instead of inventing
+values between incomplete intervals. A future licensed renderer can consume
+the same 01RX data and presentation models without changing route or API
+contracts.
 
 Projected NAV is illustrative. It assumes the latest effective supply stays
 constant and deducts the configured monthly allowance from the latest observed
 treasury once per projected month.
 
-## TradingView Advanced Charts
+## Chart renderer policy
 
-The proprietary Advanced Charts bundle is intentionally absent. If an approved
-license is obtained, inject the library during private deployment through
-`VITE_TRADINGVIEW_LIBRARY_PATH`; never commit it to Git.
+Liveline is bundled under its MIT license. No TradingView library, remote chart
+loader, playground proxy, or deployment configuration ships with this app.
+TradingView Advanced Charts can be reconsidered later only after commercial
+terms and distribution controls are approved; its proprietary files must never
+be committed to Git.
 
 ## Validation
 

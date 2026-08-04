@@ -152,7 +152,6 @@ test('market token entry installs its ESM sidebar without loading legacy page as
     });
     doms.push(dom);
     const browserWindow = dom.window;
-    browserWindow.LightweightCharts = {};
     browserWindow.NAVGATOR = {
       projectMetadata: {
         meta: { live: true, name: 'MetaDAO', ticker: 'META' },
@@ -359,10 +358,11 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(pageEntry, /import\('\.\.\/token\/index\.js'\)/);
   assert.doesNotMatch(homeEntry, /token-page|token\/(?:chart-data|nav-model|proposal-model|token-controller)/);
   assert.match(tokenEntry, /token-page\.js\?url/);
-  assert.match(tokenEntry, /import\('lightweight-charts'\)/);
-  assert.match(tokenEntry, /proposal-history-chart\.js/);
+  assert.match(tokenEntry, /installBrowserLivelineCharts/);
+  assert.doesNotMatch(tokenEntry, /lightweight-charts/);
+  assert.doesNotMatch(tokenEntry, /proposal-history-chart\.js/);
   assert.doesNotMatch(homeEntry, /proposal-history-chart\.js/);
-  assert.doesNotMatch(tokenEntry, /proposal-history-liveline\.js/);
+  assert.match(tokenEntry, /proposal-history-liveline\.js/);
   assert.doesNotMatch(homeEntry, /proposal-history-liveline\.js/);
   assert.doesNotMatch(document, /unpkg\.com\/lightweight-charts/);
   assert.doesNotMatch(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);

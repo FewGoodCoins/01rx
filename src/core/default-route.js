@@ -74,13 +74,6 @@ function canonicalFrameUrl(params, hash, locationLike) {
     token: normalizeRouteToken(params.get('token')),
     frame: '01rx',
   });
-  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
-    String(locationLike?.hostname || ''),
-  );
-  const engine = String(params.get('chartEngine') || '').toLowerCase();
-  if (local && (engine === 'advanced' || engine === 'lightweight')) {
-    canonical.set('chartEngine', engine);
-  }
   return relativeUrl('/', canonical, hash);
 }
 
@@ -171,7 +164,7 @@ function syncRouteDataAttributes(documentElement, locationLike, embeddedFrame) {
     && normalizeRouteToken(params.get('token'))
   ) {
     writeDataAttribute(documentElement, 'data-01rx-chart-frame', 'true');
-    writeDataAttribute(documentElement, 'data-chart-engine', 'advanced-loading');
+    writeDataAttribute(documentElement, 'data-chart-engine', 'liveline');
   } else {
     writeDataAttribute(documentElement, 'data-workspace', 'markets');
     writeDataAttribute(documentElement, 'data-market-boot', 'pending');

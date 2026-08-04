@@ -967,12 +967,12 @@ test('15-minute history normalization preserves missing series and chart gaps', 
     'noopener noreferrer',
   );
   assert.equal(
-    chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
+    chart.querySelector('[data-ft-role="proposal-history-liveline"]')
       .dataset.ftChartEngine,
-    'tradingview-lightweight',
+    'liveline',
   );
   assert.match(
-    chart.querySelector('[data-ft-role="proposal-history-tradingview"]')
+    chart.querySelector('[data-ft-role="proposal-history-liveline"]')
       .getAttribute('aria-label'),
     /indexed PASS and FAIL TWAP series/,
   );
@@ -1065,7 +1065,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   dom.window.close();
 });
 
-test('TradingView chart adapter splits null values and missing hours into honest segments', async () => {
+test('Liveline chart adapter splits null values and missing hours into honest segments', async () => {
   const {
     PROPOSAL_HISTORY_CROSSHAIR_MARKERS_VISIBLE,
     PROPOSAL_HISTORY_GUIDE_LINE_STYLE,
@@ -1580,7 +1580,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   );
   const proposalChartPlaceholders = Array.from(
     byRole(root, 'proposal-history-chart')
-      .querySelectorAll('.chart-tv-placeholder-button'),
+      .querySelectorAll('.chart-display-button'),
   );
   assert.equal(proposalChartPlaceholders.length, 1);
   assert.equal(proposalChartPlaceholders.filter(button => button.disabled).length, 0);
@@ -2759,7 +2759,7 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
   assert.equal(readyChart.getAttribute('aria-busy'), 'false');
   assert.ok(readyChart.classList.contains('ft-hourly-chart-enhanced'));
   assert.ok(
-    readyChart.querySelector('[data-ft-role="proposal-history-tradingview"]'),
+    readyChart.querySelector('[data-ft-role="proposal-history-liveline"]'),
   );
   assert.equal(chartMounts[0].isLive, false);
   const resultMetric = byRole(root, 'proposal-chart-header')

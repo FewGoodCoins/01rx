@@ -13,27 +13,27 @@ function _renderBackendHealth() { return _navgatorApi.renderBackendHealth(); }
 function _captureBackendHealth(res) { return _navgatorApi.captureBackendHealth(res); }
 function _apiFetch(url, options) { return _navgatorApi.fetch(url, options); }
 function _apiJson(url, options) { return _navgatorApi.json(url, options); }
-var _lightweightChartsPromise = null;
+var _livelineChartsPromise = null;
 
-function _loadLightweightCharts() {
-  if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
-  if (_lightweightChartsPromise) return _lightweightChartsPromise;
-  var localPromise = window.NAVGATOR && window.NAVGATOR.lightweightChartsPromise;
+function _loadLivelineCharts() {
+  if (window.LivelineCharts) return Promise.resolve(window.LivelineCharts);
+  if (_livelineChartsPromise) return _livelineChartsPromise;
+  var localPromise = window.NAVGATOR && window.NAVGATOR.livelineChartsPromise;
   if (localPromise) {
-    _lightweightChartsPromise = Promise.resolve(localPromise).then(function(library) {
-      if (!library) throw new Error('Bundled Lightweight Charts unavailable');
+    _livelineChartsPromise = Promise.resolve(localPromise).then(function(library) {
+      if (!library) throw new Error('Bundled Liveline chart engine unavailable');
       return library;
     }).catch(function(error) {
-      _lightweightChartsPromise = null;
+      _livelineChartsPromise = null;
       throw error;
     });
-    return _lightweightChartsPromise;
+    return _livelineChartsPromise;
   }
-  return Promise.reject(new Error('Bundled Lightweight Charts unavailable'));
+  return Promise.reject(new Error('Bundled Liveline chart engine unavailable'));
 }
 
 async function _initChartWhenReady(rawCandles, navPerToken, canInitialize) {
-  await _loadLightweightCharts();
+  await _loadLivelineCharts();
   if (typeof canInitialize === 'function' && !canInitialize()) return false;
   initChart(rawCandles, navPerToken);
   return true;

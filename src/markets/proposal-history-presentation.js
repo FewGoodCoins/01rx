@@ -5,9 +5,9 @@ function frozenRecord(value) {
 /**
  * Renderer-independent decision-chart presentation contract.
  *
- * Lightweight Charts consumes this today. A future Advanced Charts adapter
- * should translate the same semantic series, interaction expectations, and
- * live treatment into its supported overrides, studies, and external UI.
+ * Liveline consumes this today. A future licensed renderer should translate
+ * the same semantic series, interaction expectations, and live treatment into
+ * its supported overrides, studies, and external UI.
  */
 export const PROPOSAL_CHART_PRESENTATION = Object.freeze({
   theme: frozenRecord({

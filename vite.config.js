@@ -146,15 +146,6 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '127.0.0.1',
-      proxy: {
-        // Local-only access to TradingView's official playground. Production
-        // still requires an approved private Advanced Charts artifact.
-        '/__tradingview': {
-          target: 'https://charting-library.tradingview-widget.com',
-          changeOrigin: true,
-          rewrite: requestPath => requestPath.replace(/^\/__tradingview/, ''),
-        },
-      },
       fs: {
         allow: [root, path.join(root, 'packages')],
       },
