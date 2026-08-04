@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +44,20 @@ test('audit evidence helpers hash canonical bytes and reject ambiguous arguments
   const packageArtifact = await hashArtifact(path.join(ROOT, 'package.json'));
   assert.equal(packageArtifact.type, 'file');
   assert.match(packageArtifact.sha256, /^[a-f0-9]{64}$/);
+});
+
+test('audit artifact hashing refuses symbolic-link inputs', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), '01rx-audit-evidence-'));
+  context.after(() => fs.rm(directory, { force: true, recursive: true }));
+  const target = path.join(directory, 'target.json');
+  const link = path.join(directory, 'artifact.json');
+  await fs.writeFile(target, '{"trusted":true}\n', 'utf8');
+  await fs.symlink(target, link);
+
+  await assert.rejects(
+    hashArtifact(link),
+    /Audit artifacts cannot be symbolic links/,
+  );
 });
 
 test('candidate evidence binds git identity, critical files, and dirty state', async () => {

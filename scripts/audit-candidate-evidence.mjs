@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { execFile as execFileCallback } from 'node:child_process';
+import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -31,16 +32,32 @@ function safeRelativePath(relativePath) {
 }
 
 async function fileRecord(absolutePath, displayPath) {
-  const stats = await fs.lstat(absolutePath);
-  if (stats.isSymbolicLink() || !stats.isFile()) {
-    throw new Error(`Audit source must be a regular file: ${displayPath}`);
+  let handle;
+  try {
+    handle = await fs.open(
+      absolutePath,
+      fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
+    );
+  } catch (error) {
+    if (error?.code === 'ELOOP') {
+      throw new Error(`Audit source must be a regular file: ${displayPath}`);
+    }
+    throw error;
   }
-  const data = await fs.readFile(absolutePath);
-  return Object.freeze({
-    bytes: data.byteLength,
-    path: displayPath.split(path.sep).join('/'),
-    sha256: sha256(data),
-  });
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) {
+      throw new Error(`Audit source must be a regular file: ${displayPath}`);
+    }
+    const data = await handle.readFile();
+    return Object.freeze({
+      bytes: data.byteLength,
+      path: displayPath.split(path.sep).join('/'),
+      sha256: sha256(data),
+    });
+  } finally {
+    await handle.close();
+  }
 }
 
 async function directoryRecords(absoluteDirectory) {
