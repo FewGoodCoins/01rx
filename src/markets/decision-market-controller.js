@@ -1474,7 +1474,7 @@ async function hydrateMarketTokenSidebar(runtime, currentPayload) {
     return await hydrate(currentPayload) === true;
   } catch (error) {
     runtime.console?.warn?.(
-      '[01R.Trade] Market token sidebar could not apply the current-NAV snapshot.',
+      `[${PRODUCT_BRAND.displayName}] Market token sidebar could not apply the current-NAV snapshot.`,
       error,
     );
     return false;
@@ -2355,7 +2355,7 @@ function bestExecutionEstimate(market, book, outcome, side, amount, slippageBps)
 }
 
 /**
- * Mount 01R.Trade's shared decision-market workspace.
+ * Mount Trivium's shared decision-market workspace.
  *
  * Proposal browsing and market data remain public. Wallet connection is only
  * required when a user chooses to review and submit an on-chain action.

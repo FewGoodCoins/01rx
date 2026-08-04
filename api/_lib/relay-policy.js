@@ -32,7 +32,7 @@ const PRIVATE_POST = policy(
   POST_METHOD,
 );
 
-// These paths are the browser and public research surfaces shipped by 01RX.
+// These paths are the browser and public research surfaces shipped by Trivium.
 // Additions require an explicit cache and response-size review here.
 const EXACT_READ_POLICIES = new Map([
   ['/api/activity', LIVE],
@@ -94,7 +94,7 @@ function futarchyPolicy(url) {
 
 /**
  * Return the reviewed route policy, or null when the upstream route is not an
- * intentional 01RX surface. The method is checked separately so callers can
+ * intentional Trivium surface. The method is checked separately so callers can
  * return a precise Allow header without opening an unknown path.
  */
 export function relayRoutePolicy(requestUrl) {

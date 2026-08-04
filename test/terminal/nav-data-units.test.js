@@ -724,7 +724,7 @@ test('document establishes a dark canvas before module CSS loads', () => {
     html,
     /html\[data-market-navigation="pending"\]::before,[\s\S]*position: fixed;[\s\S]*inset: 0;[\s\S]*background: #101010;/,
   );
-  assert.match(html, /content: "01R\.Trade  ·  LOADING MARKET";/);
+  assert.match(html, /content: "TRIVIUM  ·  LOADING MARKET";/);
   assert.match(
     html,
     /setAttribute\('data-market-boot', 'pending'\)/,

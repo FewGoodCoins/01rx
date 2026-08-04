@@ -1,7 +1,8 @@
 export const PRODUCT_BRAND = Object.freeze({
-  displayName: '01R.Trade',
-  mark: '01R',
+  displayName: 'Trivium',
+  mark: 'T',
   canonicalOrigin: 'https://fewgoodcoins.xyz',
+  iconPath: '/logos/trivium-mark.png?v=1',
   tagline: 'Ownership + decision markets',
 });
 
@@ -16,7 +17,7 @@ export function productWordmarkMarkup(options = {}) {
     : 'product-wordmark';
   return `
     <span class="${className}" aria-hidden="true">
-      <span class="product-wordmark-core">01R</span><span class="product-wordmark-domain">.Trade</span>
+      <span class="product-wordmark-core">Trivium</span>
     </span>
   `;
 }

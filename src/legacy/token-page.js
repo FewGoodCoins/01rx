@@ -1085,7 +1085,7 @@ function _renderIdentityLaunchpadLogo() {
 function initTokenPageUI() {
   if (!CFG) return;
   document.body.classList.add('is-dashboard');
-  document.title = '01R.Trade · ' + CFG.ticker + '/USD';
+  document.title = _productBrand.displayName + ' · ' + CFG.ticker + '/USD';
   _setEmbedGradientEnabled(_embedGradientEnabled);
   _setEmbedExtrasEnabled(_embedExtrasEnabled);
   _renderEmbedSummary();
@@ -9015,7 +9015,7 @@ function _syncStatsCollapseButton() {
   btn.setAttribute('aria-label', btn.title);
 }
 
-// The 01R.Trade frame hides the overlay controls, so its core Treasury and Effective
+// The Trivium frame hides the overlay controls, so its core Treasury and Effective
 // Supply rows must remain expanded by default or users have no way to reveal them.
 var _overlayRowsCollapsed = false;
 function toggleStatsCollapse() {
@@ -10923,7 +10923,7 @@ function initLivelineChart() {
   _lwPrice = _lwChart.addSeries(LivelineCharts.AreaSeries, {
     livelineColor: '#5b8cff',
     livelineLabel: 'Price',
-    // Native series own coordinates and autoscaling only. The 01R.Trade primitive
+    // Native series own coordinates and autoscaling only. The Trivium primitive
     // below is the single visual owner of each historic stroke.
     lineColor: 'rgba(0,0,0,0)',
     topColor: _isChartEmbed

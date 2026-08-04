@@ -557,7 +557,7 @@ function makeWindow(options = {}) {
   const marketWalletSlot = options.marketWalletSlot
     ? `
       <header class="site-header">
-        <span data-test-brand>01R.Trade</span>
+        <span data-test-brand>Trivium</span>
         <div
           data-01rx-market-wallet-slot
           data-01r-theme-scope
@@ -1430,7 +1430,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.ok(byRole(root, 'terminal'));
   assert.equal(
     root.querySelector('.product-wordmark')?.textContent.replace(/\s+/g, ''),
-    '01R.Trade',
+    'Trivium',
   );
   assert.equal(root.getAttribute('data-navgator-app'), 'decision-markets');
   assert.ok(byRole(root, 'market-list'));
@@ -2299,7 +2299,7 @@ test('token Markets replaces an unknown token with the canonical SOLO spot works
   assert.equal(controller.getState().workspaceTab, 'tokens');
   assert.equal(window.location.search, '?token=solo&view=markets&tab=tokens');
   assert.equal(byRole(root, 'market-title').textContent, 'SOLO');
-  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed 01R\.Trade asset/i);
+  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed Trivium asset/i);
   assert.equal(root.classList.contains('ft-has-system-message'), true);
 
   cleanupMount(mounted);
@@ -2430,7 +2430,7 @@ test('token Markets ignores the retired implicit-live marker and preserves the r
   cleanupMount(mounted);
 });
 
-test('token Markets places the live wallet control alongside the global 01R.Trade brand', async () => {
+test('token Markets places the live wallet control alongside the global Trivium brand', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const provider = {
     publicKey: WALLET_ADDRESS,
@@ -2457,7 +2457,7 @@ test('token Markets places the live wallet control alongside the global 01R.Trad
   const walletStatus = headerSlot.querySelector('[data-ft-role="wallet-status"]');
   assert.ok(walletStatus);
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
-  assert.match(headerSlot.parentElement.textContent, /01R\.Trade[\s\S]+Connect wallet/);
+  assert.match(headerSlot.parentElement.textContent, /Trivium[\s\S]+Connect wallet/);
 
   walletStatus.querySelector('[data-ft-action="connect-wallet"]').click();
   await settleUntil(window, () => controller.getState().walletAddress === WALLET_ADDRESS);
@@ -4023,7 +4023,7 @@ test('audit release stays read-only without hiding public market data', async ()
     executionRelease: {
       code: 'AUDIT_REVIEW_REQUIRED',
       enabled: false,
-      message: 'Trading is paused while 01R.Trade completes independent security review.',
+      message: 'Trading is paused while Trivium completes independent security review.',
       phase: 'audit-readiness-v1',
     },
     window: terminal.window,

@@ -382,7 +382,7 @@ export function createDecisionAttributionService(dependencies = {}) {
     transaction.partialSign(authority);
     if (!transaction.verifySignatures(false)) {
       throw tradingError(
-        '01RX attribution signature could not be verified',
+        'Attribution signature could not be verified',
         'ATTRIBUTION_SIGNING_FAILED',
         500,
       );

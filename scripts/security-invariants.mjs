@@ -512,7 +512,7 @@ export async function runSecurityInvariants({
 function printHumanReport(report) {
   const passing = report.checks.filter(item => item.ok).length;
   process.stdout.write(
-    `01RX security invariants: ${report.ok ? 'PASS' : 'FAIL'} (${passing}/${report.checks.length})\n`,
+    `Trivium security invariants: ${report.ok ? 'PASS' : 'FAIL'} (${passing}/${report.checks.length})\n`,
   );
   report.checks.forEach((item) => {
     process.stdout.write(`${item.ok ? 'PASS' : 'FAIL'} ${item.id}: ${item.summary}\n`);

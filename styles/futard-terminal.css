@@ -5417,7 +5417,7 @@ html[data-chart-engine="liveline"] .tv-logo-circle {
   left: 0;
   z-index: 21;
   color: #8b9691;
-  content: "01R.Trade  ·  LOADING MARKET";
+  content: "TRIVIUM  ·  LOADING MARKET";
   font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.08em;
   text-align: center;
@@ -10566,7 +10566,7 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 }
 
 /* The ownership chart iframe reuses NAVgator's proven Price/NAV chart engine,
-   but exposes only the chart surface inside the 01R.Trade trading workspace. */
+   but exposes only the chart surface inside the Trivium trading workspace. */
 
 .chart-drawing-rail-01rx {
   display: none;

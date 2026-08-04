@@ -335,7 +335,7 @@ test('API relay overrides upstream cache policy for public, private, and failed 
       assert.deepEqual(JSON.parse(response.body.toString()), {
         ok: false,
         code: 'UPSTREAM_UNAVAILABLE',
-        error: '01RX upstream is temporarily unavailable',
+        error: 'Upstream service is temporarily unavailable',
       });
       assert.doesNotMatch(response.body.toString(), /upstream-tag/);
     }
@@ -391,7 +391,7 @@ test('API relay rejects oversized request and response bodies before forwarding 
     },
   });
   assert.equal(oversizedResponse.statusCode, 502);
-  assert.equal(oversizedResponse.body.error, '01RX upstream response is too large');
+  assert.equal(oversizedResponse.body.error, 'Upstream response is too large');
   assert.equal(oversizedResponse.headers['cache-control'], PRIVATE_NO_STORE);
   assert.equal(fetchCalls, 1);
 });
@@ -425,7 +425,7 @@ test('API relay rejects redirects and timeouts without exposing upstream details
     },
   });
   assert.equal(redirectResponse.statusCode, 502);
-  assert.equal(redirectResponse.body.error, '01RX upstream is temporarily unavailable');
+  assert.equal(redirectResponse.body.error, 'Upstream service is temporarily unavailable');
   assert.equal(redirectResponse.headers.location, undefined);
 
   const timeoutResponse = responseRecorder();
@@ -439,7 +439,7 @@ test('API relay rejects redirects and timeouts without exposing upstream details
     },
   });
   assert.equal(timeoutResponse.statusCode, 504);
-  assert.equal(timeoutResponse.body.error, '01RX upstream timed out');
+  assert.equal(timeoutResponse.body.error, 'Upstream service timed out');
   assert.equal(timeoutResponse.headers['cache-control'], PRIVATE_NO_STORE);
 });
 

@@ -5,7 +5,10 @@ import { JSDOM } from 'jsdom';
 
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const faviconAsset = fs.readFileSync(
-  new URL('../public/logos/01r-mark.png', import.meta.url),
+  new URL('../public/logos/trivium-mark.png', import.meta.url),
+);
+const socialAsset = fs.readFileSync(
+  new URL('../public/logos/trivium-social.png', import.meta.url),
 );
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
@@ -57,7 +60,7 @@ const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
 
-test('01R.Trade exposes no user-facing NAVgator navigation', () => {
+test('Trivium exposes no user-facing NAVgator navigation', () => {
   assert.doesNotMatch(indexSource, /<a\b[^>]*href=["'][^"']*navgator/i);
   assert.doesNotMatch(indexSource, /site-header-navgator/);
   assert.match(indexSource, /rel="canonical" href="https:\/\/fewgoodcoins\.xyz\/"/);
@@ -76,22 +79,36 @@ test('01R.Trade exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('browser icon metadata uses only the compact cache-busted 01R mark', () => {
+test('browser icon metadata uses only the compact cache-busted Trivium mark', () => {
   const iconLinks = [...indexSource.matchAll(
     /<link\b[^>]*rel="(?:icon|shortcut icon|apple-touch-icon)"[^>]*>/g,
   )].map(match => match[0]);
 
   assert.equal(iconLinks.length, 3);
   iconLinks.forEach((link) => {
-    assert.match(link, /href="\/logos\/01r-mark\.png\?v=1"/);
+    assert.match(link, /href="\/logos\/trivium-mark\.png\?v=1"/);
     assert.doesNotMatch(link, /navgator|favicon\.ico/i);
   });
   assert.equal(faviconAsset.subarray(1, 4).toString('ascii'), 'PNG');
   assert.equal(faviconAsset.readUInt32BE(16), 512);
   assert.equal(faviconAsset.readUInt32BE(20), 512);
+  assert.equal(socialAsset.subarray(1, 4).toString('ascii'), 'PNG');
+  assert.equal(socialAsset.readUInt32BE(16), 1200);
+  assert.equal(socialAsset.readUInt32BE(20), 630);
+  assert.match(indexSource, /logos\/trivium-social\.png\?v=1/);
+  [
+    '01r-mark.png',
+    '01r-mark.svg',
+    '01r-trade-social.png',
+    '01r-trade-social.svg',
+    '01rx-favicon.png',
+    '01rx.png',
+  ].forEach((asset) => {
+    assert.equal(fs.existsSync(new URL(`../public/logos/${asset}`, import.meta.url)), false, asset);
+  });
 });
 
-test('product metadata and accessible copy use only the 01R.Trade brand', () => {
+test('product metadata and accessible copy use only the Trivium brand', () => {
   const dom = new JSDOM(indexSource);
   dom.window.document.querySelectorAll('script, style').forEach(node => node.remove());
   const accessibleCopy = [
@@ -103,21 +120,21 @@ test('product metadata and accessible copy use only the 01R.Trade brand', () => 
       .map(node => node.getAttribute('content') || ''),
   ].join('\n');
 
-  assert.match(accessibleCopy, /01R\.Trade/);
-  assert.doesNotMatch(accessibleCopy, /FOMO|01RX/);
+  assert.match(accessibleCopy, /Trivium/);
+  assert.doesNotMatch(accessibleCopy, /FOMO|01RX|01R\.Trade/);
   assert.match(
     indexSource,
-    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?01R[\s\S]*?\.Trade/,
+    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?Trivium/,
   );
   assert.match(
     refinementCss,
     /\.product-wordmark\s*\{[\s\S]*?font-family:[\s\S]*?font-weight: 780;/,
   );
-  assert.doesNotMatch(indexSource, /FOMO|onrx\.trade|01rx-favicon/);
+  assert.doesNotMatch(indexSource, /FOMO|01R\.Trade|onrx\.trade|01rx-favicon/);
   assert.doesNotMatch(refinementCss, /site-header-market-name|FOMO/);
-  assert.match(indexSource, /property="og:site_name" content="01R\.Trade"/);
+  assert.match(indexSource, /property="og:site_name" content="Trivium"/);
   assert.match(indexSource, /property="og:url" content="https:\/\/fewgoodcoins\.xyz\/"/);
-  assert.match(indexSource, /"name": "01R\.Trade"/);
+  assert.match(indexSource, /"name": "Trivium"/);
   assert.match(indexSource, /"url": "https:\/\/fewgoodcoins\.xyz\/"/);
   assert.doesNotMatch(indexSource, /decision-markets-home-root/);
   assert.doesNotMatch(frameCss, /is-market-discovery|data-ft-mode="discovery"/);
@@ -148,7 +165,7 @@ test('decision and token chart readouts share one typography scale', () => {
   );
 });
 
-test('01RX hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
+test('Trivium hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
   assert.doesNotMatch(indexSource, /id="chart-nav-trigger"/);
   assert.doesNotMatch(indexSource, /id="btn-growth-chart-toolbar"/);
   assert.doesNotMatch(indexSource, /TradingView weekly timeframe placeholder/);
@@ -548,7 +565,7 @@ test('decision chart keeps explicit starting points and animated Liveline endpoi
   );
 });
 
-test('global wallet control uses the white 01R.Trade header treatment', () => {
+test('global wallet control uses the white Trivium header treatment', () => {
   assert.match(
     frameCss,
     /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #eeeeea;[\s\S]*?--ft-focus: #ffffff;/,

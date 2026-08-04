@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Trivium</title>
+  <rect width="512" height="512" rx="72" fill="#0b0c0c"/>
+  <rect x="24" y="24" width="464" height="464" rx="52" fill="none" stroke="#343737" stroke-width="8"/>
+  <path d="M142 154L256 256L370 154M256 256V374" fill="none" stroke="#f4f4f0" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="142" cy="154" r="18" fill="#f4f4f0"/>
+  <circle cx="370" cy="154" r="18" fill="#f4f4f0"/>
+  <circle cx="256" cy="374" r="18" fill="#f4f4f0"/>
+  <circle cx="256" cy="256" r="13" fill="#35d093"/>
+</svg>

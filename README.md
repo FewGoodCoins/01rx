@@ -1,19 +1,19 @@
-# 01RX
+# Trivium
 
-01RX is a focused trading interface for ownership tokens and their live or
+Trivium is a focused trading interface for ownership tokens and their live or
 resolved decision markets. This repository owns the product shell, market
 navigation, chart experience, wallet connection, transaction review, and
 trading UI.
 
-01Resolved is the canonical indexed-data source through 01RX's server-only API:
+01Resolved is the canonical indexed-data source through Trivium's server-only API:
 current ownership-token snapshots, decision indexes, proposal price history,
 and observed decision trades. Live decision accounts are independently
-validated from Solana. 01RX also owns guarded DFlow ownership-token routing,
+validated from Solana. Trivium also owns guarded DFlow ownership-token routing,
 transaction simulation, and submission in its server-only API. Browser code
 uses `@01resolved/api-client`; API credentials never enter the browser.
 
 01Resolved does not currently expose ownership-token OHLCV or historic NAV to
-01RX. Those chart series intentionally show as unavailable. 01RX does not
+Trivium. Those chart series intentionally show as unavailable. Trivium does not
 synthesize them or fall back to another provider.
 
 The migrated application includes:
@@ -49,7 +49,7 @@ routes remain available, for example:
 The Vite server handles `/api/current-nav`, futarchy reads, and
 `/api/beta/trading` on the same boundaries as Vercel. Unsupported legacy data
 routes return an explicit `DATA_NOT_AVAILABLE_FROM_01RESOLVED` response. Without a local
-`ZERO_ONE_RESOLVED_API_KEY`, current NAV reads use the deployed 01RX public
+`ZERO_ONE_RESOLVED_API_KEY`, current NAV reads use the deployed Trivium public
 endpoint so the credential still never enters the browser. Local development
 uses DFlow's development quote endpoint by default. To exercise the production
 endpoint locally, add `DFLOW_API_KEY`, `HELIUS_URL`, and
@@ -57,9 +57,9 @@ endpoint locally, add `DFLOW_API_KEY`, `HELIUS_URL`, and
 
 ## Production boundary
 
-Production indexed data is handled locally by the 01RX serverless API and calls
+Production indexed data is handled locally by the Trivium serverless API and calls
 01Resolved with the server-only key. Ownership and decision trading stay in
-01RX and use the server-only DFlow and Solana configuration. In the 01RX Vercel
+Trivium and use the server-only DFlow and Solana configuration. In the Trivium Vercel
 project set:
 
 ```text
@@ -87,14 +87,14 @@ order of operations and rollback path.
 
 ## Transaction safety
 
-01RX never signs automatically. Wallet actions remain bound to reviewed mainnet
+Trivium never signs automatically. Wallet actions remain bound to reviewed mainnet
 program IDs, exact transaction bytes, a recent blockhash, simulation output,
 the connected fee payer, and explicit user approval. DFlow responses and signed
-transactions are revalidated by 01RX's server-only guard before submission.
+transactions are revalidated by Trivium's server-only guard before submission.
 
-Decision-market swaps receive a server-validated, zero-fee 01RX co-signature
+Decision-market swaps receive a server-validated, zero-fee Trivium co-signature
 before simulation. The co-signature is attached to a Memo instruction containing
-`01RX:D1:0`; the marker means decision attribution version 1 with a 0 bps 01RX
+`01RX:D1:0`; the marker means decision attribution version 1 with a 0 bps Trivium
 fee. Market PASS/FAIL swaps compare the MetaDAO Futarchy AMM with the proposal's
 canonical Manifest book and select the higher-output fully fillable route.
 Limit orders continue to rest explicitly on Manifest. The selected swap and
@@ -118,11 +118,11 @@ for its scope and the upgrade policy.
 
 Decision history uses an engine-neutral presentation contract shared by its
 renderers. Liveline is the current interactive renderer for ownership and
-decision charts. The 01R.Trade interaction layer adds wheel zoom, drag pan,
+decision charts. The Trivium interaction layer adds wheel zoom, drag pan,
 pinch zoom, and explicit starting points while Liveline owns the animated
 endpoints. Native observations and gaps are preserved instead of inventing
 values between incomplete intervals. A future licensed renderer can consume
-the same 01RX data and presentation models without changing route or API
+the same Trivium data and presentation models without changing route or API
 contracts.
 
 Projected NAV is illustrative. It assumes the latest effective supply stays
