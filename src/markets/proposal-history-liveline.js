@@ -2,7 +2,13 @@ import { Liveline } from 'liveline';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  chartWheelZoomFactor,
+  STABLE_CHART_DATA_PLOT_RATIO,
+  stableChartViewportProjection,
+} from '../chart/stable-chart-viewport.js';
+import {
   proposalChartPointTime,
+  proposalConditionalSpotChangePct,
   proposalHistoryChartObservations,
 } from './proposal-history-model.js';
 import { PROPOSAL_CHART_SERIES_PRESENTATION } from './proposal-history-presentation.js';
@@ -17,6 +23,7 @@ const RANGE_SECONDS = Object.freeze({
 });
 const WINDOW_BUFFER_RATIO = 1.08;
 const LIVE_LERP_SPEED = 0.08;
+const INTERACTION_LERP_SPEED = 0.8;
 const PLOT_TOP_PADDING = 54;
 // Liveline adds up to 0.2 of adaptive easing internally. Leave enough
 // headroom to keep the effective coefficient at or below 1.
@@ -92,6 +99,11 @@ function plotPosition(ratio, startPadding, endPadding) {
   return `calc(${normalized * 100}% + ${pixelOffset}px)`;
 }
 
+function plotSize(ratio, startPadding, endPadding) {
+  const normalized = Math.max(0, Math.min(1, Number(ratio) || 0));
+  return `calc(${normalized * 100}% - ${normalized * (startPadding + endPadding)}px)`;
+}
+
 function mergeRanges(ranges) {
   const sorted = ranges
     .filter(range => Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from)
@@ -157,7 +169,7 @@ export function proposalLivelineDataset(history, options = {}) {
       const value = Number(point?.[definition.field]);
       if (!Number.isFinite(value) || value < 0) return null;
       return {
-        time: proposalChartPointTime(point) / 1_000 + timeOffset,
+        time: proposalChartPointTime(point) / 1_000,
         value,
       };
     }).filter(Boolean);
@@ -189,35 +201,39 @@ export function proposalLivelineDataset(history, options = {}) {
   };
 }
 
-function gapMaskElements(dataset) {
-  const visibleTo = (dataset.viewportEnd ?? dataset.lastTime)
-    + dataset.windowSeconds * 0.015;
-  const visibleFrom = visibleTo - dataset.windowSeconds;
-  const duration = Math.max(1, visibleTo - visibleFrom);
+function sourceViewport(dataset) {
+  const visibleTo = dataset.viewportEnd ?? dataset.lastTime;
+  return {
+    from: visibleTo - dataset.windowSeconds * STABLE_CHART_DATA_PLOT_RATIO,
+    to: visibleTo,
+  };
+}
+
+function gapMaskElements(dataset, projection) {
+  const visibleFrom = projection.sourceFrom;
+  const visibleTo = projection.sourceRight;
   return dataset.gapRanges.map((gap, index) => {
     const from = Math.max(visibleFrom, gap.from);
     const to = Math.min(visibleTo, gap.to);
     if (to <= from) return null;
-    const left = Math.max(0, Math.min(100, ((from - visibleFrom) / duration) * 100));
-    const width = Math.max(0, Math.min(100 - left, ((to - from) / duration) * 100));
+    const left = projection.toPlotRatio(from);
+    const width = projection.toPlotRatio(to) - left;
     return createElement('span', {
       'aria-hidden': 'true',
       className: 'ft-liveline-gap-mask',
       'data-ft-chart-gap': '',
       key: `gap-${index}-${from}`,
       style: {
-        left: `${left}%`,
-        width: `${width}%`,
+        left: plotPosition(left, PLOT_PADDING.left, PLOT_PADDING.right),
+        width: plotSize(width, PLOT_PADDING.left, PLOT_PADDING.right),
       },
     });
   }).filter(Boolean);
 }
 
-function phaseBandElements(dataset, preTwap, windowEndedAt) {
-  const visibleTo = (dataset.viewportEnd ?? dataset.lastTime)
-    + dataset.windowSeconds * 0.015;
-  const visibleFrom = visibleTo - dataset.windowSeconds;
-  const duration = Math.max(1, visibleTo - visibleFrom);
+function phaseBandElements(projection, preTwap, windowEndedAt) {
+  const visibleFrom = projection.sourceFrom;
+  const visibleTo = projection.sourceRight;
   const ranges = [
     {
       key: 'pre-twap',
@@ -240,47 +256,62 @@ function phaseBandElements(dataset, preTwap, windowEndedAt) {
       'data-ft-chart-band': range.key,
       key: range.key,
       style: {
-        left: `${((from - visibleFrom) / duration) * 100}%`,
-        width: `${((to - from) / duration) * 100}%`,
+        left: plotPosition(
+          projection.toPlotRatio(from),
+          PLOT_PADDING.left,
+          PLOT_PADDING.right,
+        ),
+        width: plotSize(
+          projection.toPlotRatio(to) - projection.toPlotRatio(from),
+          PLOT_PADDING.left,
+          PLOT_PADDING.right,
+        ),
       },
     });
   }).filter(Boolean);
 }
 
-function startPointElements(dataset, series) {
-  const visibleTo = (dataset.viewportEnd ?? dataset.lastTime)
-    + dataset.timeOffset
-    + dataset.windowSeconds * 0.015;
-  const visibleFrom = visibleTo - dataset.windowSeconds;
-  const visiblePoints = series.flatMap(definition => definition.data.filter(point => (
-    point.time >= visibleFrom && point.time <= visibleTo
-  )));
-  const values = visiblePoints.map(point => point.value).filter(Number.isFinite);
-  if (!values.length) return [];
+function paddedValueRange(values) {
+  if (!values.length) return null;
   let minimum = Math.min(...values);
   let maximum = Math.max(...values);
-  if (!(maximum > minimum)) {
-    const padding = Math.max(Math.abs(maximum) * 0.02, 1);
-    minimum -= padding;
-    maximum += padding;
+  const rawRange = maximum - minimum;
+  const minimumRange = rawRange * 0.1 || 0.4;
+  if (rawRange < minimumRange) {
+    const middle = (minimum + maximum) / 2;
+    minimum = middle - minimumRange / 2;
+    maximum = middle + minimumRange / 2;
   } else {
-    const padding = (maximum - minimum) * 0.12;
+    const padding = rawRange * 0.12;
     minimum -= padding;
     maximum += padding;
   }
-  const duration = Math.max(1, visibleTo - visibleFrom);
+  return { minimum, maximum };
+}
+
+function startPointElements(series, projection) {
+  const visibleFrom = projection.sourceFrom;
+  const visibleTo = projection.sourceTo;
+  const ranges = series.map((definition) => {
+    const values = definition.data
+      .filter(point => point.time >= visibleFrom && point.time <= visibleTo)
+      .map(point => point.value)
+      .filter(Number.isFinite);
+    return paddedValueRange(values);
+  }).filter(Boolean);
+  if (!ranges.length) return [];
+  const minimum = Math.min(...ranges.map(range => range.minimum));
+  const maximum = Math.max(...ranges.map(range => range.maximum));
   const valueRange = Math.max(Number.EPSILON, maximum - minimum);
   return series.map((definition) => {
-    const first = definition.data.find(point => (
-      point.time >= visibleFrom && point.time <= visibleTo
-    ));
-    if (!first) return null;
-    const x = (first.time - visibleFrom) / duration;
+    const first = definition.data[0];
+    if (!first || first.time < visibleFrom || first.time > visibleTo) return null;
+    const x = projection.toPlotRatio(first.time);
     const y = (maximum - first.value) / valueRange;
     return createElement('span', {
       'aria-hidden': 'true',
       className: 'ft-liveline-start-point',
-      key: `start-${definition.id}-${first.time}`,
+      key: `start-${definition.id}`,
       style: {
         '--ft-liveline-point-color': definition.color,
         left: plotPosition(x, PLOT_PADDING.left, PLOT_PADDING.right),
@@ -288,6 +319,38 @@ function startPointElements(dataset, series) {
       },
     });
   }).filter(Boolean);
+}
+
+function nearestObservation(observations, sourceTime) {
+  if (!observations.length || !Number.isFinite(sourceTime)) return null;
+  let low = 0;
+  let high = observations.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (proposalChartPointTime(observations[middle]) / 1_000 < sourceTime) low = middle + 1;
+    else high = middle;
+  }
+  const right = observations[low];
+  const left = observations[Math.max(0, low - 1)];
+  const leftTime = proposalChartPointTime(left) / 1_000;
+  const rightTime = proposalChartPointTime(right) / 1_000;
+  return Math.abs(leftTime - sourceTime) <= Math.abs(rightTime - sourceTime)
+    ? left
+    : right;
+}
+
+function updateSpotChange(target, value) {
+  if (!target) return;
+  target.classList.remove('ft-is-positive', 'ft-is-negative', 'ft-is-flat');
+  target.textContent = Number.isFinite(value)
+    ? `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
+    : '—';
+  if (!Number.isFinite(value)) return;
+  target.classList.add(value > 0
+    ? 'ft-is-positive'
+    : value < 0
+      ? 'ft-is-negative'
+      : 'ft-is-flat');
 }
 
 /**
@@ -321,9 +384,20 @@ export function createProposalHistoryChart(options = {}) {
   let pinch = null;
   let interactionActive = false;
   let interactionTimer = 0;
-  let staticRevision = 0;
+  let lastPrepared = null;
+  let lastProjection = null;
   const chartRoot = container.closest('.ft-hourly-chart') || container;
-  const readoutTime = chartRoot.querySelector('[data-ft-role="hourly-readout-time"]');
+  const readout = {
+    time: chartRoot.querySelector('[data-ft-role="hourly-readout-time"]'),
+    values: new Map(PROPOSAL_LIVELINE_SERIES.map(definition => [
+      definition.field,
+      chartRoot.querySelector(`[data-ft-readout-value="${definition.field}"]`),
+    ])),
+    spotChanges: new Map(['passPrice', 'failPrice'].map(field => [
+      field,
+      chartRoot.querySelector(`[data-ft-readout-spot-change="${field}"]`),
+    ])),
+  };
 
   function dataset() {
     const prepared = proposalLivelineDataset(currentHistory, {
@@ -339,16 +413,6 @@ export function createProposalHistoryChart(options = {}) {
       const maximumPan = Math.max(0, fullDuration - prepared.windowSeconds * 0.35);
       panOffsetSeconds = Math.max(0, Math.min(maximumPan, panOffsetSeconds));
       prepared.viewportEnd = prepared.lastTime - panOffsetSeconds;
-      if (panOffsetSeconds > 0) {
-        prepared.timeOffset += panOffsetSeconds;
-        prepared.series = prepared.series.map(definition => ({
-          ...definition,
-          data: definition.data.map(point => ({
-            ...point,
-            time: point.time + panOffsetSeconds,
-          })),
-        }));
-      }
     }
     return prepared;
   }
@@ -362,11 +426,66 @@ export function createProposalHistoryChart(options = {}) {
   root = createRoot(container);
   container.dataset.ftChartEngine = PROPOSAL_HISTORY_ENGINE;
 
+  function plotWidth() {
+    return Math.max(1, container.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
+  }
+
+  function updateReadoutAt(sourceTime) {
+    const observation = nearestObservation(lastPrepared?.observations || [], sourceTime);
+    const observationMilliseconds = proposalChartPointTime(observation);
+    const observationTime = Number.isFinite(observationMilliseconds)
+      ? observationMilliseconds / 1_000
+      : NaN;
+    if (readout.time) readout.time.textContent = Number.isFinite(observationTime)
+      ? formatUtcTime(observationTime)
+      : '—';
+    PROPOSAL_LIVELINE_SERIES.forEach((definition) => {
+      const target = readout.values.get(definition.field);
+      if (!target) return;
+      const rawValue = observation?.[definition.field];
+      const value = rawValue == null || rawValue === '' ? NaN : Number(rawValue);
+      target.textContent = Number.isFinite(value) && value >= 0 ? formatPrice(value) : '—';
+    });
+    const underlying = observation?.underlyingPrice;
+    ['passPrice', 'failPrice'].forEach((field) => {
+      updateSpotChange(
+        readout.spotChanges.get(field),
+        proposalConditionalSpotChangePct(observation?.[field], underlying),
+      );
+    });
+  }
+
+  function clearOwnedCrosshair({ resetReadout = true } = {}) {
+    container.classList.remove('has-liveline-crosshair');
+    if (resetReadout && lastProjection) updateReadoutAt(lastProjection.sourceTo);
+  }
+
+  function showOwnedCrosshair(event) {
+    if (!lastProjection || event.pointerType === 'touch') return;
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (
+      x < PLOT_PADDING.left
+      || x > container.clientWidth - PLOT_PADDING.right
+      || y < PLOT_PADDING.top
+      || y > container.clientHeight - PLOT_PADDING.bottom
+    ) {
+      clearOwnedCrosshair();
+      return;
+    }
+    const ratio = (x - PLOT_PADDING.left) / plotWidth();
+    container.style.setProperty('--ft-liveline-crosshair-x', `${x}px`);
+    container.classList.add('has-liveline-crosshair');
+    updateReadoutAt(lastProjection.sourceTimeAtPlotRatio(ratio));
+  }
+
   function beginInteraction() {
     if (interactionTimer) {
       runtime.clearTimeout(interactionTimer);
       interactionTimer = 0;
     }
+    clearOwnedCrosshair();
     if (!interactionActive) {
       interactionActive = true;
       render();
@@ -378,42 +497,52 @@ export function createProposalHistoryChart(options = {}) {
     interactionTimer = runtime.setTimeout(() => {
       interactionTimer = 0;
       interactionActive = false;
-      staticRevision += 1;
       render();
     }, delay);
   }
 
   function renderStaticChange() {
-    staticRevision += 1;
     render();
   }
 
   function render() {
     const prepared = dataset();
     if (!prepared?.series?.length) return;
+    const viewport = sourceViewport(prepared);
+    const projection = stableChartViewportProjection(viewport, {
+      nowSeconds: prepared.lastTime + prepared.timeOffset,
+    });
+    lastPrepared = prepared;
+    lastProjection = projection;
     const playback = proposalLivelinePlaybackOptions(
       isLive && panOffsetSeconds === 0,
     );
-    const displayNow = prepared.viewportEnd + prepared.timeOffset;
     const series = prepared.series.map((definition) => {
-      const data = definition.data.filter(point => point.time <= displayNow);
+      const sourceData = definition.data.filter(point => point.time <= viewport.to);
       return {
         id: definition.id,
-        data,
-        value: data[data.length - 1]?.value,
+        data: sourceData,
+        value: sourceData[sourceData.length - 1]?.value,
         color: cssColor(
           runtime,
           themeRoot,
           definition.colorVariable,
           definition.fallbackColor,
         ),
-        // Liveline owns the visible series identity, endpoint labels, and hover
-        // values. The renderer-neutral Trivium readout remains only as a fallback.
+        // Keep semantic labels in the renderer-neutral model. The external
+        // readout owns hover values so it never fades at the live edge.
         label: definition.label,
       };
     }).filter(definition => (
       definition.data.length >= 2 && Number.isFinite(definition.value)
     ));
+    const rendererSeries = series.map(({ label: _label, ...definition }) => ({
+      ...definition,
+      data: definition.data.map(point => ({
+        ...point,
+        time: projection.toRenderTime(point.time),
+      })),
+    }));
     root.render(createElement(
       'div',
       {
@@ -421,49 +550,71 @@ export function createProposalHistoryChart(options = {}) {
         'data-ft-role': 'proposal-history-liveline',
       },
       createElement(Liveline, {
-        key: playback.paused ? `resolved-${staticRevision}` : 'live',
+        key: 'proposal-liveline-chart',
         badge: false,
         className: 'ft-liveline-canvas',
         data: [],
         emptyText: 'No indexed market history',
         fill: false,
-        formatTime: value => formatUtcTime(value - prepared.timeOffset),
+        formatTime: value => formatUtcTime(projection.toSourceTime(value)),
         formatValue: formatPrice,
         grid: true,
-        lerpSpeed: playback.lerpSpeed,
+        lerpSpeed: interactionActive ? INTERACTION_LERP_SPEED : playback.lerpSpeed,
         momentum: false,
         padding: PLOT_PADDING,
         paused: playback.paused && !interactionActive,
         pulse: playback.pulse,
-        scrub: true,
-        series,
+        scrub: false,
+        series: rendererSeries,
         seriesToggleCompact: true,
         theme: currentTheme,
         value: 0,
-        window: prepared.windowSeconds,
-        onHover: (point) => {
-          if (!readoutTime) return;
-          readoutTime.textContent = formatUtcTime(
-            (point?.time ?? prepared.lastTime + prepared.timeOffset) - prepared.timeOffset,
-          );
-        },
+        window: projection.renderWindowSeconds,
       }),
-      ...phaseBandElements(prepared, currentHistory.preTwap, options.windowEndedAt),
-      ...gapMaskElements(prepared),
-      ...startPointElements(prepared, series),
+      ...phaseBandElements(
+        projection,
+        currentHistory.preTwap,
+        options.windowEndedAt,
+      ),
+      ...gapMaskElements(prepared, projection),
+      ...startPointElements(series, projection),
     ));
+    updateReadoutAt(projection.sourceTo);
   }
 
   render();
-  function zoomBy(factor) {
-    zoomScale = Math.max(0.15, Math.min(4, zoomScale * factor));
+  function zoomBy(
+    factor,
+    plotRatio = lastProjection?.dataPlotRatio ?? STABLE_CHART_DATA_PLOT_RATIO,
+  ) {
+    const prepared = dataset();
+    if (!prepared) return;
+    const viewport = sourceViewport(prepared);
+    const projection = stableChartViewportProjection(viewport, {
+      nowSeconds: prepared.lastTime + prepared.timeOffset,
+    });
+    const nextZoomScale = Math.max(0.15, Math.min(4, zoomScale * factor));
+    const appliedFactor = nextZoomScale / zoomScale;
+    if (Math.abs(appliedFactor - 1) < Number.EPSILON) return;
+    const anchor = projection.sourceTimeAtPlotRatio(plotRatio);
+    const nextViewportEnd = anchor + (viewport.to - anchor) * appliedFactor;
+    zoomScale = nextZoomScale;
+    panOffsetSeconds = prepared.lastTime - nextViewportEnd;
     render();
   }
 
   function onWheel(event) {
     event.preventDefault();
     beginInteraction();
-    zoomBy(event.deltaY > 0 ? 1.18 : 0.82);
+    const rect = container.getBoundingClientRect();
+    const plotRatio = Math.max(0, Math.min(
+      1,
+      (event.clientX - rect.left - PLOT_PADDING.left) / plotWidth(),
+    ));
+    zoomBy(chartWheelZoomFactor(event.deltaY, {
+      deltaMode: event.deltaMode,
+      viewportHeight: container.clientHeight,
+    }), plotRatio);
     endInteraction(140);
   }
 
@@ -473,8 +624,23 @@ export function createProposalHistoryChart(options = {}) {
     beginInteraction();
     if (pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
+      const prepared = dataset();
+      const viewport = prepared ? sourceViewport(prepared) : null;
+      const projection = prepared && viewport
+        ? stableChartViewportProjection(viewport, {
+          nowSeconds: prepared.lastTime + prepared.timeOffset,
+        })
+        : null;
+      const rect = container.getBoundingClientRect();
+      const plotRatio = Math.max(0, Math.min(
+        1,
+        ((first.x + second.x) / 2 - rect.left - PLOT_PADDING.left) / plotWidth(),
+      ));
       pinch = {
-        distance: Math.hypot(second.x - first.x, second.y - first.y),
+        anchor: projection?.sourceTimeAtPlotRatio(plotRatio),
+        distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+        lastTime: prepared?.lastTime,
+        viewportEnd: viewport?.to,
         zoomScale,
       };
       drag = null;
@@ -489,15 +655,29 @@ export function createProposalHistoryChart(options = {}) {
   }
 
   function onPointerMove(event) {
-    if (!pointers.has(event.pointerId)) return;
+    if (!pointers.has(event.pointerId)) {
+      showOwnedCrosshair(event);
+      return;
+    }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pinch && pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
       const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
-      zoomScale = Math.max(
+      const nextZoomScale = Math.max(
         0.15,
         Math.min(4, pinch.zoomScale * (pinch.distance / distance)),
       );
+      const appliedFactor = nextZoomScale / pinch.zoomScale;
+      zoomScale = nextZoomScale;
+      if (
+        Number.isFinite(pinch.anchor)
+        && Number.isFinite(pinch.viewportEnd)
+        && Number.isFinite(pinch.lastTime)
+      ) {
+        const nextViewportEnd = pinch.anchor
+          + (pinch.viewportEnd - pinch.anchor) * appliedFactor;
+        panOffsetSeconds = pinch.lastTime - nextViewportEnd;
+      }
       event.preventDefault();
       render();
       return;
@@ -508,7 +688,7 @@ export function createProposalHistoryChart(options = {}) {
     const delta = event.clientX - drag.startX;
     if (Math.abs(delta) < 3) return;
     panOffsetSeconds = drag.panOffsetSeconds
-      + (delta / Math.max(1, container.clientWidth)) * prepared.windowSeconds;
+      + (delta / plotWidth()) * prepared.windowSeconds;
     event.preventDefault();
     render();
   }
@@ -521,11 +701,16 @@ export function createProposalHistoryChart(options = {}) {
     if (!pointers.size) endInteraction();
   }
 
+  function onPointerLeave() {
+    if (!pointers.size) clearOwnedCrosshair();
+  }
+
   container.addEventListener('wheel', onWheel, { passive: false });
   container.addEventListener('pointerdown', onPointerDown);
   container.addEventListener('pointermove', onPointerMove);
   container.addEventListener('pointerup', onPointerUp);
   container.addEventListener('pointercancel', onPointerUp);
+  container.addEventListener('pointerleave', onPointerLeave);
   chartRoot.classList.remove('ft-hourly-chart-pending');
   chartRoot.classList.add('ft-hourly-chart-enhanced', 'ft-hourly-chart-liveline');
   chartRoot.dataset.ftChartState = 'ready';
@@ -568,12 +753,14 @@ export function createProposalHistoryChart(options = {}) {
       return true;
     },
     zoomIn() {
-      zoomScale = Math.max(0.15, Math.min(4, zoomScale * 0.72));
-      renderStaticChange();
+      beginInteraction();
+      zoomBy(0.82);
+      endInteraction(140);
     },
     zoomOut() {
-      zoomScale = Math.max(0.15, Math.min(4, zoomScale * 1.38));
-      renderStaticChange();
+      beginInteraction();
+      zoomBy(1.18);
+      endInteraction(140);
     },
     resize() {
       render();
@@ -585,6 +772,7 @@ export function createProposalHistoryChart(options = {}) {
       container.removeEventListener('pointermove', onPointerMove);
       container.removeEventListener('pointerup', onPointerUp);
       container.removeEventListener('pointercancel', onPointerUp);
+      container.removeEventListener('pointerleave', onPointerLeave);
       root?.unmount();
       delete container.dataset.ftChartEngine;
       chartRoot.classList.remove('ft-hourly-chart-enhanced', 'ft-hourly-chart-liveline');

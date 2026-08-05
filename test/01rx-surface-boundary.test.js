@@ -495,11 +495,11 @@ test('interactive decision charts use Liveline through a renderer-independent pr
   assert.match(proposalPresentationSource, /pinchZoom: true/);
   assert.match(
     frameCss,
-    /\.ft-hourly-chart-liveline \.ft-hourly-readout\s*\{\s*display: none;/,
+    /\.ft-hourly-chart-liveline \.ft-hourly-readout\s*\{[\s\S]*?display: flex;[\s\S]*?opacity: 1;/,
   );
   assert.match(
     frameCss,
-    /\.ft-liveline-root > div:not\(\.ft-liveline-canvas\)\s*\{[\s\S]*?position: absolute;[\s\S]*?z-index: 4;[\s\S]*?top: 12px;/,
+    /\.ft-liveline-root > div:not\(\.ft-liveline-canvas\)\s*\{\s*display: none !important;/,
   );
   assert.match(
     decisionMarketControllerSource,
@@ -508,6 +508,10 @@ test('interactive decision charts use Liveline through a renderer-independent pr
   assert.match(decisionMarketControllerSource, /data-ft-role="proposal-history-liveline"/);
   assert.match(proposalLivelineSource, /addEventListener\('wheel', onWheel/);
   assert.match(proposalLivelineSource, /pinch\.distance \/ distance/);
+  assert.match(proposalLivelineSource, /key: 'proposal-liveline-chart'/);
+  assert.match(proposalLivelineSource, /scrub: false/);
+  assert.match(proposalLivelineSource, /window: projection\.renderWindowSeconds/);
+  assert.doesNotMatch(proposalLivelineSource, /staticRevision/);
   assert.match(
     decisionMarketControllerSource,
     /drag, scroll, or pinch to navigate/,
@@ -546,10 +550,10 @@ test('decision chart uses TWAP background context without vertical boundary line
   assert.doesNotMatch(proposalLivelineSource, /ft-hourly-event-line|data\.ftChartEvent/);
 });
 
-test('decision chart keeps explicit starting points and animated Liveline endpoints', () => {
+test('decision chart keeps circular, coordinate-bound starts and animated endpoints', () => {
   assert.match(
     frameCss,
-    /\.ft-liveline-start-point\s*\{[\s\S]*?width: 7px;[\s\S]*?border-radius: 50%;[\s\S]*?pointer-events: none;/,
+    /\.ft-liveline-start-point\s*\{[\s\S]*?width: 8px;[\s\S]*?border-radius: 50% !important;[\s\S]*?pointer-events: none;/,
   );
   assert.match(
     proposalLivelineSource,
@@ -561,7 +565,12 @@ test('decision chart keeps explicit starting points and animated Liveline endpoi
   );
   assert.match(
     proposalLivelineSource,
-    /series\.map\(\(definition\) => \{[\s\S]*?const first = definition\.data\.find/,
+    /series\.map\(\(definition\) => \{[\s\S]*?const first = definition\.data\[0\]/,
+  );
+  assert.match(geometryCss, /\.ft-liveline-start-point,[\s\S]*?\.orx-liveline-endpoint,/);
+  assert.match(
+    frameCss,
+    /\.ft-hourly-live\[data-ft-chart-engine="liveline"\]::after[\s\S]*?width: 1px;/,
   );
 });
 

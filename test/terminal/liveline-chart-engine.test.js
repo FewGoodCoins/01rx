@@ -9,7 +9,7 @@ async function loadLivelineEngine() {
   )).href);
 }
 
-test('Liveline snapshot preserves source time, explicit gaps, and semantic endpoints', async () => {
+test('Liveline snapshot projects source time without losing gaps or semantic starts', async () => {
   const { livelineChartSnapshot } = await loadLivelineEngine();
   const source = [
     {
@@ -54,19 +54,45 @@ test('Liveline snapshot preserves source time, explicit gaps, and semantic endpo
   assert.deepEqual(
     snapshot.markers.map(marker => `${marker.id}:${marker.edge}`).sort(),
     [
-      'price-end:end',
       'price-start:start',
-      'projected-nav-end:end',
       'projected-nav-start:start',
     ],
   );
+  assert.deepEqual(snapshot.markers.map(marker => marker.sourceTime), [100, 220]);
+  assert.equal(snapshot.rendererWindowSeconds, 24 * 60 * 60);
+  assert.equal(snapshot.projection.dataPlotRatio, 0.985);
 
   const projected = snapshot.series.find(series => series.id === 'projected-nav');
   assert.equal(projected.label, 'Projected NAV');
   assert.equal(projected.color, '#ff9f43');
   assert.equal(projected.value, 1.1);
-  assert.equal(projected.data[1].time, 1_090);
+  assert.equal(snapshot.projection.toSourceTime(projected.data[1].time), 340);
+  assert.equal(snapshot.projection.toRenderTime(250), 1_000);
   assert.deepEqual(source, untouched);
+});
+
+test('semantic starting markers stay attached to the true series origin during zoom', async () => {
+  const { livelineChartSnapshot } = await loadLivelineEngine();
+  const source = [{
+    id: 'price',
+    kind: 'line',
+    options: { visible: true },
+    data: [
+      { time: 100, value: 1 },
+      { time: 200, value: 1.1 },
+      { time: 300, value: 1.2 },
+    ],
+  }];
+
+  const fitted = livelineChartSnapshot(source, { nowSeconds: 1_000 });
+  const zoomed = livelineChartSnapshot(source, {
+    nowSeconds: 1_000,
+    viewport: { from: 180, to: 300 },
+  });
+
+  assert.equal(fitted.markers.find(marker => marker.edge === 'start')?.sourceTime, 100);
+  assert.equal(zoomed.markers.some(marker => marker.edge === 'start'), false);
+  assert.equal(fitted.rendererWindowSeconds, zoomed.rendererWindowSeconds);
 });
 
 test('visible candles remain authoritative while the line model stays available', async () => {

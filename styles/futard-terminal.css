@@ -4516,7 +4516,8 @@ body.is-futard-terminal #token-switch-loader {
 }
 
 .ft-hourly-chart-liveline .ft-hourly-readout {
-  display: none;
+  display: flex;
+  opacity: 1;
 }
 
 .ft-liveline-root {
@@ -4527,9 +4528,7 @@ body.is-futard-terminal #token-switch-loader {
 }
 
 .ft-liveline-root > div:not(.ft-liveline-canvas) {
-  position: absolute;
-  z-index: 4;
-  top: 12px;
+  display: none !important;
 }
 
 .ft-liveline-canvas {
@@ -4538,16 +4537,21 @@ body.is-futard-terminal #token-switch-loader {
   touch-action: none;
 }
 
+.ft-liveline-canvas canvas,
+.orx-liveline-canvas canvas {
+  cursor: crosshair !important;
+}
+
 .ft-liveline-start-point {
   position: absolute;
   z-index: 5;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border: 2px solid var(--market-surface, #101010);
-  border-radius: 50%;
+  border-radius: 50% !important;
   background: var(--ft-liveline-point-color, #5b8cff);
   box-shadow: 0 0 0 1px var(--ft-liveline-point-color, #5b8cff);
-  opacity: 0.82;
+  opacity: 1;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -4567,6 +4571,39 @@ body.is-futard-terminal #token-switch-loader {
 .orx-liveline-canvas {
   position: absolute !important;
   inset: 0;
+}
+
+.orx-liveline-root > div:not(.orx-liveline-canvas) {
+  display: none !important;
+}
+
+.orx-liveline-chart-host::after,
+.ft-hourly-live[data-ft-chart-engine="liveline"]::after {
+  content: "";
+  position: absolute;
+  z-index: 6;
+  width: 1px;
+  background: color-mix(in srgb, var(--ft-ink-strong, #ecece8) 38%, transparent);
+  opacity: 0;
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+.orx-liveline-chart-host::after {
+  top: 42px;
+  bottom: 30px;
+  left: var(--orx-liveline-crosshair-x, 12px);
+}
+
+.ft-hourly-live[data-ft-chart-engine="liveline"]::after {
+  top: 54px;
+  bottom: 30px;
+  left: var(--ft-liveline-crosshair-x, 12px);
+}
+
+.orx-liveline-chart-host.has-liveline-crosshair::after,
+.ft-hourly-live[data-ft-chart-engine="liveline"].has-liveline-crosshair::after {
+  opacity: 1;
 }
 
 .orx-liveline-gap-mask {
@@ -4591,7 +4628,7 @@ body.is-futard-terminal #token-switch-loader {
   width: 8px;
   height: 8px;
   border: 2px solid var(--market-surface, #101010);
-  border-radius: 50%;
+  border-radius: 50% !important;
   background: var(--orx-endpoint-color, #5b8cff);
   box-shadow: 0 0 0 1px var(--orx-endpoint-color, #5b8cff);
   transform: translate(-50%, -50%);
@@ -4599,9 +4636,9 @@ body.is-futard-terminal #token-switch-loader {
 }
 
 .orx-liveline-endpoint-start {
-  width: 7px;
-  height: 7px;
-  opacity: 0.8;
+  width: 8px;
+  height: 8px;
+  opacity: 1;
 }
 
 html[data-chart-engine="liveline"] #live-dot-clip,
