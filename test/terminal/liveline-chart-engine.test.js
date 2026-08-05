@@ -54,11 +54,12 @@ test('Liveline snapshot projects source time without losing gaps or semantic sta
   assert.deepEqual(
     snapshot.markers.map(marker => `${marker.id}:${marker.edge}`).sort(),
     [
-      'price-start:start',
-      'projected-nav-start:start',
+      'chart-origin:start',
     ],
   );
-  assert.deepEqual(snapshot.markers.map(marker => marker.sourceTime), [100, 220]);
+  assert.deepEqual(snapshot.markers.map(marker => marker.sourceTime), [100]);
+  assert.equal(snapshot.markers[0].color, '#ffffff');
+  assert.equal(snapshot.markers[0].seriesId, 'price');
   assert.equal(snapshot.rendererWindowSeconds, 24 * 60 * 60);
   assert.equal(snapshot.projection.dataPlotRatio, 0.985);
 
@@ -71,7 +72,7 @@ test('Liveline snapshot projects source time without losing gaps or semantic sta
   assert.deepEqual(source, untouched);
 });
 
-test('semantic starting markers stay attached to the true series origin during zoom', async () => {
+test('the single white origin stays attached to the true series start during zoom', async () => {
   const { livelineChartSnapshot } = await loadLivelineEngine();
   const source = [{
     id: 'price',
@@ -90,7 +91,9 @@ test('semantic starting markers stay attached to the true series origin during z
     viewport: { from: 180, to: 300 },
   });
 
-  assert.equal(fitted.markers.find(marker => marker.edge === 'start')?.sourceTime, 100);
+  assert.equal(fitted.markers.length, 1);
+  assert.equal(fitted.markers[0].sourceTime, 100);
+  assert.equal(fitted.markers[0].color, '#ffffff');
   assert.equal(zoomed.markers.some(marker => marker.edge === 'start'), false);
   assert.equal(fitted.rendererWindowSeconds, zoomed.rendererWindowSeconds);
 });

@@ -550,27 +550,53 @@ test('decision chart uses TWAP background context without vertical boundary line
   assert.doesNotMatch(proposalLivelineSource, /ft-hourly-event-line|data\.ftChartEvent/);
 });
 
-test('decision chart keeps circular, coordinate-bound starts and animated endpoints', () => {
+test('decision chart keeps one white origin and coordinate-bound final dots', () => {
   assert.match(
     frameCss,
-    /\.ft-liveline-start-point\s*\{[\s\S]*?width: 8px;[\s\S]*?border-radius: 50% !important;[\s\S]*?pointer-events: none;/,
+    /\.ft-liveline-start-point,\s*\.ft-liveline-end-point\s*\{[\s\S]*?width: 8px;[\s\S]*?border-radius: 50% !important;[\s\S]*?pointer-events: none;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-liveline-start-point\s*\{\s*--ft-liveline-point-color: #ffffff;/,
   );
   assert.match(
     proposalLivelineSource,
-    /className: 'ft-liveline-start-point'/,
+    /className: 'ft-liveline-start-point ft-liveline-origin-point'/,
   );
   assert.match(
     proposalLivelineSource,
-    /pulse: playback\.pulse/,
+    /pulse: false/,
   );
   assert.match(
     proposalLivelineSource,
-    /series\.map\(\(definition\) => \{[\s\S]*?const first = definition\.data\[0\]/,
+    /const originSeries = series\.find[\s\S]*?key: 'chart-origin'/,
   );
-  assert.match(geometryCss, /\.ft-liveline-start-point,[\s\S]*?\.orx-liveline-endpoint,/);
+  assert.match(proposalLivelineSource, /return \[createElement\('span'/);
+  assert.match(proposalLivelineSource, /proposalChartEndpointModel[\s\S]*?visible: final\.time >= projection\.sourceFrom[\s\S]*?final\.time <= projection\.sourceTo/);
+  assert.match(proposalLivelineSource, /className: 'ft-liveline-synthetic-tip-mask'/);
+  assert.match(proposalLivelineSource, /className: 'ft-liveline-end-gap-mask'/);
+  assert.match(proposalLivelineSource, /const right = projection\.toPlotRatio\(projection\.sourceRight\)/);
+  assert.match(proposalLivelineSource, /BOUND_POINT_REVEAL_DELAY_MS = 1_050/);
+  assert.match(proposalLivelineSource, /container\.classList\.add\('has-liveline-bound-points'\)/);
+  assert.match(frameCss, /\.ft-hourly-live\.has-liveline-bound-points :is\([\s\S]*?\.ft-liveline-end-point[\s\S]*?opacity: 1;/);
+  assert.match(frameCss, /\.orx-liveline-endpoint-start\s*\{[\s\S]*?background: #ffffff;/);
+  assert.match(geometryCss, /\.ft-liveline-start-point,[\s\S]*?\.ft-liveline-end-point,[\s\S]*?\.orx-liveline-endpoint,/);
   assert.match(
     frameCss,
     /\.ft-hourly-live\[data-ft-chart-engine="liveline"\]::after[\s\S]*?width: 1px;/,
+  );
+});
+
+test('decision chart supports future whitespace and draggable right-axis scaling', () => {
+  assert.match(proposalLivelineSource, /minimum: -window \* MAX_FUTURE_PAN_RATIO/);
+  assert.match(proposalLivelineSource, /prepared\.viewportEnd = prepared\.lastTime - panOffsetSeconds/);
+  assert.match(proposalLivelineSource, /function isValueAxisPointer\(event\)/);
+  assert.match(proposalLivelineSource, /proposalChartVerticalScale\([\s\S]*?event\.clientY - axisDrag\.startY/);
+  assert.match(proposalLivelineSource, /container\.addEventListener\('dblclick', onDoubleClick\)/);
+  assert.match(frameCss, /\.ft-hourly-live:is\(\.is-y-axis-hover, \.is-scaling-y\)[\s\S]*?cursor: ns-resize !important;/);
+  assert.match(
+    decisionMarketControllerSource,
+    /drag the right price axis to rescale/,
   );
 });
 

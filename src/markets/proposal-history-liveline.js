@@ -1,6 +1,7 @@
 import { Liveline } from 'liveline';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import { CHART_ORIGIN_PRESENTATION } from '../chart/origin-presentation.js';
 import {
   chartWheelZoomFactor,
   STABLE_CHART_DATA_PLOT_RATIO,
@@ -25,6 +26,13 @@ const WINDOW_BUFFER_RATIO = 1.08;
 const LIVE_LERP_SPEED = 0.08;
 const INTERACTION_LERP_SPEED = 0.8;
 const PLOT_TOP_PADDING = 54;
+const MAX_FUTURE_PAN_RATIO = 0.6;
+const MIN_VERTICAL_RANGE_SCALE = 0.83;
+const MAX_VERTICAL_RANGE_SCALE = 6;
+const VERTICAL_SCALE_SENSITIVITY = 1.5;
+const DEFAULT_RANGE_MARGIN = 0.12;
+const EXAGGERATED_RANGE_MARGIN = 0.01;
+const BOUND_POINT_REVEAL_DELAY_MS = 1_050;
 // Liveline adds up to 0.2 of adaptive easing internally. Leave enough
 // headroom to keep the effective coefficient at or below 1.
 const RESOLVED_LERP_SPEED = 0.75;
@@ -209,6 +217,28 @@ function sourceViewport(dataset) {
   };
 }
 
+export function proposalChartPanBounds(windowSeconds, fullDuration) {
+  const window = Math.max(1, Number(windowSeconds) || 1);
+  const duration = Math.max(window, Number(fullDuration) || window);
+  return Object.freeze({
+    maximum: Math.max(0, duration - window * 0.35),
+    minimum: -window * MAX_FUTURE_PAN_RATIO,
+  });
+}
+
+export function proposalChartVerticalScale(startScale, deltaY, chartHeight) {
+  const initial = Math.max(
+    MIN_VERTICAL_RANGE_SCALE,
+    Math.min(MAX_VERTICAL_RANGE_SCALE, Number(startScale) || 1),
+  );
+  const height = Math.max(120, Number(chartHeight) || 120);
+  const factor = Math.exp((Number(deltaY) || 0) / height * VERTICAL_SCALE_SENSITIVITY);
+  return Math.max(
+    MIN_VERTICAL_RANGE_SCALE,
+    Math.min(MAX_VERTICAL_RANGE_SCALE, initial * factor),
+  );
+}
+
 function gapMaskElements(dataset, projection) {
   const visibleFrom = projection.sourceFrom;
   const visibleTo = projection.sourceRight;
@@ -271,54 +301,202 @@ function phaseBandElements(projection, preTwap, windowEndedAt) {
   }).filter(Boolean);
 }
 
-function paddedValueRange(values) {
+function paddedValueRange(values, exaggerate = false) {
   if (!values.length) return null;
   let minimum = Math.min(...values);
   let maximum = Math.max(...values);
   const rawRange = maximum - minimum;
-  const minimumRange = rawRange * 0.1 || 0.4;
+  const minimumRange = rawRange * (exaggerate ? 0.02 : 0.1)
+    || (exaggerate ? 0.04 : 0.4);
   if (rawRange < minimumRange) {
     const middle = (minimum + maximum) / 2;
     minimum = middle - minimumRange / 2;
     maximum = middle + minimumRange / 2;
   } else {
-    const padding = rawRange * 0.12;
+    const padding = rawRange * (
+      exaggerate ? EXAGGERATED_RANGE_MARGIN : DEFAULT_RANGE_MARGIN
+    );
     minimum -= padding;
     maximum += padding;
   }
   return { minimum, maximum };
 }
 
-function startPointElements(series, projection) {
+function proposalValueRangeModel(series, projection, scale = 1) {
   const visibleFrom = projection.sourceFrom;
   const visibleTo = projection.sourceTo;
-  const ranges = series.map((definition) => {
-    const values = definition.data
+  const valuesBySeries = series.map((definition) => (
+    definition.data
       .filter(point => point.time >= visibleFrom && point.time <= visibleTo)
       .map(point => point.value)
-      .filter(Number.isFinite);
-    return paddedValueRange(values);
-  }).filter(Boolean);
-  if (!ranges.length) return [];
-  const minimum = Math.min(...ranges.map(range => range.minimum));
-  const maximum = Math.max(...ranges.map(range => range.maximum));
-  const valueRange = Math.max(Number.EPSILON, maximum - minimum);
+      .filter(Number.isFinite)
+  )).filter(values => values.length);
+  const allValues = valuesBySeries.flat();
+  if (!allValues.length) {
+    return {
+      boundMaximum: null,
+      boundMinimum: null,
+      exaggerate: false,
+      maximum: 1,
+      minimum: 0,
+    };
+  }
+  const normalizedScale = Math.max(
+    MIN_VERTICAL_RANGE_SCALE,
+    Math.min(MAX_VERTICAL_RANGE_SCALE, Number(scale) || 1),
+  );
+  const exaggerate = normalizedScale < 1;
+  const ranges = valuesBySeries
+    .map(values => paddedValueRange(values, exaggerate))
+    .filter(Boolean);
+  let boundMinimum = null;
+  let boundMaximum = null;
+  if (Math.abs(normalizedScale - 1) > 0.001) {
+    const rawMinimum = Math.min(...allValues);
+    const rawMaximum = Math.max(...allValues);
+    const center = (rawMinimum + rawMaximum) / 2;
+    const rawRange = Math.max(
+      Number.EPSILON,
+      rawMaximum - rawMinimum,
+    );
+    const boundMultiplier = exaggerate
+      ? normalizedScale
+        * (1 + DEFAULT_RANGE_MARGIN * 2)
+        / (1 + EXAGGERATED_RANGE_MARGIN * 2)
+      : normalizedScale;
+    boundMinimum = center - rawRange * boundMultiplier / 2;
+    boundMaximum = center + rawRange * boundMultiplier / 2;
+    ranges.push(paddedValueRange([boundMinimum, boundMaximum], exaggerate));
+  }
+  return {
+    boundMaximum,
+    boundMinimum,
+    exaggerate,
+    maximum: Math.max(...ranges.map(range => range.maximum)),
+    minimum: Math.min(...ranges.map(range => range.minimum)),
+  };
+}
+
+function pointY(value, range) {
+  const valueRange = Math.max(Number.EPSILON, range.maximum - range.minimum);
+  return (range.maximum - value) / valueRange;
+}
+
+function startPointElements(series, projection, range) {
+  const visibleFrom = projection.sourceFrom;
+  const visibleTo = projection.sourceTo;
+  const originSeries = series.find(definition => (
+    definition.id === CHART_ORIGIN_PRESENTATION.primarySeriesId
+    && definition.data[0]
+  )) || series.find(definition => definition.data[0]);
+  const first = originSeries?.data[0];
+  if (!first) return [];
+  const visible = first.time >= visibleFrom && first.time <= visibleTo;
+  const x = projection.toPlotRatio(first.time);
+  const y = pointY(first.value, range);
+  return [createElement('span', {
+    'aria-hidden': 'true',
+    className: 'ft-liveline-start-point ft-liveline-origin-point',
+    'data-ft-chart-origin': 'tge',
+    key: 'chart-origin',
+    style: {
+      left: plotPosition(x, PLOT_PADDING.left, PLOT_PADDING.right),
+      top: plotPosition(y, PLOT_PADDING.top, PLOT_PADDING.bottom),
+      visibility: visible ? 'visible' : 'hidden',
+    },
+  })];
+}
+
+export function proposalChartEndpointModel(series, projection, range) {
   return series.map((definition) => {
-    const first = definition.data[0];
-    if (!first || first.time < visibleFrom || first.time > visibleTo) return null;
-    const x = projection.toPlotRatio(first.time);
-    const y = (maximum - first.value) / valueRange;
+    const final = definition.data[definition.data.length - 1];
+    if (!final) return null;
+    return Object.freeze({
+      color: definition.color,
+      id: definition.id,
+      sourceTime: final.time,
+      visible: final.time >= projection.sourceFrom
+        && final.time <= projection.sourceTo,
+      x: projection.toPlotRatio(final.time),
+      y: pointY(final.value, range),
+    });
+  }).filter(Boolean);
+}
+
+function endPointElements(series, projection, range) {
+  return proposalChartEndpointModel(series, projection, range).map((marker) => {
     return createElement('span', {
       'aria-hidden': 'true',
-      className: 'ft-liveline-start-point',
-      key: `start-${definition.id}`,
+      className: 'ft-liveline-end-point',
+      'data-ft-chart-end': marker.id,
+      key: `end-${marker.id}`,
       style: {
-        '--ft-liveline-point-color': definition.color,
-        left: plotPosition(x, PLOT_PADDING.left, PLOT_PADDING.right),
-        top: plotPosition(y, PLOT_PADDING.top, PLOT_PADDING.bottom),
+        '--ft-liveline-point-color': marker.color,
+        left: plotPosition(
+          marker.x,
+          PLOT_PADDING.left,
+          PLOT_PADDING.right,
+        ),
+        top: plotPosition(
+          marker.y,
+          PLOT_PADDING.top,
+          PLOT_PADDING.bottom,
+        ),
+        visibility: marker.visible ? 'visible' : 'hidden',
+      },
+    });
+  });
+}
+
+function syntheticTipMaskElements(series, projection, range) {
+  const tipX = projection.toPlotRatio(projection.sourceTo);
+  return series.map((definition) => {
+    const visible = definition.data.filter(point => (
+      point.time >= projection.sourceFrom
+      && point.time <= projection.sourceTo
+    ));
+    if (visible.length < 2) return null;
+    const tail = visible[visible.length - 1];
+    return createElement('span', {
+      'aria-hidden': 'true',
+      className: 'ft-liveline-synthetic-tip-mask',
+      key: `tip-mask-${definition.id}`,
+      style: {
+        left: plotPosition(tipX, PLOT_PADDING.left, PLOT_PADDING.right),
+        top: plotPosition(
+          pointY(tail.value, range),
+          PLOT_PADDING.top,
+          PLOT_PADDING.bottom,
+        ),
       },
     });
   }).filter(Boolean);
+}
+
+function endGapElements(series, projection) {
+  const endSeries = series.find(definition => (
+    definition.id === CHART_ORIGIN_PRESENTATION.primarySeriesId
+    && definition.data.length
+  )) || series.find(definition => definition.data.length);
+  const final = endSeries?.data[endSeries.data.length - 1];
+  const maskFrom = final
+    && final.time >= projection.sourceFrom
+    && final.time <= projection.sourceTo
+    ? final.time
+    : projection.sourceTo;
+  const left = projection.toPlotRatio(maskFrom);
+  const right = projection.toPlotRatio(projection.sourceRight);
+  if (right <= left) return [];
+  return [createElement('span', {
+    'aria-hidden': 'true',
+    className: 'ft-liveline-end-gap-mask',
+    'data-ft-chart-end-gap': '',
+    key: 'end-gap',
+    style: {
+      left: plotPosition(left, PLOT_PADDING.left, PLOT_PADDING.right),
+      width: plotSize(right - left, PLOT_PADDING.left, PLOT_PADDING.right),
+    },
+  })];
 }
 
 function nearestObservation(observations, sourceTime) {
@@ -380,12 +558,15 @@ export function createProposalHistoryChart(options = {}) {
   let panOffsetSeconds = 0;
   let root = null;
   let drag = null;
+  let axisDrag = null;
   const pointers = new Map();
   let pinch = null;
   let interactionActive = false;
   let interactionTimer = 0;
+  let boundPointRevealTimer = 0;
   let lastPrepared = null;
   let lastProjection = null;
+  let verticalRangeScale = 1;
   const chartRoot = container.closest('.ft-hourly-chart') || container;
   const readout = {
     time: chartRoot.querySelector('[data-ft-role="hourly-readout-time"]'),
@@ -410,8 +591,11 @@ export function createProposalHistoryChart(options = {}) {
         prepared.windowSeconds,
         prepared.lastTime - prepared.firstTime,
       );
-      const maximumPan = Math.max(0, fullDuration - prepared.windowSeconds * 0.35);
-      panOffsetSeconds = Math.max(0, Math.min(maximumPan, panOffsetSeconds));
+      const panBounds = proposalChartPanBounds(prepared.windowSeconds, fullDuration);
+      panOffsetSeconds = Math.max(
+        panBounds.minimum,
+        Math.min(panBounds.maximum, panOffsetSeconds),
+      );
       prepared.viewportEnd = prepared.lastTime - panOffsetSeconds;
     }
     return prepared;
@@ -425,9 +609,24 @@ export function createProposalHistoryChart(options = {}) {
 
   root = createRoot(container);
   container.dataset.ftChartEngine = PROPOSAL_HISTORY_ENGINE;
+  container.classList.remove('has-liveline-bound-points');
 
   function plotWidth() {
     return Math.max(1, container.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
+  }
+
+  function plotHeight() {
+    return Math.max(1, container.clientHeight - PLOT_PADDING.top - PLOT_PADDING.bottom);
+  }
+
+  function isValueAxisPointer(event) {
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return x >= container.clientWidth - PLOT_PADDING.right
+      && x <= container.clientWidth
+      && y >= PLOT_PADDING.top
+      && y <= container.clientHeight - PLOT_PADDING.bottom;
   }
 
   function updateReadoutAt(sourceTime) {
@@ -489,7 +688,9 @@ export function createProposalHistoryChart(options = {}) {
     if (!interactionActive) {
       interactionActive = true;
       render();
+      return true;
     }
+    return false;
   }
 
   function endInteraction(delay = 32) {
@@ -502,7 +703,8 @@ export function createProposalHistoryChart(options = {}) {
   }
 
   function renderStaticChange() {
-    render();
+    if (!beginInteraction()) render();
+    endInteraction(180);
   }
 
   function render() {
@@ -518,11 +720,15 @@ export function createProposalHistoryChart(options = {}) {
       isLive && panOffsetSeconds === 0,
     );
     const series = prepared.series.map((definition) => {
-      const sourceData = definition.data.filter(point => point.time <= viewport.to);
+      const sourceData = definition.data;
+      const visibleData = sourceData.filter(point => (
+        point.time >= viewport.from && point.time <= viewport.to
+      ));
       return {
         id: definition.id,
         data: sourceData,
-        value: sourceData[sourceData.length - 1]?.value,
+        value: visibleData[visibleData.length - 1]?.value
+          ?? sourceData[0]?.value,
         color: cssColor(
           runtime,
           themeRoot,
@@ -536,6 +742,11 @@ export function createProposalHistoryChart(options = {}) {
     }).filter(definition => (
       definition.data.length >= 2 && Number.isFinite(definition.value)
     ));
+    const rangeModel = proposalValueRangeModel(
+      series,
+      projection,
+      verticalRangeScale,
+    );
     const rendererSeries = series.map(({ label: _label, ...definition }) => ({
       ...definition,
       data: definition.data.map(point => ({
@@ -543,6 +754,26 @@ export function createProposalHistoryChart(options = {}) {
         time: projection.toRenderTime(point.time),
       })),
     }));
+    if (
+      Number.isFinite(rangeModel.boundMinimum)
+      && Number.isFinite(rangeModel.boundMaximum)
+    ) {
+      rendererSeries.push({
+        color: 'rgba(0, 0, 0, 0)',
+        data: [
+          {
+            time: projection.toRenderTime(projection.sourceFrom),
+            value: rangeModel.boundMinimum,
+          },
+          {
+            time: projection.toRenderTime(projection.sourceTo),
+            value: rangeModel.boundMaximum,
+          },
+        ],
+        id: '__vertical-range',
+        value: rangeModel.boundMaximum,
+      });
+    }
     root.render(createElement(
       'div',
       {
@@ -555,6 +786,7 @@ export function createProposalHistoryChart(options = {}) {
         className: 'ft-liveline-canvas',
         data: [],
         emptyText: 'No indexed market history',
+        exaggerate: rangeModel.exaggerate,
         fill: false,
         formatTime: value => formatUtcTime(projection.toSourceTime(value)),
         formatValue: formatPrice,
@@ -563,7 +795,7 @@ export function createProposalHistoryChart(options = {}) {
         momentum: false,
         padding: PLOT_PADDING,
         paused: playback.paused && !interactionActive,
-        pulse: playback.pulse,
+        pulse: false,
         scrub: false,
         series: rendererSeries,
         seriesToggleCompact: true,
@@ -577,12 +809,19 @@ export function createProposalHistoryChart(options = {}) {
         options.windowEndedAt,
       ),
       ...gapMaskElements(prepared, projection),
-      ...startPointElements(series, projection),
+      ...endGapElements(series, projection),
+      ...syntheticTipMaskElements(series, projection, rangeModel),
+      ...startPointElements(series, projection, rangeModel),
+      ...endPointElements(series, projection, rangeModel),
     ));
     updateReadoutAt(projection.sourceTo);
   }
 
   render();
+  boundPointRevealTimer = runtime.setTimeout(() => {
+    boundPointRevealTimer = 0;
+    container.classList.add('has-liveline-bound-points');
+  }, BOUND_POINT_REVEAL_DELAY_MS);
   function zoomBy(
     factor,
     plotRatio = lastProjection?.dataPlotRatio ?? STABLE_CHART_DATA_PLOT_RATIO,
@@ -622,6 +861,21 @@ export function createProposalHistoryChart(options = {}) {
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     container.setPointerCapture?.(event.pointerId);
     beginInteraction();
+    if (
+      event.button === 0
+      && event.pointerType !== 'touch'
+      && isValueAxisPointer(event)
+    ) {
+      axisDrag = {
+        pointerId: event.pointerId,
+        startScale: verticalRangeScale,
+        startY: event.clientY,
+      };
+      drag = null;
+      pinch = null;
+      container.classList.add('is-scaling-y');
+      return;
+    }
     if (pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
       const prepared = dataset();
@@ -656,10 +910,26 @@ export function createProposalHistoryChart(options = {}) {
 
   function onPointerMove(event) {
     if (!pointers.has(event.pointerId)) {
+      const axisHover = event.pointerType !== 'touch' && isValueAxisPointer(event);
+      container.classList.toggle('is-y-axis-hover', axisHover);
+      if (axisHover) {
+        clearOwnedCrosshair();
+        return;
+      }
       showOwnedCrosshair(event);
       return;
     }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (axisDrag?.pointerId === event.pointerId) {
+      verticalRangeScale = proposalChartVerticalScale(
+        axisDrag.startScale,
+        event.clientY - axisDrag.startY,
+        plotHeight(),
+      );
+      event.preventDefault();
+      render();
+      return;
+    }
     if (pinch && pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
       const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
@@ -697,12 +967,26 @@ export function createProposalHistoryChart(options = {}) {
     pointers.delete(event.pointerId);
     container.releasePointerCapture?.(event.pointerId);
     if (drag?.pointerId === event.pointerId) drag = null;
+    if (axisDrag?.pointerId === event.pointerId) {
+      axisDrag = null;
+      container.classList.remove('is-scaling-y');
+    }
     if (pointers.size < 2) pinch = null;
-    if (!pointers.size) endInteraction();
+    if (!pointers.size) endInteraction(180);
   }
 
   function onPointerLeave() {
-    if (!pointers.size) clearOwnedCrosshair();
+    if (!pointers.size) {
+      container.classList.remove('is-y-axis-hover');
+      clearOwnedCrosshair();
+    }
+  }
+
+  function onDoubleClick(event) {
+    if (!isValueAxisPointer(event)) return;
+    verticalRangeScale = 1;
+    event.preventDefault();
+    renderStaticChange();
   }
 
   container.addEventListener('wheel', onWheel, { passive: false });
@@ -711,6 +995,7 @@ export function createProposalHistoryChart(options = {}) {
   container.addEventListener('pointerup', onPointerUp);
   container.addEventListener('pointercancel', onPointerUp);
   container.addEventListener('pointerleave', onPointerLeave);
+  container.addEventListener('dblclick', onDoubleClick);
   chartRoot.classList.remove('ft-hourly-chart-pending');
   chartRoot.classList.add('ft-hourly-chart-enhanced', 'ft-hourly-chart-liveline');
   chartRoot.dataset.ftChartState = 'ready';
@@ -725,12 +1010,14 @@ export function createProposalHistoryChart(options = {}) {
       currentRange = options.range || 'all';
       zoomScale = 1;
       panOffsetSeconds = 0;
+      verticalRangeScale = 1;
       renderStaticChange();
     },
     setRange(nextRange) {
       currentRange = RANGE_SECONDS[nextRange] ? nextRange : 'all';
       zoomScale = 1;
       panOffsetSeconds = 0;
+      verticalRangeScale = 1;
       renderStaticChange();
     },
     setSeriesVisible(field, visible) {
@@ -767,12 +1054,19 @@ export function createProposalHistoryChart(options = {}) {
     },
     destroy() {
       if (interactionTimer) runtime.clearTimeout(interactionTimer);
+      if (boundPointRevealTimer) runtime.clearTimeout(boundPointRevealTimer);
       container.removeEventListener('wheel', onWheel);
       container.removeEventListener('pointerdown', onPointerDown);
       container.removeEventListener('pointermove', onPointerMove);
       container.removeEventListener('pointerup', onPointerUp);
       container.removeEventListener('pointercancel', onPointerUp);
       container.removeEventListener('pointerleave', onPointerLeave);
+      container.removeEventListener('dblclick', onDoubleClick);
+      container.classList.remove(
+        'has-liveline-bound-points',
+        'is-scaling-y',
+        'is-y-axis-hover',
+      );
       root?.unmount();
       delete container.dataset.ftChartEngine;
       chartRoot.classList.remove('ft-hourly-chart-enhanced', 'ft-hourly-chart-liveline');

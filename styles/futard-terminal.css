@@ -4542,18 +4542,61 @@ body.is-futard-terminal #token-switch-loader {
   cursor: crosshair !important;
 }
 
-.ft-liveline-start-point {
+.ft-hourly-live:is(.is-y-axis-hover, .is-scaling-y),
+.ft-hourly-live:is(.is-y-axis-hover, .is-scaling-y) canvas {
+  cursor: ns-resize !important;
+}
+
+.ft-liveline-start-point,
+.ft-liveline-end-point {
   position: absolute;
-  z-index: 5;
+  z-index: 7;
   width: 8px;
   height: 8px;
   border: 2px solid var(--market-surface, #101010);
   border-radius: 50% !important;
-  background: var(--ft-liveline-point-color, #5b8cff);
-  box-shadow: 0 0 0 1px var(--ft-liveline-point-color, #5b8cff);
-  opacity: 1;
+  background: var(--ft-liveline-point-color, #ffffff);
+  box-shadow: 0 0 0 1px var(--ft-liveline-point-color, #ffffff);
+  opacity: 0;
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+
+.ft-liveline-start-point {
+  --ft-liveline-point-color: #ffffff;
+}
+
+.ft-hourly-live.has-liveline-bound-points :is(
+  .ft-liveline-start-point,
+  .ft-liveline-end-point
+) {
+  opacity: 1;
+}
+
+.ft-liveline-synthetic-tip-mask {
+  position: absolute;
+  z-index: 5;
+  width: 12px;
+  height: 12px;
+  background: var(--market-surface, #101010);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ft-liveline-end-gap-mask {
+  position: absolute;
+  z-index: 4;
+  top: 54px;
+  bottom: 30px;
+  background: var(--market-surface, #101010);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ft-liveline-start-point,
+  .ft-liveline-end-point {
+    opacity: 1;
+  }
 }
 
 .orx-liveline-chart-host,
@@ -4638,6 +4681,8 @@ body.is-futard-terminal #token-switch-loader {
 .orx-liveline-endpoint-start {
   width: 8px;
   height: 8px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
   opacity: 1;
 }
 
