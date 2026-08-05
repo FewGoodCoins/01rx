@@ -68,7 +68,7 @@
   [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-terminal-grid {
     --ft-terminal-account-height: clamp(180px, 22dvh, 210px);
     --ft-terminal-analysis-height: 0px;
-    --ft-terminal-chart-height: max(
+    --ft-terminal-chart-height: clamp(
       550px,
       calc(
         100dvh
@@ -77,7 +77,8 @@
         - 45px
         - var(--ft-terminal-account-height)
         - var(--ft-terminal-analysis-height)
-      )
+      ),
+      690px
     );
     height: auto;
     grid-template-columns:

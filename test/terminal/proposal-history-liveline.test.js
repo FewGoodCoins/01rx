@@ -127,17 +127,34 @@ test('decision charts can pan beyond their true end without losing bounded histo
   const { proposalChartPanBounds } = await loadLivelineAdapter();
   const bounds = proposalChartPanBounds(1_000, 4_000);
 
-  assert.equal(bounds.minimum, -600);
-  assert.equal(bounds.maximum, 3_650);
+  assert.ok(Math.abs(bounds.minimum + 905) < 1e-9);
+  assert.ok(Math.abs(bounds.maximum - 3_935) < 1e-9);
 });
 
-test('right-axis dragging continuously scales and safely clamps the vertical range', async () => {
-  const { proposalChartVerticalScale } = await loadLivelineAdapter();
+test('time-axis dragging continuously scales across a broad horizontal range', async () => {
+  const {
+    proposalChartHorizontalScaleDrag,
+    proposalChartHorizontalZoomScale,
+  } = await loadLivelineAdapter();
+
+  assert.ok(proposalChartHorizontalScaleDrag(1, 100, 400) < 1);
+  assert.ok(proposalChartHorizontalScaleDrag(1, -100, 400) > 1);
+  assert.equal(proposalChartHorizontalZoomScale(1, 0.0001), 0.04);
+  assert.equal(proposalChartHorizontalZoomScale(1, 10_000), 24);
+});
+
+test('right-axis dragging and scrolling scale across a broad vertical range', async () => {
+  const {
+    proposalChartVerticalScale,
+    proposalChartVerticalZoomScale,
+  } = await loadLivelineAdapter();
 
   assert.ok(proposalChartVerticalScale(1, -100, 400) < 1);
   assert.ok(proposalChartVerticalScale(1, 100, 400) > 1);
-  assert.equal(proposalChartVerticalScale(1, -10_000, 400), 0.83);
-  assert.equal(proposalChartVerticalScale(1, 10_000, 400), 6);
+  assert.equal(proposalChartVerticalScale(1, -10_000, 400), 0.12);
+  assert.equal(proposalChartVerticalScale(1, 10_000, 400), 16);
+  assert.equal(proposalChartVerticalZoomScale(1, 0.0001), 0.12);
+  assert.equal(proposalChartVerticalZoomScale(1, 10_000), 16);
 });
 
 test('true final dots are visible only while their source timestamps are in view', async () => {

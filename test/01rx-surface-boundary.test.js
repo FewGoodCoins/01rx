@@ -514,7 +514,7 @@ test('interactive decision charts use Liveline through a renderer-independent pr
   assert.doesNotMatch(proposalLivelineSource, /staticRevision/);
   assert.match(
     decisionMarketControllerSource,
-    /drag, scroll, or pinch to navigate/,
+    /drag or swipe the plot to pan, scroll or pinch to zoom/,
   );
 });
 
@@ -550,10 +550,10 @@ test('decision chart uses TWAP background context without vertical boundary line
   assert.doesNotMatch(proposalLivelineSource, /ft-hourly-event-line|data\.ftChartEvent/);
 });
 
-test('decision chart keeps one white origin and coordinate-bound final dots', () => {
+test('decision chart keeps one solid white origin and solid coordinate-bound final dots', () => {
   assert.match(
     frameCss,
-    /\.ft-liveline-start-point,\s*\.ft-liveline-end-point\s*\{[\s\S]*?width: 8px;[\s\S]*?border-radius: 50% !important;[\s\S]*?pointer-events: none;/,
+    /\.ft-liveline-start-point,\s*\.ft-liveline-end-point\s*\{[\s\S]*?width: 8px;[\s\S]*?border: 0;[\s\S]*?border-radius: 50% !important;[\s\S]*?background: var\(--ft-liveline-point-color, #ffffff\);[\s\S]*?box-shadow: none;[\s\S]*?pointer-events: none;/,
   );
   assert.match(
     frameCss,
@@ -579,7 +579,14 @@ test('decision chart keeps one white origin and coordinate-bound final dots', ()
   assert.match(proposalLivelineSource, /BOUND_POINT_REVEAL_DELAY_MS = 1_050/);
   assert.match(proposalLivelineSource, /container\.classList\.add\('has-liveline-bound-points'\)/);
   assert.match(frameCss, /\.ft-hourly-live\.has-liveline-bound-points :is\([\s\S]*?\.ft-liveline-end-point[\s\S]*?opacity: 1;/);
-  assert.match(frameCss, /\.orx-liveline-endpoint-start\s*\{[\s\S]*?background: #ffffff;/);
+  assert.match(
+    frameCss,
+    /\.orx-liveline-endpoint-start\s*\{[\s\S]*?background: #ffffff;[\s\S]*?box-shadow: none;/,
+  );
+  assert.match(
+    frameCss,
+    /\.orx-liveline-endpoint\s*\{[\s\S]*?border: 0;[\s\S]*?background: var\(--orx-endpoint-color, #5b8cff\);[\s\S]*?box-shadow: none;/,
+  );
   assert.match(geometryCss, /\.ft-liveline-start-point,[\s\S]*?\.ft-liveline-end-point,[\s\S]*?\.orx-liveline-endpoint,/);
   assert.match(
     frameCss,
@@ -587,16 +594,24 @@ test('decision chart keeps one white origin and coordinate-bound final dots', ()
   );
 });
 
-test('decision chart supports future whitespace and draggable right-axis scaling', () => {
-  assert.match(proposalLivelineSource, /minimum: -window \* MAX_FUTURE_PAN_RATIO/);
+test('decision chart supports broad whitespace and TradingView-like axis scaling', () => {
+  assert.match(proposalLivelineSource, /const PAN_EDGE_GUARD_RATIO = 0\.08/);
+  assert.match(proposalLivelineSource, /minimum: -window \* futureWhitespace/);
+  assert.match(proposalLivelineSource, /maximum: Math\.max\(0, duration - window \* pastWhitespace\)/);
   assert.match(proposalLivelineSource, /prepared\.viewportEnd = prepared\.lastTime - panOffsetSeconds/);
+  assert.match(proposalLivelineSource, /clampToData: false/);
   assert.match(proposalLivelineSource, /function isValueAxisPointer\(event\)/);
+  assert.match(proposalLivelineSource, /function isTimeAxisPointer\(event\)/);
   assert.match(proposalLivelineSource, /proposalChartVerticalScale\([\s\S]*?event\.clientY - axisDrag\.startY/);
+  assert.match(proposalLivelineSource, /proposalChartHorizontalScaleDrag\([\s\S]*?event\.clientX - timeAxisDrag\.startX/);
+  assert.match(proposalLivelineSource, /function startKineticPan\(initialVelocity\)/);
+  assert.match(proposalLivelineSource, /chartWheelDeltaPixels\(event\.deltaX/);
   assert.match(proposalLivelineSource, /container\.addEventListener\('dblclick', onDoubleClick\)/);
+  assert.match(frameCss, /\.ft-hourly-live:is\(\.is-x-axis-hover, \.is-scaling-x\)[\s\S]*?cursor: ew-resize !important;/);
   assert.match(frameCss, /\.ft-hourly-live:is\(\.is-y-axis-hover, \.is-scaling-y\)[\s\S]*?cursor: ns-resize !important;/);
   assert.match(
     decisionMarketControllerSource,
-    /drag the right price axis to rescale/,
+    /drag the bottom time axis to scale horizontally,[\s\S]*?drag or scroll the right price axis to scale vertically/,
   );
 });
 
@@ -769,7 +784,7 @@ test('desktop spot ticket grows to expose every control without internal scrolli
   assert.doesNotMatch(sharedTerminalCss, /overflow-y: auto !important;/);
   assert.match(
     sharedTerminalCss,
-    /\.ft-proposal-focus \.ft-terminal-grid,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,[\s\S]*?overflow: visible;/,
+    /\.ft-proposal-focus \.ft-terminal-grid,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?--ft-terminal-chart-height: clamp\(\s*550px,[\s\S]*?690px[\s\S]*?overflow: visible;/,
   );
 });
 
@@ -807,7 +822,7 @@ test('spot and decision routes share one authoritative desktop terminal geometry
   );
   assert.match(
     sharedTerminalCss,
-    /--ft-terminal-account-height: clamp\(180px, 22dvh, 210px\);[\s\S]*?--ft-terminal-analysis-height: 0px;[\s\S]*?--ft-terminal-chart-height: max\(\s*550px,[\s\S]*?- var\(--ft-terminal-analysis-height\)/,
+    /--ft-terminal-account-height: clamp\(180px, 22dvh, 210px\);[\s\S]*?--ft-terminal-analysis-height: 0px;[\s\S]*?--ft-terminal-chart-height: clamp\(\s*550px,[\s\S]*?- var\(--ft-terminal-analysis-height\)[\s\S]*?690px/,
   );
   assert.match(
     sharedTerminalCss,

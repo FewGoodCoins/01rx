@@ -72,15 +72,22 @@ export function stableChartViewportProjection(viewport, options = {}) {
 }
 
 /**
- * Normalizes mouse wheels and trackpads to small, continuous zoom steps.
+ * Normalizes mouse wheels and trackpads into bounded CSS-pixel movement.
  */
-export function chartWheelZoomFactor(deltaY, {
+export function chartWheelDeltaPixels(delta, {
   deltaMode = 0,
   viewportHeight = 800,
 } = {}) {
-  let pixels = finiteNumber(deltaY, 0);
+  let pixels = finiteNumber(delta, 0);
   if (deltaMode === 1) pixels *= WHEEL_LINE_HEIGHT_PX;
   if (deltaMode === 2) pixels *= Math.max(1, finiteNumber(viewportHeight, 800));
-  pixels = Math.max(-MAX_WHEEL_DELTA_PX, Math.min(MAX_WHEEL_DELTA_PX, pixels));
+  return Math.max(-MAX_WHEEL_DELTA_PX, Math.min(MAX_WHEEL_DELTA_PX, pixels));
+}
+
+/**
+ * Converts normalized wheel movement into small, continuous zoom steps.
+ */
+export function chartWheelZoomFactor(deltaY, options = {}) {
+  const pixels = chartWheelDeltaPixels(deltaY, options);
   return Math.exp(pixels * WHEEL_ZOOM_SENSITIVITY);
 }

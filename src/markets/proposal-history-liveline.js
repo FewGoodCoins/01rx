@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CHART_ORIGIN_PRESENTATION } from '../chart/origin-presentation.js';
 import {
+  chartWheelDeltaPixels,
   chartWheelZoomFactor,
   STABLE_CHART_DATA_PLOT_RATIO,
   stableChartViewportProjection,
@@ -24,12 +25,18 @@ const RANGE_SECONDS = Object.freeze({
 });
 const WINDOW_BUFFER_RATIO = 1.08;
 const LIVE_LERP_SPEED = 0.08;
-const INTERACTION_LERP_SPEED = 0.8;
+const INTERACTION_LERP_SPEED = 0.9;
 const PLOT_TOP_PADDING = 54;
-const MAX_FUTURE_PAN_RATIO = 0.6;
-const MIN_VERTICAL_RANGE_SCALE = 0.83;
-const MAX_VERTICAL_RANGE_SCALE = 6;
-const VERTICAL_SCALE_SENSITIVITY = 1.5;
+const MIN_HORIZONTAL_ZOOM_SCALE = 0.04;
+const MAX_HORIZONTAL_ZOOM_SCALE = 24;
+const PAN_EDGE_GUARD_RATIO = 0.08;
+const HORIZONTAL_SCALE_SENSITIVITY = 1.4;
+const MIN_VERTICAL_RANGE_SCALE = 0.12;
+const MAX_VERTICAL_RANGE_SCALE = 16;
+const VERTICAL_SCALE_SENSITIVITY = 1.15;
+const KINETIC_PAN_DECAY = 0.9;
+const KINETIC_PAN_MAX_SCREENS_PER_SECOND = 2.4;
+const KINETIC_PAN_MIN_PIXELS_PER_MILLISECOND = 0.015;
 const DEFAULT_RANGE_MARGIN = 0.12;
 const EXAGGERATED_RANGE_MARGIN = 0.01;
 const BOUND_POINT_REVEAL_DELAY_MS = 1_050;
@@ -197,6 +204,7 @@ export function proposalLivelineDataset(history, options = {}) {
   return {
     observations,
     series,
+    cadence,
     firstTime,
     lastTime,
     timeOffset,
@@ -219,24 +227,55 @@ function sourceViewport(dataset) {
 
 export function proposalChartPanBounds(windowSeconds, fullDuration) {
   const window = Math.max(1, Number(windowSeconds) || 1);
-  const duration = Math.max(window, Number(fullDuration) || window);
+  const duration = Math.max(0, Number(fullDuration) || 0);
+  const futureWhitespace = Math.max(
+    0,
+    STABLE_CHART_DATA_PLOT_RATIO - PAN_EDGE_GUARD_RATIO,
+  );
+  const pastWhitespace = Math.max(
+    0,
+    STABLE_CHART_DATA_PLOT_RATIO - (1 - PAN_EDGE_GUARD_RATIO),
+  );
   return Object.freeze({
-    maximum: Math.max(0, duration - window * 0.35),
-    minimum: -window * MAX_FUTURE_PAN_RATIO,
+    maximum: Math.max(0, duration - window * pastWhitespace),
+    minimum: -window * futureWhitespace,
   });
 }
 
-export function proposalChartVerticalScale(startScale, deltaY, chartHeight) {
+export function proposalChartHorizontalZoomScale(startScale, factor) {
+  const initial = Math.max(
+    MIN_HORIZONTAL_ZOOM_SCALE,
+    Math.min(MAX_HORIZONTAL_ZOOM_SCALE, Number(startScale) || 1),
+  );
+  return Math.max(
+    MIN_HORIZONTAL_ZOOM_SCALE,
+    Math.min(MAX_HORIZONTAL_ZOOM_SCALE, initial * (Number(factor) || 1)),
+  );
+}
+
+export function proposalChartHorizontalScaleDrag(startScale, deltaX, chartWidth) {
+  const width = Math.max(160, Number(chartWidth) || 160);
+  const factor = Math.exp(
+    -(Number(deltaX) || 0) / width * HORIZONTAL_SCALE_SENSITIVITY,
+  );
+  return proposalChartHorizontalZoomScale(startScale, factor);
+}
+
+export function proposalChartVerticalZoomScale(startScale, factor) {
   const initial = Math.max(
     MIN_VERTICAL_RANGE_SCALE,
     Math.min(MAX_VERTICAL_RANGE_SCALE, Number(startScale) || 1),
   );
-  const height = Math.max(120, Number(chartHeight) || 120);
-  const factor = Math.exp((Number(deltaY) || 0) / height * VERTICAL_SCALE_SENSITIVITY);
   return Math.max(
     MIN_VERTICAL_RANGE_SCALE,
-    Math.min(MAX_VERTICAL_RANGE_SCALE, initial * factor),
+    Math.min(MAX_VERTICAL_RANGE_SCALE, initial * (Number(factor) || 1)),
   );
+}
+
+export function proposalChartVerticalScale(startScale, deltaY, chartHeight) {
+  const height = Math.max(120, Number(chartHeight) || 120);
+  const factor = Math.exp((Number(deltaY) || 0) / height * VERTICAL_SCALE_SENSITIVITY);
+  return proposalChartVerticalZoomScale(startScale, factor);
 }
 
 function gapMaskElements(dataset, projection) {
@@ -559,14 +598,18 @@ export function createProposalHistoryChart(options = {}) {
   let root = null;
   let drag = null;
   let axisDrag = null;
+  let timeAxisDrag = null;
   const pointers = new Map();
   let pinch = null;
   let interactionActive = false;
   let interactionTimer = 0;
+  let interactionRenderFrame = 0;
+  let kineticPanFrame = 0;
   let boundPointRevealTimer = 0;
   let lastPrepared = null;
   let lastProjection = null;
   let verticalRangeScale = 1;
+  let destroyed = false;
   const chartRoot = container.closest('.ft-hourly-chart') || container;
   const readout = {
     time: chartRoot.querySelector('[data-ft-role="hourly-readout-time"]'),
@@ -587,10 +630,7 @@ export function createProposalHistoryChart(options = {}) {
     });
     if (prepared) {
       prepared.windowSeconds *= zoomScale;
-      const fullDuration = Math.max(
-        prepared.windowSeconds,
-        prepared.lastTime - prepared.firstTime,
-      );
+      const fullDuration = Math.max(0, prepared.lastTime - prepared.firstTime);
       const panBounds = proposalChartPanBounds(prepared.windowSeconds, fullDuration);
       panOffsetSeconds = Math.max(
         panBounds.minimum,
@@ -619,6 +659,41 @@ export function createProposalHistoryChart(options = {}) {
     return Math.max(1, container.clientHeight - PLOT_PADDING.top - PLOT_PADDING.bottom);
   }
 
+  function frameNow() {
+    const value = runtime.performance?.now?.();
+    return Number.isFinite(value) ? value : Date.now();
+  }
+
+  function requestFrame(callback) {
+    if (typeof runtime.requestAnimationFrame === 'function') {
+      return runtime.requestAnimationFrame(callback);
+    }
+    return runtime.setTimeout(() => callback(frameNow()), 16);
+  }
+
+  function cancelFrame(handle) {
+    if (!handle) return;
+    if (typeof runtime.cancelAnimationFrame === 'function') {
+      runtime.cancelAnimationFrame(handle);
+      return;
+    }
+    runtime.clearTimeout(handle);
+  }
+
+  function scheduleRender() {
+    if (destroyed || interactionRenderFrame) return;
+    interactionRenderFrame = requestFrame(() => {
+      interactionRenderFrame = 0;
+      render();
+    });
+  }
+
+  function stopKineticPan() {
+    if (!kineticPanFrame) return;
+    cancelFrame(kineticPanFrame);
+    kineticPanFrame = 0;
+  }
+
   function isValueAxisPointer(event) {
     const rect = container.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -627,6 +702,16 @@ export function createProposalHistoryChart(options = {}) {
       && x <= container.clientWidth
       && y >= PLOT_PADDING.top
       && y <= container.clientHeight - PLOT_PADDING.bottom;
+  }
+
+  function isTimeAxisPointer(event) {
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return x >= PLOT_PADDING.left
+      && x <= container.clientWidth - PLOT_PADDING.right
+      && y >= container.clientHeight - PLOT_PADDING.bottom
+      && y <= container.clientHeight;
   }
 
   function updateReadoutAt(sourceTime) {
@@ -680,6 +765,7 @@ export function createProposalHistoryChart(options = {}) {
   }
 
   function beginInteraction() {
+    stopKineticPan();
     if (interactionTimer) {
       runtime.clearTimeout(interactionTimer);
       interactionTimer = 0;
@@ -687,7 +773,6 @@ export function createProposalHistoryChart(options = {}) {
     clearOwnedCrosshair();
     if (!interactionActive) {
       interactionActive = true;
-      render();
       return true;
     }
     return false;
@@ -703,11 +788,13 @@ export function createProposalHistoryChart(options = {}) {
   }
 
   function renderStaticChange() {
-    if (!beginInteraction()) render();
+    beginInteraction();
+    render();
     endInteraction(180);
   }
 
   function render() {
+    if (destroyed) return;
     const prepared = dataset();
     if (!prepared?.series?.length) return;
     const viewport = sourceViewport(prepared);
@@ -824,7 +911,7 @@ export function createProposalHistoryChart(options = {}) {
   }, BOUND_POINT_REVEAL_DELAY_MS);
   function zoomBy(
     factor,
-    plotRatio = lastProjection?.dataPlotRatio ?? STABLE_CHART_DATA_PLOT_RATIO,
+    plotRatio = 0.5,
   ) {
     const prepared = dataset();
     if (!prepared) return;
@@ -832,32 +919,106 @@ export function createProposalHistoryChart(options = {}) {
     const projection = stableChartViewportProjection(viewport, {
       nowSeconds: prepared.lastTime + prepared.timeOffset,
     });
-    const nextZoomScale = Math.max(0.15, Math.min(4, zoomScale * factor));
+    const nextZoomScale = proposalChartHorizontalZoomScale(zoomScale, factor);
     const appliedFactor = nextZoomScale / zoomScale;
     if (Math.abs(appliedFactor - 1) < Number.EPSILON) return;
-    const anchor = projection.sourceTimeAtPlotRatio(plotRatio);
+    const anchor = projection.sourceTimeAtPlotRatio(plotRatio, {
+      clampToData: false,
+    });
     const nextViewportEnd = anchor + (viewport.to - anchor) * appliedFactor;
     zoomScale = nextZoomScale;
     panOffsetSeconds = prepared.lastTime - nextViewportEnd;
-    render();
+    scheduleRender();
+  }
+
+  function startKineticPan(initialVelocity) {
+    const prepared = dataset();
+    if (
+      !prepared
+      || !Number.isFinite(initialVelocity)
+      || runtime.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    ) return false;
+    const secondsPerPixel = prepared.windowSeconds / plotWidth();
+    const minimumVelocity = secondsPerPixel * KINETIC_PAN_MIN_PIXELS_PER_MILLISECOND;
+    if (Math.abs(initialVelocity) < minimumVelocity) return false;
+    const maximumVelocity = prepared.windowSeconds
+      * KINETIC_PAN_MAX_SCREENS_PER_SECOND
+      / 1_000;
+    let velocity = Math.max(
+      -maximumVelocity,
+      Math.min(maximumVelocity, initialVelocity),
+    );
+    let previousFrame = frameNow();
+    if (interactionRenderFrame) {
+      cancelFrame(interactionRenderFrame);
+      interactionRenderFrame = 0;
+    }
+
+    function advance(timestamp) {
+      kineticPanFrame = 0;
+      if (destroyed || pointers.size) return;
+      const elapsed = Math.max(1, Math.min(32, timestamp - previousFrame));
+      const requestedOffset = panOffsetSeconds + velocity * elapsed;
+      panOffsetSeconds = requestedOffset;
+      render();
+      const hitBoundary = Math.abs(panOffsetSeconds - requestedOffset)
+        > Math.max(1e-6, prepared.windowSeconds * 1e-8);
+      velocity *= Math.pow(KINETIC_PAN_DECAY, elapsed / (1_000 / 60));
+      if (hitBoundary || Math.abs(velocity) < minimumVelocity) {
+        endInteraction(90);
+        return;
+      }
+      previousFrame = timestamp;
+      kineticPanFrame = requestFrame(advance);
+    }
+
+    kineticPanFrame = requestFrame(advance);
+    return true;
   }
 
   function onWheel(event) {
     event.preventDefault();
     beginInteraction();
+    const wheelOptions = {
+      deltaMode: event.deltaMode,
+      viewportHeight: container.clientHeight,
+    };
+    if (isValueAxisPointer(event)) {
+      verticalRangeScale = proposalChartVerticalZoomScale(
+        verticalRangeScale,
+        chartWheelZoomFactor(event.deltaY || event.deltaX, wheelOptions),
+      );
+      scheduleRender();
+      endInteraction(120);
+      return;
+    }
+    if (
+      !isTimeAxisPointer(event)
+      && Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    ) {
+      const prepared = dataset();
+      if (prepared) {
+        const pixels = chartWheelDeltaPixels(event.deltaX, wheelOptions);
+        panOffsetSeconds -= pixels / plotWidth() * prepared.windowSeconds;
+        scheduleRender();
+      }
+      endInteraction(90);
+      return;
+    }
     const rect = container.getBoundingClientRect();
     const plotRatio = Math.max(0, Math.min(
       1,
       (event.clientX - rect.left - PLOT_PADDING.left) / plotWidth(),
     ));
-    zoomBy(chartWheelZoomFactor(event.deltaY, {
-      deltaMode: event.deltaMode,
-      viewportHeight: container.clientHeight,
-    }), plotRatio);
-    endInteraction(140);
+    zoomBy(
+      chartWheelZoomFactor(event.deltaY || event.deltaX, wheelOptions),
+      plotRatio,
+    );
+    endInteraction(120);
   }
 
   function onPointerDown(event) {
+    if (event.pointerType !== 'touch' && event.button !== 0) return;
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     container.setPointerCapture?.(event.pointerId);
     beginInteraction();
@@ -872,8 +1033,41 @@ export function createProposalHistoryChart(options = {}) {
         startY: event.clientY,
       };
       drag = null;
+      timeAxisDrag = null;
       pinch = null;
       container.classList.add('is-scaling-y');
+      return;
+    }
+    if (
+      event.pointerType !== 'touch'
+      && isTimeAxisPointer(event)
+    ) {
+      const prepared = dataset();
+      const viewport = prepared ? sourceViewport(prepared) : null;
+      const projection = prepared && viewport
+        ? stableChartViewportProjection(viewport, {
+          nowSeconds: prepared.lastTime + prepared.timeOffset,
+        })
+        : null;
+      const rect = container.getBoundingClientRect();
+      const plotRatio = Math.max(0, Math.min(
+        1,
+        (event.clientX - rect.left - PLOT_PADDING.left) / plotWidth(),
+      ));
+      timeAxisDrag = {
+        anchor: projection?.sourceTimeAtPlotRatio(plotRatio, {
+          clampToData: false,
+        }),
+        lastTime: prepared?.lastTime,
+        pointerId: event.pointerId,
+        startScale: zoomScale,
+        startX: event.clientX,
+        viewportEnd: viewport?.to,
+      };
+      axisDrag = null;
+      drag = null;
+      pinch = null;
+      container.classList.add('is-scaling-x');
       return;
     }
     if (pointers.size >= 2) {
@@ -891,28 +1085,40 @@ export function createProposalHistoryChart(options = {}) {
         ((first.x + second.x) / 2 - rect.left - PLOT_PADDING.left) / plotWidth(),
       ));
       pinch = {
-        anchor: projection?.sourceTimeAtPlotRatio(plotRatio),
+        anchor: projection?.sourceTimeAtPlotRatio(plotRatio, {
+          clampToData: false,
+        }),
         distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
         lastTime: prepared?.lastTime,
         viewportEnd: viewport?.to,
         zoomScale,
       };
       drag = null;
+      container.classList.remove('is-panning');
       return;
     }
-    if (event.button !== 0) return;
+    const now = frameNow();
     drag = {
       panOffsetSeconds,
+      lastOffset: panOffsetSeconds,
+      lastTime: now,
+      moved: false,
       pointerId: event.pointerId,
       startX: event.clientX,
+      velocity: 0,
     };
+    container.classList.add('is-panning');
   }
 
   function onPointerMove(event) {
     if (!pointers.has(event.pointerId)) {
-      const axisHover = event.pointerType !== 'touch' && isValueAxisPointer(event);
-      container.classList.toggle('is-y-axis-hover', axisHover);
-      if (axisHover) {
+      const valueAxisHover = event.pointerType !== 'touch' && isValueAxisPointer(event);
+      const timeAxisHover = event.pointerType !== 'touch'
+        && !valueAxisHover
+        && isTimeAxisPointer(event);
+      container.classList.toggle('is-y-axis-hover', valueAxisHover);
+      container.classList.toggle('is-x-axis-hover', timeAxisHover);
+      if (valueAxisHover || timeAxisHover) {
         clearOwnedCrosshair();
         return;
       }
@@ -927,15 +1133,36 @@ export function createProposalHistoryChart(options = {}) {
         plotHeight(),
       );
       event.preventDefault();
-      render();
+      scheduleRender();
+      return;
+    }
+    if (timeAxisDrag?.pointerId === event.pointerId) {
+      const nextZoomScale = proposalChartHorizontalScaleDrag(
+        timeAxisDrag.startScale,
+        event.clientX - timeAxisDrag.startX,
+        plotWidth(),
+      );
+      const appliedFactor = nextZoomScale / timeAxisDrag.startScale;
+      zoomScale = nextZoomScale;
+      if (
+        Number.isFinite(timeAxisDrag.anchor)
+        && Number.isFinite(timeAxisDrag.viewportEnd)
+        && Number.isFinite(timeAxisDrag.lastTime)
+      ) {
+        const nextViewportEnd = timeAxisDrag.anchor
+          + (timeAxisDrag.viewportEnd - timeAxisDrag.anchor) * appliedFactor;
+        panOffsetSeconds = timeAxisDrag.lastTime - nextViewportEnd;
+      }
+      event.preventDefault();
+      scheduleRender();
       return;
     }
     if (pinch && pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
       const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
-      const nextZoomScale = Math.max(
-        0.15,
-        Math.min(4, pinch.zoomScale * (pinch.distance / distance)),
+      const nextZoomScale = proposalChartHorizontalZoomScale(
+        pinch.zoomScale,
+        pinch.distance / distance,
       );
       const appliedFactor = nextZoomScale / pinch.zoomScale;
       zoomScale = nextZoomScale;
@@ -949,7 +1176,7 @@ export function createProposalHistoryChart(options = {}) {
         panOffsetSeconds = pinch.lastTime - nextViewportEnd;
       }
       event.preventDefault();
-      render();
+      scheduleRender();
       return;
     }
     if (!drag || drag.pointerId !== event.pointerId) return;
@@ -957,34 +1184,63 @@ export function createProposalHistoryChart(options = {}) {
     if (!prepared) return;
     const delta = event.clientX - drag.startX;
     if (Math.abs(delta) < 3) return;
-    panOffsetSeconds = drag.panOffsetSeconds
+    const nextOffset = drag.panOffsetSeconds
       + (delta / plotWidth()) * prepared.windowSeconds;
+    const now = frameNow();
+    const elapsed = Math.max(1, now - drag.lastTime);
+    const velocity = (nextOffset - drag.lastOffset) / elapsed;
+    drag.velocity = drag.moved
+      ? drag.velocity * 0.65 + velocity * 0.35
+      : velocity;
+    drag.lastOffset = nextOffset;
+    drag.lastTime = now;
+    drag.moved = true;
+    panOffsetSeconds = nextOffset;
     event.preventDefault();
-    render();
+    scheduleRender();
   }
 
   function onPointerUp(event) {
+    const releasedDrag = drag?.pointerId === event.pointerId ? drag : null;
     pointers.delete(event.pointerId);
     container.releasePointerCapture?.(event.pointerId);
-    if (drag?.pointerId === event.pointerId) drag = null;
+    if (releasedDrag) {
+      drag = null;
+      container.classList.remove('is-panning');
+    }
     if (axisDrag?.pointerId === event.pointerId) {
       axisDrag = null;
       container.classList.remove('is-scaling-y');
     }
+    if (timeAxisDrag?.pointerId === event.pointerId) {
+      timeAxisDrag = null;
+      container.classList.remove('is-scaling-x');
+    }
     if (pointers.size < 2) pinch = null;
-    if (!pointers.size) endInteraction(180);
+    const kinetic = !pointers.size
+      && event.type !== 'pointercancel'
+      && releasedDrag?.moved
+      && startKineticPan(releasedDrag.velocity);
+    if (!pointers.size && !kinetic) endInteraction(120);
   }
 
   function onPointerLeave() {
     if (!pointers.size) {
       container.classList.remove('is-y-axis-hover');
+      container.classList.remove('is-x-axis-hover');
       clearOwnedCrosshair();
     }
   }
 
   function onDoubleClick(event) {
-    if (!isValueAxisPointer(event)) return;
-    verticalRangeScale = 1;
+    if (isValueAxisPointer(event)) {
+      verticalRangeScale = 1;
+    } else if (isTimeAxisPointer(event)) {
+      zoomScale = 1;
+      panOffsetSeconds = 0;
+    } else {
+      return;
+    }
     event.preventDefault();
     renderStaticChange();
   }
@@ -1041,19 +1297,22 @@ export function createProposalHistoryChart(options = {}) {
     },
     zoomIn() {
       beginInteraction();
-      zoomBy(0.82);
-      endInteraction(140);
+      zoomBy(0.86);
+      endInteraction(120);
     },
     zoomOut() {
       beginInteraction();
-      zoomBy(1.18);
-      endInteraction(140);
+      zoomBy(1.16);
+      endInteraction(120);
     },
     resize() {
       render();
     },
     destroy() {
+      destroyed = true;
       if (interactionTimer) runtime.clearTimeout(interactionTimer);
+      if (interactionRenderFrame) cancelFrame(interactionRenderFrame);
+      stopKineticPan();
       if (boundPointRevealTimer) runtime.clearTimeout(boundPointRevealTimer);
       container.removeEventListener('wheel', onWheel);
       container.removeEventListener('pointerdown', onPointerDown);
@@ -1064,7 +1323,10 @@ export function createProposalHistoryChart(options = {}) {
       container.removeEventListener('dblclick', onDoubleClick);
       container.classList.remove(
         'has-liveline-bound-points',
+        'is-panning',
+        'is-scaling-x',
         'is-scaling-y',
+        'is-x-axis-hover',
         'is-y-axis-hover',
       );
       root?.unmount();
