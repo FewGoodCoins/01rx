@@ -29,10 +29,18 @@ test('stable chart projection keeps the renderer window fixed through zoom', asy
   assert.equal(zoomed.toRenderTime(zoomed.sourceTo), zoomed.renderNow);
   assert.equal(wide.toSourceTime(wide.toRenderTime(321)), 321);
   assert.equal(zoomed.toSourceTime(zoomed.toRenderTime(321)), 321);
+  assert.equal(wide.sourceTimeAtPlotRatio(1), wide.sourceTo);
+  assert.equal(
+    wide.sourceTimeAtPlotRatio(1, { clampToData: false }),
+    wide.sourceRight,
+  );
 });
 
 test('wheel zoom normalizes to small reversible steps', async () => {
-  const { chartWheelZoomFactor } = await loadViewportModel();
+  const {
+    chartWheelDeltaPixels,
+    chartWheelZoomFactor,
+  } = await loadViewportModel();
   const zoomOut = chartWheelZoomFactor(100);
   const zoomIn = chartWheelZoomFactor(-100);
   const trackpadStep = chartWheelZoomFactor(2);
@@ -41,4 +49,6 @@ test('wheel zoom normalizes to small reversible steps', async () => {
   assert.ok(zoomIn < 1 && zoomIn > 0.8);
   assert.ok(Math.abs(zoomOut * zoomIn - 1) < 1e-12);
   assert.ok(trackpadStep > 1 && trackpadStep < 1.01);
+  assert.equal(chartWheelDeltaPixels(3, { deltaMode: 1 }), 48);
+  assert.equal(chartWheelDeltaPixels(2, { deltaMode: 2, viewportHeight: 900 }), 120);
 });

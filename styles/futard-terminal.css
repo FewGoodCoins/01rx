@@ -4767,6 +4767,8 @@ body.is-futard-terminal #token-switch-loader {
 
 .ft-hourly-chart-liveline .ft-hourly-live {
   overflow: hidden;
+  overscroll-behavior: contain;
+  user-select: none;
 }
 
 .ft-hourly-chart-liveline .ft-hourly-readout {
@@ -4796,6 +4798,16 @@ body.is-futard-terminal #token-switch-loader {
   cursor: crosshair !important;
 }
 
+.ft-hourly-live.is-panning,
+.ft-hourly-live.is-panning canvas {
+  cursor: grabbing !important;
+}
+
+.ft-hourly-live:is(.is-x-axis-hover, .is-scaling-x),
+.ft-hourly-live:is(.is-x-axis-hover, .is-scaling-x) canvas {
+  cursor: ew-resize !important;
+}
+
 .ft-hourly-live:is(.is-y-axis-hover, .is-scaling-y),
 .ft-hourly-live:is(.is-y-axis-hover, .is-scaling-y) canvas {
   cursor: ns-resize !important;
@@ -4807,10 +4819,10 @@ body.is-futard-terminal #token-switch-loader {
   z-index: 7;
   width: 8px;
   height: 8px;
-  border: 2px solid var(--market-surface, #101010);
+  border: 0;
   border-radius: 50% !important;
   background: var(--ft-liveline-point-color, #ffffff);
-  box-shadow: 0 0 0 1px var(--ft-liveline-point-color, #ffffff);
+  box-shadow: none;
   opacity: 0;
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -4924,10 +4936,10 @@ body.is-futard-terminal #token-switch-loader {
   z-index: 5;
   width: 8px;
   height: 8px;
-  border: 2px solid var(--market-surface, #101010);
+  border: 0;
   border-radius: 50% !important;
   background: var(--orx-endpoint-color, #5b8cff);
-  box-shadow: 0 0 0 1px var(--orx-endpoint-color, #5b8cff);
+  box-shadow: none;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -4936,7 +4948,7 @@ body.is-futard-terminal #token-switch-loader {
   width: 8px;
   height: 8px;
   background: #ffffff;
-  box-shadow: 0 0 0 1px #ffffff;
+  box-shadow: none;
   opacity: 1;
 }
 

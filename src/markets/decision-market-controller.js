@@ -1405,7 +1405,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           data-ft-role="proposal-history-liveline"
           data-ft-chart-engine="liveline"
           role="img"
-          aria-label="Interactive chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A subtle background change separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The chart retains the complete indexed window without drawing a boundary line.' : ''} Hover to inspect exact values; drag, scroll, or pinch to navigate, and drag the right price axis to rescale."
+          aria-label="Interactive chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A subtle background change separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The chart retains the complete indexed window without drawing a boundary line.' : ''} Hover to inspect exact values; drag or swipe the plot to pan, scroll or pinch to zoom, drag the bottom time axis to scale horizontally, and drag or scroll the right price axis to scale vertically. Double-click either axis to reset it."
         ></div>
         ${renderProposalDetailsPanel(proposal, proposalDetailsOpen)}
         ${twapWindow}
