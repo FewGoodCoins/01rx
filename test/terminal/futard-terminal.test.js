@@ -1673,6 +1673,68 @@ test('proposal-first terminal renders validated market state and a safe trade in
   cleanupMount(mounted);
 });
 
+test('chart market switcher keeps active and prior decisions available without the explorer', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=loyal&view=markets&proposal=${PROPOSAL_ID}`,
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+
+  await controller.ready;
+
+  const trigger = byAction(root, 'toggle-decision-market-switcher');
+  assert.ok(trigger);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+  assert.match(trigger.textContent, /LOYAL/);
+  assert.match(trigger.textContent, /Loyal/);
+  assert.match(trigger.textContent, /Proposal #7/);
+
+  trigger.click();
+  const menu = byRole(root, 'decision-market-switcher-menu');
+  assert.ok(menu);
+  assert.equal(menu.hidden, false);
+  assert.deepEqual(
+    Array.from(menu.querySelectorAll('.ft-decision-market-switcher-group-label'))
+      .map(label => label.firstElementChild.textContent.trim()),
+    ['Active markets', 'Prior markets'],
+  );
+  const options = Array.from(menu.querySelectorAll(
+    '[data-ft-action="select-decision-market"]',
+  ));
+  assert.equal(options.length, 3);
+  assert.equal(
+    options.find(option => option.dataset.ftProposalId === PROPOSAL_ID)
+      .getAttribute('aria-checked'),
+    'true',
+  );
+
+  const priorMetaMarket = options.find(option => (
+    option.dataset.ftProposalId === PASSED_PROPOSAL_ID
+  ));
+  assert.ok(priorMetaMarket);
+  priorMetaMarket.click();
+  await settleUntil(window, () => (
+    controller.getState().token === 'meta'
+    && controller.getState().selectedId === PASSED_PROPOSAL_ID
+    && byRole(root, 'market-title')?.textContent === 'META'
+  ));
+
+  assert.equal(byRole(root, 'market-title').textContent, 'META');
+  assert.equal(byRole(root, 'decision-market-switcher-menu').hidden, true);
+  assert.equal(
+    new window.URL(window.location.href).searchParams.get('proposal'),
+    PASSED_PROPOSAL_ID,
+  );
+
+  cleanupMount(mounted);
+});
+
 test('proposal transaction feed labels every outcome side and totals recent volume', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const proposalMarketData = JSON.parse(JSON.stringify(PROPOSAL_MARKET_DATA));

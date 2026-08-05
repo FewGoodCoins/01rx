@@ -12,9 +12,15 @@ export function createShellPanelController(options = {}) {
     right: false,
   };
 
-  // The trading workspace keeps both rails pinned open.
-  storage.removeItem(LEFT_PANEL_STORAGE_KEY);
-  storage.removeItem(RIGHT_PANEL_STORAGE_KEY);
+  // The market explorer is optional workspace chrome. Remember the user's
+  // choice while keeping the retired right-rail preference pinned open.
+  try {
+    state.left = storage.getItem(LEFT_PANEL_STORAGE_KEY) === '1';
+    storage.removeItem(RIGHT_PANEL_STORAGE_KEY);
+  } catch (_) {
+    // Storage can be unavailable in privacy-restricted browser contexts. The
+    // in-memory control remains fully functional for the current session.
+  }
 
   function refreshControls() {
     const leftButton = documentRef.getElementById('left-panel-toggle');
@@ -26,8 +32,11 @@ export function createShellPanelController(options = {}) {
 
     if (leftButton) {
       leftButton.setAttribute('aria-expanded', leftOpen ? 'true' : 'false');
-      leftButton.setAttribute('aria-label', leftOpen ? 'Collapse left panel' : 'Expand left panel');
-      leftButton.title = leftOpen ? 'Collapse left panel' : 'Expand left panel';
+      leftButton.setAttribute(
+        'aria-label',
+        leftOpen ? 'Hide market explorer' : 'Show market explorer',
+      );
+      leftButton.title = leftOpen ? 'Hide market explorer' : 'Show market explorer';
     }
     if (rightButton) {
       rightButton.setAttribute('aria-expanded', rightOpen ? 'true' : 'false');
@@ -58,9 +67,19 @@ export function createShellPanelController(options = {}) {
   }
 
   function togglePanel(side) {
-    if (side !== 'left' && side !== 'right') return false;
+    if (side !== 'left') {
+      if (side === 'right') refreshControls();
+      return false;
+    }
+    state.left = !state.left;
+    try {
+      storage.setItem(LEFT_PANEL_STORAGE_KEY, state.left ? '1' : '0');
+    } catch (_) {
+      // The visual state does not depend on persistence succeeding.
+    }
     refreshControls();
-    return false;
+    notifyResize();
+    return state.left;
   }
 
   return {
