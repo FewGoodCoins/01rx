@@ -1,6 +1,10 @@
 import { Liveline } from 'liveline';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import {
+  chartWheelZoomFactor,
+  stableChartViewportProjection,
+} from './stable-chart-viewport.js';
 
 const PLOT_PADDING = Object.freeze({ top: 42, right: 76, bottom: 30, left: 12 });
 const MIN_WINDOW_SECONDS = 60;
@@ -213,49 +217,65 @@ function gapRanges(series, viewport) {
     .filter(range => range.to > range.from);
 }
 
-function activeValues(series, viewport) {
-  const values = [];
-  visibleSeries(series).forEach((item) => {
-    sortedData(item).forEach((point) => {
-      if (point.time < viewport.from || point.time > viewport.to) return;
-      const value = pointValue(point, item.kind);
-      if (Number.isFinite(value)) values.push(value);
-    });
-  });
-  if (!values.length) return { min: 0, max: 1 };
+function paddedValueRange(values) {
+  if (!values.length) return null;
   let min = Math.min(...values);
   let max = Math.max(...values);
-  if (!(max > min)) {
-    const padding = Math.max(Math.abs(max) * 0.02, 1);
-    min -= padding;
-    max += padding;
+  const rawRange = max - min;
+  const minimumRange = rawRange * 0.1 || 0.4;
+  if (rawRange < minimumRange) {
+    const middle = (min + max) / 2;
+    min = middle - minimumRange / 2;
+    max = middle + minimumRange / 2;
   } else {
-    const padding = (max - min) * 0.12;
+    const padding = rawRange * 0.12;
     min -= padding;
     max += padding;
   }
   return { min, max };
 }
 
-function markerModel(series, viewport) {
+function activeValues(series, viewport) {
+  const ranges = visibleSeries(series).map((item) => {
+    const values = [];
+    sortedData(item).forEach((point) => {
+      if (point.time < viewport.from || point.time > viewport.to) return;
+      if (item.kind === 'candlestick') {
+        const low = Number(point.low);
+        const high = Number(point.high);
+        if (Number.isFinite(low)) values.push(low);
+        if (Number.isFinite(high)) values.push(high);
+        return;
+      }
+      const value = pointValue(point, item.kind);
+      if (Number.isFinite(value)) values.push(value);
+    });
+    return paddedValueRange(values);
+  }).filter(Boolean);
+  if (!ranges.length) return { min: 0, max: 1 };
+  return {
+    min: Math.min(...ranges.map(range => range.min)),
+    max: Math.max(...ranges.map(range => range.max)),
+  };
+}
+
+function markerModel(series, viewport, projection) {
   const bounds = activeValues(series, viewport);
-  const duration = Math.max(1, viewport.to - viewport.from);
   const valueRange = Math.max(Number.EPSILON, bounds.max - bounds.min);
   return visibleSeries(series).flatMap((item, index) => {
-    const points = sortedData(item).filter(point => (
-      point.time >= viewport.from && point.time <= viewport.to
-    ));
+    const points = sortedData(item);
     if (!points.length) return [];
     const color = seriesColor(item, index);
     const markers = [
       { edge: 'start', point: points[0] },
       { edge: 'end', point: points[points.length - 1] },
-    ];
+    ].filter(({ point }) => point.time >= viewport.from && point.time <= viewport.to);
     return markers.map(({ edge, point }) => ({
       color,
       edge,
       id: `${item.id}-${edge}`,
-      x: (point.time - viewport.from) / duration,
+      sourceTime: point.time,
+      x: projection.toPlotRatio(point.time),
       y: (bounds.max - pointValue(point, item.kind)) / valueRange,
     }));
   });
@@ -263,7 +283,7 @@ function markerModel(series, viewport) {
 
 /**
  * Builds the renderer-neutral viewport snapshot consumed by the React host.
- * Exported so timestamp shifting, gaps, and endpoint markers stay testable
+ * Exported so time projection, gaps, and endpoint markers stay testable
  * without relying on a canvas implementation.
  */
 export function livelineChartSnapshot(series, {
@@ -273,6 +293,7 @@ export function livelineChartSnapshot(series, {
   const timeline = seriesTimeline(series);
   const resolvedViewport = clampViewport(viewport, timeline);
   const offset = nowSeconds - resolvedViewport.to;
+  const projection = stableChartViewportProjection(resolvedViewport, { nowSeconds });
   const candidates = visibleSeries(series);
   const candle = candidates.find(item => item.kind === 'candlestick');
   const lineCandidates = candidates.filter(item => (
@@ -290,10 +311,10 @@ export function livelineChartSnapshot(series, {
   // are selected. Treat the visible candle series as authoritative so the
   // renderer follows the user's chart-style choice.
   const useCandles = Boolean(candle && candleData.length >= 2);
-  const shiftedLines = lineCandidates.map((item, index) => {
+  const projectedLines = lineCandidates.map((item, index) => {
     const source = sortedData(item);
     const data = source.map(point => ({
-      time: point.time + offset,
+      time: projection.toRenderTime(point.time),
       value: pointValue(point, item.kind),
     }));
     const currentPoint = [...source]
@@ -307,9 +328,9 @@ export function livelineChartSnapshot(series, {
       value: currentPoint ? pointValue(currentPoint, item.kind) : NaN,
     };
   }).filter(item => item.data.length > 0 && Number.isFinite(item.value));
-  const shiftedCandles = useCandles
+  const projectedCandles = useCandles
     ? candleData.map(point => ({
-      time: point.time + offset,
+      time: projection.toRenderTime(point.time),
       open: Number(point.open),
       high: Number(point.high),
       low: Number(point.low),
@@ -319,14 +340,17 @@ export function livelineChartSnapshot(series, {
   const newestObservedTime = timeline[timeline.length - 1] || 0;
   const cadence = medianCadence(timeline);
   return {
-    candles: shiftedCandles,
+    candles: projectedCandles,
     gaps: gapRanges(series, resolvedViewport),
     isLive: newestObservedTime > 0
       && resolvedViewport.to >= newestObservedTime - cadence
       && Math.abs(nowSeconds - newestObservedTime) <= Math.max(300, cadence * 2.5),
-    markers: markerModel(series, resolvedViewport),
+    markers: markerModel(series, resolvedViewport, projection),
     offset,
-    series: shiftedLines,
+    projection,
+    rendererCadence: cadence * projection.scale,
+    rendererWindowSeconds: projection.renderWindowSeconds,
+    series: projectedLines,
     timeline,
     useCandles,
     viewport: resolvedViewport,
@@ -360,6 +384,11 @@ function plotPosition(ratio, startPadding, endPadding) {
   return `calc(${normalized * 100}% + ${pixelOffset}px)`;
 }
 
+function plotSize(ratio, startPadding, endPadding) {
+  const normalized = Math.max(0, Math.min(1, Number(ratio) || 0));
+  return `calc(${normalized * 100}% - ${normalized * (startPadding + endPadding)}px)`;
+}
+
 function createLivelineChart(runtime, container, initialOptions = {}) {
   if (!container) throw new Error('Chart container is required');
   const mount = runtime.document.createElement('div');
@@ -385,7 +414,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   let pinch = null;
   let interactionActive = false;
   let interactionTimer = 0;
-  let modelRevision = 0;
   let nextSeriesId = 1;
 
   function requestRender() {
@@ -397,7 +425,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   }
 
   function markModelChanged() {
-    modelRevision += 1;
     requestRender();
   }
 
@@ -434,7 +461,7 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   }
 
   function originalTime(normalizedTime) {
-    return Number(normalizedTime) - lastSnapshot.offset;
+    return lastSnapshot.projection.toSourceTime(Number(normalizedTime));
   }
 
   function crosshairPayload(time, point = {}) {
@@ -458,6 +485,7 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
 
   function emitCrosshair(point) {
     if (!point) {
+      mount.classList.remove('has-liveline-crosshair');
       crosshairSubscribers.forEach(listener => listener({
         logical: null,
         point: null,
@@ -472,15 +500,17 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   }
 
   function gapElements(snapshot) {
-    const duration = Math.max(1, snapshot.viewport.to - snapshot.viewport.from);
     return snapshot.gaps.map((gap, index) => {
-      const left = ((gap.from - snapshot.viewport.from) / duration) * 100;
-      const width = ((gap.to - gap.from) / duration) * 100;
+      const left = snapshot.projection.toPlotRatio(gap.from);
+      const width = snapshot.projection.toPlotRatio(gap.to) - left;
       return createElement('span', {
         'aria-hidden': 'true',
         className: 'orx-liveline-gap-mask',
         key: `gap-${index}-${gap.from}`,
-        style: { left: `${left}%`, width: `${width}%` },
+        style: {
+          left: plotPosition(left, PLOT_PADDING.left, PLOT_PADDING.right),
+          width: plotSize(width, PLOT_PADDING.left, PLOT_PADDING.right),
+        },
       });
     });
   }
@@ -533,27 +563,26 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       formatTime,
       formatValue,
       grid: true,
-      lerpSpeed: lastSnapshot.isLive ? 0.08 : 0.72,
+      lerpSpeed: interactionActive ? 0.8 : lastSnapshot.isLive ? 0.08 : 0.72,
       momentum: false,
-      onHover: emitCrosshair,
       padding: PLOT_PADDING,
       paused: !lastSnapshot.isLive && !interactionActive,
       pulse: lastSnapshot.isLive,
-      scrub: !interactionActive,
+      scrub: false,
       seriesToggleCompact: true,
       theme,
       value: 0,
-      window: lastSnapshot.windowSeconds,
+      window: lastSnapshot.rendererWindowSeconds,
     };
     if (lastSnapshot.useCandles) {
       props.mode = 'candle';
       props.candles = lastSnapshot.candles;
-      props.candleWidth = Math.max(1, medianCadence(lastSnapshot.timeline));
+      props.candleWidth = Math.max(1, lastSnapshot.rendererCadence);
       props.color = '#5b8cff';
     } else {
-      props.series = lastSnapshot.series;
+      props.series = lastSnapshot.series.map(({ label: _label, ...item }) => item);
     }
-    props.key = lastSnapshot.isLive ? 'liveline-live' : `liveline-static-${modelRevision}`;
+    props.key = 'liveline-chart';
     root.render(createElement(
       'div',
       { className: 'orx-liveline-root' },
@@ -568,6 +597,39 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
     const height = Math.max(1, mount.clientHeight - PLOT_PADDING.top - PLOT_PADDING.bottom);
     const ratio = (bounds.max - Number(value)) / Math.max(Number.EPSILON, bounds.max - bounds.min);
     return PLOT_PADDING.top + Math.max(0, Math.min(1, ratio)) * height;
+  }
+
+  function plotWidth() {
+    return Math.max(1, mount.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
+  }
+
+  function setCrosshairVisual(coordinate) {
+    const x = Number(coordinate);
+    if (!Number.isFinite(x)) return;
+    mount.style.setProperty('--orx-liveline-crosshair-x', `${x}px`);
+    mount.classList.add('has-liveline-crosshair');
+  }
+
+  function showOwnedCrosshair(clientX, clientY) {
+    const rect = mount.getBoundingClientRect();
+    const x = Number(clientX) - rect.left;
+    const y = Number(clientY) - rect.top;
+    const maximumX = mount.clientWidth - PLOT_PADDING.right;
+    if (
+      !Number.isFinite(x)
+      || !Number.isFinite(y)
+      || x < PLOT_PADDING.left
+      || x > maximumX
+      || y < PLOT_PADDING.top
+      || y > mount.clientHeight - PLOT_PADDING.bottom
+    ) {
+      emitCrosshair(null);
+      return;
+    }
+    setCrosshairVisual(x);
+    const time = timeScale.coordinateToTime(x);
+    const payload = crosshairPayload(time, { x, y });
+    crosshairSubscribers.forEach(listener => listener(payload));
   }
 
   function createSeries(kind, options = {}, paneIndex = 0) {
@@ -662,11 +724,8 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       return closest;
     },
     coordinateToTime(coordinate) {
-      const width = Math.max(1, mount.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
-      const ratio = (Number(coordinate) - PLOT_PADDING.left) / width;
-      return lastSnapshot.viewport.from
-        + Math.max(0, Math.min(1, ratio))
-          * (lastSnapshot.viewport.to - lastSnapshot.viewport.from);
+      const ratio = (Number(coordinate) - PLOT_PADDING.left) / plotWidth();
+      return lastSnapshot.projection.sourceTimeAtPlotRatio(ratio);
     },
     fitContent() {
       setViewport(fittedViewport(seriesTimeline(series)));
@@ -709,16 +768,14 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
     timeToCoordinate(time) {
       const numeric = epochSeconds(time);
       if (!Number.isFinite(numeric)) return null;
-      const duration = Math.max(1, lastSnapshot.viewport.to - lastSnapshot.viewport.from);
-      const ratio = (numeric - lastSnapshot.viewport.from) / duration;
-      const width = Math.max(1, mount.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
-      return PLOT_PADDING.left + ratio * width;
+      const ratio = lastSnapshot.projection.toPlotRatio(numeric);
+      return PLOT_PADDING.left + ratio * plotWidth();
     },
     unsubscribeVisibleLogicalRangeChange(listener) {
       rangeSubscribers.delete(listener);
     },
     width() {
-      return Math.max(0, mount.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
+      return Math.max(0, plotWidth());
     },
   };
 
@@ -766,6 +823,7 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       mount.removeEventListener('pointermove', onPointerMove);
       mount.removeEventListener('pointerup', onPointerUp);
       mount.removeEventListener('pointercancel', onPointerUp);
+      mount.removeEventListener('pointerleave', onPointerLeave);
       series.forEach(item => item.primitives.forEach(primitive => primitive?.detached?.()));
       root.unmount();
       mount.remove();
@@ -783,7 +841,15 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       requestRender();
     },
     setCrosshairPosition(_price, time) {
-      const payload = crosshairPayload(epochSeconds(time));
+      const sourceTime = epochSeconds(time);
+      const x = timeScale.timeToCoordinate(sourceTime);
+      const y = priceToCoordinate(_price);
+      if (!Number.isFinite(sourceTime) || !Number.isFinite(x)) {
+        emitCrosshair(null);
+        return;
+      }
+      setCrosshairVisual(x);
+      const payload = crosshairPayload(sourceTime, { x, y });
       crosshairSubscribers.forEach(listener => listener(payload));
     },
     subscribeClick(listener) {
@@ -809,15 +875,30 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   function onWheel(event) {
     if (!lastSnapshot.timeline.length) return;
     event.preventDefault();
+    emitCrosshair(null);
     beginInteraction();
     const rect = mount.getBoundingClientRect();
-    const ratio = rect.width > 0
-      ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+    const rawPlotRatio = plotWidth() > 0
+      ? Math.max(
+        0,
+        Math.min(1, (event.clientX - rect.left - PLOT_PADDING.left) / plotWidth()),
+      )
       : 0.5;
     const duration = lastSnapshot.viewport.to - lastSnapshot.viewport.from;
-    const factor = event.deltaY > 0 ? 1.2 : 0.82;
+    const anchor = lastSnapshot.projection.sourceTimeAtPlotRatio(rawPlotRatio);
+    const ratio = Math.max(0, Math.min(
+      1,
+      (anchor - lastSnapshot.viewport.from) / Math.max(1, duration),
+    ));
+    const factor = chartWheelZoomFactor(event.deltaY, {
+      deltaMode: event.deltaMode,
+      viewportHeight: mount.clientHeight,
+    });
+    if (Math.abs(factor - 1) < Number.EPSILON) {
+      endInteraction();
+      return;
+    }
     const nextDuration = Math.max(MIN_WINDOW_SECONDS, duration * factor);
-    const anchor = lastSnapshot.viewport.from + duration * ratio;
     setViewport({
       from: anchor - nextDuration * ratio,
       to: anchor + nextDuration * (1 - ratio),
@@ -827,13 +908,23 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
 
   function onPointerDown(event) {
     if (!lastSnapshot.timeline.length) return;
+    emitCrosshair(null);
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     mount.setPointerCapture?.(event.pointerId);
     beginInteraction();
     if (pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
+      const rect = mount.getBoundingClientRect();
+      const centerX = (first.x + second.x) / 2 - rect.left;
+      const anchor = timeScale.coordinateToTime(centerX);
+      const duration = lastSnapshot.viewport.to - lastSnapshot.viewport.from;
       pinch = {
+        anchor,
         distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+        ratio: Math.max(0, Math.min(
+          1,
+          (anchor - lastSnapshot.viewport.from) / Math.max(1, duration),
+        )),
         viewport: { ...lastSnapshot.viewport },
       };
       drag = null;
@@ -851,7 +942,10 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   }
 
   function onPointerMove(event) {
-    if (!pointers.has(event.pointerId)) return;
+    if (!pointers.has(event.pointerId)) {
+      if (event.pointerType !== 'touch') showOwnedCrosshair(event.clientX, event.clientY);
+      return;
+    }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pinch && pointers.size >= 2) {
       const [first, second] = [...pointers.values()];
@@ -861,11 +955,10 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
         MIN_WINDOW_SECONDS,
         duration * (pinch.distance / distance),
       );
-      const center = (pinch.viewport.from + pinch.viewport.to) / 2;
       event.preventDefault();
       setViewport({
-        from: center - nextDuration / 2,
-        to: center + nextDuration / 2,
+        from: pinch.anchor - nextDuration * pinch.ratio,
+        to: pinch.anchor + nextDuration * (1 - pinch.ratio),
       });
       return;
     }
@@ -875,7 +968,7 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
     drag.moved = true;
     event.preventDefault();
     const duration = drag.to - drag.from;
-    const seconds = -(delta / Math.max(1, mount.clientWidth)) * duration;
+    const seconds = -(delta / plotWidth()) * duration;
     setViewport({ from: drag.from + seconds, to: drag.to + seconds });
   }
 
@@ -905,11 +998,16 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
     requestRender();
   }
 
+  function onPointerLeave() {
+    if (!pointers.size) emitCrosshair(null);
+  }
+
   mount.addEventListener('wheel', onWheel, { passive: false });
   mount.addEventListener('pointerdown', onPointerDown);
   mount.addEventListener('pointermove', onPointerMove);
   mount.addEventListener('pointerup', onPointerUp);
   mount.addEventListener('pointercancel', onPointerUp);
+  mount.addEventListener('pointerleave', onPointerLeave);
   render();
   return chartApi;
 }

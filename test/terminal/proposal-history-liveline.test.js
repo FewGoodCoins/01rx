@@ -64,6 +64,10 @@ test('Liveline decision adapter keeps source timestamps and missing observations
 
   assert.equal(PROPOSAL_HISTORY_ENGINE, 'liveline');
   assert.equal(dataset.lastTime + dataset.timeOffset, nowSeconds);
+  assert.equal(
+    dataset.series[0].data[0].time,
+    Date.parse('2026-08-03T09:00:00.000Z') / 1_000,
+  );
   assert.deepEqual(dataset.series.map(series => series.id), ['price', 'pass', 'fail']);
   assert.equal(dataset.series.find(series => series.id === 'pass').data.length, 3);
   assert.ok(dataset.gapRanges.some(range => (
