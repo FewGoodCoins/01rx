@@ -1,6 +1,7 @@
 import { Liveline } from 'liveline';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import { CHART_ORIGIN_PRESENTATION } from './origin-presentation.js';
 import {
   chartWheelZoomFactor,
   stableChartViewportProjection,
@@ -262,23 +263,32 @@ function activeValues(series, viewport) {
 function markerModel(series, viewport, projection) {
   const bounds = activeValues(series, viewport);
   const valueRange = Math.max(Number.EPSILON, bounds.max - bounds.min);
-  return visibleSeries(series).flatMap((item, index) => {
+  const origins = visibleSeries(series).map((item, index) => {
     const points = sortedData(item);
-    if (!points.length) return [];
-    const color = seriesColor(item, index);
-    const markers = [
-      { edge: 'start', point: points[0] },
-      { edge: 'end', point: points[points.length - 1] },
-    ].filter(({ point }) => point.time >= viewport.from && point.time <= viewport.to);
-    return markers.map(({ edge, point }) => ({
-      color,
-      edge,
-      id: `${item.id}-${edge}`,
-      sourceTime: point.time,
-      x: projection.toPlotRatio(point.time),
-      y: (bounds.max - pointValue(point, item.kind)) / valueRange,
-    }));
-  });
+    return points.length ? { index, item, point: points[0] } : null;
+  }).filter(Boolean);
+  if (!origins.length) return [];
+
+  // The first visible series at the earliest indexed timestamp owns the one
+  // shared TGE marker. Do not switch that marker to a later series when the
+  // true origin leaves the viewport during zoom or pan.
+  const earliestTime = Math.min(...origins.map(origin => origin.point.time));
+  const origin = origins.find(candidate => candidate.point.time === earliestTime);
+  if (
+    !origin
+    || origin.point.time < viewport.from
+    || origin.point.time > viewport.to
+  ) return [];
+
+  return [{
+    color: CHART_ORIGIN_PRESENTATION.color,
+    edge: 'start',
+    id: 'chart-origin',
+    seriesId: origin.item.id,
+    sourceTime: origin.point.time,
+    x: projection.toPlotRatio(origin.point.time),
+    y: (bounds.max - pointValue(origin.point, origin.item.kind)) / valueRange,
+  }];
 }
 
 /**
@@ -516,13 +526,14 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
   }
 
   function markerElements(snapshot) {
-    // Liveline owns each animated ending dot. Add only the starting dot so
-    // both ends remain explicit without drawing a duplicate live endpoint.
+    // Liveline owns each animated ending dot. Add the one shared white origin
+    // so every visible line emerges without stacking per-series start dots.
     return snapshot.markers
       .filter(marker => marker.edge === 'start')
       .map(marker => createElement('span', {
         'aria-hidden': 'true',
         className: `orx-liveline-endpoint orx-liveline-endpoint-${marker.edge}`,
+        'data-chart-origin': 'tge',
         key: marker.id,
         style: {
           '--orx-endpoint-color': marker.color,

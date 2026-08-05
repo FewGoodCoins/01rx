@@ -122,3 +122,56 @@ test('resolved Liveline playback leaves interpolation headroom', async () => {
   });
   assert.ok(proposalLivelinePlaybackOptions(false).lerpSpeed <= 0.8);
 });
+
+test('decision charts can pan beyond their true end without losing bounded history', async () => {
+  const { proposalChartPanBounds } = await loadLivelineAdapter();
+  const bounds = proposalChartPanBounds(1_000, 4_000);
+
+  assert.equal(bounds.minimum, -600);
+  assert.equal(bounds.maximum, 3_650);
+});
+
+test('right-axis dragging continuously scales and safely clamps the vertical range', async () => {
+  const { proposalChartVerticalScale } = await loadLivelineAdapter();
+
+  assert.ok(proposalChartVerticalScale(1, -100, 400) < 1);
+  assert.ok(proposalChartVerticalScale(1, 100, 400) > 1);
+  assert.equal(proposalChartVerticalScale(1, -10_000, 400), 0.83);
+  assert.equal(proposalChartVerticalScale(1, 10_000, 400), 6);
+});
+
+test('true final dots are visible only while their source timestamps are in view', async () => {
+  const { proposalChartEndpointModel } = await loadLivelineAdapter();
+  const series = [{
+    id: 'price',
+    color: '#ffffff',
+    data: [
+      { time: 100, value: 1 },
+      { time: 200, value: 2 },
+    ],
+  }];
+  const projection = {
+    sourceFrom: 100,
+    sourceTo: 250,
+    toPlotRatio: time => (time - 100) / 150,
+  };
+  const visible = proposalChartEndpointModel(series, projection, {
+    maximum: 3,
+    minimum: 0,
+  });
+  const hidden = proposalChartEndpointModel(series, {
+    ...projection,
+    sourceTo: 175,
+  }, {
+    maximum: 3,
+    minimum: 0,
+  });
+
+  assert.equal(visible.length, 1);
+  assert.equal(visible[0].sourceTime, 200);
+  assert.equal(visible[0].visible, true);
+  assert.equal(visible[0].x, 2 / 3);
+  assert.equal(visible[0].y, 1 / 3);
+  assert.equal(hidden.length, 1);
+  assert.equal(hidden[0].visible, false);
+});
