@@ -2468,6 +2468,7 @@ export function mountFutardTerminal({
       failTwap: false,
     },
     proposalDetailsOpen: false,
+    decisionMarketSwitcherOpen: false,
     pollTimer: null,
     pricePollTimer: null,
     clockTimer: null,
@@ -3331,10 +3332,90 @@ export function mountFutardTerminal({
         ${metrics.join('')}
       </div>
     `;
+    const marketGroups = [
+      {
+        key: 'active',
+        label: 'Active markets',
+        markets: state.sidebarMarkets.filter(
+          candidate => candidate?.proposal?.statusGroup === 'live',
+        ),
+      },
+      {
+        key: 'prior',
+        label: 'Prior markets',
+        markets: state.sidebarMarkets.filter(
+          candidate => Boolean(candidate?.proposal)
+            && candidate.proposal.statusGroup !== 'live',
+        ),
+      },
+    ].filter(group => group.markets.length > 0);
+    const switcherMenuId = `${uid}-decision-market-switcher-menu`;
+    const switcherMenu = `
+      <div
+        class="ft-decision-market-switcher-menu"
+        id="${escapeHtml(switcherMenuId)}"
+        data-ft-role="decision-market-switcher-menu"
+        role="menu"
+        aria-label="Decision markets"
+        ${state.decisionMarketSwitcherOpen ? '' : 'hidden'}
+      >
+        ${state.decisionMarketSwitcherOpen ? (marketGroups.length ? marketGroups.map(group => `
+          <section
+            class="ft-decision-market-switcher-group"
+            role="group"
+            aria-labelledby="${escapeHtml(`${uid}-decision-market-${group.key}-label`)}"
+          >
+            <div
+              class="ft-decision-market-switcher-group-label"
+              id="${escapeHtml(`${uid}-decision-market-${group.key}-label`)}"
+            >
+              <span>${escapeHtml(group.label)}</span>
+              <span>${group.markets.length}</span>
+            </div>
+            ${group.markets.map(candidate => {
+              const displayStatus = proposalDisplayStatus(candidate.proposal);
+              const candidateProposalNumber = candidate.proposal.number == null
+                ? 'Proposal'
+                : `Proposal #${Math.round(candidate.proposal.number)}`;
+              const selected = candidate.id === market.id;
+              return `
+                <button
+                  class="ft-decision-market-switcher-option${selected ? ' ft-is-current' : ''}"
+                  type="button"
+                  role="menuitemradio"
+                  data-ft-action="select-decision-market"
+                  data-ft-proposal-id="${escapeHtml(candidate.id)}"
+                  data-ft-token="${escapeHtml(candidate.token)}"
+                  aria-checked="${String(selected)}"
+                >
+                  ${renderLogo(candidate, 'small')}
+                  <span class="ft-decision-market-switcher-option-copy">
+                    <span>
+                      <strong>${escapeHtml(candidate.ticker || candidate.name || 'Market')}</strong>
+                      <em data-tone="${escapeHtml(displayStatus.key)}">${escapeHtml(displayStatus.label)}</em>
+                    </span>
+                    <small title="${escapeHtml(candidate.proposal.title)}">${escapeHtml(candidate.proposal.title)}</small>
+                    <small>${escapeHtml(candidate.name)} · ${escapeHtml(candidateProposalNumber)}</small>
+                  </span>
+                  <svg class="ft-decision-market-switcher-check" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="m3.5 8.25 2.75 2.75 6.25-6.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              `;
+            }).join('')}
+          </section>
+        `).join('') : `
+          <p class="ft-decision-market-switcher-empty">Decision markets are still loading.</p>
+        `) : ''}
+      </div>
+    `;
 
     return `
       <header class="ft-chart-market-header" data-ft-role="proposal-chart-header">
-        <div class="ft-chart-market-identity">
+        <div
+          class="ft-chart-market-identity ft-decision-market-switcher"
+          data-ft-role="decision-market-switcher"
+        >
           ${market.token ? `
             <button
               class="ft-chart-market-watchlist"
@@ -3351,10 +3432,27 @@ export function mountFutardTerminal({
             </button>
           ` : ''}
           ${renderLogo(market, 'large')}
-          <div>
-            <p><strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(market.ticker)}</strong></p>
-            <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber)}</small>
-          </div>
+          <button
+            class="ft-decision-market-switcher-trigger"
+            type="button"
+            data-ft-action="toggle-decision-market-switcher"
+            aria-controls="${escapeHtml(switcherMenuId)}"
+            aria-expanded="${String(state.decisionMarketSwitcherOpen)}"
+            aria-haspopup="menu"
+            aria-label="Choose decision market. Current market: ${escapeHtml(market.ticker)}, ${escapeHtml(market.proposal.title)}"
+          >
+            <span class="ft-decision-market-switcher-copy">
+              <span class="ft-decision-market-switcher-heading">
+                <strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(market.ticker)}</strong>
+                <span>${escapeHtml(market.name)}</span>
+              </span>
+              <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber)}</small>
+            </span>
+            <svg class="ft-decision-market-switcher-chevron" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="m3.5 5.25 3.5 3.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          ${switcherMenu}
         </div>
         ${metricGroup('threshold', [
           metric({
@@ -3380,6 +3478,23 @@ export function mountFutardTerminal({
       ${renderProposalChartHeader(market)}
       ${market?.proposal?.statusGroup === 'live' ? renderDecisionPressure(market) : ''}
     `;
+  }
+
+  function refreshDecisionMarketSwitcher(options = {}) {
+    const market = selectedMarket();
+    const header = root.querySelector('[data-ft-role="proposal-chart-header"]');
+    if (!market || !header) return;
+    header.outerHTML = renderProposalChartHeader(market);
+    if (options.restoreFocus === true) {
+      runtime.setTimeout(() => {
+        root.querySelector('[data-ft-action="toggle-decision-market-switcher"]')?.focus();
+      }, 0);
+    }
+  }
+
+  function setDecisionMarketSwitcherOpen(open, options = {}) {
+    state.decisionMarketSwitcherOpen = open === true;
+    refreshDecisionMarketSwitcher(options);
   }
 
   function renderHourlyHistoryPanel(market, options = {}) {
@@ -6996,6 +7111,7 @@ export function mountFutardTerminal({
     state.marketDataAbortController?.abort();
     state.selectedId = next.id;
     state.proposalDetailsOpen = false;
+    state.decisionMarketSwitcherOpen = false;
     state.proposalTradeMarket = 'pass';
     invalidateOwnershipQuote();
     state.wallet.positions = [];
@@ -8563,6 +8679,7 @@ export function mountFutardTerminal({
     state.selectedId = '';
     state.requestedProposalId = '';
     state.proposalDetailsOpen = false;
+    state.decisionMarketSwitcherOpen = false;
     state.routeNotice = '';
     invalidateOwnershipQuote();
     try {
@@ -8584,6 +8701,12 @@ export function mountFutardTerminal({
   }
 
   function handleDocumentClick(event) {
+    const decisionMarketSwitcher = event.target?.closest?.(
+      '[data-ft-role="decision-market-switcher"]',
+    );
+    if (state.decisionMarketSwitcherOpen && !decisionMarketSwitcher) {
+      setDecisionMarketSwitcherOpen(false);
+    }
     const sidebarToken = event.target?.closest?.('a.tp-item[data-key]');
     const sidebarProposal = event.target?.closest?.(
       '.tp-decision-item[data-ft-proposal-id]',
@@ -8641,11 +8764,19 @@ export function mountFutardTerminal({
     if (action === 'refresh') {
       event.preventDefault();
       refresh();
+    } else if (action === 'toggle-decision-market-switcher') {
+      event.preventDefault();
+      setDecisionMarketSwitcherOpen(!state.decisionMarketSwitcherOpen);
+    } else if (action === 'select-decision-market') {
+      event.preventDefault();
+      setDecisionMarketSwitcherOpen(false);
+      void selectSidebarProposal(target);
     } else if (action === 'toggle-ownership-watchlist') {
       event.preventDefault();
       const watchlist = runtime.NAVGATOR?.shell?.watchlist;
       if (!watchlist?.toggle) return;
       watchlist.toggle(target.dataset.ftToken || state.tokenFilter);
+      state.decisionMarketSwitcherOpen = false;
       if (isOwnershipWorkspace()) {
         regions.marketChartHeader.innerHTML = renderOwnershipChartHeader(
           ownershipTokenSnapshot(),
@@ -9065,6 +9196,9 @@ export function mountFutardTerminal({
     } else if (event.key === 'Escape' && state.proposalDetailsOpen) {
       event.preventDefault();
       setProposalDetailsOpen(false, { restoreFocus: true });
+    } else if (event.key === 'Escape' && state.decisionMarketSwitcherOpen) {
+      event.preventDefault();
+      setDecisionMarketSwitcherOpen(false, { restoreFocus: true });
     } else if (commandSearch || slashSearch) {
       event.preventDefault();
       regions.search?.focus();
@@ -9131,6 +9265,7 @@ export function mountFutardTerminal({
     state.tokenFilter = normalized;
     state.proposalTradeMarket = 'pass';
     state.proposalDetailsOpen = false;
+    state.decisionMarketSwitcherOpen = false;
     state.selectedId = requestedProposalId;
     state.requestedProposalId = requestedProposalId;
     if (requestedWorkspaceTab) state.workspaceTab = requestedWorkspaceTab;

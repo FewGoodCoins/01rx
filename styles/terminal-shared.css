@@ -786,3 +786,64 @@ body.chart-frame-expanded .ft-terminal-chart-panel.is-expanded {
   border: 0 !important;
   background: #101010;
 }
+
+/* The market explorer can leave the workspace entirely. Its edge control is
+   quiet while the rail is open and becomes a narrow recovery handle when the
+   chart owns the full width. */
+@media (min-width: 761px) {
+  html[data-workspace="markets"] body.is-token.is-token-markets .app-left {
+    transition:
+      width 180ms ease,
+      flex-basis 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  html[data-workspace="markets"] body.is-token.is-token-markets .shell-panel-toggle-left {
+    top: calc(var(--site-header-height) + 23px);
+    left: calc(var(--sidebar-width) - 36px);
+    display: inline-flex !important;
+    width: 26px;
+    height: 26px;
+    border-color: transparent;
+    border-radius: 6px;
+    background: transparent;
+    box-shadow: none;
+    color: #797e7b;
+  }
+
+  html[data-workspace="markets"] body.is-token.is-token-markets .shell-panel-toggle-left:hover,
+  html[data-workspace="markets"] body.is-token.is-token-markets .shell-panel-toggle-left:focus-visible {
+    border-color: #383c3a;
+    background: #1a1d1c;
+    color: #eef0ec;
+  }
+
+  html[data-workspace="markets"] body.is-token.is-token-markets.left-panel-collapsed .shell-panel-toggle-left {
+    top: 50%;
+    left: 0;
+    width: 27px;
+    height: 44px;
+    border-color: #3a3d3b;
+    border-left: 0;
+    border-radius: 0 8px 8px 0;
+    background: #141716;
+    box-shadow: 4px 0 18px rgb(0 0 0 / 42%);
+  }
+
+  html[data-workspace="markets"] body.is-token.is-token-markets:not(.left-panel-collapsed) .tp-market-search-field {
+    width: calc(100% - 56px);
+    flex-basis: calc(100% - 56px);
+    margin-right: 42px;
+    margin-left: 14px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-market-switcher-heading strong {
+    font-size: 20px;
+  }
+
+  [data-ft-mode="token"].ft-proposal-focus .ft-decision-market-switcher-heading strong.ft-market-title-compact {
+    font-size: 16px;
+    letter-spacing: -0.025em;
+  }
+}

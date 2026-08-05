@@ -233,7 +233,7 @@ test('route helpers canonicalize legacy terminal paths and preserve clean query 
   assert.equal(routes.appRootPath(), '/');
 });
 
-test('panel controller pins both workspace rails open', async () => {
+test('panel controller persists the optional market explorer and keeps the right rail open', async () => {
   const { createShellPanelController } = await importShell('panels.js');
   const storage = createStorage({
     navgator_left_panel_collapsed: '1',
@@ -268,15 +268,15 @@ test('panel controller pins both workspace rails open', async () => {
     window: runtime,
   });
 
-  assert.deepEqual(controller.state, { left: false, right: false });
-  assert.equal(storage.getItem('navgator_left_panel_collapsed'), null);
+  assert.deepEqual(controller.state, { left: true, right: false });
+  assert.equal(storage.getItem('navgator_left_panel_collapsed'), '1');
   assert.equal(storage.getItem('navgator_right_panel_collapsed'), null);
   controller.refreshControls();
-  assert.equal(bodyClasses.contains('left-panel-collapsed'), false);
+  assert.equal(bodyClasses.contains('left-panel-collapsed'), true);
   assert.equal(bodyClasses.contains('right-panel-collapsed'), false);
-  assert.equal(leftButton.attributes.get('aria-expanded'), 'true');
-  assert.equal(leftButton.attributes.get('aria-label'), 'Collapse left panel');
-  assert.equal(leftButton.title, 'Collapse left panel');
+  assert.equal(leftButton.attributes.get('aria-expanded'), 'false');
+  assert.equal(leftButton.attributes.get('aria-label'), 'Show market explorer');
+  assert.equal(leftButton.title, 'Show market explorer');
   assert.equal(rightButton.attributes.get('aria-expanded'), 'true');
   assert.equal(rightButton.attributes.get('aria-label'), 'Collapse right panel');
   assert.equal(rightButton.title, 'Collapse right panel');
@@ -290,8 +290,32 @@ test('panel controller pins both workspace rails open', async () => {
   assert.deepEqual(events.map((event) => event.type), []);
   assert.equal(sparklineDraws, 0);
 
+  assert.equal(controller.togglePanel('left'), false);
+  assert.equal(controller.state.left, false);
+  assert.equal(storage.getItem('navgator_left_panel_collapsed'), '0');
+  assert.equal(bodyClasses.contains('left-panel-collapsed'), false);
+  assert.equal(leftButton.attributes.get('aria-expanded'), 'true');
+  assert.equal(leftButton.attributes.get('aria-label'), 'Hide market explorer');
+  assert.deepEqual(timers.map((timer) => timer.ms), [40, 180]);
+  timers.forEach((timer) => timer.callback());
+  assert.deepEqual(events.map((event) => event.type), ['resize', 'resize']);
+  assert.equal(sparklineDraws, 2);
+
+  assert.equal(controller.togglePanel('left'), true);
+  assert.equal(controller.state.left, true);
+  assert.equal(storage.getItem('navgator_left_panel_collapsed'), '1');
+  assert.equal(bodyClasses.contains('left-panel-collapsed'), true);
+  assert.deepEqual(timers.map((timer) => timer.ms), [40, 180, 40, 180]);
+
   controller.togglePanel('middle');
-  assert.equal(timers.length, 0);
+  assert.equal(timers.length, 4);
+});
+
+test('market page exposes a dedicated explorer collapse control', () => {
+  const source = fs.readFileSync('index.html', 'utf8');
+  assert.match(source, /id="left-panel-toggle"/);
+  assert.match(source, /aria-controls="app-left"/);
+  assert.match(source, /onclick="toggleShellPanel\('left'\)"/);
 });
 
 test('all-token navigation hands off to the canonical ownership market', async () => {
