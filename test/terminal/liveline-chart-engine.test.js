@@ -1,13 +1,42 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { pathToFileURL } = require('node:url');
+
+const livelineEngineSource = fs.readFileSync(
+  path.resolve('src/chart/liveline-chart-engine.js'),
+  'utf8',
+);
+const livelineCssSource = fs.readFileSync(
+  path.resolve('styles/futard-terminal.css'),
+  'utf8',
+);
 
 async function loadLivelineEngine() {
   return import(pathToFileURL(path.resolve(
     'src/chart/liveline-chart-engine.js',
   )).href);
 }
+
+test('the empty chart message is centered in the full chart section', () => {
+  assert.match(
+    livelineEngineSource,
+    /const EMPTY_STATE_PADDING = Object\.freeze\(\{ top: 0, right: 0, bottom: 0, left: 0 \}\);/,
+  );
+  assert.match(
+    livelineEngineSource,
+    /emptyText: '',[\s\S]*?padding: isEmpty \? EMPTY_STATE_PADDING : PLOT_PADDING,/,
+  );
+  assert.match(
+    livelineEngineSource,
+    /isEmpty[\s\S]*?className: 'orx-liveline-empty-label',[\s\S]*?'No indexed chart'/,
+  );
+  assert.match(
+    livelineCssSource,
+    /\.orx-liveline-empty-label\s*\{[\s\S]*?position: absolute;[\s\S]*?inset: 0;[\s\S]*?display: grid;[\s\S]*?place-items: center;/,
+  );
+});
 
 test('Liveline snapshot projects source time without losing gaps or semantic starts', async () => {
   const { livelineChartSnapshot } = await loadLivelineEngine();

@@ -72,7 +72,7 @@ const vercelConfig = JSON.parse(
   fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 );
 
-test('Trivium exposes no user-facing NAVgator navigation', () => {
+test('01r.trade exposes no user-facing NAVgator navigation', () => {
   assert.doesNotMatch(indexSource, /<a\b[^>]*href=["'][^"']*navgator/i);
   assert.doesNotMatch(indexSource, /site-header-navgator/);
   assert.match(indexSource, /rel="canonical" href="https:\/\/fewgoodcoins\.xyz\/"/);
@@ -91,14 +91,14 @@ test('Trivium exposes no user-facing NAVgator navigation', () => {
   ].forEach(source => assert.equal(redirected.has(source), true, source));
 });
 
-test('browser icon metadata uses only the compact cache-busted Trivium mark', () => {
+test('browser icon metadata uses only the compact cache-busted 01r.trade mark', () => {
   const iconLinks = [...indexSource.matchAll(
     /<link\b[^>]*rel="(?:icon|shortcut icon|apple-touch-icon)"[^>]*>/g,
   )].map(match => match[0]);
 
   assert.equal(iconLinks.length, 3);
   iconLinks.forEach((link) => {
-    assert.match(link, /href="\/logos\/trivium-mark\.png\?v=1"/);
+    assert.match(link, /href="\/logos\/trivium-mark\.png\?v=2"/);
     assert.doesNotMatch(link, /navgator|favicon\.ico/i);
   });
   assert.equal(faviconAsset.subarray(1, 4).toString('ascii'), 'PNG');
@@ -107,7 +107,7 @@ test('browser icon metadata uses only the compact cache-busted Trivium mark', ()
   assert.equal(socialAsset.subarray(1, 4).toString('ascii'), 'PNG');
   assert.equal(socialAsset.readUInt32BE(16), 1200);
   assert.equal(socialAsset.readUInt32BE(20), 630);
-  assert.match(indexSource, /logos\/trivium-social\.png\?v=1/);
+  assert.match(indexSource, /logos\/trivium-social\.png\?v=2/);
   [
     '01r-mark.png',
     '01r-mark.svg',
@@ -120,7 +120,7 @@ test('browser icon metadata uses only the compact cache-busted Trivium mark', ()
   });
 });
 
-test('product metadata and accessible copy use only the Trivium brand', () => {
+test('product metadata and accessible copy use only the 01r.trade brand', () => {
   const dom = new JSDOM(indexSource);
   dom.window.document.querySelectorAll('script, style').forEach(node => node.remove());
   const accessibleCopy = [
@@ -132,24 +132,35 @@ test('product metadata and accessible copy use only the Trivium brand', () => {
       .map(node => node.getAttribute('content') || ''),
   ].join('\n');
 
-  assert.match(accessibleCopy, /Trivium/);
-  assert.doesNotMatch(accessibleCopy, /FOMO|01RX|01R\.Trade/);
+  assert.match(accessibleCopy, /01r\.trade/);
+  assert.doesNotMatch(accessibleCopy, /Trivium|FOMO|01RX|01R\.Trade/);
   assert.match(
     indexSource,
-    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?Trivium/,
+    /class="product-wordmark product-wordmark-header"[^>]*>[\s\S]*?01r\.trade/,
   );
   assert.match(
     refinementCss,
     /\.product-wordmark\s*\{[\s\S]*?font-family:[\s\S]*?font-weight: 780;/,
   );
-  assert.doesNotMatch(indexSource, /FOMO|01R\.Trade|onrx\.trade|01rx-favicon/);
+  assert.doesNotMatch(indexSource, /Trivium|FOMO|01R\.Trade|onrx\.trade|01rx-favicon/);
   assert.doesNotMatch(refinementCss, /site-header-market-name|FOMO/);
-  assert.match(indexSource, /property="og:site_name" content="Trivium"/);
+  assert.match(indexSource, /property="og:site_name" content="01r\.trade"/);
   assert.match(indexSource, /property="og:url" content="https:\/\/fewgoodcoins\.xyz\/"/);
-  assert.match(indexSource, /"name": "Trivium"/);
+  assert.match(indexSource, /"name": "01r\.trade"/);
   assert.match(indexSource, /"url": "https:\/\/fewgoodcoins\.xyz\/"/);
   assert.doesNotMatch(indexSource, /decision-markets-home-root/);
   assert.doesNotMatch(frameCss, /is-market-discovery|data-ft-mode="discovery"/);
+  dom.window.close();
+});
+
+test('market workspace omits the obsolete bottom status footer', () => {
+  const dom = new JSDOM(indexSource);
+  assert.equal(dom.window.document.querySelector('#bloomberg-status'), null);
+  assert.equal(dom.window.document.querySelector('#bb-network'), null);
+  assert.equal(dom.window.document.querySelector('.site-footer-status'), null);
+  assert.equal(dom.window.document.querySelector('.site-footer-nav'), null);
+  assert.equal(dom.window.document.querySelector('.site-footer-social'), null);
+  assert.match(triviumTerminalCss, /--site-footer-height: 0px;/);
   dom.window.close();
 });
 
@@ -177,7 +188,7 @@ test('decision and token chart readouts share one typography scale', () => {
   );
 });
 
-test('Trivium hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
+test('01r.trade hides unavailable NAV, Growth, and weekly placeholder controls while keeping chart expansion', () => {
   assert.doesNotMatch(indexSource, /id="chart-nav-trigger"/);
   assert.doesNotMatch(indexSource, /id="btn-growth-chart-toolbar"/);
   assert.doesNotMatch(indexSource, /TradingView weekly timeframe placeholder/);
@@ -325,7 +336,11 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
   );
   assert.match(
     indexSource,
-    /class="tp-market-filter-strip"[\s\S]*?data-market-sidebar-filter-slot="0"[\s\S]*?data-market-sidebar-filter-slot="3"/,
+    /class="tp-market-filter-strip"[\s\S]*?data-market-sidebar-filter-slot="0"[^>]*>Price<\/button>[\s\S]*?data-market-sidebar-filter-slot="1"[^>]*>Top movers<\/button>[\s\S]*?data-market-sidebar-filter-slot="2"[^>]*>Market cap<\/button>[\s\S]*?data-market-sidebar-filter-slot="3"[^>]*hidden[^>]*><\/button>/,
+  );
+  assert.doesNotMatch(
+    indexSource,
+    /All Tokens|>All tokens<\/button>/,
   );
   assert.match(
     appCoreSource,
@@ -333,7 +348,12 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
   );
   assert.match(
     appCoreSource,
-    /all:\s*\[[\s\S]*?key: 'all-tokens'[\s\S]*?key: 'price'[\s\S]*?key: 'movers'[\s\S]*?key: 'market-cap'[\s\S]*?\],\s*watchlist:/,
+    /all:\s*\[\s*\{ key: 'price', label: 'Price' \},[\s\S]*?key: 'movers'[\s\S]*?key: 'market-cap'[\s\S]*?\],\s*watchlist:/,
+  );
+  assert.match(appCoreSource, /if \(tab === 'all'\) return 'all-tokens';/);
+  assert.match(
+    appCoreSource,
+    /tokens:\s*\[\s*\{ key: 'all-tokens', label: 'All' \},[\s\S]*?\],\s*markets:/,
   );
   assert.doesNotMatch(
     appCoreSource,
@@ -650,7 +670,7 @@ test('decision chart supports broad whitespace and TradingView-like axis scaling
   );
 });
 
-test('global wallet control uses the neutral raised Trivium header treatment', () => {
+test('global wallet control uses the neutral raised 01r.trade header treatment', () => {
   assert.match(
     triviumTerminalCss,
     /\.site-header-market-wallet \.ft-wallet-button\s*\{[\s\S]*?border: 1px solid var\(--trivium-border-strong\);[\s\S]*?background: var\(--trivium-panel-raised\);[\s\S]*?color: var\(--trivium-text\);/,
@@ -665,7 +685,7 @@ test('global wallet control uses the neutral raised Trivium header treatment', (
   );
 });
 
-test('proposal trade actions share the blue-violet Trivium review treatment', () => {
+test('proposal trade actions share the blue-violet 01r.trade review treatment', () => {
   assert.match(
     triviumTerminalCss,
     /\.ft-shell \.ft-ownership-connect,[\s\S]*?\.ft-primary-button\s*\{[\s\S]*?border: 1px solid rgb\(117 128 255 \/ 65%\);[\s\S]*?background: var\(--trivium-accent\);[\s\S]*?color: #07070d;/,
@@ -674,6 +694,24 @@ test('proposal trade actions share the blue-violet Trivium review treatment', ()
     triviumTerminalCss,
     /\.ft-primary-button:hover:not\(:disabled\)\s*\{[\s\S]*?border-color: #959cff;[\s\S]*?background: #8992ff;/,
   );
+});
+
+test('decision trade selectors are rounded filled controls without dropdown or underline clutter', () => {
+  assert.match(
+    triviumTerminalCss,
+    /body#navgator-app#navgator-app :is\([\s\S]*?\.ft-proposal-trade-tabs,[\s\S]*?\.ft-ownership-side-tabs,[\s\S]*?\)\s*\{\s*border-radius: 12px !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /body#navgator-app#navgator-app :is\([\s\S]*?\.ft-proposal-trade-tabs button,[\s\S]*?\.ft-ownership-side-tabs button,[\s\S]*?\)\s*\{\s*border-radius: 8px !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /button\.ft-is-active::after,[\s\S]*?button\.ft-segment-active::after\s*\{\s*content: none;/,
+  );
+  assert.match(triviumTerminalCss, /button\.ft-is-spot\.ft-is-active\s*\{[\s\S]*?background: rgb\(229 232 244 \/ 13%\);/);
+  assert.doesNotMatch(decisionMarketControllerSource, /ft-decision-market-switcher-chevron/);
+  assert.doesNotMatch(decisionMarketControllerSource, /ft-archive-settlement/);
 });
 
 test('market sidebar uses one decision heading, pins live decisions in All, and lists every decision in Decisions', () => {
@@ -772,7 +810,11 @@ test('sidebar filter pills retain sorting after redundant metric headers are rem
   );
   assert.match(
     appCoreSource,
-    /markets:\s*\[[\s\S]*?key: 'all-markets'[\s\S]*?key: 'live'[\s\S]*?key: 'prior'[\s\S]*?key: 'likelihood'/,
+    /markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Past' \}\s*\]/,
+  );
+  assert.doesNotMatch(
+    appCoreSource,
+    /markets:\s*\[[\s\S]*?\{ key: 'likelihood', label: 'Likelihood' \}[\s\S]*?\]/,
   );
   assert.match(
     refinementCss,
@@ -842,10 +884,18 @@ test('desktop spot ticket grows to expose every control without internal scrolli
   );
 });
 
-test('desktop execution rail stays contained while market information remains below the chart', () => {
+test('desktop market center and execution rail share one vertical scroll container', () => {
   assert.match(
     triviumTerminalCss,
-    /\.ft-ticket-column\s*\{[\s\S]*?display: block !important;[\s\S]*?overflow-y: auto !important;[\s\S]*?scrollbar-gutter: stable;/,
+    /\/\* Final desktop ownership of vertical scrolling:[\s\S]*?\.ft-main\s*\{[\s\S]*?height: 100% !important;[\s\S]*?overflow-y: auto !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-terminal-grid\s*\{[\s\S]*?height: auto !important;[\s\S]*?min-height: 100% !important;[\s\S]*?overflow: visible !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ticket-column\s*\{[\s\S]*?height: auto !important;[\s\S]*?max-height: none !important;[\s\S]*?overflow: visible !important;/,
   );
   assert.match(
     triviumTerminalCss,
@@ -865,7 +915,7 @@ test('desktop execution rail stays contained while market information remains be
   );
   assert.match(
     decisionMarketControllerSource,
-    /Holder distribution is not included in Trivium’s reviewed current-token contract yet\./,
+    /Holder distribution is not included in \$\{PRODUCT_BRAND\.displayName\}’s reviewed current-token contract yet\./,
   );
 });
 
@@ -904,7 +954,7 @@ test('spot and decision routes share one authoritative desktop terminal geometry
   );
 });
 
-test('desktop account activity stays inside the viewport and scrolls its body', () => {
+test('desktop market activity expands into the shared workspace scroll', () => {
   assert.match(
     sharedTerminalCss,
     /\.ft-proposal-focus \.ft-chart-market-header > \*\s*\{[\s\S]*?height: 38px;[\s\S]*?min-height: 38px;/,
@@ -914,16 +964,20 @@ test('desktop account activity stays inside the viewport and scrolls its body', 
     /\.ft-proposal-focus \.ft-ownership-account-tabs\s*\{\s*flex: 0 0 74px;/,
   );
   assert.match(
-    sharedTerminalCss,
-    /\.ft-proposal-focus \.ft-ownership-account-panel\s*\{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior-y: contain;/,
+    triviumTerminalCss,
+    /\.terminal-activity,[\s\S]*?\.ft-ownership-account\s*\{[\s\S]*?height: auto !important;[\s\S]*?min-height: 220px !important;[\s\S]*?contain: none !important;[\s\S]*?overflow: visible !important;/,
   );
   assert.match(
     triviumTerminalCss,
-    /\.ft-ownership-transactions-list,[\s\S]*?\.ft-ownership-account-panel\s*\{[\s\S]*?overflow-y: auto !important;[\s\S]*?scrollbar-gutter: stable;[\s\S]*?touch-action: pan-y;/,
+    /\.ft-ownership-transactions-list,[\s\S]*?\.ft-ownership-account-panel\s*\{[\s\S]*?flex: 0 0 auto !important;[\s\S]*?overflow: visible !important;[\s\S]*?overscroll-behavior-y: auto;[\s\S]*?touch-action: auto;/,
   );
   assert.match(
     decisionMarketControllerSource,
-    /ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable recent transactions"/,
+    /ft-ownership-transactions-list" aria-label="Recent transactions"/,
+  );
+  assert.doesNotMatch(
+    decisionMarketControllerSource,
+    /aria-label="Scrollable (?:recent|proposal) transactions"|ft-market-information-panel-body" tabindex=/,
   );
 });
 

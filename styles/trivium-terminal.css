@@ -7,7 +7,7 @@
 
 html[data-workspace="markets"] {
   --site-header-height: 72px;
-  --site-footer-height: 30px;
+  --site-footer-height: 0px;
   --sidebar-width: clamp(286px, 19vw, 390px);
   --market-surface: #090911;
   --trivium-canvas: #05050a;
@@ -383,6 +383,7 @@ html[data-workspace="markets"] body#navgator-app#navgator-app :is(
 
 html[data-workspace="markets"] body#navgator-app#navgator-app :is(
   .site-header-market-wallet .ft-wallet-button,
+  .ft-proposal-trade-tabs,
   .ft-ownership-side-tabs,
   .ft-shell .ft-ownership-connect,
   .ft-primary-button,
@@ -403,6 +404,7 @@ html[data-workspace="markets"] body#navgator-app#navgator-app :is(
 }
 
 html[data-workspace="markets"] body#navgator-app#navgator-app :is(
+  .ft-proposal-trade-tabs button,
   .ft-ownership-side-tabs button,
   .ft-hourly-series-button,
   .ft-hourly-growth-button,
@@ -1214,21 +1216,53 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-deci
   overflow: visible;
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-decision-market-ticket-closed .ft-proposal-trade-tabs {
-  margin-bottom: 10px;
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs {
+  min-height: 56px;
+  padding: 5px;
+  gap: 5px;
+  overflow: hidden;
+  margin: 0 0 10px;
   border: 1px solid var(--trivium-border);
   border-radius: 12px;
   background: #08080f;
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-decision-market-ticket-closed .ft-proposal-trade-tabs button {
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button {
   min-height: 44px;
-  color: #686c80;
-  cursor: default;
+  border-radius: 8px;
+  background: transparent;
+  color: #a9acba;
+  cursor: pointer;
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-decision-market-ticket-closed .ft-proposal-trade-tabs button.ft-is-active {
-  color: var(--trivium-text);
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button:hover,
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button:focus-visible {
+  color: #f1f2f7;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button.ft-is-active::after,
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button.ft-segment-active::after {
+  content: none;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button.ft-is-pass.ft-is-active {
+  background: rgb(43 220 145 / 17%);
+  color: #54e9aa;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button.ft-is-spot.ft-is-active {
+  background: rgb(229 232 244 / 13%);
+  color: #f3f4fa;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-proposal-trade-tabs button.ft-is-fail.ft-is-active {
+  background: rgb(255 105 120 / 15%);
+  color: #ff8995;
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-archive-ticket .ft-historical-trade-preview {
@@ -1512,17 +1546,6 @@ html[data-workspace="markets"] .site-footer-dot {
     --ft-terminal-account-height: clamp(190px, 21dvh, 248px) !important;
   }
 
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column {
-    display: block !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    overscroll-behavior-y: contain;
-    scrollbar-color: rgb(117 128 255 / 48%) transparent;
-    scrollbar-gutter: stable;
-    scrollbar-width: thin;
-    touch-action: pan-y;
-  }
-
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"],
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"] > .ft-ticket {
     height: auto !important;
@@ -1549,47 +1572,6 @@ html[data-workspace="markets"] .site-footer-dot {
     margin-top: 14px;
   }
 
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .terminal-activity,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .terminal-activity > .ft-account-row,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .terminal-activity > .ft-activity-row {
-    overflow: hidden !important;
-    overscroll-behavior-y: contain;
-  }
-
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account {
-    height: 100% !important;
-    min-height: 0 !important;
-    max-height: none !important;
-  }
-
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions-list,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-panel {
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto !important;
-    overscroll-behavior-y: contain;
-    scrollbar-color: rgb(117 128 255 / 48%) transparent;
-    scrollbar-gutter: stable;
-    scrollbar-width: thin !important;
-    touch-action: pan-y;
-  }
-
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column::-webkit-scrollbar,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions-list::-webkit-scrollbar,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-panel::-webkit-scrollbar {
-    display: block !important;
-    width: 7px;
-  }
-
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column::-webkit-scrollbar-thumb,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions-list::-webkit-scrollbar-thumb,
-  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-panel::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background: rgb(117 128 255 / 42%);
-    background-clip: padding-box;
-  }
 }
 
 @media (max-width: 1180px) and (min-width: 981px) {
@@ -2067,8 +2049,11 @@ html[data-workspace="markets"][data-market-sidebar-tab="watchlist"] .tp-all-sect
   /* Final desktop ownership of vertical scrolling: the market center and the
      execution rail are siblings inside this one scrollport. */
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"] .ft-main {
+    height: 100% !important;
+    min-height: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    overscroll-behavior-y: contain;
   }
 
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid {
@@ -2081,14 +2066,44 @@ html[data-workspace="markets"][data-market-sidebar-tab="watchlist"] .tp-all-sect
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column {
     height: auto !important;
     min-height: 100% !important;
+    max-height: none !important;
     overflow: visible !important;
+    overscroll-behavior-y: auto;
+    scrollbar-gutter: auto;
+    touch-action: auto;
   }
 
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"],
-  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-market-information-panel-body {
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ticket-column > [data-ft-region="trade-ticket"] > .ft-ticket {
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .terminal-activity,
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .terminal-activity > .ft-account-row,
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .terminal-activity > .ft-activity-row,
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions,
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account {
+    height: auto !important;
+    min-height: 220px !important;
+    max-height: none !important;
+    contain: none !important;
+    overflow: visible !important;
+    overscroll-behavior-y: auto;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions-list,
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-market-information-panel-body,
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-ownership-account-panel {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+    overscroll-behavior-y: auto;
+    scrollbar-gutter: auto;
+    touch-action: auto;
   }
 
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .terminal-market-summary {

@@ -319,12 +319,26 @@ function normalizeArchiveRow(row) {
   const token = tokenFromProjectSlug(projectSlug);
   if (!proposalId || !token) return null;
   const status = normalizeArchiveStatus(row);
-  const thresholdBps = firstFiniteNumber(
+  const isTeamSponsored = optionalBoolean(
+    row?.isTeamSponsored,
+    row?.teamSponsored,
+    row?.proposalIsTeamSponsored,
+  );
+  const standardThresholdBps = firstFiniteNumber(
     row?.passThresholdBps,
+    // 01Resolved's current archive schema uses the past-tense field name.
+    row?.passedThresholdBps,
     row?.proposalThresholdBps,
     row?.thresholdBps,
     row?.threshold_bps,
   );
+  const thresholdBps = isTeamSponsored === true
+    ? firstFiniteNumber(
+      row?.teamSponsoredPassThresholdBps,
+      row?.teamSponsoredThresholdBps,
+      standardThresholdBps,
+    )
+    : standardThresholdBps;
   const thresholdPct = firstFiniteNumber(
     row?.passThresholdPct,
     row?.proposalThresholdPct,
@@ -358,11 +372,7 @@ function normalizeArchiveRow(row) {
         && normalizedThresholdBps <= 10_000
         ? normalizedThresholdBps
         : null,
-      isTeamSponsored: optionalBoolean(
-        row?.isTeamSponsored,
-        row?.teamSponsored,
-        row?.proposalIsTeamSponsored,
-      ),
+      isTeamSponsored,
       version: boundedVersion(
         row?.version,
         row?.programVersion,

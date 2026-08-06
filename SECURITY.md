@@ -20,7 +20,7 @@ the issue has been validated and a safe remediation is available.
 
 ## Execution safety
 
-Trivium must never sign or submit a transaction automatically. Trading changes
+01r.trade must never sign or submit a transaction automatically. Trading changes
 must preserve explicit review, exact-message binding, simulation, expiry,
 wallet approval, co-signature preservation, and final validation before
 broadcast.

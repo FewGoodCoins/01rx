@@ -1,6 +1,6 @@
-# Trivium UI direction
+# 01r.trade UI direction
 
-Trivium is a calm professional trading terminal. A user should be able to
+01r.trade is a calm professional trading terminal. A user should be able to
 understand a market, inspect its evidence, review an order, and approve it with
 their wallet without competing decoration or hidden safety state.
 
@@ -36,7 +36,7 @@ labeled unavailable rather than estimated or synthesized.
 
 ## Product constraints
 
-- Visible branding is exactly `Trivium`; never display `01RX`, `01R.Trade`, or `FOMO`.
+- Visible branding is exactly lowercase `01r.trade`; never display `Trivium`, `01RX`, `01R.Trade`, or `FOMO`.
 - Stable technical identifiers such as `01RX:D1:0`, `frame=01rx`, environment
   variables, event names, and storage keys do not change with the display brand.
 - Missing indexed data remains an explicit gap. Never synthesize a chart or

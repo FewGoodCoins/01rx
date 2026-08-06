@@ -92,8 +92,8 @@ test('archive normalization preserves model evidence without inventing missing f
     projectSlug: 'umbra',
     status: 'resolved',
     result: 'approved',
-    passThresholdPct: '3',
-    isTeamSponsored: true,
+    passedThresholdBps: '300',
+    isTeamSponsored: false,
     programVersion: 'v0.6',
     organizationImageUrl: 'https://assets.01resolved.test/umbra.png',
     proposalImageUrl: 'https://proposal-art.invalid/umbra.png',
@@ -104,7 +104,7 @@ test('archive normalization preserves model evidence without inventing missing f
     },
   });
   assert.equal(normalized.proposal.thresholdBps, 300);
-  assert.equal(normalized.proposal.isTeamSponsored, true);
+  assert.equal(normalized.proposal.isTeamSponsored, false);
   assert.equal(normalized.proposal.version, 'v0.6');
   assert.equal(normalized.logo, 'https://assets.01resolved.test/umbra.png');
   assert.deepEqual(normalized.metrics, {
@@ -112,6 +112,29 @@ test('archive normalization preserves model evidence without inventing missing f
     tradeCount: 912,
     liquidityUsd: 44000,
   });
+
+  const teamSponsored = _test.normalizeArchiveRow({
+    publicKey: PROPOSAL,
+    projectSlug: 'umbra',
+    status: 'resolved',
+    result: 'approved',
+    passedThresholdBps: '300',
+    teamSponsoredPassThresholdBps: '-300',
+    isTeamSponsored: true,
+  });
+  assert.equal(teamSponsored.proposal.thresholdBps, -300);
+  assert.equal(teamSponsored.proposal.isTeamSponsored, true);
+
+  const unknownSponsorship = _test.normalizeArchiveRow({
+    publicKey: PROPOSAL,
+    projectSlug: 'umbra',
+    status: 'resolved',
+    result: 'approved',
+    passedThresholdBps: '300',
+    teamSponsoredPassThresholdBps: '-300',
+  });
+  assert.equal(unknownSponsorship.proposal.thresholdBps, 300);
+  assert.equal(unknownSponsorship.proposal.isTeamSponsored, null);
 
   const missing = _test.normalizeArchiveRow({
     publicKey: PROPOSAL,
@@ -121,6 +144,22 @@ test('archive normalization preserves model evidence without inventing missing f
   });
   assert.equal(missing.proposal.thresholdBps, null);
   assert.equal(missing.proposal.version, null);
+
+  const invalid = _test.normalizeArchiveRow({
+    publicKey: PROPOSAL,
+    projectSlug: 'umbra',
+    status: 'resolved',
+    passedThresholdBps: 'not-a-number',
+  });
+  assert.equal(invalid.proposal.thresholdBps, null);
+
+  const outOfRange = _test.normalizeArchiveRow({
+    publicKey: PROPOSAL,
+    projectSlug: 'umbra',
+    status: 'resolved',
+    passedThresholdBps: '10001',
+  });
+  assert.equal(outOfRange.proposal.thresholdBps, null);
 });
 
 test('active markets join 01Resolved identity with proposal-discovered validated chain state', async () => {

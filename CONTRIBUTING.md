@@ -1,6 +1,6 @@
-# Contributing to Trivium
+# Contributing to 01r.trade
 
-Trivium is publicly visible proprietary software. Public access to the source does
+01r.trade is publicly visible proprietary software. Public access to the source does
 not grant a license to copy, distribute, or deploy it. Coordinate substantive
 contributions with the repository owner before beginning work.
 

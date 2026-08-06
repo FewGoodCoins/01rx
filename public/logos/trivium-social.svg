@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">Trivium</title>
+  <title id="title">01r.trade</title>
   <desc id="desc">Ownership and decision markets</desc>
   <defs>
     <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
@@ -14,7 +14,7 @@
   <circle cx="246" cy="183" r="9" fill="#f4f4f0"/>
   <circle cx="186" cy="299" r="9" fill="#f4f4f0"/>
   <circle cx="186" cy="237" r="7" fill="#35d093"/>
-  <text x="294" y="294" fill="#f4f4f0" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="700" letter-spacing="-6">Trivium</text>
+  <text x="294" y="294" fill="#f4f4f0" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="700" letter-spacing="-6">01r.trade</text>
   <path d="M112 354H1088" stroke="#444747" stroke-width="2"/>
   <text x="112" y="420" fill="#9b9f9f" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="500" letter-spacing="3">OWNERSHIP + DECISION MARKETS</text>
 </svg>

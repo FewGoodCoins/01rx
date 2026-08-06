@@ -2669,7 +2669,7 @@ export function mountFutardTerminal({
       && state.workspaceTab === 'decisions'
       && state.proposalTradeMarket === 'spot'
       && Boolean(state.tokenFilter)
-      && Boolean(selectedMarket());
+      && selectedMarket()?.proposal?.statusGroup === 'live';
   }
 
   function isSpotOrderWorkspace() {
@@ -3345,9 +3345,6 @@ export function mountFutardTerminal({
               </span>
               <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber.replace('Proposal', 'Decision'))}</small>
             </span>
-            <svg class="ft-decision-market-switcher-chevron" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="m3.5 5.25 3.5 3.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
           </button>
           ${switcherMenu}
         </div>
@@ -5474,7 +5471,7 @@ export function mountFutardTerminal({
       return `
         <div class="ft-market-information-empty">
           <strong>Holders</strong>
-          <p>Holder distribution is not included in Trivium’s reviewed current-token contract yet.</p>
+          <p>Holder distribution is not included in ${PRODUCT_BRAND.displayName}’s reviewed current-token contract yet.</p>
           ${renderMarketInformationHolderSource()}
         </div>
       `;
@@ -5641,7 +5638,11 @@ export function mountFutardTerminal({
       renderExecutionPauseTicket(`${market.ticker} market`);
       return;
     }
-    if (state.proposalTradeMarket === 'spot' && state.hostMode === 'token') {
+    if (
+      state.proposalTradeMarket === 'spot'
+      && state.hostMode === 'token'
+      && market.proposal.statusGroup === 'live'
+    ) {
       renderProposalSpotTicket(market);
       return;
     }
@@ -5649,55 +5650,18 @@ export function mountFutardTerminal({
       const isResolvedOutcome = market.proposal.statusGroup === 'passed'
         || market.proposal.statusGroup === 'failed';
       const displayStatus = proposalDisplayStatus(market.proposal);
-      const redemption = state.wallet.redemption;
-      const claimAmounts = redemption?.claims
-        ?.filter(claim => /^\d+$/.test(String(claim.estimatedRaw || ''))
-          && BigInt(claim.estimatedRaw) > 0n)
-        .map(claim => `${claim.estimatedAmount} ${claim.symbol}`)
-        .join(' + ');
-      let settlementAction = '';
-      if (isResolvedOutcome && !executionEnabled) {
-        settlementAction = '<button class="ft-primary-button" type="button" disabled>Redemption unavailable during review</button>';
-      } else if (isResolvedOutcome && !state.wallet.address) {
-        settlementAction = `
-          <button class="ft-primary-button" type="button" data-ft-action="connect-wallet">
-            Connect wallet to check claims
-          </button>
-        `;
-      } else if (isResolvedOutcome && state.wallet.positionsLoading) {
-        settlementAction = '<button class="ft-primary-button" type="button" disabled aria-busy="true">Verifying settlement…</button>';
-      } else if (isResolvedOutcome && state.wallet.positionsError) {
-        settlementAction = `
-          <p class="ft-ticket-error">${escapeHtml(state.wallet.positionsError)}</p>
-          <button class="ft-primary-button" type="button" data-ft-action="refresh-positions">Retry verification</button>
-        `;
-      } else if (isResolvedOutcome && redemption?.hasRedeemableBalance) {
-        settlementAction = `
-          <div class="ft-claim-estimate">
-            <span>Verified redeemable value</span>
-            <strong>${escapeHtml(claimAmounts || 'Winning conditional balance')}</strong>
-            <small>Resolved ${escapeHtml(redemption.outcome?.toUpperCase() || '')} payout · MetaDAO conditional vault v0.4</small>
-          </div>
-          <button
-            class="ft-primary-button"
-            type="button"
-            ${state.programIntegrity.canTransact ? 'data-ft-action="review-redeem"' : ''}
-            ${!state.programIntegrity.canTransact || state.execution.building || state.execution.submitting ? 'disabled' : ''}
-            ${state.execution.building || state.execution.submitting ? 'aria-busy="true"' : ''}
-          >${!state.programIntegrity.canTransact
-            ? 'Redemption paused · program review required'
-            : state.execution.building
-              ? 'Building & simulating…'
-              : 'Review redemption'}</button>
-        `;
-      } else if (isResolvedOutcome && state.wallet.address && redemption) {
-        settlementAction = '<button class="ft-primary-button" type="button" disabled>No winning balance to redeem</button>';
-      }
       const resolvedOutcome = market.proposal.statusGroup === 'failed'
         ? 'FAIL'
         : market.proposal.statusGroup === 'passed'
           ? 'PASS'
           : state.order.outcome.toUpperCase();
+      const previewMarket = ['spot', 'fail'].includes(state.proposalTradeMarket)
+        ? state.proposalTradeMarket
+        : 'pass';
+      const previewSide = state.ownershipOrder.side === 'sell' ? 'sell' : 'buy';
+      const previewAsset = previewMarket === 'spot'
+        ? market.ticker
+        : `${previewMarket.toUpperCase()} ${market.ticker}`;
       const resultLabel = displayStatus.label;
       const indexedObservations = proposalHistoryChartObservations(
         state.historyByProposal.get(market.id)?.data,
@@ -5719,14 +5683,14 @@ export function mountFutardTerminal({
           >${escapeHtml(displayStatus.label)} · ${isResolvedOutcome ? 'Resolved decision' : 'Indexed record'}</span>
 
           <div class="ft-proposal-trade-tabs" role="tablist" aria-label="Decision market">
-            <button type="button" role="tab" aria-selected="${resolvedOutcome === 'PASS'}" class="${resolvedOutcome === 'PASS' ? 'ft-is-active ft-is-pass' : ''}" disabled>If Pass</button>
-            <button type="button" role="tab" aria-selected="false" disabled>Spot</button>
-            <button type="button" role="tab" aria-selected="${resolvedOutcome === 'FAIL'}" class="${resolvedOutcome === 'FAIL' ? 'ft-is-active ft-is-fail' : ''}" disabled>If Fail</button>
+            <button type="button" role="tab" data-ft-action="select-outcome" data-ft-outcome="pass" data-ft-trade-market="pass" aria-selected="${previewMarket === 'pass'}" class="${previewMarket === 'pass' ? 'ft-is-active ft-is-pass' : ''}">If Pass</button>
+            <button type="button" role="tab" data-ft-action="select-proposal-trade-market" data-ft-trade-market="spot" aria-selected="${previewMarket === 'spot'}" class="${previewMarket === 'spot' ? 'ft-is-active ft-is-spot' : ''}">Spot</button>
+            <button type="button" role="tab" data-ft-action="select-outcome" data-ft-outcome="fail" data-ft-trade-market="fail" aria-selected="${previewMarket === 'fail'}" class="${previewMarket === 'fail' ? 'ft-is-active ft-is-fail' : ''}">If Fail</button>
           </div>
 
           <div class="ft-ownership-side-tabs" role="tablist" aria-label="Archived order side">
-            <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Buy</button>
-            <button type="button" role="tab" aria-selected="false" disabled>Sell</button>
+            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="buy" aria-selected="${previewSide === 'buy'}" class="${previewSide === 'buy' ? 'ft-is-active' : ''}">Buy</button>
+            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="sell" aria-selected="${previewSide === 'sell'}" class="${previewSide === 'sell' ? 'ft-is-active' : ''}">Sell</button>
           </div>
 
           <div class="ft-ownership-order-body">
@@ -5757,7 +5721,7 @@ export function mountFutardTerminal({
               <output>≈ 0</output>
               <span class="ft-ownership-asset">
                 ${renderLogo(market, 'small')}
-                <strong>${escapeHtml(resolvedOutcome)} ${escapeHtml(market.ticker)}</strong>
+                <strong>${escapeHtml(previewAsset)}</strong>
               </span>
             </div>
           </div>
@@ -5775,24 +5739,7 @@ export function mountFutardTerminal({
             <div><dt>FAIL close</dt><dd>${escapeHtml(formatPrice(failClose))}</dd></div>
             <div><dt>Result</dt><dd>${escapeHtml(resultLabel)}</dd></div>
           </dl>
-
-          ${isResolvedOutcome ? `
-            <div class="ft-archive-settlement">
-              <span class="ft-kicker">Settlement</span>
-              <h3>Redeem resolved positions</h3>
-              <p>Settlement is available only after the proposal, DAO, vaults, mints, and binary payout independently match on-chain.</p>
-              ${settlementAction}
-            </div>
-          ` : ''}
           ${renderTicketTransactionStatus(market)}
-          ${market.proposal.sourceUrl ? `
-            <a
-              class="ft-archive-source-link"
-              href="${escapeHtml(market.proposal.sourceUrl)}"
-              target="_blank"
-              rel="noreferrer"
-            >Open governance record <span aria-hidden="true">↗</span></a>
-          ` : ''}
         </section>
       `;
       return;
@@ -6315,7 +6262,7 @@ export function mountFutardTerminal({
               <span>Trader</span>
               <span>Age</span>
             </div>
-            <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable recent transactions">
+            <div class="ft-ownership-transactions-list" aria-label="Recent transactions">
               ${transactions.length ? transactions.map((transaction) => {
                 const rowContent = `
                   <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${Number.isFinite(transaction.price)
@@ -6352,7 +6299,7 @@ export function mountFutardTerminal({
             </div>
             <p class="ft-ownership-transactions-source">Public indexed spot activity</p>
           ` : `
-            <div class="ft-market-information-panel-body" tabindex="0">
+            <div class="ft-market-information-panel-body">
               ${renderMarketInformationBody(informationTab)}
             </div>
           `}
@@ -6389,7 +6336,7 @@ export function mountFutardTerminal({
             ${renderMarketInformationTabs({
               tradeCount: transactions.length,
             })}
-            <div class="ft-market-information-panel-body" tabindex="0">
+            <div class="ft-market-information-panel-body">
               ${renderMarketInformationBody(informationTab)}
             </div>
           </section>
@@ -6424,7 +6371,7 @@ export function mountFutardTerminal({
             <span>Trade</span>
             <span>Age</span>
           </div>
-          <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable proposal transactions">
+          <div class="ft-ownership-transactions-list" aria-label="Proposal transactions">
             ${transactions.length
               ? transactions.map(transaction => (
                 decisionTradeRowMarkup(transaction, showTransactionSizesInUsd)

@@ -8,6 +8,7 @@ import {
 } from './stable-chart-viewport.js';
 
 const PLOT_PADDING = Object.freeze({ top: 42, right: 76, bottom: 30, left: 12 });
+const EMPTY_STATE_PADDING = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
 const MIN_WINDOW_SECONDS = 60;
 const VIEWPORT_BUFFER_RATIO = 0.04;
 
@@ -577,14 +578,16 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       cursor: 'crosshair',
       data: [],
       gaps: [],
-      emptyText: 'No indexed chart',
+      // The canvas keeps the empty animation, while a DOM-owned label below
+      // is centered against the complete chart section at every viewport.
+      emptyText: '',
       fill: !lastSnapshot.useCandles && lastSnapshot.series.length === 1,
       formatTime,
       formatValue,
       grid: true,
       lerpSpeed: interactionActive ? 0.8 : lastSnapshot.isLive ? 0.08 : 0.72,
       momentum: false,
-      padding: PLOT_PADDING,
+      padding: isEmpty ? EMPTY_STATE_PADDING : PLOT_PADDING,
       paused: !lastSnapshot.isLive && !interactionActive,
       pulse: lastSnapshot.isLive,
       scrub: false,
@@ -606,6 +609,12 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       'div',
       { className: 'orx-liveline-root' },
       createElement(Liveline, props),
+      isEmpty
+        ? createElement('span', {
+          className: 'orx-liveline-empty-label',
+          role: 'status',
+        }, 'No indexed chart')
+        : null,
       ...gapElements(lastSnapshot),
       ...markerElements(lastSnapshot),
     ));

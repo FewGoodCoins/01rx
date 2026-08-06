@@ -261,7 +261,6 @@ var _marketSidebarFilter = _marketSidebarTab === 'tokens'
       : 'all-tokens';
 var _marketSidebarFilterConfig = {
   all: [
-    { key: 'all-tokens', label: 'All tokens' },
     { key: 'price', label: 'Price' },
     { key: 'movers', label: 'Top movers' },
     { key: 'market-cap', label: 'Market cap' }
@@ -273,7 +272,7 @@ var _marketSidebarFilterConfig = {
     { key: 'market-cap', label: 'Market cap' }
   ],
   tokens: [
-    { key: 'all-tokens', label: 'All tokens' },
+    { key: 'all-tokens', label: 'All' },
     { key: 'price', label: 'Price' },
     { key: 'movers', label: 'Top movers' },
     { key: 'market-cap', label: 'Market cap' }
@@ -281,8 +280,7 @@ var _marketSidebarFilterConfig = {
   markets: [
     { key: 'all-markets', label: 'All' },
     { key: 'live', label: 'Live' },
-    { key: 'prior', label: 'Past' },
-    { key: 'likelihood', label: 'Likelihood' }
+    { key: 'prior', label: 'Past' }
   ]
 };
 
@@ -295,6 +293,9 @@ function getMarketSidebarSortAscending() {
 }
 
 function _defaultMarketSidebarFilter(tab) {
+  // The combined All view starts alphabetically without showing a redundant
+  // "All tokens" control beneath the already-selected All tab.
+  if (tab === 'all') return 'all-tokens';
   var filters = _marketSidebarFilterConfig[tab] || [];
   return filters.length ? filters[0].key : '';
 }
@@ -306,11 +307,15 @@ function _syncMarketSidebarFilterControls() {
     var filter = filters[index];
     control.hidden = !filter;
     if (!filter) {
+      control.setAttribute('aria-hidden', 'true');
+      control.setAttribute('tabindex', '-1');
       control.dataset.marketSidebarFilterAction = '';
       control.classList.remove('active');
       control.setAttribute('aria-pressed', 'false');
       return;
     }
+    control.removeAttribute('aria-hidden');
+    control.removeAttribute('tabindex');
     var isActive = filter.key === _marketSidebarFilter;
     control.textContent = filter.label;
     control.dataset.marketSidebarFilterAction = filter.key;
