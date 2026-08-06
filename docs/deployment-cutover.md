@@ -32,6 +32,21 @@ Vercel domain assignments, not GitHub visibility.
 5. Assign `fewgoodcoins.xyz` and `www.fewgoodcoins.xyz` to the Trivium project,
    then confirm the homepage and direct token/decision links.
 
+## Execution release preconditions
+
+Do not promote a source release with `EXECUTION_RELEASE.enabled: true` until
+the Production and Preview projects contain all required server-only settings:
+`DFLOW_API_KEY`, one accepted Solana RPC variable, one accepted 01Resolved API
+key variable, `O1RX_ATTRIBUTION_PUBLIC_KEY`, and
+`O1RX_ATTRIBUTION_SIGNING_KEY`. Confirm only the variable names and scopes in
+release evidence; never export their values.
+
+Run `npm run check:ci` on the exact release commit. On the preview deployment,
+the GET-only `/api/beta/trading?view=spot-order` probe must return method not
+allowed with `X-01R-Execution: enabled`. This confirms release state without
+building, signing, simulating, or submitting a transaction. Missing or
+mismatched server configuration must remain fail-closed.
+
 Do not verify attribution by signing a production trade during deployment.
 Exercise `decision-attest` with a fixture transaction in automated checks, and
 verify the first user-approved mainnet trade afterward by finding both the

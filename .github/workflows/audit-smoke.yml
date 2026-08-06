@@ -1,4 +1,4 @@
-name: Read-only audit smoke
+name: Deployment release smoke
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       origin:
         description: Exact HTTPS deployment origin to inspect
         required: true
-        default: https://01rx.vercel.app
+        default: https://fewgoodcoins.xyz
         type: string
 
 permissions:
@@ -29,16 +29,16 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Capture GET-only audit evidence
+      - name: Capture GET-only deployment evidence
         env:
           AUDIT_ORIGIN: ${{ inputs.origin }}
         run: node scripts/audit-smoke.mjs --origin "$AUDIT_ORIGIN" --output audit-smoke.json
 
-      - name: Retain audit evidence
+      - name: Retain deployment evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: 01rx-read-only-smoke-${{ github.sha }}
+          name: trivium-deployment-smoke-${{ github.sha }}
           path: audit-smoke.json
           if-no-files-found: error
           retention-days: 90

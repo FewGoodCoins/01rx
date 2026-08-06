@@ -1,4 +1,4 @@
-export const CONTRACT_RELEASE = '2026-08-04';
+export const CONTRACT_RELEASE = '2026-08-05';
 export const CONTRACT_HEADERS = Object.freeze({
   contract: 'X-01R-Contract',
   execution: 'X-01R-Execution',
@@ -19,12 +19,12 @@ export const DECISION_ATTRIBUTION = Object.freeze({
 });
 
 // This is a code-owned release gate, not a browser preference or deployment
-// environment toggle. Re-enabling execution requires a reviewed source change.
+// environment toggle. Changing execution state requires a reviewed source change.
 export const EXECUTION_RELEASE = Object.freeze({
-  code: 'AUDIT_REVIEW_REQUIRED',
-  enabled: false,
-  message: 'Trading is paused while Trivium completes independent security review.',
-  phase: 'audit-readiness-v1',
+  code: 'MAINNET_EXECUTION_ENABLED',
+  enabled: true,
+  message: 'Mainnet trading requires simulation, exact transaction review, and explicit wallet approval.',
+  phase: 'mainnet-execution-v1',
 });
 
 function endpoint(definition) {

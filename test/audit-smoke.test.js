@@ -15,17 +15,17 @@ function jsonResponse(value, options = {}) {
   });
 }
 
-test('audit smoke accepts only an exact HTTPS deployment origin', () => {
+test('deployment smoke accepts only an exact HTTPS origin', () => {
   assert.equal(
-    normalizeAuditOrigin('https://01rx.vercel.app/'),
-    'https://01rx.vercel.app',
+    normalizeAuditOrigin('https://fewgoodcoins.xyz/'),
+    'https://fewgoodcoins.xyz',
   );
-  assert.throws(() => normalizeAuditOrigin('http://01rx.vercel.app'), /HTTPS origin/);
+  assert.throws(() => normalizeAuditOrigin('http://fewgoodcoins.xyz'), /HTTPS origin/);
   assert.throws(() => normalizeAuditOrigin('https://user@example.com'), /without credentials/);
   assert.throws(() => normalizeAuditOrigin('https://example.com/path'), /without credentials or a path/);
 });
 
-test('audit smoke is GET-only and records a passing deployment boundary', async () => {
+test('deployment smoke is GET-only and records the enabled release boundary', async () => {
   const requests = [];
   const headers = {
     'content-security-policy': "base-uri 'self'; object-src 'none'",
@@ -62,7 +62,7 @@ test('audit smoke is GET-only and records a passing deployment boundary', async 
         status: 405,
         headers: {
           allow: 'POST, OPTIONS',
-          'x-01r-execution': 'paused',
+          'x-01r-execution': 'enabled',
         },
       });
     }
@@ -70,7 +70,7 @@ test('audit smoke is GET-only and records a passing deployment boundary', async 
   };
   let tick = 0;
   const evidence = await runAuditSmoke({
-    origin: 'https://01rx.vercel.app',
+    origin: 'https://fewgoodcoins.xyz',
     fetchImpl,
     now: () => `2026-08-04T12:00:0${tick++}.000Z`,
   });
@@ -85,7 +85,7 @@ test('audit smoke is GET-only and records a passing deployment boundary', async 
   assert.equal(evidence.checks.every(item => item.ok), true);
 });
 
-test('audit smoke fails when the deployed execution boundary reports enabled', async () => {
+test('deployment smoke fails when the deployed execution boundary disagrees with source', async () => {
   const fetchImpl = async (url) => {
     if (url.pathname === '/') {
       return new Response('', {
@@ -116,17 +116,17 @@ test('audit smoke fails when the deployed execution boundary reports enabled', a
     }
     return jsonResponse({ code: 'METHOD_NOT_ALLOWED' }, {
       status: 405,
-      headers: { allow: 'POST, OPTIONS', 'x-01r-execution': 'enabled' },
+      headers: { allow: 'POST, OPTIONS', 'x-01r-execution': 'paused' },
     });
   };
 
   const evidence = await runAuditSmoke({
-    origin: 'https://01rx.vercel.app',
+    origin: 'https://fewgoodcoins.xyz',
     fetchImpl,
   });
   assert.equal(evidence.ok, false);
   assert.equal(
-    evidence.checks.find(item => item.id === 'execution-paused').ok,
+    evidence.checks.find(item => item.id === 'execution-release').ok,
     false,
   );
 });

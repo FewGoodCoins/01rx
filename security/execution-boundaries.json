@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "scope": "read-only-audit-candidate",
+  "scope": "mainnet-execution-release",
   "releaseGate": {
-    "code": "AUDIT_REVIEW_REQUIRED",
-    "enabled": false,
-    "phase": "audit-readiness-v1",
+    "code": "MAINNET_EXECUTION_ENABLED",
+    "enabled": true,
+    "phase": "mainnet-execution-v1",
     "sources": [
       "packages/contracts/src/index.js",
       "packages/contracts/src/index.cjs",

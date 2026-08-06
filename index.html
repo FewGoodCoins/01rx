@@ -349,6 +349,18 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       <span class="product-wordmark product-wordmark-header" aria-hidden="true"><span class="product-wordmark-core">Trivium</span></span>
     </a>
   </nav>
+  <div class="tp-market-toolbar site-header-market-search" aria-label="Market search">
+    <div class="tp-market-tool-row">
+      <label class="tp-market-search-field" id="tp-market-search-field">
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="8.75" cy="8.75" r="5.75" stroke="currentColor" stroke-width="1.5"/>
+          <path d="m13 13 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input id="tlp-search" type="search" placeholder="Search markets or tokens..." autocomplete="off" aria-label="Search markets or tokens">
+        <kbd>⌘K</kbd>
+      </label>
+    </div>
+  </div>
   <div
     class="site-header-market-wallet"
     data-01rx-market-wallet-slot
@@ -424,13 +436,6 @@ window.toggleChartFeatureMenu = function(trigger, event) {
         <span class="tp-section-arrow"><svg width="8" height="5" viewBox="0 0 8 5" fill="none"><path d="M1 1L4 4L7 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </button>
       <div id="tlp-migration-list" class="collapsed"></div>
-    </div>
-    <div class="tp-market-toolbar" aria-label="Market list tools">
-      <div class="tp-market-tool-row">
-        <label class="tp-market-search-field" id="tp-market-search-field">
-          <input id="tlp-search" type="search" placeholder="Search assets..." autocomplete="off" aria-label="Search assets">
-        </label>
-      </div>
     </div>
     <div class="tp-market-tabs" role="tablist" aria-label="Market list views">
       <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-past-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
