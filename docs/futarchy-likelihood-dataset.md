@@ -1,6 +1,6 @@
 # Futarchy likelihood dataset
 
-Trivium does not currently publish an in-house proposal likelihood. The server-only
+01r.trade does not currently publish an in-house proposal likelihood. The server-only
 pipeline in this repository builds the evidence needed to train and evaluate one
 without presenting a heuristic as a probability.
 

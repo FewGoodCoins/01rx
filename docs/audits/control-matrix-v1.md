@@ -1,4 +1,4 @@
-# Trivium Security Control Matrix v1
+# 01r.trade Security Control Matrix v1
 
 | Field | Value |
 |---|---|
@@ -9,7 +9,7 @@
 | Candidate evidence | [`scripts/audit-candidate-evidence.mjs`](../../scripts/audit-candidate-evidence.mjs) |
 | Audit status | **NOT AN AUDIT OR INDEPENDENT SECURITY APPROVAL** |
 
-This document tells a reviewer what Trivium intends to enforce, where the
+This document tells a reviewer what 01r.trade intends to enforce, where the
 enforcement lives, what is already tested, and what evidence is still missing.
 “Enforced” means a repository control and test exist. It does not mean an
 independent reviewer has found the control sufficient.
@@ -18,9 +18,9 @@ independent reviewer has found the control sufficient.
 
 ```mermaid
 flowchart LR
-  User[User] -->|explicit intent| Browser[Trivium browser]
+  User[User] -->|explicit intent| Browser[01r.trade browser]
   Wallet[Wallet extension] <-->|review + detached signature| Browser
-  Browser -->|reviewed same-origin contracts| API[Trivium server API]
+  Browser -->|reviewed same-origin contracts| API[01r.trade server API]
   API -->|authenticated current data| Resolved[01Resolved]
   API -->|signed route response| DFlow[DFlow]
   API -->|bounded JSON-RPC| RPC[Configured Solana RPC]
@@ -32,7 +32,7 @@ flowchart LR
 The browser is untrusted, wallet providers are untrusted until returned bytes
 are checked, DFlow and RPC responses are untrusted inputs, and all referenced
 on-chain programs are third-party deployments. Server secrets terminate at the
-Trivium API. No browser code should receive or reconstruct them.
+01r.trade API. No browser code should receive or reconstruct them.
 
 ## Funds-sensitive surface inventory
 

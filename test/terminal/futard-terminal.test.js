@@ -557,7 +557,7 @@ function makeWindow(options = {}) {
   const marketWalletSlot = options.marketWalletSlot
     ? `
       <header class="site-header">
-        <span data-test-brand>Trivium</span>
+        <span data-test-brand>01r.trade</span>
         <div
           data-01rx-market-wallet-slot
           data-01r-theme-scope
@@ -1419,7 +1419,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
   assert.ok(byRole(root, 'terminal'));
   assert.equal(
     root.querySelector('.product-wordmark')?.textContent.replace(/\s+/g, ''),
-    'Trivium',
+    '01r.trade',
   );
   assert.equal(root.getAttribute('data-navgator-app'), 'decision-markets');
   assert.ok(byRole(root, 'market-list'));
@@ -1523,6 +1523,7 @@ test('proposal-first terminal renders validated market state and a safe trade in
     chartHeader.querySelector('.ft-chart-market-identity small').textContent.trim(),
     'Decision #7',
   );
+  assert.equal(chartHeader.querySelector('.ft-decision-market-switcher-chevron'), null);
   assert.doesNotMatch(chartHeader.textContent, /Fund Loyal contributor growth for Q3/);
   assert.equal(chartHeader.querySelector('.ft-chart-market-identity a'), null);
   for (const label of ['If Pass', 'Spot', 'If Fail', 'Threshold', 'Current TWAP']) {
@@ -2565,7 +2566,7 @@ test('token Markets replaces an unknown token with the canonical SOLO spot works
   assert.equal(controller.getState().workspaceTab, 'tokens');
   assert.equal(window.location.search, '?token=solo&view=markets&tab=tokens');
   assert.equal(byRole(root, 'market-title').textContent, 'SOLO');
-  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed Trivium asset/i);
+  assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed 01r\.trade asset/i);
   assert.equal(root.classList.contains('ft-has-system-message'), true);
 
   cleanupMount(mounted);
@@ -2696,7 +2697,7 @@ test('token Markets ignores the retired implicit-live marker and preserves the r
   cleanupMount(mounted);
 });
 
-test('token Markets places the live wallet control alongside the global Trivium brand', async () => {
+test('token Markets places the live wallet control alongside the global 01r.trade brand', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const provider = {
     publicKey: WALLET_ADDRESS,
@@ -2723,7 +2724,7 @@ test('token Markets places the live wallet control alongside the global Trivium 
   const walletStatus = headerSlot.querySelector('[data-ft-role="wallet-status"]');
   assert.ok(walletStatus);
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
-  assert.match(headerSlot.parentElement.textContent, /Trivium[\s\S]+Connect wallet/);
+  assert.match(headerSlot.parentElement.textContent, /01r\.trade[\s\S]+Connect wallet/);
 
   walletStatus.querySelector('[data-ft-action="connect-wallet"]').click();
   await settleUntil(window, () => controller.getState().walletAddress === WALLET_ADDRESS);
@@ -3171,8 +3172,12 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     `https://solscan.io/tx/${TRANSACTION_SIGNATURE}`,
   );
   assert.equal(
-    recentTransactions.querySelector('.ft-ownership-transactions-list').tabIndex,
-    0,
+    recentTransactions.querySelector('.ft-ownership-transactions-list').hasAttribute('tabindex'),
+    false,
+  );
+  assert.equal(
+    recentTransactions.querySelector('.ft-ownership-transactions-list').getAttribute('aria-label'),
+    'Recent transactions',
   );
   assert.equal(root.querySelector('[data-ft-region="market-context"]'), null);
   byRole(root, 'ownership-recent-transactions')
@@ -3184,7 +3189,7 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   );
   assert.match(
     byRole(root, 'ownership-recent-transactions').textContent,
-    /not included in Trivium’s reviewed current-token contract/i,
+    /not included in 01r\.trade’s reviewed current-token contract/i,
   );
   assert.equal(byRole(root, 'ownership-account-activity'), null);
   assert.equal(root.classList.contains('ft-wallet-connected'), false);
@@ -3981,7 +3986,7 @@ test('interactive history chart controls update and clean up an injected chart a
   cleanupMount(mounted);
 });
 
-test('proposal browser keeps the token-style trade layout visible but disabled for resolved markets', async () => {
+test('proposal browser keeps resolved trade controls explorable while execution stays disabled', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow();
   const controller = mountFutardTerminal({ window, root });
@@ -4028,6 +4033,16 @@ test('proposal browser keeps the token-style trade layout visible but disabled f
   assert.ok(passedArchive.classList.contains('ft-ownership-ticket'));
   assert.equal(passedArchive.querySelectorAll('.ft-proposal-trade-tabs button').length, 3);
   assert.equal(passedArchive.querySelectorAll('.ft-ownership-side-tabs button').length, 2);
+  assert.equal(
+    [...passedArchive.querySelectorAll('.ft-proposal-trade-tabs button')]
+      .every(button => button.disabled === false),
+    true,
+  );
+  assert.equal(
+    [...passedArchive.querySelectorAll('.ft-ownership-side-tabs button')]
+      .every(button => button.disabled === false),
+    true,
+  );
   assert.equal(passedArchive.querySelectorAll('.ft-ownership-swap-field').length, 2);
   assert.equal(passedArchive.querySelector('input').disabled, true);
   const passedTradeCta = passedArchive.querySelector('[data-ft-role="archived-trade-cta"]');
@@ -4038,6 +4053,11 @@ test('proposal browser keeps the token-style trade layout visible but disabled f
   assert.match(passedArchive.textContent, /Spot close\$4\.530/);
   assert.match(passedArchive.textContent, /FAIL close\$4\.450/);
   assert.match(passedArchive.textContent, /ResultResolved/);
+  assert.equal(passedArchive.querySelector('.ft-archive-settlement'), null);
+  assert.doesNotMatch(passedArchive.textContent, /Redeem resolved positions/i);
+  assert.equal(byAction(root, 'review-redeem'), null);
+  assert.doesNotMatch(passedArchive.textContent, /Open governance record/i);
+  assert.equal(passedArchive.querySelector('.ft-archive-source-link'), null);
   assert.equal(byAction(root, 'execute-trade'), null);
   assert.equal(byAction(root, 'open-execution'), null);
   assert.equal(byRole(root, 'amount'), null);
@@ -4056,6 +4076,31 @@ test('proposal browser keeps the token-style trade layout visible but disabled f
   );
   assert.match(byRegion(root, 'market-stage').textContent, /Decision resolved/i);
   assert.doesNotMatch(byRegion(root, 'market-stage').textContent, /Proposal timeline/i);
+
+  passedArchive.querySelector('[data-ft-trade-market="spot"]').click();
+  let interactiveArchive = byRole(root, 'trade-ticket').querySelector('.ft-archive-ticket');
+  assert.equal(
+    interactiveArchive.querySelector('[data-ft-trade-market="spot"]').getAttribute('aria-selected'),
+    'true',
+  );
+  assert.match(interactiveArchive.querySelector('.ft-ownership-receive-field').textContent, /META/);
+  assert.doesNotMatch(interactiveArchive.querySelector('.ft-ownership-receive-field').textContent, /PASS META/);
+
+  interactiveArchive.querySelector('[data-ft-outcome="fail"]').click();
+  interactiveArchive = byRole(root, 'trade-ticket').querySelector('.ft-archive-ticket');
+  assert.equal(
+    interactiveArchive.querySelector('[data-ft-outcome="fail"]').getAttribute('aria-selected'),
+    'true',
+  );
+  assert.match(interactiveArchive.querySelector('.ft-ownership-receive-field').textContent, /FAIL META/);
+
+  interactiveArchive.querySelector('[data-ft-side="sell"]').click();
+  interactiveArchive = byRole(root, 'trade-ticket').querySelector('.ft-archive-ticket');
+  assert.equal(
+    interactiveArchive.querySelector('[data-ft-side="sell"]').getAttribute('aria-selected'),
+    'true',
+  );
+  assert.equal(interactiveArchive.querySelector('[data-ft-role="archived-trade-cta"]').disabled, true);
 
   filterButton(root, 'all').click();
   assert.equal(proposalRows(root).length, 3);
@@ -4295,7 +4340,7 @@ test('audit release stays read-only without hiding public market data', async ()
     executionRelease: {
       code: 'AUDIT_REVIEW_REQUIRED',
       enabled: false,
-      message: 'Trading is paused while Trivium completes independent security review.',
+      message: 'Trading is paused while 01r.trade completes independent security review.',
       phase: 'audit-readiness-v1',
     },
     window: terminal.window,
@@ -4590,7 +4635,7 @@ test('decision trades simulate and open the wallet from one explicit execute cli
   cleanupMount(mounted);
 });
 
-test('resolved proposals verify conditional balances before offering redemption', async () => {
+test('resolved proposals keep redemption controls out of the archived trading UI', async () => {
   const calls = [];
   const provider = {
     isPhantom: true,
@@ -4613,6 +4658,7 @@ test('resolved proposals verify conditional balances before offering redemption'
         return {};
       },
       async inspectConditionalRedemption({ market }) {
+        calls.push('inspectConditionalRedemption');
         assert.equal(market.id, PASSED_PROPOSAL_ID);
         return {
           outcome: 'pass',
@@ -4660,12 +4706,13 @@ test('resolved proposals verify conditional balances before offering redemption'
   byAction(root, 'connect-wallet').click();
   await settleUntil(window, () => calls.includes('connect'));
   proposalRowByOutcome(root, 'passed').click();
-  await settleUntil(window, () => /12\.5 META/.test(byRole(root, 'trade-ticket')?.textContent || ''));
+  await settleUntil(window, () => calls.includes('inspectConditionalRedemption'));
 
-  assert.match(byRole(root, 'trade-ticket').textContent, /Verified redeemable value/i);
-  assert.match(byRole(root, 'trade-ticket').textContent, /12\.5 META \+ 3 USDC/);
+  assert.doesNotMatch(byRole(root, 'trade-ticket').textContent, /Verified redeemable value/i);
+  assert.doesNotMatch(byRole(root, 'trade-ticket').textContent, /Redeem resolved positions/i);
+  assert.equal(byRole(root, 'trade-ticket').querySelector('.ft-archive-settlement'), null);
   assert.equal(byRole(root, 'settlement-positions'), null);
-  assert.ok(byAction(root, 'review-redeem'));
+  assert.equal(byAction(root, 'review-redeem'), null);
   assert.equal(calls.includes('signTransaction'), false);
 
   cleanupMount(mounted);

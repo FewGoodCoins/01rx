@@ -1,4 +1,4 @@
-# Trivium Audit Readiness v1
+# 01r.trade Audit Readiness v1
 
 | Field | Value |
 |---|---|
@@ -14,7 +14,7 @@
 
 ## Decision
 
-Trivium must not describe the current trading build as audited. The July 30 report
+01r.trade must not describe the current trading build as audited. The July 30 report
 covers a different immutable commit and tree. Material product, API, chart, and
 execution changes landed afterward, so that report is useful history rather
 than approval for the current build.
@@ -38,7 +38,7 @@ requires a separate reviewed source change and deployment.
 
 ## Release invariants
 
-1. Trivium never signs or submits automatically.
+1. 01r.trade never signs or submits automatically.
 2. Every transaction begins with explicit user intent and ends with explicit
    wallet approval.
 3. The exact message reviewed and simulated must be the message approved and
@@ -56,7 +56,7 @@ requires a separate reviewed source change and deployment.
 
 ## Remaining criteria for independent audit readiness
 
-The items below remain required before Trivium can describe the current release
+The items below remain required before 01r.trade can describe the current release
 as independently audited. Enabling execution does not satisfy them, and an AI
 agent cannot self-approve them.
 

@@ -3603,23 +3603,6 @@ body.is-futard-terminal #token-switch-loader {
   white-space: nowrap;
 }
 
-.ft-decision-market-switcher-chevron {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 13px;
-  color: #858a87;
-  transition: transform 140ms ease, color 120ms ease;
-}
-
-.ft-decision-market-switcher-trigger:hover .ft-decision-market-switcher-chevron,
-.ft-decision-market-switcher-trigger:focus-visible .ft-decision-market-switcher-chevron {
-  color: #e2e3df;
-}
-
-.ft-decision-market-switcher-trigger[aria-expanded="true"] .ft-decision-market-switcher-chevron {
-  transform: rotate(180deg);
-}
-
 .ft-chart-market-identity > .ft-decision-market-switcher-menu {
   position: absolute;
   z-index: 80;
@@ -4703,6 +4686,17 @@ body.is-futard-terminal #token-switch-loader {
   inset: 0;
 }
 
+.orx-liveline-empty-label {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  color: rgb(144 147 167 / 28%);
+  font: 400 12px/1 system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+}
+
 .orx-liveline-root > div:not(.orx-liveline-canvas) {
   display: none !important;
 }
@@ -5555,7 +5549,7 @@ html[data-chart-engine="liveline"] .tv-logo-circle {
   left: 0;
   z-index: 21;
   color: #8b9691;
-  content: "TRIVIUM  ·  LOADING MARKET";
+  content: "01r.trade  ·  LOADING MARKET";
   font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.08em;
   text-align: center;
@@ -7934,54 +7928,6 @@ body.is-token-markets .token-markets-root {
   font-size: 9px;
   font-weight: 700;
   text-decoration: none;
-}
-
-.ft-archive-settlement {
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px solid var(--ft-border);
-  border-radius: var(--ft-radius-sm);
-  background: var(--ft-panel-soft);
-}
-
-.ft-archive-settlement h3 {
-  margin: 4px 0 0;
-  color: var(--ft-ink-strong);
-  font-size: 12px;
-}
-
-.ft-archive-settlement > p {
-  margin: 5px 0 0;
-  color: var(--ft-muted);
-  font-size: 8px;
-  line-height: 1.5;
-}
-
-.ft-archive-settlement .ft-primary-button {
-  margin-top: 10px;
-}
-
-.ft-claim-estimate {
-  display: flex;
-  margin-top: 10px;
-  padding: 9px 10px;
-  flex-direction: column;
-  gap: 2px;
-  border: 1px solid var(--ft-positive-border);
-  border-radius: var(--ft-radius-sm);
-  background: var(--ft-positive-soft);
-}
-
-.ft-claim-estimate span,
-.ft-claim-estimate small {
-  color: var(--ft-muted);
-  font-size: 7px;
-}
-
-.ft-claim-estimate strong {
-  color: var(--ft-positive);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 10px;
 }
 
 .ft-transaction-state {
@@ -10491,25 +10437,6 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 [data-ft-mode="token"].ft-proposal-focus .ft-primary-button {
   min-height: 46px;
   border-radius: 0;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement {
-  margin-top: 10px;
-  padding: 11px 0 0;
-  border: 0;
-  border-top: 1px solid #393936;
-  background: transparent;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement .ft-kicker,
-[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement > p {
-  display: none;
-}
-
-[data-ft-mode="token"].ft-proposal-focus .ft-archive-settlement h3 {
-  margin: 0;
-  color: #d7d6d1;
-  font-size: 11px;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-archive-source-link {
