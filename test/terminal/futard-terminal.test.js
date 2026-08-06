@@ -22,6 +22,7 @@ const ACTIVE_EXECUTION_RELEASE = Object.freeze({
   phase: 'test',
 });
 const MOCK_BASE_MINT = testAddress(21);
+const SOLO_MINT = 'SoLo9oxzLDpcq1dpqAgMwgce5WqkRDtNXK7EPnbmeta';
 const MOCK_BASE_VAULT = testAddress(22);
 const MOCK_QUOTE_VAULT = testAddress(23);
 const MOCK_PASS_BASE_MINT = testAddress(24);
@@ -569,8 +570,13 @@ function makeWindow(options = {}) {
   const sidebar = options.sidebar
     ? `
       <section id="tlp-decisions-panel" hidden>
-        <span id="tp-decision-markets-title" role="status" aria-live="polite">0 decisions live</span>
-        <div id="tlp-decisions-list"></div>
+        <span id="tp-decision-markets-title">
+          <span data-market-sidebar-section-title="all">Decisions Live</span>
+          <span data-market-sidebar-section-title="markets">Decisions</span>
+        </span>
+        <div id="tlp-decisions-list">
+          <div class="tp-decisions-empty tp-live-decisions-empty" id="tp-live-decisions-empty" role="status" aria-live="polite"><strong>0 decisions live</strong></div>
+        </div>
         <div id="tlp-past-decisions-list"></div>
       </section>
     `
@@ -2161,12 +2167,16 @@ test('decision sidebar keeps a clean zero-live state beside available proposal h
   const liveSection = window.document.getElementById('tlp-decisions-panel');
   assert.equal(liveSection.hidden, false);
   assert.equal(
-    window.document.getElementById('tp-decision-markets-title').textContent,
-    '0 decisions live',
+    window.document.querySelector('[data-market-sidebar-section-title="all"]').textContent,
+    'Decisions Live',
   );
   const liveList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveList.querySelectorAll('.tp-decision-item').length, 0);
-  assert.equal(liveList.textContent.trim(), '');
+  const liveEmpty = liveList.querySelector('#tp-live-decisions-empty');
+  assert.ok(liveEmpty);
+  assert.equal(liveEmpty.hidden, false);
+  assert.equal(liveEmpty.textContent.trim(), '0 decisions live');
+  assert.equal(liveEmpty.getAttribute('role'), 'status');
   assert.doesNotMatch(
     window.document.getElementById('tlp-decisions-panel').textContent,
     /Live decisions unavailable|indexed market service could not be reached/i,
@@ -2483,9 +2493,10 @@ test('decision sidebar follows every proposal archive page across tokens', async
     ['meta:passed', 'solo:failed'],
   );
   assert.equal(
-    window.document.getElementById('tp-decision-markets-title').textContent,
-    '1 decision live',
+    window.document.querySelector('[data-market-sidebar-section-title="all"]').textContent,
+    'Decisions Live',
   );
+  assert.equal(window.document.getElementById('tp-live-decisions-empty').hidden, true);
   assert.equal(proposalRows(root).length, 1);
   assert.match(proposalRows(root)[0].textContent, /Loyal · LOYAL/);
 
@@ -2789,6 +2800,7 @@ test('market sidebar lists persistent live and past decisions under one section'
   )];
   assert.equal(liveDecisions.length, 1);
   assert.equal(pastDecisions.length, 2);
+  assert.equal(window.document.getElementById('tp-live-decisions-empty').hidden, true);
   assert.deepEqual(liveDecisions.map(row => row.dataset.marketState), ['live']);
   assert.deepEqual(pastDecisions.map(row => row.dataset.marketState), ['passed', 'failed']);
   const [liveDecision] = liveDecisions;
@@ -3107,10 +3119,33 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     currentNav: {
       tokens: [{
         ...HOME_BOOTSTRAP.currentNav.tokens[0],
+        launchpad: 'Permissionless',
+        mint: MOCK_BASE_MINT,
         nav: 0.222,
         navSource: '01resolved',
         spot: 0.2,
       }],
+    },
+  });
+  const watchedTokens = new Set();
+  const copiedAddresses = [];
+  window.NAVGATOR.shell = {
+    watchlist: {
+      has(token) {
+        return watchedTokens.has(token);
+      },
+      toggle(token) {
+        if (watchedTokens.has(token)) watchedTokens.delete(token);
+        else watchedTokens.add(token);
+      },
+    },
+  };
+  Object.defineProperty(window.navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      async writeText(value) {
+        copiedAddresses.push(value);
+      },
     },
   });
   const controller = mountFutardTerminal({
@@ -3128,31 +3163,70 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.ok(headerWallet);
   assert.match(headerWallet.textContent, /Connect wallet/i);
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
+  let ownershipHeader = byRole(root, 'ownership-chart-header');
+  const identityMarks = ownershipHeader.querySelector('.ft-chart-market-identity-marks');
+  const launchpad = byRole(root, 'token-launchpad');
+  assert.equal(identityMarks.querySelectorAll('[data-ft-role="token-launchpad"]').length, 1);
+  assert.equal(identityMarks.contains(launchpad), true);
+  assert.equal(launchpad.getAttribute('aria-label'), 'Launched on MetaDAO');
+  assert.equal(launchpad.getAttribute('title'), 'Launched on MetaDAO');
+  const launchpadArtwork = launchpad.querySelector('img');
+  assert.equal(launchpadArtwork.getAttribute('src'), 'logos/meta.jpg');
+  assert.equal(launchpadArtwork.getAttribute('alt'), '');
+  assert.equal(launchpadArtwork.getAttribute('aria-hidden'), 'true');
+  const chain = byRole(root, 'token-chain');
+  assert.equal(identityMarks.querySelectorAll('[data-ft-role="token-chain"]').length, 1);
+  assert.equal(identityMarks.contains(chain), true);
+  assert.equal(chain.getAttribute('aria-label'), 'Solana mainnet');
+  assert.equal(chain.getAttribute('title'), 'Solana mainnet');
+  const chainArtwork = chain.querySelector('img');
+  assert.equal(chainArtwork.getAttribute('src'), 'logos/solana-mark.svg');
+  assert.equal(chainArtwork.getAttribute('alt'), '');
+  assert.equal(chainArtwork.getAttribute('aria-hidden'), 'true');
+  assert.equal(chain.querySelector('svg'), null);
+  let watchlistButton = byAction(root, 'toggle-ownership-watchlist');
+  assert.equal(identityMarks.querySelectorAll('[data-ft-action="toggle-ownership-watchlist"]').length, 1);
+  assert.equal(identityMarks.contains(watchlistButton), true);
+  assert.equal(watchlistButton.dataset.ftToken, 'loyal');
+  assert.equal(watchlistButton.getAttribute('aria-pressed'), 'false');
+  assert.equal(watchlistButton.getAttribute('aria-label'), 'Add LOYAL to watchlist');
+  watchlistButton.click();
+  ownershipHeader = byRole(root, 'ownership-chart-header');
+  watchlistButton = byAction(root, 'toggle-ownership-watchlist');
+  assert.equal(watchedTokens.has('loyal'), true);
+  assert.equal(watchlistButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(watchlistButton.getAttribute('aria-label'), 'Remove LOYAL from watchlist');
+  const contractAddress = byRole(root, 'token-contract-address');
+  assert.doesNotMatch(contractAddress.textContent, /\bCA\b/);
+  assert.equal(contractAddress.dataset.ftAddress, MOCK_BASE_MINT);
+  contractAddress.click();
+  await settle(window);
+  assert.deepEqual(copiedAddresses, [MOCK_BASE_MINT]);
   assert.equal(
-    byRole(root, 'ownership-chart-header')
+    ownershipHeader
       .querySelector('[data-ft-chart-header-metric="price"] strong')
       .textContent,
     '$0.2000',
   );
   assert.equal(
-    byRole(root, 'ownership-chart-header')
+    ownershipHeader
       .querySelector('[data-ft-chart-header-metric="nav"] strong')
       .textContent,
     '$0.2220',
   );
   assert.equal(
-    byRole(root, 'ownership-chart-header')
+    ownershipHeader
       .querySelector('[data-ft-chart-header-metric="treasury"] strong')
       .textContent,
     '$360K',
   );
   assert.equal(
-    byRole(root, 'ownership-chart-header')
+    ownershipHeader
       .querySelector('[data-ft-chart-header-metric="volume-24h"]'),
     null,
   );
   assert.equal(
-    byRole(root, 'ownership-chart-header')
+    ownershipHeader
       .querySelector('[data-ft-chart-header-metric="liquidity"]'),
     null,
   );
@@ -3218,6 +3292,54 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   );
   assert.equal(byRole(root, 'ownership-account-activity'), null);
   assert.equal(root.classList.contains('ft-wallet-connected'), false);
+
+  cleanupMount(mounted);
+});
+
+test('SOLO header shows its reviewed contract address before current NAV returns a mint', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const currentToken = {
+    ...HOME_BOOTSTRAP.currentNav.tokens[0],
+    key: 'solo',
+    mint: undefined,
+    name: 'Solomon Labs',
+    ticker: 'SOLO',
+    token: 'solo',
+  };
+  const { root, window } = makeWindow({
+    currentNav: { tokens: [currentToken] },
+    homeBootstrap: {
+      ...HOME_BOOTSTRAP,
+      currentNav: { tokens: [currentToken] },
+    },
+    projectMetadata: {
+      solo: {
+        launchpad: 'Curated',
+        logo: 'logos/solo.jpg',
+        mint: SOLO_MINT,
+        name: 'Solomon Labs',
+        ticker: 'SOLO',
+      },
+    },
+    url: 'https://navgator.xyz/?token=solo&tab=tokens',
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'solo',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const contractAddress = byRole(root, 'token-contract-address');
+  assert.equal(contractAddress.tagName, 'BUTTON');
+  assert.equal(contractAddress.classList.contains('ft-chart-market-ca-unavailable'), false);
+  assert.equal(contractAddress.dataset.ftAction, 'copy-address');
+  assert.equal(contractAddress.dataset.ftAddress, SOLO_MINT);
+  assert.equal(contractAddress.getAttribute('aria-label'), 'Copy SOLO contract address');
+  assert.match(contractAddress.textContent, /SoLo9…bmeta/);
+  assert.doesNotMatch(contractAddress.textContent, /\bCA\b/);
 
   cleanupMount(mounted);
 });

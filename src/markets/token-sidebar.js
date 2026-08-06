@@ -94,7 +94,7 @@ function formatPrice(value) {
 
 function formatMarketCap(value) {
   const marketCapUsd = positiveNumber(value);
-  if (marketCapUsd == null) return '— MC';
+  if (marketCapUsd == null) return '— mcap';
   const units = [
     [1e12, 'T'],
     [1e9, 'B'],
@@ -102,11 +102,11 @@ function formatMarketCap(value) {
     [1e3, 'K'],
   ];
   const unit = units.find(([threshold]) => marketCapUsd >= threshold);
-  if (!unit) return `$${marketCapUsd.toFixed(marketCapUsd >= 100 ? 0 : 2)} MC`;
+  if (!unit) return `$${marketCapUsd.toFixed(marketCapUsd >= 100 ? 0 : 2)} mcap`;
   const compact = marketCapUsd / unit[0];
   const digits = compact >= 100 ? 0 : compact >= 10 ? 1 : 2;
   const compactText = compact.toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
-  return `$${compactText}${unit[1]} MC`;
+  return `$${compactText}${unit[1]} mcap`;
 }
 
 function formatChange(value) {

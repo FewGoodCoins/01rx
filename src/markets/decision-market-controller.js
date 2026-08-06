@@ -1355,6 +1355,7 @@ function buildOwnershipCompatibilityMap(payload) {
       contractAddress: row.contractAddress,
       contract_address: row.contract_address,
       key,
+      launchpad: row.launchpad,
       logo: row.logo,
       mint: row.mint,
       mintAddress: row.mintAddress,
@@ -1378,15 +1379,34 @@ function mergeCurrentNavMap(compatibilityMap, currentPayload) {
   return map;
 }
 
-function mergeCuratedProjectLogos(navMap, metadata) {
+function mergeCuratedProjectIdentity(navMap, metadata) {
   const map = new Map(navMap);
   if (!isObject(metadata)) return map;
   Object.entries(metadata).forEach(([rawKey, project]) => {
     if (!isObject(project)) return;
     const key = normalizeTokenKey(rawKey);
     const logo = safeAssetUrl(project.logo);
-    if (!key || !logo || !map.has(key)) return;
-    map.set(key, { ...map.get(key), logo });
+    const launchpad = boundedText(project.launchpad, 48);
+    const mint = safeBase58(
+      project.mint
+      || project.tokenMint
+      || project.mintAddress
+      || project.contractAddress,
+    );
+    if (!key || !map.has(key) || (!logo && !launchpad && !mint)) return;
+    const current = map.get(key);
+    const currentMint = safeBase58(
+      current.mint
+      || current.tokenMint
+      || current.mintAddress
+      || current.contractAddress,
+    );
+    map.set(key, {
+      ...current,
+      ...(logo ? { logo } : {}),
+      ...(launchpad ? { launchpad } : {}),
+      ...(currentMint || mint ? { mint: currentMint || mint } : {}),
+    });
   });
   return map;
 }
@@ -2836,6 +2856,7 @@ export function mountFutardTerminal({
       ticker,
       name,
       logo: firstText(nav.logo, nav.config?.logo, relatedMarket.logo),
+      launchpad: firstText(nav.launchpad, nav.config?.launchpad),
       mint,
       spot,
       nav: navPerToken,
@@ -3153,6 +3174,9 @@ export function mountFutardTerminal({
         <strong>${escapeHtml(value)}</strong>
       </div>
     `;
+    const watchlist = runtime.NAVGATOR?.shell?.watchlist;
+    const watched = watchlist?.has?.(asset.token) === true;
+    const mint = safeBase58(asset.mint);
     const compactTitle = String(asset.ticker || '').trim().length > 7;
     const snapshotTime = formatHistoryOverlayTimestamp(asset.snapshotTime);
     const changeTone = Number.isFinite(asset.change24h)
@@ -3168,14 +3192,68 @@ export function mountFutardTerminal({
         <div class="ft-chart-market-identity">
           <span class="ft-chart-token-mark">
             ${renderLogo(asset, 'large')}
-            <span class="ft-chart-launchpad-mark" title="Launched on MetaDAO" aria-label="Launched on MetaDAO">
-              <img src="logos/meta.jpg" alt="">
-            </span>
           </span>
           <div class="ft-market-title-copy">
-            <p><strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(asset.ticker)}</strong></p>
-            <span data-ft-role="market-subtitle">${escapeHtml(asset.name)}</span>
-            ${asset.mint ? `<small title="${escapeHtml(asset.mint)}">${escapeHtml(shortenAddress(asset.mint, 5))}</small>` : ''}
+            <div class="ft-market-title-row">
+              <p><strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(asset.ticker)}</strong></p>
+              <div class="ft-chart-market-identity-marks" aria-label="Token identity">
+                <span
+                  class="ft-chart-identity-badge ft-chart-market-launchpad"
+                  data-ft-role="token-launchpad"
+                  title="Launched on MetaDAO"
+                  aria-label="Launched on MetaDAO"
+                >
+                  <img src="logos/meta.jpg" alt="" aria-hidden="true">
+                </span>
+                <span
+                  class="ft-chart-identity-badge ft-chart-market-chain"
+                  data-ft-role="token-chain"
+                  title="Solana mainnet"
+                  aria-label="Solana mainnet"
+                >
+                  <img src="logos/solana-mark.svg" alt="" aria-hidden="true">
+                </span>
+                <button
+                  class="ft-chart-market-watchlist"
+                  type="button"
+                  data-ft-action="toggle-ownership-watchlist"
+                  data-ft-token="${escapeHtml(asset.token)}"
+                  aria-label="${watched ? 'Remove' : 'Add'} ${escapeHtml(asset.ticker)} ${watched ? 'from' : 'to'} watchlist"
+                  aria-pressed="${String(watched)}"
+                  title="${watched ? 'Remove from watchlist' : 'Add to watchlist'}"
+                >
+                  <svg viewBox="0 0 20 19" aria-hidden="true">
+                    <path d="m10 1.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L10 14.77 4.8 17.5l.99-5.79-4.21-4.1 5.82-.85L10 1.5Z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="ft-market-subtitle-row">
+              <span data-ft-role="market-subtitle">${escapeHtml(asset.name)}</span>
+              ${mint ? `
+                <span class="ft-market-subtitle-divider" aria-hidden="true"></span>
+                <button
+                  class="ft-chart-market-ca"
+                  type="button"
+                  data-ft-role="token-contract-address"
+                  data-ft-action="copy-address"
+                  data-ft-address="${escapeHtml(mint)}"
+                  title="${escapeHtml(mint)}"
+                  aria-label="Copy ${escapeHtml(asset.ticker)} contract address"
+                >
+                  <span class="ft-chart-market-ca-value">${escapeHtml(shortenAddress(mint, 5))}</span>
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <rect x="5.25" y="5.25" width="7.5" height="7.5" rx="1.25"/>
+                    <path d="M10.75 5.25V3.9c0-.9-.75-1.65-1.65-1.65H3.9c-.9 0-1.65.75-1.65 1.65v5.2c0 .9.75 1.65 1.65 1.65h1.35"/>
+                  </svg>
+                </button>
+              ` : `
+                <span class="ft-market-subtitle-divider" aria-hidden="true"></span>
+                <span class="ft-chart-market-ca ft-chart-market-ca-unavailable" data-ft-role="token-contract-address" aria-label="Contract address unavailable">
+                  <span class="ft-chart-market-ca-value">—</span>
+                </span>
+              `}
+            </div>
           </div>
         </div>
         ${metric({
@@ -3648,16 +3726,12 @@ export function mountFutardTerminal({
     const pastList = runtime.document.getElementById('tlp-past-decisions-list');
     if (!liveList || !pastList) return;
     const liveSection = runtime.document.getElementById('tlp-decisions-panel');
-    const liveTitle = runtime.document.getElementById('tp-decision-markets-title');
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
     const pastMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup !== 'live',
     );
-    if (liveTitle) {
-      liveTitle.textContent = `${liveMarkets.length} ${liveMarkets.length === 1 ? 'decision' : 'decisions'} live`;
-    }
     const pulseNow = runtime.Date?.now?.() ?? Date.now();
     const pulsePhaseMs = Math.round(pulseNow) % LIVE_MARKET_PULSE_INTERVAL_MS;
     [liveList, pastList].forEach((list) => {
@@ -3719,9 +3793,18 @@ export function mountFutardTerminal({
     function renderSidebarGroup(list, markets, kind) {
       const isLiveGroup = kind === 'live';
       if (isLiveGroup) {
-        // The status line already owns the live count. Render live rows when
-        // present and otherwise leave no redundant or misleading empty card.
-        list.innerHTML = markets.map(market => renderSidebarMarket(market)).join('');
+        const emptyTitle = '0 decisions live';
+        list.innerHTML = `
+          ${markets.map(market => renderSidebarMarket(market)).join('')}
+          <div
+            class="tp-decisions-empty tp-live-decisions-empty"
+            id="tp-live-decisions-empty"
+            data-empty-title="${emptyTitle}"
+            role="status"
+            aria-live="polite"
+            ${markets.length ? 'hidden' : ''}
+          ><strong>${emptyTitle}</strong></div>
+        `;
         return;
       }
       const unavailable = state.archiveError;
@@ -8289,7 +8372,7 @@ export function mountFutardTerminal({
     // Decision rows and token rows must share one visual identity. The token
     // sidebar owns a curated project logo for each listed token; current-NAV
     // remains the fallback when that curated asset is absent.
-    state.navMap = mergeCuratedProjectLogos(
+    state.navMap = mergeCuratedProjectIdentity(
       resolvedNavMap,
       runtime.NAVGATOR?.projectMetadata,
     );

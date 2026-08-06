@@ -994,7 +994,7 @@ window._cachedPriceMap = _cachedPriceMap;
       var iconH = tok.logo
         ? '<div class="tp-icon' + squareCls + '"><img src="' + _esc(tok.logo) + '" alt="' + _esc(tok.ticker) + '" loading="lazy">' + launchpadBadge + '</div>'
         : '<div class="tp-icon' + squareCls + '" style="background:' + _esc(tok.color||'#2a343e') + ';font-size:12px;font-weight:700;color:#fff">' + _esc(tok.ticker[0]) + launchpadBadge + '</div>';
-      var marketCapLabel = fmtCompactUsd(lt && lt.mcap) + ' MC';
+      var marketCapLabel = fmtCompactUsd(lt && lt.mcap) + ' mcap';
       var _pendingLiq = lt && lt.proposalFlag && lt.proposalFlag.type === 'liquidation' && lt.proposalFlag.state === 'pending' && !_isGraveyardToken(lt);
       var chg24Html;
       if (_isGraveyardToken(lt)) {

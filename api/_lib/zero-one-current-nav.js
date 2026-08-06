@@ -1,3 +1,4 @@
+import { PublicKey } from '@solana/web3.js';
 import { resolveZeroOneResolvedApiKey } from './zero-one-api-key.js';
 
 const ZERO_ONE_RESOLVED_ORIGIN = 'https://api.01resolved.com';
@@ -96,6 +97,26 @@ function safeHttpsUrl(value) {
   }
 }
 
+function safeSolanaAddress(value) {
+  const input = safeText(value, 44);
+  if (!input) return '';
+  try {
+    const address = new PublicKey(input).toBase58();
+    return address === input ? address : '';
+  } catch {
+    return '';
+  }
+}
+
+function validatedDaoMint(daoOverview) {
+  const network = safeText(daoOverview?.network?.network, 32).toLowerCase();
+  const baseMint = safeSolanaAddress(daoOverview?.baseMint);
+  const tokenPublicKey = safeSolanaAddress(daoOverview?.baseToken?.publicKey);
+  return network === 'mainnet' && baseMint && baseMint === tokenPublicKey
+    ? baseMint
+    : '';
+}
+
 function isoTimestamp(value) {
   const milliseconds = new Date(value || '').getTime();
   return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : null;
@@ -180,6 +201,7 @@ function sourceRecord(endpoint, retrievedAt, observedAt = null) {
 function clearDaoSnapshotFields(row) {
   return {
     ...row,
+    mint: null,
     netAssetValue: null,
     runway: null,
     spendingLimit: null,
@@ -196,6 +218,7 @@ function clearDaoSnapshotFields(row) {
 function enrichProjectRow(row, daoOverview, treasuryOverview) {
   const enriched = clearDaoSnapshotFields(row);
   const baseToken = daoOverview?.baseToken;
+  const mint = validatedDaoMint(daoOverview);
 
   if (baseToken && typeof baseToken === 'object') {
     enriched.organizationImageUrl = baseToken.url || daoOverview.imageUrl || row.organizationImageUrl;
@@ -209,6 +232,8 @@ function enrichProjectRow(row, daoOverview, treasuryOverview) {
     enriched.tokenTotalSupply = baseToken.totalSupply;
     enriched.updatedAt = baseToken.updatedAt || daoOverview.updatedAt || row.updatedAt;
   }
+
+  if (mint) enriched.mint = mint;
 
   if (treasuryOverview) {
     enriched.netAssetValue = treasuryOverview.netAssetValue;
@@ -271,6 +296,7 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
   const circulatingSupply = finiteNumber(row.tokenCirculatingSupply, { nonNegative: true });
   const totalSupply = finiteNumber(row.tokenTotalSupply, { nonNegative: true });
   const marketCap = finiteNumber(row.marketCap, { nonNegative: true });
+  const mint = safeSolanaAddress(row.mint);
   const fdv = finiteNumber(row.fdv, { nonNegative: true });
   const change1h = finiteNumber(row.tokenPriceChangePercentage1h);
   const change24h = finiteNumber(row.tokenPriceChangePercentage24h);
@@ -354,6 +380,7 @@ export function normalizeZeroOneCurrentNavRow(row, options = {}) {
     logo: safeHttpsUrl(row.organizationImageUrl || row.logo),
     mNAV: finiteNumber(row.mNAV),
     marketCap,
+    ...(mint ? { mint } : {}),
     monthlyAllowance: spendingLimit,
     name,
     nav,
@@ -546,4 +573,5 @@ export async function loadZeroOneCurrentNav(options = {}) {
 export const _test = Object.freeze({
   projectRows,
   tokenFromProject,
+  validatedDaoMint,
 });
