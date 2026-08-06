@@ -18,6 +18,7 @@ const TRANSACTION_STATUS_INTERVAL_MS = 5_000;
 const LIVE_PRICE_INTERVAL_MS = 5_000;
 const LIVE_MARKET_PULSE_INTERVAL_MS = 1_000;
 const POLL_INTERVAL_MS = 30_000;
+const CONTRACT_ADDRESS_COPY_FEEDBACK_MS = 1_800;
 const MAX_PROPOSAL_HISTORY_POINTS = 1_000;
 const REVIEWED_PROGRAM_COUNT = 4;
 const EXECUTION_ACTIONS = new Set([
@@ -1379,6 +1380,36 @@ function mergeCurrentNavMap(compatibilityMap, currentPayload) {
   return map;
 }
 
+function curatedProjectIdentityMap(metadata) {
+  const map = new Map();
+  if (!isObject(metadata)) return map;
+  Object.entries(metadata).forEach(([rawKey, project]) => {
+    if (!isObject(project)) return;
+    const key = normalizeTokenKey(rawKey);
+    const name = boundedText(project.name, 80);
+    const ticker = boundedText(project.ticker, 16).toUpperCase();
+    const logo = safeAssetUrl(project.logo);
+    const launchpad = boundedText(project.launchpad, 48);
+    const mint = safeBase58(
+      project.mint
+      || project.tokenMint
+      || project.mintAddress
+      || project.contractAddress,
+    );
+    if (!key || (!name && !ticker && !logo && !launchpad && !mint)) return;
+    map.set(key, {
+      key,
+      token: key,
+      ...(name ? { name } : {}),
+      ...(ticker ? { ticker } : {}),
+      ...(logo ? { logo } : {}),
+      ...(launchpad ? { launchpad } : {}),
+      ...(mint ? { mint } : {}),
+    });
+  });
+  return map;
+}
+
 function mergeCuratedProjectIdentity(navMap, metadata) {
   const map = new Map(navMap);
   if (!isObject(metadata)) return map;
@@ -2412,6 +2443,7 @@ export function mountFutardTerminal({
     historyAbortController: null,
     historyActiveId: '',
     historyChart: null,
+    ownershipChart: null,
     historyRange: 'all',
     historySeriesVisibility: {
       underlyingPrice: true,
@@ -2430,6 +2462,13 @@ export function mountFutardTerminal({
     priceRefreshing: false,
     transactionStatusLoading: false,
     noticeTimer: null,
+    contractAddressCopyFeedback: {
+      token: '',
+      address: '',
+      ticker: '',
+      timer: null,
+      generation: 0,
+    },
     theme: hostMode === 'standalone' ? preferredTheme(runtime) : 'dark',
     loading: true,
     refreshing: false,
@@ -2464,7 +2503,10 @@ export function mountFutardTerminal({
     historyByProposal: new Map(),
     marketDataByProposal: new Map(),
     transactions: [],
-    navMap: new Map(),
+    // Curated identity is code-owned and safe to paint immediately. Live
+    // price, NAV, treasury, and registry membership still come exclusively
+    // from the server-side 01Resolved adapter during refresh.
+    navMap: curatedProjectIdentityMap(runtime.NAVGATOR?.projectMetadata),
     listedTokenKeys: new Set(),
     order: {
       outcome: 'pass',
@@ -2681,14 +2723,6 @@ export function mountFutardTerminal({
       token: normalizeKey(tokenKey),
       view: 'markets',
       tab: 'tokens',
-    });
-    return `/?${params.toString()}`;
-  }
-
-  function ownershipChartFrameUrl(tokenKey) {
-    const params = new runtime.URLSearchParams({
-      token: normalizeKey(tokenKey),
-      frame: '01rx',
     });
     return `/?${params.toString()}`;
   }
@@ -3074,6 +3108,30 @@ export function mountFutardTerminal({
 
   let twapScrollerCleanup = null;
 
+  function destroyOwnershipChart() {
+    if (!state.ownershipChart) return;
+    try {
+      state.ownershipChart.remove?.();
+    } catch (_) {
+      // Navigation should remain usable if the chart mount was already detached.
+    }
+    state.ownershipChart = null;
+  }
+
+  function mountOwnershipChart() {
+    if (state.destroyed || state.ownershipChart) return;
+    const container = regions.marketChart.querySelector(
+      '[data-ft-role="ownership-token-chart-liveline"]',
+    );
+    const livelineCharts = runtime.LivelineCharts;
+    if (!container || typeof livelineCharts?.createChart !== 'function') return;
+    try {
+      state.ownershipChart = livelineCharts.createChart(container, {}) || null;
+    } catch (_) {
+      state.ownershipChart = null;
+    }
+  }
+
   function destroyHourlyChart() {
     twapScrollerCleanup?.();
     twapScrollerCleanup = null;
@@ -3177,6 +3235,11 @@ export function mountFutardTerminal({
     const watchlist = runtime.NAVGATOR?.shell?.watchlist;
     const watched = watchlist?.has?.(asset.token) === true;
     const mint = safeBase58(asset.mint);
+    const addressCopied = Boolean(
+      mint
+      && state.contractAddressCopyFeedback.token === normalizeKey(asset.token)
+      && state.contractAddressCopyFeedback.address === mint,
+    );
     const compactTitle = String(asset.ticker || '').trim().length > 7;
     const snapshotTime = formatHistoryOverlayTimestamp(asset.snapshotTime);
     const changeTone = Number.isFinite(asset.change24h)
@@ -3238,13 +3301,21 @@ export function mountFutardTerminal({
                   data-ft-role="token-contract-address"
                   data-ft-action="copy-address"
                   data-ft-address="${escapeHtml(mint)}"
+                  data-ft-token="${escapeHtml(asset.token)}"
+                  data-ft-ticker="${escapeHtml(asset.ticker)}"
+                  ${addressCopied ? 'data-ft-copy-state="copied"' : ''}
                   title="${escapeHtml(mint)}"
-                  aria-label="Copy ${escapeHtml(asset.ticker)} contract address"
+                  aria-label="${addressCopied
+                    ? `${escapeHtml(asset.ticker)} contract address copied`
+                    : `Copy ${escapeHtml(asset.ticker)} contract address`}"
                 >
                   <span class="ft-chart-market-ca-value">${escapeHtml(shortenAddress(mint, 5))}</span>
-                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <svg class="ft-chart-market-ca-copy-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <rect x="5.25" y="5.25" width="7.5" height="7.5" rx="1.25"/>
                     <path d="M10.75 5.25V3.9c0-.9-.75-1.65-1.65-1.65H3.9c-.9 0-1.65.75-1.65 1.65v5.2c0 .9.75 1.65 1.65 1.65h1.35"/>
+                  </svg>
+                  <svg class="ft-chart-market-ca-check-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="m3 8.25 3 3 7-7"/>
                   </svg>
                 </button>
               ` : `
@@ -4267,26 +4338,30 @@ export function mountFutardTerminal({
       );
       if (!currentFrame || currentFrame.dataset.ftToken !== asset.token) {
         clearOwnershipChartExpansion();
+        destroyOwnershipChart();
         regions.marketChart.innerHTML = `
           <section
             class="ft-ownership-chart-panel ft-terminal-chart-panel"
             data-ft-role="ownership-token-chart"
             data-ft-token="${escapeHtml(asset.token)}"
           >
-            <iframe
+            <div
               class="ft-ownership-chart-frame"
-              src="${escapeHtml(ownershipChartFrameUrl(asset.token))}"
-              title="${escapeHtml(`${asset.name} Price and NAV chart`)}"
-              loading="eager"
-            ></iframe>
+              data-ft-role="ownership-token-chart-liveline"
+              data-ft-chart-engine="liveline"
+              role="img"
+              aria-label="${escapeHtml(`${asset.name} Price and NAV chart`)}"
+            ></div>
           </section>
         `;
       }
+      mountOwnershipChart();
       regions.marketStage.innerHTML = '';
       return;
     }
 
     clearOwnershipChartExpansion();
+    destroyOwnershipChart();
     destroyHourlyChart();
     const market = selectedMarket();
     regions.marketChartHeader.innerHTML = '';
@@ -5588,8 +5663,36 @@ export function mountFutardTerminal({
     return '';
   }
 
+  function renderOwnershipLoadingTicket() {
+    regions.tradeTicket.innerHTML = `
+      <section
+        class="ft-ticket ft-ownership-ticket ft-ownership-trade-loading"
+        data-ft-role="ownership-trade-loading"
+        aria-busy="true"
+      >
+        <div class="ft-ownership-side-tabs" role="tablist" aria-label="Ownership order side">
+          <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Buy</button>
+          <button type="button" role="tab" aria-selected="false" disabled>Sell</button>
+        </div>
+        <div class="ft-market-information-empty">
+          <strong>Loading market</strong>
+          <p>Checking current market data and reviewed execution programs.</p>
+        </div>
+        <button class="ft-ownership-connect" type="button" disabled>Checking market…</button>
+      </section>
+    `;
+  }
+
   function renderTradeTicket() {
     syncExecutionLock();
+    if (
+      isOwnershipWorkspace()
+      && state.loading
+      && root.hasAttribute('data-ft-transition')
+    ) {
+      renderOwnershipLoadingTicket();
+      return;
+    }
     if (isOwnershipWorkspace() && !executionEnabled) {
       renderExecutionPauseTicket('Ownership market');
       return;
@@ -6807,6 +6910,60 @@ export function mountFutardTerminal({
       state.notice = '';
       renderSystemStatus();
     }, 3_000);
+  }
+
+  function syncContractAddressCopyFeedback() {
+    if (state.destroyed) return;
+    const button = regions.marketChartHeader?.querySelector(
+      '[data-ft-role="token-contract-address"][data-ft-action="copy-address"]',
+    );
+    if (!button) return;
+    const address = safeBase58(button.dataset.ftAddress);
+    const token = normalizeKey(button.dataset.ftToken);
+    const ticker = boundedText(button.dataset.ftTicker, 24);
+    const copied = Boolean(
+      address
+      && token
+      && token === state.contractAddressCopyFeedback.token
+      && address === state.contractAddressCopyFeedback.address,
+    );
+    if (copied) button.dataset.ftCopyState = 'copied';
+    else delete button.dataset.ftCopyState;
+    button.setAttribute(
+      'aria-label',
+      copied
+        ? `${ticker || 'Token'} contract address copied`
+        : `Copy ${ticker || 'token'} contract address`,
+    );
+  }
+
+  function clearContractAddressCopyFeedback({ sync = true } = {}) {
+    const feedback = state.contractAddressCopyFeedback;
+    feedback.generation += 1;
+    if (feedback.timer) runtime.clearTimeout(feedback.timer);
+    feedback.timer = null;
+    feedback.token = '';
+    feedback.address = '';
+    feedback.ticker = '';
+    if (sync) syncContractAddressCopyFeedback();
+  }
+
+  function showContractAddressCopyFeedback({ token, address, ticker }) {
+    const feedback = state.contractAddressCopyFeedback;
+    clearContractAddressCopyFeedback({ sync: false });
+    feedback.token = token;
+    feedback.address = address;
+    feedback.ticker = ticker;
+    const generation = feedback.generation;
+    syncContractAddressCopyFeedback();
+    feedback.timer = runtime.setTimeout(() => {
+      if (state.destroyed || feedback.generation !== generation) return;
+      feedback.timer = null;
+      feedback.token = '';
+      feedback.address = '';
+      feedback.ticker = '';
+      syncContractAddressCopyFeedback();
+    }, CONTRACT_ADDRESS_COPY_FEEDBACK_MS);
   }
 
   async function loadProposalHistory(market = selectedMarket(), options = {}) {
@@ -8311,6 +8468,135 @@ export function mountFutardTerminal({
     };
   }
 
+  function applyProposalArchiveSnapshot(snapshot, options = {}) {
+    const proposalSnapshot = {
+      ...snapshot,
+      markets: listedMarkets(snapshot.markets),
+      archiveComplete: snapshot.archiveComplete === true
+        || !snapshot.pagination.nextCursor,
+    };
+    state.sidebarArchiveComplete = proposalSnapshot.archiveComplete;
+    state.sidebarArchiveTotal = proposalSnapshot.pagination.total;
+    if (proposalSnapshot.paginationError) {
+      state.archiveError = proposalSnapshot.paginationError;
+    }
+    const preserveLoadedPages = state.indexedProposals.length
+      > proposalSnapshot.markets.length;
+    const tokenProposals = proposalSnapshot.markets.filter(marketMatchesToken);
+    state.indexedProposals = preserveLoadedPages
+      ? mergeIndexedProposalPages(state.indexedProposals, tokenProposals)
+      : tokenProposals;
+    state.proposalSummary = proposalSnapshot.summary;
+    state.proposalPagination = {
+      nextCursor: preserveLoadedPages
+        ? state.proposalPagination.nextCursor
+        : proposalSnapshot.pagination.nextCursor,
+      total: firstNumber(
+        proposalSnapshot.pagination.total,
+        proposalSnapshot.summary.total,
+        state.indexedProposals.length,
+      ),
+      loadingMore: options.archiveLoading === true
+        && Boolean(proposalSnapshot.pagination.nextCursor),
+    };
+    return proposalSnapshot;
+  }
+
+  function reconcileProposalSnapshots({
+    activeSnapshot,
+    marketResult,
+    proposalResult,
+    proposalSnapshot,
+  }) {
+    const archiveConfirmsNoLiveMarkets = Boolean(
+      proposalSnapshot?.archiveComplete
+      && !proposalSnapshot.markets.some(
+        market => market.proposal.statusGroup === 'live',
+      ),
+    );
+    if (marketResult.status !== 'fulfilled' && archiveConfirmsNoLiveMarkets) {
+      // A complete 01Resolved proposal index with no pending records is a
+      // healthy zero-live state. There is no live account that requires RPC
+      // validation, so an empty result must not be presented as an outage.
+      state.activeMarkets = [];
+      state.pendingProposalCount = 0;
+      state.liveError = '';
+    }
+
+    state.degraded = mergeDegradedStates(
+      marketResult.status === 'fulfilled'
+        ? activeSnapshot?.degraded
+        : archiveConfirmsNoLiveMarkets
+          ? { active: false, services: [], issues: [] }
+          : { active: true, services: ['futarchy'], issues: [] },
+      proposalResult.status === 'fulfilled'
+        ? proposalSnapshot?.degraded
+        : { active: true, services: ['futarchy-proposals'], issues: [] },
+    );
+    state.markets = mergeProposalLists(state.indexedProposals, state.activeMarkets);
+
+    let sidebarProposalMarkets = proposalSnapshot?.markets || [];
+    if (proposalSnapshot && !proposalSnapshot.archiveComplete) {
+      const cachedPastMarkets = state.sidebarMarkets.filter(
+        market => market.proposal.statusGroup !== 'live',
+      );
+      const snapshotPastMarkets = sidebarProposalMarkets.filter(
+        market => market.proposal.statusGroup !== 'live',
+      );
+      if (cachedPastMarkets.length > snapshotPastMarkets.length) {
+        // Do not make an already-filled global archive flicker back to page one
+        // while a periodic refresh continues the remaining cursor pages.
+        sidebarProposalMarkets = mergeIndexedProposalPages(
+          cachedPastMarkets,
+          sidebarProposalMarkets,
+        );
+      }
+    }
+    state.sidebarMarkets = mergeProposalLists(
+      sidebarProposalMarkets,
+      listedMarkets(activeSnapshot?.markets || []),
+    );
+    state.asOf = activeSnapshot?.asOf
+      || proposalSnapshot?.asOf
+      || state.asOf
+      || new Date().toISOString();
+
+    const requestedProposalMissing = Boolean(
+      state.requestedProposalId
+      && !state.markets.some(market => market.id === state.requestedProposalId),
+    );
+    const requestedProposalMayBeOnAnotherPage = Boolean(
+      requestedProposalMissing
+      && proposalResult.status === 'fulfilled'
+      && proposalSnapshot
+      && !proposalSnapshot.archiveComplete,
+    );
+    if (requestedProposalMissing && !requestedProposalMayBeOnAnotherPage) {
+      state.routeNotice = 'That proposal does not belong to this token or is no longer indexed. Showing this token’s available markets.';
+      state.requestedProposalId = '';
+      const fallbackUrl = tokenMarketsUrl(state.tokenFilter);
+      runtime.history?.replaceState?.(
+        null,
+        '',
+        fallbackUrl,
+      );
+      syncCanonicalUrl(fallbackUrl);
+    }
+    if (
+      !requestedProposalMayBeOnAnotherPage
+      && !state.markets.some(market => market.id === state.selectedId)
+    ) {
+      state.selectedId = filteredMarkets()[0]?.id || state.markets[0]?.id || '';
+    }
+    if (
+      !state.markets.length
+      && marketResult.status === 'rejected'
+      && proposalResult.status === 'rejected'
+    ) {
+      state.error = 'Governance proposals are temporarily unavailable.';
+    }
+  }
+
   async function refresh(options = {}) {
     if (state.destroyed) return [];
     if (
@@ -8423,6 +8709,7 @@ export function mountFutardTerminal({
 
     let activeSnapshot = null;
     let proposalSnapshot = null;
+    let proposalArchiveTask = null;
     if (marketResult.status === 'fulfilled') {
       activeSnapshot = normalizeMarketPayload(
         marketResult.value,
@@ -8444,101 +8731,26 @@ export function mountFutardTerminal({
 
     if (proposalResult.status === 'fulfilled') {
       proposalSnapshot = normalizeMarketPayload(proposalResult.value, state.navMap);
-      try {
-        proposalSnapshot = await completeSidebarProposalArchive(proposalSnapshot, signal);
-      } catch (error) {
-        if (state.destroyed || requestId !== state.requestId || error?.name === 'AbortError') {
-          return state.markets;
-        }
-        throw error;
+      if (proposalSnapshot.pagination.nextCursor) {
+        // Start the global archive continuation now, but do not make the first
+        // data-backed workspace render wait for every historic cursor page.
+        proposalArchiveTask = completeSidebarProposalArchive(proposalSnapshot, signal);
       }
-      if (state.destroyed || requestId !== state.requestId) return state.markets;
-      proposalSnapshot = {
-        ...proposalSnapshot,
-        markets: listedMarkets(proposalSnapshot.markets),
-      };
-      state.sidebarArchiveComplete = proposalSnapshot.archiveComplete;
-      state.sidebarArchiveTotal = proposalSnapshot.pagination.total;
-      if (proposalSnapshot.paginationError) {
-        state.archiveError = proposalSnapshot.paginationError;
-      }
-      const preserveLoadedPages = state.indexedProposals.length > proposalSnapshot.markets.length;
-      const tokenProposals = proposalSnapshot.markets.filter(marketMatchesToken);
-      state.indexedProposals = preserveLoadedPages
-        ? mergeIndexedProposalPages(state.indexedProposals, tokenProposals)
-        : tokenProposals;
-      state.proposalSummary = proposalSnapshot.summary;
-      state.proposalPagination = {
-        nextCursor: preserveLoadedPages
-          ? state.proposalPagination.nextCursor
-          : proposalSnapshot.pagination.nextCursor,
-        total: firstNumber(
-          proposalSnapshot.pagination.total,
-          proposalSnapshot.summary.total,
-          state.indexedProposals.length,
-        ),
-        loadingMore: false,
-      };
+      proposalSnapshot = applyProposalArchiveSnapshot(proposalSnapshot, {
+        archiveLoading: Boolean(proposalArchiveTask),
+      });
     } else {
       state.archiveError = proposalResult.reason?.timeout
         ? 'Proposal history timed out.'
         : 'Proposal history is temporarily unavailable.';
     }
 
-    const archiveConfirmsNoLiveMarkets = Boolean(
-      proposalSnapshot?.archiveComplete
-      && !proposalSnapshot.markets.some(
-        market => market.proposal.statusGroup === 'live',
-      ),
-    );
-    if (marketResult.status !== 'fulfilled' && archiveConfirmsNoLiveMarkets) {
-      // A complete 01Resolved proposal index with no pending records is a
-      // healthy zero-live state. There is no live account that requires RPC
-      // validation, so an empty result must not be presented as an outage.
-      state.activeMarkets = [];
-      state.pendingProposalCount = 0;
-      state.liveError = '';
-    }
-
-    state.degraded = mergeDegradedStates(
-      marketResult.status === 'fulfilled'
-        ? activeSnapshot?.degraded
-        : archiveConfirmsNoLiveMarkets
-          ? { active: false, services: [], issues: [] }
-          : { active: true, services: ['futarchy'], issues: [] },
-      proposalResult.status === 'fulfilled'
-        ? proposalSnapshot?.degraded
-        : { active: true, services: ['futarchy-proposals'], issues: [] },
-    );
-    state.markets = mergeProposalLists(state.indexedProposals, state.activeMarkets);
-    state.sidebarMarkets = mergeProposalLists(
-      proposalSnapshot?.markets || [],
-      listedMarkets(activeSnapshot?.markets || []),
-    );
-    state.asOf = activeSnapshot?.asOf
-      || proposalSnapshot?.asOf
-      || state.asOf
-      || new Date().toISOString();
-    if (
-      state.requestedProposalId
-      && !state.markets.some(market => market.id === state.requestedProposalId)
-    ) {
-      state.routeNotice = 'That proposal does not belong to this token or is no longer indexed. Showing this token’s available markets.';
-      state.requestedProposalId = '';
-      const fallbackUrl = tokenMarketsUrl(state.tokenFilter);
-      runtime.history?.replaceState?.(
-        null,
-        '',
-        fallbackUrl,
-      );
-      syncCanonicalUrl(fallbackUrl);
-    }
-    if (!state.markets.some(market => market.id === state.selectedId)) {
-      state.selectedId = filteredMarkets()[0]?.id || state.markets[0]?.id || '';
-    }
-    if (!state.markets.length && marketResult.status === 'rejected' && proposalResult.status === 'rejected') {
-      state.error = 'Governance proposals are temporarily unavailable.';
-    }
+    reconcileProposalSnapshots({
+      activeSnapshot,
+      marketResult,
+      proposalResult,
+      proposalSnapshot,
+    });
     state.loading = false;
     state.refreshing = false;
     render();
@@ -8553,6 +8765,53 @@ export function mountFutardTerminal({
     }
     if (state.wallet.address && options.refreshPositions !== false) loadPositions();
     if (state.wallet.address) loadRecurringSchedulesForMarket();
+
+    if (proposalArchiveTask) {
+      const transitionId = options.workspaceTransitionId;
+      proposalArchiveTask.then((completedSnapshot) => {
+        const staleTransition = transitionId != null
+          && transitionId !== workspaceTransitionId;
+        if (state.destroyed || requestId !== state.requestId || staleTransition) return;
+        const selectedBeforeArchive = selectedMarket()?.id || '';
+        proposalSnapshot = applyProposalArchiveSnapshot(completedSnapshot);
+        reconcileProposalSnapshots({
+          activeSnapshot,
+          marketResult,
+          proposalResult,
+          proposalSnapshot,
+        });
+        render();
+        const currentMarketAfterArchive = isOwnershipWorkspace()
+          ? null
+          : selectedMarket();
+        if (
+          currentMarketAfterArchive
+          && currentMarketAfterArchive.id !== selectedBeforeArchive
+        ) {
+          loadProposalHistory(currentMarketAfterArchive, {
+            force: currentMarketAfterArchive.proposal.statusGroup === 'live',
+          });
+          loadProposalMarketData(currentMarketAfterArchive, {
+            force: currentMarketAfterArchive.proposal.statusGroup === 'live',
+          });
+        }
+      }).catch((error) => {
+        const staleTransition = transitionId != null
+          && transitionId !== workspaceTransitionId;
+        if (
+          state.destroyed
+          || requestId !== state.requestId
+          || staleTransition
+          || error?.name === 'AbortError'
+        ) return;
+        state.proposalPagination.loadingMore = false;
+        state.sidebarArchiveComplete = false;
+        state.archiveError = error?.timeout
+          ? 'Complete proposal history timed out.'
+          : 'Complete proposal history is temporarily unavailable.';
+        render();
+      });
+    }
     return state.markets;
   }
 
@@ -8793,6 +9052,14 @@ export function mountFutardTerminal({
       )
     ) return;
     const action = target.dataset.ftAction;
+    if (
+      state.loading
+      && root.hasAttribute('data-ft-transition')
+      && EXECUTION_ACTIONS.has(action)
+    ) {
+      event.preventDefault();
+      return;
+    }
     if (!executionEnabled && EXECUTION_ACTIONS.has(action)) {
       event.preventDefault();
       pauseExecutionAttempt();
@@ -9100,10 +9367,35 @@ export function mountFutardTerminal({
     } else if (action === 'copy-address') {
       const address = safeBase58(target.dataset.ftAddress);
       if (!address) return;
+      const isTokenContractAddress = target.dataset.ftRole === 'token-contract-address';
+      const copyContext = isTokenContractAddress
+        ? {
+          token: normalizeKey(target.dataset.ftToken || state.tokenFilter),
+          address,
+          ticker: boundedText(target.dataset.ftTicker, 24),
+        }
+        : null;
       if (runtime.navigator?.clipboard?.writeText) {
         runtime.navigator.clipboard.writeText(address)
-          .then(() => setNotice('Address copied to clipboard.'))
-          .catch(() => setNotice('Clipboard access was blocked.'));
+          .then(() => {
+            if (state.destroyed) return;
+            if (copyContext) {
+              const copyTargetIsCurrent = isOwnershipWorkspace()
+                && copyContext.token === state.tokenFilter
+                && safeBase58(
+                  regions.marketChartHeader
+                    ?.querySelector('[data-ft-role="token-contract-address"]')
+                    ?.dataset.ftAddress,
+              ) === copyContext.address;
+              if (!copyTargetIsCurrent) return;
+              showContractAddressCopyFeedback(copyContext);
+              return;
+            }
+            setNotice('Address copied to clipboard.');
+          })
+          .catch(() => {
+            if (!state.destroyed) setNotice('Clipboard access was blocked.');
+          });
       } else {
         setNotice(address);
       }
@@ -9275,6 +9567,7 @@ export function mountFutardTerminal({
       || normalized === state.tokenFilter
     ) return state.markets;
 
+    clearContractAddressCopyFeedback({ sync: false });
     const transitionId = beginWorkspaceTransition({
       preserveShell: options.preserveShell === true,
     });
@@ -9363,7 +9656,9 @@ export function mountFutardTerminal({
   function destroy() {
     if (state.destroyed) return;
     state.destroyed = true;
+    clearContractAddressCopyFeedback({ sync: false });
     clearOwnershipChartExpansion();
+    destroyOwnershipChart();
     destroyHourlyChart();
     state.abortController?.abort();
     state.paginationAbortController?.abort();
@@ -9426,6 +9721,16 @@ export function mountFutardTerminal({
   }
 
   const ready = runWorkspaceTransitionRefresh(initialTransitionId);
+  const hasCuratedOwnershipPreview = isOwnershipWorkspace()
+    && state.navMap.has(state.tokenFilter);
+  if (hasCuratedOwnershipPreview) {
+    // The ownership shell is already fully rendered at this point. Expose it
+    // while data hydrates instead of covering a safe, navigable UI with the
+    // full-page loader. Transaction controls remain fail-closed while program
+    // integrity is still in its initial `checking` state.
+    root.dataset.ftTransition = 'partial';
+    revealWorkspaceShell();
+  }
   state.pollTimer = runtime.setInterval(() => {
     if (runtime.document.visibilityState !== 'hidden') refresh();
   }, POLL_INTERVAL_MS);

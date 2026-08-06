@@ -104,6 +104,9 @@ export async function loadLegacyPage({ loadClassicScript }) {
     token,
   });
   installTokenWorkspaceMetadata(window, token, marketTab);
+  if (root.dataset.ftTransition === 'partial') {
+    revealMarketWorkspace(document);
+  }
   await window.NAVGATOR.marketWorkspace.ready;
   const workspaceState = window.NAVGATOR.marketWorkspace.getState();
   installTokenWorkspaceMetadata(

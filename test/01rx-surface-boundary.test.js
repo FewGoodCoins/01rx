@@ -15,6 +15,7 @@ const solanaMarkAsset = fs.readFileSync(
   'utf8',
 );
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
+const shellCss = fs.readFileSync(new URL('../styles/shell.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
 const sharedTerminalCss = fs.readFileSync(
   new URL('../styles/terminal-shared.css', import.meta.url),
@@ -168,6 +169,18 @@ test('token identity badges use reviewed local artwork and distinct control geom
   assert.match(
     triviumTerminalCss,
     /\.ft-ownership-chart-header \.ft-chart-market-watchlist\s*\{\s*width: 24px;\s*height: 24px;\s*flex: 0 0 24px;/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-chart-market-ca-check-icon\s*\{\s*display: none;\s*color: var\(--ft-positive, #35d093\);/,
+  );
+  assert.match(
+    frameCss,
+    /\[data-ft-copy-state="copied"\] \.ft-chart-market-ca-copy-icon\s*\{\s*display: none;/,
+  );
+  assert.match(
+    frameCss,
+    /\[data-ft-copy-state="copied"\] \.ft-chart-market-ca-check-icon\s*\{\s*display: block;/,
   );
   assert.match(
     triviumTerminalCss,
@@ -392,7 +405,7 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
   assert.match(
     indexSource,
-    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions Live<\/span>[\s\S]*?data-market-sidebar-section-title="markets">Decisions<\/span>/,
+    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions<\/span>[\s\S]*?data-market-sidebar-section-title="markets">Decisions<\/span>/,
   );
   assert.match(
     triviumTerminalCss,
@@ -413,7 +426,7 @@ test('zero live decisions occupy one full noninteractive market row', () => {
   const heading = dom.window.document.querySelector('[data-market-sidebar-section-title="all"]');
   const status = dom.window.document.querySelector('#tp-live-decisions-empty');
 
-  assert.equal(heading?.textContent.trim(), 'Decisions Live');
+  assert.equal(heading?.textContent.trim(), 'Decisions');
   assert.ok(status);
   assert.equal(status.tagName, 'DIV');
   assert.equal(status.textContent.trim(), '0 decisions live');
@@ -429,6 +442,18 @@ test('zero live decisions occupy one full noninteractive market row', () => {
   assert.match(
     triviumTerminalCss,
     /body#navgator-app#navgator-app \.tp-live-decisions-empty::before\s*\{[\s\S]*?width: 35px;[\s\S]*?height: 35px;[\s\S]*?border-radius: 50% !important;[\s\S]*?content: '0';/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-live-decisions-empty\s*\{[\s\S]*?border-bottom: 0;[\s\S]*?background: transparent;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /body#navgator-app#navgator-app \.tp-live-decisions-empty::before\s*\{[\s\S]*?border: 1px solid #292634;[\s\S]*?background: transparent;[\s\S]*?color: #9c99a8;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-live-decisions-empty strong\s*\{\s*color: #f5f4f9;/,
   );
   dom.window.close();
 });
@@ -462,10 +487,18 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
   assert.match(appCoreSource, /if \(tab === 'all'\) return 'all-tokens';/);
   assert.match(
     appCoreSource,
+    /localStorage\.getItem\('navgator-market-token-sort'\)[\s\S]*?saved : 'market-cap'[\s\S]*?return 'market-cap';/,
+  );
+  assert.match(
+    appCoreSource,
     /tokens:\s*\[\s*\{ key: 'all-tokens', label: 'All' \},\s*\{ key: 'watchlist', label: 'Watchlist' \},\s*\{ key: 'trending', label: 'Trending' \}\s*\],\s*markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Past' \}\s*\]/,
   );
   assert.doesNotMatch(appCoreSource, /^\s*watchlist:\s*\[/m);
   assert.match(appCoreSource, /_marketSidebarFilter === 'movers' \|\| _marketSidebarFilter === 'trending'[\s\S]*?_marketTokenSortKey = 'change';/);
+  assert.match(
+    appCoreSource,
+    /_marketSidebarTab === 'all'[\s\S]*?_marketSidebarTab === 'tokens'[\s\S]*?_marketTokenSortKey = 'market-cap';[\s\S]*?_marketSidebarSortAscending = false;/,
+  );
   assert.match(appCoreSource, /_marketSidebarFilter === 'watchlist'[\s\S]*?\(!watchlistOnly \|\| isWatched\)/);
   assert.match(
     appCoreSource,
@@ -487,6 +520,18 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
   assert.match(
     triviumTerminalCss,
     /\.shell-panel-toggle-left\s*\{[\s\S]*?left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 35px\);/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /body\.is-token\.is-token-markets \.shell-panel-toggle-left\s*\{\s*top: calc\(var\(--site-header-height\) \+ 18\.5px\);\s*left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 35px\);[\s\S]*?width: 25px;\s*height: 26px;[\s\S]*?border-radius: 8px !important;[\s\S]*?background: #15141d;[\s\S]*?box-shadow: none;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /left-panel-collapsed \.shell-panel-toggle-left\s*\{\s*top: calc\(var\(--site-header-height\) \+ 18\.5px\);\s*left: 4px;\s*width: 25px;\s*height: 26px;[\s\S]*?border-radius: 8px !important;[\s\S]*?background: #15141d;[\s\S]*?box-shadow: none;/,
+  );
+  assert.match(
+    shellCss,
+    /body\.left-panel-collapsed \.shell-panel-toggle-left svg,[\s\S]*?transform: rotate\(180deg\);/,
   );
   assert.match(
     triviumTerminalCss,
@@ -843,7 +888,7 @@ test('market sidebar uses one decision heading, pins live decisions in All, and 
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?data-market-sidebar-section-title="all">Decisions Live<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?>0 decisions live<\/strong>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"[\s\S]*?class="tp-unified-section-heading tp-tokens-section-heading"[\s\S]*?>Tokens<\/span>[\s\S]*?id="tlp-all-list"/,
+    /id="tlp-decisions-panel"[\s\S]*?data-market-sidebar-section-title="all">Decisions<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?>0 decisions live<\/strong>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"[\s\S]*?class="tp-unified-section-heading tp-tokens-section-heading"[\s\S]*?>Tokens<\/span>[\s\S]*?id="tlp-all-list"/,
   );
   assert.doesNotMatch(indexSource, /tp-(?:live|past)-decision-count|tlp-past-decisions-panel/);
   assert.match(
@@ -1046,6 +1091,17 @@ test('desktop market center and execution rail share one vertical scroll contain
   assert.match(
     decisionMarketControllerSource,
     /Holder distribution is not included in \$\{PRODUCT_BRAND\.displayName\}’s reviewed current-token contract yet\./,
+  );
+});
+
+test('desktop activity and execution cards keep inner backgrounds inside their rounded borders', () => {
+  assert.match(
+    triviumTerminalCss,
+    /Keep each card's painted inner surface[\s\S]*?:is\(\s*\.terminal-activity,\s*\.terminal-trade-ticket\s*\)\s*\{\s*overflow: clip !important;\s*background-clip: padding-box;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.terminal-trade-ticket > \[data-ft-region="trade-ticket"\],[\s\S]*?\.terminal-trade-ticket > \[data-ft-region="trade-ticket"\] > \.ft-ticket,[\s\S]*?\.terminal-activity > \.ft-account-row,[\s\S]*?\.terminal-activity > \.ft-activity-row,[\s\S]*?\.terminal-activity > \.ft-account-row > \.ft-ownership-account,[\s\S]*?\.terminal-activity > \.ft-activity-row > \.ft-ownership-transactions[\s\S]*?\{\s*border-radius: inherit !important;\s*background-clip: padding-box;/,
   );
 });
 

@@ -225,9 +225,9 @@ var _marketTokenSortKeys = ['asset', 'price', 'change', 'market-cap'];
 var _marketTokenSortKey = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-token-sort');
-    return _marketTokenSortKeys.indexOf(saved) >= 0 ? saved : 'asset';
+    return _marketTokenSortKeys.indexOf(saved) >= 0 ? saved : 'market-cap';
   } catch (e) {
-    return 'asset';
+    return 'market-cap';
   }
 })();
 var _marketSidebarSortAscending = false;
@@ -284,7 +284,7 @@ function getMarketSidebarSortAscending() {
 }
 
 function _defaultMarketSidebarFilter(tab) {
-  // The combined All view starts alphabetically without showing a redundant
+  // The combined All view starts by market cap without showing a redundant
   // "All tokens" control beneath the already-selected All tab.
   if (tab === 'all') return 'all-tokens';
   var filters = _marketSidebarFilterConfig[tab] || [];
@@ -330,8 +330,8 @@ function _applyMarketSidebarFilterSort() {
     _marketSidebarTab === 'all'
     || _marketSidebarTab === 'tokens'
   ) {
-    _marketTokenSortKey = 'asset';
-    _marketSidebarSortAscending = true;
+    _marketTokenSortKey = 'market-cap';
+    _marketSidebarSortAscending = false;
   }
   if (_marketSidebarFilter === 'likelihood') {
     _marketDecisionSortKey = 'likelihood';
@@ -1343,6 +1343,16 @@ function getAllTokens() {
 // ═══════════════════════════════════════════════════════════════════════
 (function initSharedStatusBar() {
   if (window._statusBarReady) return;
+  var hasStatusBarTarget = [
+    'bb-clock',
+    'bb-token-count',
+    'bb-btc-price',
+    'bb-sol-price',
+    'bb-zec-price'
+  ].some(function(id) {
+    return Boolean(document.getElementById(id));
+  });
+  if (!hasStatusBarTarget) return;
   window._statusBarReady = true;
 
   function tickClock() {
