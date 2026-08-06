@@ -221,7 +221,7 @@ var _marketDecisionSortConfig = {
   }
 };
 var _marketTokenSecondaryMetric = 'change24h';
-var _marketTokenSortKeys = ['asset', 'price', 'change'];
+var _marketTokenSortKeys = ['asset', 'price', 'change', 'market-cap'];
 var _marketTokenSortKey = (function() {
   try {
     var saved = localStorage.getItem('navgator-market-token-sort');
@@ -241,7 +241,50 @@ var _marketDecisionSortKey = (function() {
   }
 })();
 var _marketDecisionSortAscending = false;
-var _marketSidebarTab = 'all';
+var _marketSidebarTab = (function() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'markets' && params.get('tab') === 'tokens') return 'tokens';
+    if (
+      params.get('view') === 'markets'
+      && (params.get('tab') === 'decisions' || params.get('proposal'))
+    ) return 'markets';
+  } catch (e) {}
+  return document.documentElement.dataset.marketSidebarTab || 'all';
+})();
+var _marketSidebarFilter = _marketSidebarTab === 'tokens'
+  ? 'all-tokens'
+  : _marketSidebarTab === 'markets'
+    ? 'all-markets'
+    : _marketSidebarTab === 'watchlist'
+      ? 'saved'
+      : 'all-tokens';
+var _marketSidebarFilterConfig = {
+  all: [
+    { key: 'all-tokens', label: 'All tokens' },
+    { key: 'price', label: 'Price' },
+    { key: 'movers', label: 'Top movers' },
+    { key: 'market-cap', label: 'Market cap' }
+  ],
+  watchlist: [
+    { key: 'saved', label: 'Saved' },
+    { key: 'price', label: 'Price' },
+    { key: 'movers', label: 'Top movers' },
+    { key: 'market-cap', label: 'Market cap' }
+  ],
+  tokens: [
+    { key: 'all-tokens', label: 'All tokens' },
+    { key: 'price', label: 'Price' },
+    { key: 'movers', label: 'Top movers' },
+    { key: 'market-cap', label: 'Market cap' }
+  ],
+  markets: [
+    { key: 'all-markets', label: 'All' },
+    { key: 'live', label: 'Live' },
+    { key: 'prior', label: 'Past' },
+    { key: 'likelihood', label: 'Likelihood' }
+  ]
+};
 
 function getMarketTokenSecondaryMetric() {
   return _marketTokenSecondaryMetric;
@@ -251,15 +294,86 @@ function getMarketSidebarSortAscending() {
   return _marketSidebarSortAscending;
 }
 
+function _defaultMarketSidebarFilter(tab) {
+  var filters = _marketSidebarFilterConfig[tab] || [];
+  return filters.length ? filters[0].key : '';
+}
+
+function _syncMarketSidebarFilterControls() {
+  var filters = _marketSidebarFilterConfig[_marketSidebarTab] || [];
+  var controls = document.querySelectorAll('[data-market-sidebar-filter-slot]');
+  controls.forEach(function(control, index) {
+    var filter = filters[index];
+    control.hidden = !filter;
+    if (!filter) {
+      control.dataset.marketSidebarFilterAction = '';
+      control.classList.remove('active');
+      control.setAttribute('aria-pressed', 'false');
+      return;
+    }
+    var isActive = filter.key === _marketSidebarFilter;
+    control.textContent = filter.label;
+    control.dataset.marketSidebarFilterAction = filter.key;
+    control.classList.toggle('active', isActive);
+    control.setAttribute('aria-pressed', String(isActive));
+  });
+  document.documentElement.dataset.marketSidebarFilter = _marketSidebarFilter;
+}
+
+function _applyMarketSidebarFilterSort() {
+  if (_marketSidebarFilter === 'movers') {
+    _marketTokenSortKey = 'change';
+    _marketSidebarSortAscending = false;
+  } else if (_marketSidebarFilter === 'price') {
+    _marketTokenSortKey = 'price';
+    _marketSidebarSortAscending = false;
+  } else if (_marketSidebarFilter === 'market-cap') {
+    _marketTokenSortKey = 'market-cap';
+    _marketSidebarSortAscending = false;
+  } else if (
+    _marketSidebarTab === 'all'
+    || _marketSidebarTab === 'tokens'
+    || _marketSidebarTab === 'watchlist'
+  ) {
+    _marketTokenSortKey = 'asset';
+    _marketSidebarSortAscending = true;
+  }
+  if (_marketSidebarFilter === 'likelihood') {
+    _marketDecisionSortKey = 'likelihood';
+    _marketDecisionSortAscending = false;
+  } else if (_marketSidebarTab === 'markets') {
+    _marketDecisionSortKey = 'default';
+    _marketDecisionSortAscending = false;
+  }
+  try {
+    localStorage.setItem('navgator-market-token-sort', _marketTokenSortKey);
+    localStorage.setItem('01rx-market-decision-sort', _marketDecisionSortKey);
+  } catch (e) {}
+}
+
 function setMarketSidebarTab(nextTab) {
   if (nextTab !== 'watchlist' && nextTab !== 'all' && nextTab !== 'markets' && nextTab !== 'tokens') return;
   _marketSidebarTab = nextTab;
+  _marketSidebarFilter = _defaultMarketSidebarFilter(nextTab);
   document.documentElement.dataset.marketSidebarTab = nextTab;
   document.querySelectorAll('[data-market-sidebar-tab]').forEach(function(tab) {
     var isActive = tab.dataset.marketSidebarTab === nextTab;
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
   });
+  _applyMarketSidebarFilterSort();
+  _syncMarketSidebarFilterControls();
+  _syncMarketSortMenu();
+  applyMarketSidebarSearch();
+}
+
+function setMarketSidebarFilter(nextFilter) {
+  var filters = _marketSidebarFilterConfig[_marketSidebarTab] || [];
+  if (!filters.some(function(filter) { return filter.key === nextFilter; })) return;
+  _marketSidebarFilter = nextFilter;
+  _applyMarketSidebarFilterSort();
+  _syncMarketSidebarFilterControls();
+  _syncMarketSortMenu();
   applyMarketSidebarSearch();
 }
 
@@ -301,7 +415,7 @@ function _syncMarketSortMenu() {
     _marketDecisionSortConfig,
     _marketDecisionSortKey,
     _marketDecisionSortAscending,
-    'markets'
+    'decisions'
   );
 }
 
@@ -459,8 +573,8 @@ function applyMarketSidebarSearch() {
     var emptyTitle = decisionEmpty.querySelector('strong');
     var emptyDetail = decisionEmpty.querySelector('span');
     if (query && rows.length > 0 && visibleMarkets === 0) {
-      if (emptyTitle) emptyTitle.textContent = 'No matching ' + entry[1] + ' markets';
-      if (emptyDetail) emptyDetail.textContent = 'Try a different asset or proposal search.';
+      if (emptyTitle) emptyTitle.textContent = 'No matching ' + entry[1] + ' decisions';
+      if (emptyDetail) emptyDetail.textContent = 'Try a different token or decision search.';
     } else {
       if (emptyTitle && decisionEmpty.dataset.emptyTitle) {
         emptyTitle.textContent = decisionEmpty.dataset.emptyTitle;
@@ -530,9 +644,7 @@ window.toggleMarketSidebarSection = function toggleMarketSidebarSection(sectionI
   var collapsed = section.classList.toggle('is-collapsed');
   var sectionLabel = sectionId === 'tlp-all-panel'
     ? 'tokens'
-    : sectionId === 'tlp-past-decisions-panel'
-      ? 'past markets'
-      : 'live markets';
+    : 'decisions';
   button.setAttribute('aria-expanded', String(!collapsed));
   button.setAttribute(
     'aria-label',

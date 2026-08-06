@@ -3,10 +3,19 @@ export function normalizeTokenKey(key) {
   let normalized = key.trim().toLowerCase();
   const aliases = {
     futario: 'futardio',
+    futuredao: 'future',
+    'island-dao': 'island',
+    'jito-dao': 'jto',
+    kyros: 'kykyros',
+    marinade: 'mnde',
     metadao: 'meta',
     mtncapital: 'mtn',
     mtndao: 'mtn',
+    'p2p-protocol': 'p2p',
     ranger: 'rngr',
+    sanctum: 'scloud',
+    'save-dao': 'save',
+    zklsol: 'zkfg',
   };
   if (aliases[normalized]) normalized = aliases[normalized];
   return /^[a-z0-9][a-z0-9_-]*$/.test(normalized) ? normalized : '';

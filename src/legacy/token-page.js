@@ -446,9 +446,15 @@ async function renderTokenLeftPanel(priceMap) {
     var sortVolume = volumeForEntry(entry);
 
     var squareCls = _tokenUsesSquareLogo(tok, key) ? ' graveyard-square-icon' : '';
+    var isMetaDaoLaunchpad = typeof _isMetaDaoLaunchpad === 'function'
+      ? _isMetaDaoLaunchpad(tok.launchpad)
+      : /^(curated|permissioned|permissionless|migration|metadao)$/i.test(tok.launchpad || '');
+    var launchpadBadge = isMetaDaoLaunchpad
+      ? '<span class="tp-launchpad-badge" title="Launched on MetaDAO" aria-label="Launched on MetaDAO"><img src="logos/meta.jpg" alt="" aria-hidden="true"></span>'
+      : '';
     var iconH = tok.logo
-      ? '<div class="tp-icon' + squareCls + '"><img src="' + _esc(tok.logo) + '" alt="' + _esc(tok.ticker) + '" loading="lazy"></div>'
-      : '<div class="tp-icon' + squareCls + '" style="background:' + _esc(tok.color||'#2a343e') + ';font-size:12px;font-weight:700;color:#fff">' + _esc(tok.ticker[0]) + '</div>';
+      ? '<div class="tp-icon' + squareCls + '"><img src="' + _esc(tok.logo) + '" alt="' + _esc(tok.ticker) + '" loading="lazy">' + launchpadBadge + '</div>'
+      : '<div class="tp-icon' + squareCls + '" style="background:' + _esc(tok.color||'#2a343e') + ';font-size:12px;font-weight:700;color:#fff">' + _esc(tok.ticker[0]) + launchpadBadge + '</div>';
 
     function fmtChg(v) {
       if (v === undefined || v === null) return '<span class="neutral">—</span>';
@@ -484,9 +490,6 @@ async function renderTokenLeftPanel(priceMap) {
     }
 
     var sw = _navgatorWatchlist.has(key);
-    var verifiedBadge = entry && entry.navVerified !== false
-      ? '<span class="tp-verified-badge" title="Verified asset" aria-label="Verified asset"><svg viewBox="0 0 18 20" aria-hidden="true"><path d="M9 1.5 15.2 4v5.4c0 4.1-2.6 7.3-6.2 9.1-3.6-1.8-6.2-5-6.2-9.1V4L9 1.5Z"/><path d="m6 9.6 1.8 1.8 4-4.2"/></svg></span>'
-      : '';
     return '<a class="tp-item' + (isActive ? ' active' : '') + '" data-key="' + _esc(key) + '"' +
       ' data-watched="' + (sw ? 'true' : 'false') + '"' +
       ' data-market-search-primary="' + _esc(tok.ticker) + '"' +
@@ -498,11 +501,10 @@ async function renderTokenLeftPanel(priceMap) {
       ' data-sort-market-cap="' + _esc(String(sortMarketCap || '')) + '"' +
       ' data-sort-volume="' + _esc(String(sortVolume || '')) + '"' +
       ' href="' + _tokenPageUrl(key) + '">' +
-      (isWl ? '' : '<span class="wl-star' + (sw ? ' active' : '') + '" role="button" tabindex="0" data-watchlist-action="toggle" aria-label="Toggle watchlist">' + starSvg(sw) + '</span>') +
       (isWl ? _dragHandleSvg : '') +
       iconH +
       '<div class="tp-content">' +
-        '<div class="tp-row"><span class="tp-name" style="font-size:13px">' + _esc(tok.ticker) + verifiedBadge + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div>' +
+        '<div class="tp-row"><span class="tp-name" style="font-size:13px">' + _esc(tok.ticker) + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div>' +
       '</div>' +
     '</a>';
   }
@@ -3442,7 +3444,7 @@ function _padVolumeSeriesForSinglePoint(points, tf, preferredTime) {
 }
 
 function _tfDisplayLabel(tf) {
-  return { '1m': '1m', '5m': '5m', '15m': '15m', '1H': '1h', '4H': '4h', '1D': '24h', '1W': '1w', '1MO': '1m' }[tf] || tf;
+  return { '1m': '1m', '5m': '5m', '15m': '15m', '1H': 'H', '4H': '4h', '1D': 'D', '1W': 'W', '1MO': 'M' }[tf] || tf;
 }
 
 function _syncChartTimeframeTrigger(tf) {

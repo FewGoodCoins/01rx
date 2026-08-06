@@ -32,22 +32,31 @@ const PROJECT_TOKEN_ALIASES = Object.freeze({
   'flash-trade': 'faf',
   'futardio-cult': 'futardio',
   futario: 'futardio',
+  futuredao: 'future',
   gesim: 'gsim',
+  'island-dao': 'island',
+  'jito-dao': 'jto',
   'jurassic-finance': 'rawr',
   jurassicfi: 'rawr',
+  kyros: 'kykyros',
   'laso-finance': 'laso',
+  marinade: 'mnde',
   metadao: 'meta',
   mtncapital: 'mtn',
   omnipair: 'omfg',
   'ordr-trade': 'ordr',
   paystream: 'pays',
+  'p2p-protocol': 'p2p',
   ranger: 'rngr',
   'rip-cars': 'cars',
   ripcars: 'cars',
+  sanctum: 'scloud',
+  'save-dao': 'save',
   solomon: 'solo',
   'solomon-labs': 'solo',
   superclaw: 'super',
   'turbine-cash': 'zkfg',
+  zklsol: 'zkfg',
 });
 
 export function futarchyServiceError(
@@ -331,7 +340,10 @@ function normalizeArchiveRow(row) {
     token,
     ticker: String(row?.tokenSymbol || token).toUpperCase().slice(0, 32),
     name: String(row?.project || row?.organizationName || token).slice(0, 160),
-    logo: String(row?.proposalImageUrl || row?.organizationImageUrl || '').slice(0, 2_048),
+    // Proposal artwork describes a decision, not the organization. Only expose
+    // the organization's mark here; the browser's listed-token registry owns
+    // the preferred canonical logo and falls back to initials when unavailable.
+    logo: String(row?.organizationImageUrl || '').slice(0, 2_048),
     proposal: {
       id: proposalId,
       title: String(row?.proposal || row?.proposalTitle || `${token.toUpperCase()} proposal`).slice(0, 2_000),

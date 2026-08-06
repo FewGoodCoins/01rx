@@ -132,7 +132,6 @@ test('terminal shell creates unique stable regions in declarative DOM order and 
     'ownershipAccount',
     'marketStage',
     'tradeTicket',
-    'marketContext',
     'positions',
     'modal',
     'walletStatus',
@@ -203,7 +202,16 @@ test('token normalization preserves aliases, validation, order, and deduplicatio
   assert.equal(normalizeTokenKey('FUTARIO'), 'futardio');
   assert.equal(normalizeTokenKey('MTNDAO'), 'mtn');
   assert.equal(normalizeTokenKey('mtnCapital'), 'mtn');
+  assert.equal(normalizeTokenKey('FutureDAO'), 'future');
+  assert.equal(normalizeTokenKey('island-dao'), 'island');
+  assert.equal(normalizeTokenKey('jito-dao'), 'jto');
+  assert.equal(normalizeTokenKey('Kyros'), 'kykyros');
+  assert.equal(normalizeTokenKey('Marinade'), 'mnde');
+  assert.equal(normalizeTokenKey('p2p-protocol'), 'p2p');
   assert.equal(normalizeTokenKey('Ranger'), 'rngr');
+  assert.equal(normalizeTokenKey('Sanctum'), 'scloud');
+  assert.equal(normalizeTokenKey('save-dao'), 'save');
+  assert.equal(normalizeTokenKey('ZKLSOL'), 'zkfg');
   assert.equal(normalizeTokenKey('Token_Name-2'), 'token_name-2');
   assert.equal(normalizeTokenKey('not valid'), '');
   assert.equal(normalizeTokenKey(42), '');

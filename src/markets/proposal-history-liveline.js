@@ -722,7 +722,6 @@ export function createProposalHistoryChart(options = {}) {
   }
 
   function clearOwnedCrosshair({ resetReadout = true } = {}) {
-    container.classList.remove('has-liveline-crosshair');
     if (resetReadout && lastProjection) updateReadoutAt(lastProjection.sourceTo);
   }
 
@@ -741,8 +740,6 @@ export function createProposalHistoryChart(options = {}) {
       return;
     }
     const ratio = (x - PLOT_PADDING.left) / plotWidth();
-    container.style.setProperty('--ft-liveline-crosshair-x', `${x}px`);
-    container.classList.add('has-liveline-crosshair');
     updateReadoutAt(lastProjection.sourceTimeAtPlotRatio(ratio));
   }
 

@@ -8,6 +8,7 @@ import {
   proposalHistoryChartObservations,
 } from './proposal-history-model.js';
 import { PRODUCT_BRAND } from '../shell/brand.js';
+import { normalizeTokenKey } from '../shell/routes.js';
 import { createTerminalShell } from '../shell/terminal-shell.js';
 // Shared by the token-scoped and standalone Markets renderers.
 const THEME_STORAGE_KEY = 'navgator-terminal-theme';
@@ -360,22 +361,6 @@ function decisionTradeVolumeUsd(transaction) {
   return Number.isFinite(calculatedVolume) ? calculatedVolume : null;
 }
 
-function decisionTradeSupport(transaction) {
-  if (
-    (transaction?.branch === 'pass' && transaction?.side === 'buy')
-    || (transaction?.branch === 'fail' && transaction?.side === 'sell')
-  ) {
-    return 'pass';
-  }
-  if (
-    (transaction?.branch === 'fail' && transaction?.side === 'buy')
-    || (transaction?.branch === 'pass' && transaction?.side === 'sell')
-  ) {
-    return 'fail';
-  }
-  return '';
-}
-
 function decisionTradeIdentity(transaction) {
   return [
     transaction?.signature || '',
@@ -500,7 +485,11 @@ function formatRelativeTime(value, now = Date.now()) {
   if (elapsed < 5_000) return 'just now';
   if (elapsed < 60_000) return `${Math.floor(elapsed / 1_000)}s ago`;
   if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
-  return `${Math.floor(elapsed / 3_600_000)}h ago`;
+  if (elapsed < 172_800_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
+  if (elapsed < 1_209_600_000) return `${Math.floor(elapsed / 86_400_000)}d ago`;
+  if (elapsed < 4_838_400_000) return `${Math.floor(elapsed / 604_800_000)}w ago`;
+  if (elapsed < 63_072_000_000) return `${Math.floor(elapsed / 2_629_800_000)}mo ago`;
+  return `${Math.floor(elapsed / 31_536_000_000)}y ago`;
 }
 
 function formatCountdown(value, now = Date.now()) {
@@ -799,6 +788,51 @@ const INDEXED_PROPOSAL_RECENCY_MS = 7 * 24 * 60 * 60 * 1000;
 function proposalTimestamp(value) {
   const timestamp = new Date(value || '').getTime();
   return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function explicitDecisionNumber(market) {
+  const indexedNumber = firstNumber(
+    market?.proposal?.number,
+    market?.proposal?.proposalNumber,
+    market?.proposal?.proposal_number,
+  );
+  if (Number.isFinite(indexedNumber) && indexedNumber >= 0) {
+    return Math.round(indexedNumber);
+  }
+  const title = firstText(market?.proposal?.title);
+  const titleNumber = title.match(/\b(?:proposal|decision)\s*(?:#|-)?\s*0*(\d{1,4})\b/i)
+    || title.match(/^\s*[a-z][a-z0-9_-]*?[-\s]#?0*(\d{1,4})(?:\b|:)/i);
+  if (!titleNumber) return null;
+  const parsed = Number(titleNumber[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function decisionSequenceNumber(market, markets = []) {
+  const explicit = explicitDecisionNumber(market);
+  if (Number.isFinite(explicit)) return explicit;
+  const token = normalizeKey(market?.token);
+  if (!token) return null;
+  const peers = (Array.isArray(markets) ? markets : [])
+    .filter(candidate => normalizeKey(candidate?.token) === token)
+    .sort((left, right) => {
+      const leftTime = proposalTimestamp(
+        left?.proposal?.createdAt || left?.proposal?.endsAt || left?.proposal?.resolvedAt,
+      );
+      const rightTime = proposalTimestamp(
+        right?.proposal?.createdAt || right?.proposal?.endsAt || right?.proposal?.resolvedAt,
+      );
+      if (leftTime !== rightTime) {
+        if (leftTime == null) return 1;
+        if (rightTime == null) return -1;
+        return leftTime - rightTime;
+      }
+      return String(left?.id || '').localeCompare(String(right?.id || ''));
+    });
+  const index = peers.findIndex(candidate => (
+    candidate === market
+    || (candidate?.id && candidate.id === market?.id)
+  ));
+  return index >= 0 ? index + 1 : null;
 }
 
 /**
@@ -1130,116 +1164,6 @@ function historyOverlayMetric({
   `;
 }
 
-function renderProposalDetailsControl(proposal, open = false) {
-  if (!isObject(proposal)) return '';
-  return `
-    <button
-      class="ft-proposal-details-trigger${open ? ' ft-is-active' : ''}"
-      type="button"
-      data-ft-action="toggle-proposal-details"
-      aria-controls="ft-proposal-details-panel"
-      aria-expanded="${String(open)}"
-    >
-      Proposal
-    </button>
-  `;
-}
-
-function renderProposalDetailsPanel(proposal, open = false) {
-  if (!isObject(proposal)) return '';
-  const proposalNumber = Number.isFinite(proposal.number)
-    ? `Proposal #${Math.round(proposal.number)}`
-    : 'Proposal';
-  const title = firstText(proposal.title, proposalNumber);
-  const description = firstText(proposal.description);
-  const status = firstText(proposal.statusLabel, proposal.status, 'Unknown');
-  const sourceUrl = safeProposalSourceUrl(proposal.sourceUrl || proposal.url);
-  const proposer = safeBase58(proposal.proposer);
-  return `
-    <aside
-      class="ft-proposal-details-panel"
-      id="ft-proposal-details-panel"
-      data-ft-role="proposal-details"
-      aria-label="Proposal details"
-      ${open ? '' : 'hidden'}
-    >
-      <header>
-        <div>
-          <small>${escapeHtml(proposalNumber)}</small>
-          <h2>${escapeHtml(title)}</h2>
-        </div>
-        <button
-          class="ft-proposal-details-close"
-          type="button"
-          data-ft-action="toggle-proposal-details"
-          aria-label="Close proposal details"
-          title="Close proposal details"
-        >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
-            <path d="m5 5 10 10M15 5 5 15"/>
-          </svg>
-        </button>
-      </header>
-      <p class="ft-proposal-details-description">${escapeHtml(
-        description || 'No proposal description is available from 01Resolved yet.',
-      )}</p>
-      <dl>
-        <div>
-          <dt>Status</dt>
-          <dd>${escapeHtml(status)}</dd>
-        </div>
-        <div>
-          <dt>Sponsor</dt>
-          <dd>${proposal.isTeamSponsored === true ? 'Team-sponsored' : 'Community'}</dd>
-        </div>
-        <div>
-          <dt>Opened</dt>
-          <dd>${escapeHtml(formatDateTime(proposal.createdAt))}</dd>
-        </div>
-        <div>
-          <dt>Closes</dt>
-          <dd>${escapeHtml(formatDateTime(proposal.endsAt))}</dd>
-        </div>
-        <div>
-          <dt>Proposer</dt>
-          <dd title="${escapeHtml(proposer)}">${escapeHtml(shortenAddress(proposer))}</dd>
-        </div>
-        <div>
-          <dt>Proposal ID</dt>
-          <dd title="${escapeHtml(proposal.id)}">${escapeHtml(shortenAddress(proposal.id))}</dd>
-        </div>
-      </dl>
-      ${sourceUrl ? `
-        <a class="ft-proposal-details-source" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">
-          View proposal source
-          <span aria-hidden="true">↗</span>
-        </a>
-      ` : ''}
-    </aside>
-  `;
-}
-
-function renderChartExpansionControl() {
-  return `
-    <div
-      class="chart-display-controls chart-display-controls-secondary"
-      aria-label="Chart view controls"
-    >
-      <button
-        class="chart-display-button"
-        type="button"
-        data-ft-action="toggle-chart-expansion"
-        aria-label="Expand chart"
-        title="Expand chart"
-      >
-        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" aria-hidden="true">
-          <path d="M10 4.5H4.5V10M18 4.5h5.5V10M10 23.5H4.5V18M18 23.5h5.5V18"/>
-        </svg>
-      </button>
-    </div>
-  `;
-}
-
 function renderProposalChartStatusShell({
   state = 'loading',
   title = 'Loading public market history',
@@ -1253,18 +1177,7 @@ function renderProposalChartStatusShell({
       data-ft-chart-state="${failed ? 'error' : 'loading'}"
       aria-busy="${failed ? 'false' : 'true'}"
     >
-      <div class="ft-hourly-toolbar">
-        ${renderChartExpansionControl()}
-      </div>
       <div class="ft-hourly-plot-shell">
-        <div class="ft-chart-crosshair-rail" aria-hidden="true">
-          <button class="ft-chart-crosshair-tool" type="button" disabled tabindex="-1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-              <path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>
-              <circle cx="12" cy="12" r="2.25"/>
-            </svg>
-          </button>
-        </div>
         <div
           class="ft-hourly-chart-mount-status${failed ? ' ft-hourly-chart-mount-error' : ''}"
           data-ft-role="proposal-chart-mount-status"
@@ -1318,11 +1231,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const latestPass = latestValue('passPrice');
   const latestFail = latestValue('failPrice');
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
-  const proposal = isObject(options.proposal) ? options.proposal : null;
-  const proposalDetailsOpen = options.proposalDetailsOpen === true;
-  const proposalDetailsPlacement = options.proposalDetailsPlacement === 'ticket'
-    ? 'ticket'
-    : 'chart';
   return `
     <div
       class="ft-hourly-chart ft-hourly-chart-pending"
@@ -1330,19 +1238,7 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
       data-ft-chart-state="mounting"
       aria-busy="true"
     >
-      <div class="ft-hourly-toolbar">
-        ${renderProposalDetailsControl(proposal, proposalDetailsOpen)}
-        ${renderChartExpansionControl()}
-      </div>
       <div class="ft-hourly-plot-shell${twapWindow ? ' ft-has-twap-progress' : ''}">
-        <div class="ft-chart-crosshair-rail" role="toolbar" aria-label="Chart cursor tools">
-          <button class="ft-chart-crosshair-tool" type="button" aria-label="Crosshair cursor" aria-pressed="true" title="Crosshair cursor">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-              <path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>
-              <circle cx="12" cy="12" r="2.25"/>
-            </svg>
-          </button>
-        </div>
         <div class="ft-hourly-readout" aria-live="off">
           <div class="ft-hourly-readout-header">
             <span>${escapeHtml(pairLabel)}</span>
@@ -1408,9 +1304,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           role="img"
           aria-label="Interactive chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A light vertical line marks the beginning of the TWAP observation window.' : ''} Hover to inspect exact values; drag or swipe the plot to pan, scroll or pinch to zoom, drag the bottom time axis to scale horizontally, and drag or scroll the right price axis to scale vertically. Double-click either axis to reset it."
         ></div>
-        ${proposalDetailsPlacement === 'chart'
-          ? renderProposalDetailsPanel(proposal, proposalDetailsOpen)
-          : ''}
         ${twapWindow}
       </div>
     </div>
@@ -1426,12 +1319,12 @@ function buildNavMap(payload) {
 
   tokenRows.forEach((row) => {
     if (!isObject(row)) return;
-    const key = normalizeKey(row.token || row.key || row.slug || row.ticker);
+    const key = normalizeTokenKey(row.token || row.key || row.slug || row.ticker);
     if (key) map.set(key, { ...row });
   });
   rows.forEach((row) => {
     if (!isObject(row)) return;
-    const key = normalizeKey(row.token || row.key || row.slug || row.ticker);
+    const key = normalizeTokenKey(row.token || row.key || row.slug || row.ticker);
     if (key) map.set(key, { ...(map.get(key) || {}), ...row });
   });
 
@@ -1466,6 +1359,19 @@ function mergeCurrentNavMap(compatibilityMap, currentPayload) {
   const map = new Map(compatibilityMap);
   buildNavMap(currentPayload).forEach((row, key) => {
     map.set(key, { ...(map.get(key) || {}), ...row });
+  });
+  return map;
+}
+
+function mergeCuratedProjectLogos(navMap, metadata) {
+  const map = new Map(navMap);
+  if (!isObject(metadata)) return map;
+  Object.entries(metadata).forEach(([rawKey, project]) => {
+    if (!isObject(project)) return;
+    const key = normalizeTokenKey(rawKey);
+    const logo = safeAssetUrl(project.logo);
+    if (!key || !logo || !map.has(key)) return;
+    map.set(key, { ...map.get(key), logo });
   });
   return map;
 }
@@ -1531,7 +1437,9 @@ function normalizeMarket(raw, navMap, index, options = {}) {
         : isObject(proposal.outcomeConfig)
           ? proposal.outcomeConfig
           : {};
-  const token = normalizeKey(raw.token || raw.tokenKey || raw.slug || raw.dao?.token);
+  const token = normalizeTokenKey(
+    raw.token || raw.tokenKey || raw.slug || raw.dao?.token,
+  );
   const nav = navMap.get(token) || {};
   const proposalId = safeBase58(
     proposal.id || proposal.address || raw.proposalId || raw.proposalAddress || raw.id,
@@ -1647,7 +1555,9 @@ function normalizeMarket(raw, navMap, index, options = {}) {
     token,
     ticker,
     name,
-    logo: safeAssetUrl(firstText(raw.logo, nav.logo, nav.config?.logo)),
+    // Project identity comes from the current 01Resolved asset record. Proposal
+    // artwork is contextual and must not replace the company's canonical mark.
+    logo: safeAssetUrl(firstText(nav.logo, nav.config?.logo, raw.logo)),
     daoAddress: safeBase58(raw.daoAddress || raw.dao || proposal.daoAddress),
     baseMint: safeBase58(raw.baseMint || proposal.baseMint),
     quoteMint: safeBase58(raw.quoteMint || proposal.quoteMint),
@@ -1655,7 +1565,14 @@ function normalizeMarket(raw, navMap, index, options = {}) {
     quoteDecimals: firstNumber(raw.quoteDecimals, proposal.quoteDecimals),
     proposal: {
       id: proposalId,
-      number: firstNumber(proposal.number, raw.number, raw.proposalNumber),
+      number: firstNumber(
+        proposal.number,
+        proposal.proposalNumber,
+        proposal.proposal_number,
+        raw.number,
+        raw.proposalNumber,
+        raw.proposal_number,
+      ),
       title: proposalTitle,
       description: proposalDescription,
       status: status.raw,
@@ -2148,11 +2065,9 @@ function marketStatusLabel(market) {
 // Futarchy PASS/FAIL prices value the token under each outcome; they are not
 // binary event shares and cannot honestly be converted into a probability.
 function proposalHeaderSignal(market) {
-  if (market?.proposal?.statusGroup === 'passed') {
-    return { key: 'result', label: 'Result', value: 'Passed', tone: 'positive' };
-  }
-  if (market?.proposal?.statusGroup === 'failed') {
-    return { key: 'result', label: 'Result', value: 'Failed', tone: 'negative' };
+  if (market?.proposal?.statusGroup === 'passed'
+    || market?.proposal?.statusGroup === 'failed') {
+    return { key: 'result', label: 'Result', value: 'Resolved', tone: 'muted' };
   }
   if (market?.proposal?.statusGroup === 'live') {
     const margin = firstNumber(market?.decision?.marginPct);
@@ -2470,7 +2385,6 @@ export function mountFutardTerminal({
       failPrice: true,
       failTwap: false,
     },
-    proposalDetailsOpen: false,
     decisionMarketSwitcherOpen: false,
     pollTimer: null,
     pricePollTimer: null,
@@ -2516,6 +2430,7 @@ export function mountFutardTerminal({
     marketDataByProposal: new Map(),
     transactions: [],
     navMap: new Map(),
+    listedTokenKeys: new Set(),
     order: {
       outcome: 'pass',
       side: 'buy',
@@ -2545,8 +2460,8 @@ export function mountFutardTerminal({
     },
     activityTab: 'balances',
     ownershipActivityTab: 'balances',
+    marketInformationTab: 'trades',
     transactionSizeUnit: 'usd',
-    decisionTradeSupportFilter: 'all',
     bookTab: 'pass',
     recurring: {
       enabled: false,
@@ -3059,8 +2974,29 @@ export function mountFutardTerminal({
     return !state.tokenFilter || market?.token === state.tokenFilter;
   }
 
+  function marketIsListed(market) {
+    const token = normalizeTokenKey(market?.token || '');
+    return Boolean(token && state.listedTokenKeys.has(token));
+  }
+
+  function listedMarkets(markets) {
+    return (Array.isArray(markets) ? markets : []).filter(marketIsListed);
+  }
+
   function selectedMarket() {
     return state.markets.find(market => market.id === state.selectedId) || state.markets[0] || null;
+  }
+
+  function displayedDecisionNumber(market) {
+    const indexedMarkets = state.sidebarMarkets.length
+      ? state.sidebarMarkets
+      : state.markets;
+    return decisionSequenceNumber(market, indexedMarkets);
+  }
+
+  function displayedProposalLabel(market) {
+    const number = displayedDecisionNumber(market);
+    return Number.isFinite(number) ? `Proposal #${number}` : 'Proposal';
   }
 
   function statusCounts() {
@@ -3202,16 +3138,6 @@ export function mountFutardTerminal({
         <strong>${escapeHtml(value)}</strong>
       </div>
     `;
-    const spreadLabel = Number(asset.premiumPct) > 0 ? 'Premium' : 'Discount';
-    const spreadTone = Number.isFinite(asset.premiumPct)
-      ? asset.premiumPct > 0
-        ? 'negative'
-        : asset.premiumPct < 0
-          ? 'positive'
-          : 'neutral'
-      : 'muted';
-    const watchlist = runtime.NAVGATOR?.shell?.watchlist;
-    const watched = watchlist?.has?.(asset.token) === true;
     const compactTitle = String(asset.ticker || '').trim().length > 7;
     const snapshotTime = formatHistoryOverlayTimestamp(asset.snapshotTime);
     const changeTone = Number.isFinite(asset.change24h)
@@ -3225,25 +3151,23 @@ export function mountFutardTerminal({
     return `
       <header class="ft-chart-market-header ft-ownership-chart-header" data-ft-role="ownership-chart-header">
         <div class="ft-chart-market-identity">
-          <button
-            class="ft-chart-market-watchlist"
-            type="button"
-            data-ft-action="toggle-ownership-watchlist"
-            data-ft-token="${escapeHtml(asset.token)}"
-            aria-label="${watched ? 'Remove' : 'Add'} ${escapeHtml(asset.ticker)} ${watched ? 'from' : 'to'} watchlist"
-            aria-pressed="${String(watched)}"
-            title="${watched ? 'Remove from watchlist' : 'Add to watchlist'}"
-          >
-            <svg viewBox="0 0 20 19" aria-hidden="true">
-              <path d="m10 1.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L10 14.77 4.8 17.5l.99-5.79-4.21-4.1 5.82-.85L10 1.5Z"/>
-            </svg>
-          </button>
-          ${renderLogo(asset, 'large')}
+          <span class="ft-chart-token-mark">
+            ${renderLogo(asset, 'large')}
+            <span class="ft-chart-launchpad-mark" title="Launched on MetaDAO" aria-label="Launched on MetaDAO">
+              <img src="logos/meta.jpg" alt="">
+            </span>
+          </span>
           <div class="ft-market-title-copy">
             <p><strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(asset.ticker)}</strong></p>
-            <small data-ft-role="market-subtitle">${escapeHtml(asset.name)}</small>
+            <span data-ft-role="market-subtitle">${escapeHtml(asset.name)}</span>
+            ${asset.mint ? `<small title="${escapeHtml(asset.mint)}">${escapeHtml(shortenAddress(asset.mint, 5))}</small>` : ''}
           </div>
         </div>
+        ${metric({
+          key: 'market-cap',
+          label: 'Market cap',
+          value: formatCompactMoney(asset.marketCap),
+        })}
         ${metric({
           key: 'price',
           label: 'Price',
@@ -3251,33 +3175,20 @@ export function mountFutardTerminal({
           featured: true,
         })}
         ${metric({
+          key: 'change-24h',
+          label: '24H change',
+          value: formatPercent(asset.change24h),
+          tone: changeTone,
+        })}
+        ${metric({
           key: 'nav',
           label: 'NAV',
           value: formatChartCurrency(asset.nav),
-          tone: 'warning',
-        })}
-        ${metric({
-          key: 'premium',
-          label: spreadLabel,
-          value: Number.isFinite(asset.premiumPct)
-            ? formatPercent(Math.abs(asset.premiumPct), { sign: false })
-            : '—',
-          tone: spreadTone,
-        })}
-        ${metric({
-          key: 'market-cap',
-          label: 'Market cap',
-          value: formatCompactMoney(asset.marketCap),
         })}
         ${metric({
           key: 'treasury',
           label: 'Treasury',
           value: formatCompactMoney(asset.treasury),
-        })}
-        ${metric({
-          key: 'liquidity',
-          label: 'Liquidity',
-          value: formatCompactMoney(asset.liquidityUsd),
         })}
       </header>
       <section
@@ -3303,11 +3214,14 @@ export function mountFutardTerminal({
     `;
   }
 
-  function renderProposalChartHeader(market) {
+  function renderProposalChartHeader(market, history = null) {
     const signal = proposalHeaderSignal(market);
-    const proposalNumber = market.proposal.number == null
-      ? 'Proposal'
-      : `Proposal #${Math.round(market.proposal.number)}`;
+    const indexedObservations = proposalHistoryChartObservations(history);
+    const indexedClose = indexedObservations[indexedObservations.length - 1] || {};
+    const passPrice = firstNumber(market.pass?.price, indexedClose.passPrice);
+    const spotPrice = firstNumber(market.spot?.price, indexedClose.underlyingPrice);
+    const failPrice = firstNumber(market.fail?.price, indexedClose.failPrice);
+    const proposalNumber = displayedProposalLabel(market);
     const compactTitle = String(market.ticker || '').trim().length > 7;
     const metric = ({
       key,
@@ -3325,14 +3239,6 @@ export function mountFutardTerminal({
       >
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
-      </div>
-    `;
-    const metricGroup = (key, metrics) => `
-      <div
-        class="ft-chart-market-metric-group"
-        data-ft-chart-header-group="${escapeHtml(key)}"
-      >
-        ${metrics.join('')}
       </div>
     `;
     const marketGroups = [
@@ -3377,9 +3283,7 @@ export function mountFutardTerminal({
             </div>
             ${group.markets.map(candidate => {
               const displayStatus = proposalDisplayStatus(candidate.proposal);
-              const candidateProposalNumber = candidate.proposal.number == null
-                ? 'Proposal'
-                : `Proposal #${Math.round(candidate.proposal.number)}`;
+              const candidateProposalNumber = displayedProposalLabel(candidate);
               const selected = candidate.id === market.id;
               return `
                 <button
@@ -3414,27 +3318,17 @@ export function mountFutardTerminal({
     `;
 
     return `
-      <header class="ft-chart-market-header" data-ft-role="proposal-chart-header">
+      <header class="ft-chart-market-header ft-ownership-chart-header ft-decision-chart-header" data-ft-role="proposal-chart-header">
         <div
           class="ft-chart-market-identity ft-decision-market-switcher"
           data-ft-role="decision-market-switcher"
         >
-          ${market.token ? `
-            <button
-              class="ft-chart-market-watchlist"
-              type="button"
-              data-ft-action="toggle-ownership-watchlist"
-              data-ft-token="${escapeHtml(market.token)}"
-              aria-label="Toggle ${escapeHtml(market.ticker)} watchlist"
-              aria-pressed="${String(runtime.NAVGATOR?.shell?.watchlist?.has?.(market.token) === true)}"
-              title="Toggle watchlist"
-            >
-              <svg viewBox="0 0 20 19" aria-hidden="true">
-                <path d="m10 1.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L10 14.77 4.8 17.5l.99-5.79-4.21-4.1 5.82-.85L10 1.5Z"/>
-              </svg>
-            </button>
-          ` : ''}
-          ${renderLogo(market, 'large')}
+          <span class="ft-chart-token-mark">
+            ${renderLogo(market, 'large')}
+            <span class="ft-chart-launchpad-mark" title="Launched on MetaDAO" aria-label="Launched on MetaDAO">
+              <img src="logos/meta.jpg" alt="">
+            </span>
+          </span>
           <button
             class="ft-decision-market-switcher-trigger"
             type="button"
@@ -3449,7 +3343,7 @@ export function mountFutardTerminal({
                 <strong${compactTitle ? ' class="ft-market-title-compact"' : ''} data-ft-role="market-title">${escapeHtml(market.ticker)}</strong>
                 <span>${escapeHtml(market.name)}</span>
               </span>
-              <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber)}</small>
+              <small data-ft-role="market-subtitle">${escapeHtml(proposalNumber.replace('Proposal', 'Decision'))}</small>
             </span>
             <svg class="ft-decision-market-switcher-chevron" viewBox="0 0 14 14" fill="none" aria-hidden="true">
               <path d="m3.5 5.25 3.5 3.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -3457,28 +3351,44 @@ export function mountFutardTerminal({
           </button>
           ${switcherMenu}
         </div>
-        ${metricGroup('threshold', [
-          metric({
-            key: 'threshold',
-            label: 'Threshold',
-            value: formatCompactPercent(market.thresholdPct),
-            tone: 'warning',
-          }),
-          metric({
-            key: signal.key,
-            label: signal.label,
-            value: signal.value,
-            tone: signal.tone,
-            description: signal.description,
-          }),
-        ])}
+        ${metric({
+          key: 'pass-price',
+          label: 'If Pass',
+          value: formatChartCurrency(passPrice),
+          tone: 'positive',
+        })}
+        ${metric({
+          key: 'spot-price',
+          label: 'Spot',
+          value: formatChartCurrency(spotPrice),
+          featured: true,
+        })}
+        ${metric({
+          key: 'fail-price',
+          label: 'If Fail',
+          value: formatChartCurrency(failPrice),
+          tone: 'negative',
+        })}
+        ${metric({
+          key: 'threshold',
+          label: 'Threshold',
+          value: formatCompactPercent(market.thresholdPct),
+          tone: 'warning',
+        })}
+        ${metric({
+          key: signal.key,
+          label: signal.label,
+          value: signal.value,
+          tone: signal.tone,
+          description: signal.description,
+        })}
       </header>
     `;
   }
 
-  function renderProposalTopSummary(market) {
+  function renderProposalTopSummary(market, history = null) {
     return `
-      ${renderProposalChartHeader(market)}
+      ${renderProposalChartHeader(market, history)}
       ${market?.proposal?.statusGroup === 'live' ? renderDecisionPressure(market) : ''}
     `;
   }
@@ -3487,7 +3397,10 @@ export function mountFutardTerminal({
     const market = selectedMarket();
     const header = root.querySelector('[data-ft-role="proposal-chart-header"]');
     if (!market || !header) return;
-    header.outerHTML = renderProposalChartHeader(market);
+    header.outerHTML = renderProposalChartHeader(
+      market,
+      state.historyByProposal.get(market.id)?.data,
+    );
     if (options.restoreFocus === true) {
       runtime.setTimeout(() => {
         root.querySelector('[data-ft-action="toggle-decision-market-switcher"]')?.focus();
@@ -3566,9 +3479,6 @@ export function mountFutardTerminal({
           visibility: state.historySeriesVisibility,
           launchedAt: market.proposal.createdAt,
           windowEndedAt: market.proposal.endsAt,
-          proposal: market.proposal,
-          proposalDetailsOpen: state.proposalDetailsOpen,
-          proposalDetailsPlacement: 'ticket',
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">
@@ -3725,15 +3635,16 @@ export function mountFutardTerminal({
     const pastList = runtime.document.getElementById('tlp-past-decisions-list');
     if (!liveList || !pastList) return;
     const liveSection = runtime.document.getElementById('tlp-decisions-panel');
-    const pastSection = runtime.document.getElementById('tlp-past-decisions-panel');
-    const liveCount = runtime.document.getElementById('tp-live-decision-count');
-    const pastCount = runtime.document.getElementById('tp-past-decision-count');
+    const liveTitle = runtime.document.getElementById('tp-decision-markets-title');
     const liveMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup === 'live',
     );
     const pastMarkets = state.sidebarMarkets.filter(
       market => market.proposal.statusGroup !== 'live',
     );
+    if (liveTitle) {
+      liveTitle.textContent = `${liveMarkets.length} ${liveMarkets.length === 1 ? 'decision' : 'decisions'} live`;
+    }
     const pulseNow = runtime.Date?.now?.() ?? Date.now();
     const pulsePhaseMs = Math.round(pulseNow) % LIVE_MARKET_PULSE_INTERVAL_MS;
     [liveList, pastList].forEach((list) => {
@@ -3747,26 +3658,12 @@ export function mountFutardTerminal({
     function renderSidebarMarket(market) {
       const isLive = market.proposal.statusGroup === 'live';
       const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
-      const proposalNumber = market.proposal.number == null
-        ? ''
-        : ` #${Math.round(market.proposal.number)}`;
+      const decisionNumber = displayedDecisionNumber(market);
+      const proposalNumber = Number.isFinite(decisionNumber) ? ` #${decisionNumber}` : '';
       const destination = tokenMarketsUrl(market.token, market.id);
       const likelihoodPct = firstNumber(market.likelihoodPct);
       const signalPct = firstNumber(market.decision?.marginPct);
-      const signalDirection = !Number.isFinite(signalPct)
-        ? 'unavailable'
-        : signalPct > 0
-          ? 'up'
-          : signalPct < 0
-            ? 'down'
-            : 'flat';
-      const stateLabel = isLive
-        ? 'Live'
-        : market.proposal.statusGroup === 'passed'
-          ? 'Passed'
-          : market.proposal.statusGroup === 'failed'
-            ? 'Failed'
-            : market.proposal.statusLabel || 'Indexed';
+      const stateLabel = isLive ? 'Live' : 'Resolved';
       const stateTime = firstText(
         market.proposal.resolvedAt,
         market.proposal.endsAt,
@@ -3776,7 +3673,7 @@ export function mountFutardTerminal({
         <a
           class="tp-decision-item"
           href="${escapeHtml(destination)}"
-          title="${escapeHtml(stateLabel)} · ${escapeHtml(market.proposal.title)}"
+          title="${escapeHtml(stateLabel)} decision · ${escapeHtml(market.proposal.title)}"
           data-ft-proposal-id="${escapeHtml(market.id)}"
           data-ft-token="${escapeHtml(market.token || '')}"
           data-market-live="${isLive ? '1' : '0'}"
@@ -3791,48 +3688,41 @@ export function mountFutardTerminal({
             class="tp-decision-live-dot"
             data-market-state="${escapeHtml(market.proposal.statusGroup)}"
             role="img"
-            aria-label="${escapeHtml(stateLabel)} market"
+            aria-label="${escapeHtml(stateLabel)} decision"
           ></span>
           <span class="tp-decision-project">
             ${renderLogo(market, 'small')}
             <span class="tp-decision-copy">
               <strong>${escapeHtml(`${ticker}${proposalNumber}`)}</strong>
-              ${isLive ? '' : `<small>${escapeHtml(stateLabel)}${stateTime ? ` · ${escapeHtml(formatRelativeTime(stateTime))}` : ''}</small>`}
+              <small>${isLive
+                ? escapeHtml(market.proposal.title || (stateTime ? formatRelativeTime(stateTime) : 'Open proposal'))
+                : `${escapeHtml(stateLabel)}${stateTime ? ` · ${escapeHtml(formatRelativeTime(stateTime))}` : ''}`}</small>
             </span>
           </span>
-          <span
-            class="tp-decision-result tp-decision-likelihood"
-            data-available="${Number.isFinite(likelihoodPct)}"
-            title="${Number.isFinite(likelihoodPct)
-              ? 'Proposal pass likelihood published by 01Resolved'
-              : '01Resolved does not currently publish proposal pass likelihood'}"
-          >${escapeHtml(formatPercent(likelihoodPct, { sign: false }))}</span>
-          <span
-            class="tp-decision-result tp-decision-signal"
-            data-direction="${signalDirection}"
-            data-available="${Number.isFinite(signalPct)}"
-            title="${isLive ? 'Live' : 'Last observed'} margin above or below the required threshold"
-          >${escapeHtml(formatCompactPercent(signalPct))}</span>
         </a>
       `;
     }
 
     function renderSidebarGroup(list, markets, kind) {
       const isLiveGroup = kind === 'live';
-      const unavailable = isLiveGroup ? state.liveError : state.archiveError;
+      if (isLiveGroup) {
+        // The status line already owns the live count. Render live rows when
+        // present and otherwise leave no redundant or misleading empty card.
+        list.innerHTML = markets.map(market => renderSidebarMarket(market)).join('');
+        return;
+      }
+      const unavailable = state.archiveError;
       const loading = state.loading && state.sidebarMarkets.length === 0;
       const emptyTitle = loading
-        ? `Loading ${kind} markets`
+        ? `Loading ${kind} decisions`
         : unavailable
-          ? `${isLiveGroup ? 'Live' : 'Past'} markets unavailable`
-          : `No ${kind} markets`;
+          ? 'Past decisions unavailable'
+          : `No ${kind} decisions`;
       const emptyDetail = loading
-        ? `Reading indexed ${isLiveGroup ? 'active' : 'resolved'} proposals…`
+        ? 'Reading indexed resolved proposals…'
         : unavailable
           ? 'The indexed market service could not be reached. Retry shortly.'
-          : isLiveGroup
-            ? 'New live decision markets will appear here.'
-            : 'Resolved decision markets will appear here.';
+          : 'Resolved decisions will appear here.';
       list.innerHTML = `
         ${markets.map(market => renderSidebarMarket(market)).join('')}
         <div
@@ -3848,10 +3738,7 @@ export function mountFutardTerminal({
       `;
     }
 
-    if (liveCount) liveCount.textContent = `${liveMarkets.length} live`;
-    if (pastCount) pastCount.textContent = `${pastMarkets.length} past`;
     if (liveSection) liveSection.hidden = false;
-    if (pastSection) pastSection.hidden = false;
     renderSidebarGroup(liveList, liveMarkets, 'live');
     renderSidebarGroup(pastList, pastMarkets, 'past');
     runtime.applyMarketSidebarSearch?.();
@@ -3948,7 +3835,7 @@ export function mountFutardTerminal({
             ${renderLogo(market, 'small')}
             <span class="ft-market-row-copy">
               <strong class="ft-market-row-title" title="${escapeHtml(market.proposal.title)}">${escapeHtml(market.proposal.title)}</strong>
-              <small class="ft-market-row-meta">${escapeHtml(market.name)} · ${escapeHtml(market.ticker)} · Proposal ${market.proposal.number == null ? '—' : `#${Math.round(market.proposal.number)}`}</small>
+              <small class="ft-market-row-meta">${escapeHtml(market.name)} · ${escapeHtml(market.ticker)} · ${escapeHtml(displayedProposalLabel(market))}</small>
             </span>
           </span>
           <span class="ft-market-row-state">
@@ -3992,11 +3879,9 @@ export function mountFutardTerminal({
     const status = market.proposal.statusGroup;
     const displayStatus = proposalDisplayStatus(market.proposal);
     const isResolvedOutcome = status === 'passed' || status === 'failed';
-    const resolutionTitle = status === 'passed'
-      ? 'Proposal passed'
-      : status === 'failed'
-        ? 'Proposal failed'
-        : 'Indexed proposal record';
+    const resolutionTitle = isResolvedOutcome
+      ? 'Decision resolved'
+      : 'Indexed proposal record';
 
     regions.marketStage.innerHTML = `
       <article class="ft-proposal ft-proposal-archived" data-ft-role="proposal-archive">
@@ -4005,7 +3890,7 @@ export function mountFutardTerminal({
             ${renderLogo(market, 'large')}
             <div>
               <span>${escapeHtml(market.name)} · ${escapeHtml(market.ticker)}</span>
-              <span>Proposal ${market.proposal.number == null ? '' : `#${Math.round(market.proposal.number)}`} · Governance archive</span>
+              <span>${escapeHtml(displayedProposalLabel(market))} · Governance archive</span>
             </div>
           </div>
           ${market.proposal.sourceUrl ? `
@@ -4037,7 +3922,7 @@ export function mountFutardTerminal({
         </header>
 
         <section class="ft-resolution ft-resolution-${escapeHtml(status)}" aria-label="Proposal resolution">
-          <span class="ft-resolution-mark" aria-hidden="true">${status === 'passed' ? '✓' : status === 'failed' ? '×' : '◇'}</span>
+          <span class="ft-resolution-mark" aria-hidden="true">◇</span>
           <div>
             <span class="ft-kicker">${isResolvedOutcome ? 'Recorded resolution' : 'Indexed lifecycle state'}</span>
             <h3>${escapeHtml(resolutionTitle)}</h3>
@@ -4045,7 +3930,7 @@ export function mountFutardTerminal({
               ? 'This decision is resolved and its conditional market is no longer tradable.'
               : 'This indexed record is not an open validated market and is non-tradable.'}</p>
           </div>
-          <strong>${isResolvedOutcome ? `Outcome · ${escapeHtml(market.proposal.statusLabel)}` : 'Closed record'}</strong>
+          <strong>${isResolvedOutcome ? 'Resolved' : 'Closed record'}</strong>
         </section>
 
       </article>
@@ -4207,7 +4092,7 @@ export function mountFutardTerminal({
           <div class="ft-execution-identity">
             ${renderLogo(market, 'large')}
             <div>
-              <span>${escapeHtml(market.ticker)} · Proposal ${market.proposal.number == null ? '' : `#${Math.round(market.proposal.number)}`}</span>
+              <span>${escapeHtml(market.ticker)} · ${escapeHtml(displayedProposalLabel(market))}</span>
               <h2 data-ft-role="proposal-title">${escapeHtml(market.proposal.title)}</h2>
             </div>
           </div>
@@ -4272,22 +4157,6 @@ export function mountFutardTerminal({
     regions.marketChart
       ?.querySelector('.ft-terminal-chart-panel.is-expanded')
       ?.classList.remove('is-expanded');
-  }
-
-  function toggleChartExpansion(button = null) {
-    const panel = regions.marketChart?.querySelector('.ft-terminal-chart-panel');
-    if (!panel) return;
-    const expanded = panel.classList.toggle('is-expanded');
-    runtime.document.body.classList.toggle('chart-frame-expanded', expanded);
-    if (button) {
-      button.classList.toggle('active', expanded);
-      button.setAttribute('aria-label', expanded ? 'Restore chart size' : 'Expand chart');
-      button.title = expanded ? 'Restore chart size' : 'Expand chart';
-    }
-    runtime.setTimeout(() => {
-      state.historyChart?.resize?.();
-      state.historyChart?.resetView?.();
-    }, 100);
   }
 
   function renderMarketStage() {
@@ -4385,7 +4254,7 @@ export function mountFutardTerminal({
             ${renderLogo(market, 'large')}
             <div>
               <span>${escapeHtml(market.name)} · ${escapeHtml(market.ticker)}</span>
-              <span>Proposal ${market.proposal.number == null ? '' : `#${Math.round(market.proposal.number)}`} · ${escapeHtml(market.proposal.status.toUpperCase())}</span>
+              <span>${escapeHtml(displayedProposalLabel(market))} · ${escapeHtml(proposalDisplayStatus(market.proposal).label)}</span>
             </div>
           </div>
           <div class="ft-proposal-actions">
@@ -5452,35 +5321,6 @@ export function mountFutardTerminal({
     }
   }
 
-  function renderHistoricalTradePreview(market) {
-    const resolvedOutcome = market.proposal.statusGroup === 'failed' ? 'fail' : 'pass';
-    const outcome = resolvedOutcome.toUpperCase();
-    return `
-      <section
-        class="ft-historical-trade-preview"
-        data-ft-role="historical-trade-preview"
-        aria-label="Final decision-market resolution"
-      >
-        <div class="ft-historical-trade-heading">
-          <div>
-            <span class="ft-kicker">Final resolution</span>
-            <h3>${escapeHtml(market.ticker)} proposal</h3>
-          </div>
-          <span class="ft-read-only-badge">${escapeHtml(outcome)} resolved</span>
-        </div>
-
-        <div class="ft-estimate">
-          <div><span>PASS reference</span><strong>${formatPrice(market.pass?.price)}</strong></div>
-          <div><span>FAIL reference</span><strong>${formatPrice(market.fail?.price)}</strong></div>
-          <div><span>Final result</span><strong>${escapeHtml(outcome)}</strong></div>
-          <p>These are final recorded observations from the closed market, not executable quotes.</p>
-        </div>
-
-        <p class="ft-archive-ticket-state">Trading closed</p>
-      </section>
-    `;
-  }
-
   function syncExecutionLock() {
     root.classList.toggle(
       'ft-execution-locked',
@@ -5536,153 +5376,124 @@ export function mountFutardTerminal({
     `;
   }
 
-  function renderMarketContextTransactionRow({
-    side = '',
-    label = '',
-    price = null,
-    size = null,
-    time = '',
-    signature = '',
-  } = {}) {
-    const tone = side === 'buy' ? 'buy' : side === 'sell' ? 'sell' : 'neutral';
-    const content = `
-      <span class="ft-market-context-transaction-side" data-side="${escapeHtml(tone)}">${escapeHtml(label || side.toUpperCase() || 'TRADE')}</span>
-      <strong>${Number.isFinite(price) ? escapeHtml(formatChartCurrency(price)) : '—'}</strong>
-      <span>${escapeHtml(size || '—')}</span>
-      <time>${time ? escapeHtml(formatRelativeTime(time).replace(/\s+ago$/i, '')) : '—'}</time>
+  function selectedMarketInformationTab() {
+    return ['trades', 'holders', 'discussion', 'decisions'].includes(
+      state.marketInformationTab,
+    )
+      ? state.marketInformationTab
+      : 'trades';
+  }
+
+  function marketInformationDecisions() {
+    return state.sidebarMarkets.filter(market => (
+      !state.tokenFilter || market?.token === state.tokenFilter
+    ));
+  }
+
+  function renderMarketInformationTabs({ tradeCount = 0 } = {}) {
+    const activeTab = selectedMarketInformationTab();
+    const decisions = marketInformationDecisions();
+    const activeLabel = {
+      trades: 'Trades',
+      holders: 'Holders',
+      discussion: 'Discussion',
+      decisions: 'Decisions',
+    }[activeTab];
+    return `
+      <header class="ft-ownership-transactions-header ft-market-information-tabs">
+        <strong class="ft-sr-only">${escapeHtml(activeLabel)}</strong>
+        <div role="tablist" aria-label="Market information">
+          ${[
+            ['trades', 'Trades', tradeCount],
+            ['holders', 'Holders', null],
+            ['discussion', 'Discussion', null],
+            ['decisions', 'Decisions', decisions.length],
+          ].map(([key, label, count]) => {
+            const selected = activeTab === key;
+            return `
+              <button
+                class="ft-market-information-tab${selected ? ' ft-is-active' : ''}"
+                type="button"
+                role="tab"
+                data-ft-action="select-market-information"
+                data-ft-market-information="${key}"
+                aria-selected="${String(selected)}"
+              >${label}${Number.isFinite(count) && count > 0 ? ` <small>${count}</small>` : ''}</button>
+            `;
+          }).join('')}
+        </div>
+      </header>
     `;
-    return signature
+  }
+
+  function renderMarketInformationHolderSource() {
+    const mint = safeBase58(ownershipTokenSnapshot()?.mint);
+    return mint
       ? `
         <a
-          class="ft-market-context-transaction"
-          href="https://solscan.io/tx/${escapeHtml(signature)}"
+          class="ft-market-information-source"
+          href="https://solscan.io/token/${escapeHtml(mint)}#holders"
           target="_blank"
           rel="noopener noreferrer"
-          title="Open transaction on Solscan"
-        >${content}</a>
+        >View holders on Solscan <span aria-hidden="true">↗</span></a>
       `
-      : `<div class="ft-market-context-transaction">${content}</div>`;
+      : '';
   }
 
-  function renderMarketContextTransactions(transactions, rows) {
-    const count = Array.isArray(transactions) ? transactions.length : 0;
+  function renderMarketInformationDecisionRows({ compact = false } = {}) {
+    const decisions = marketInformationDecisions();
+    if (!decisions.length) {
+      return '<div class="ft-market-information-empty"><p>No indexed decision markets for this token.</p></div>';
+    }
     return `
-      <section
-        class="ft-market-context-card ft-market-context-transactions"
-        data-ft-role="market-context-transactions"
-        aria-label="Recent market transactions"
-      >
-        <header class="ft-market-context-card-header">
-          <div><small>Activity</small><h3>Transactions</h3></div>
-          <span>${count.toLocaleString('en-US')}</span>
-        </header>
-        <div class="ft-market-context-transaction-list">
-          ${rows.length ? rows.join('') : '<p>No indexed transactions yet.</p>'}
-        </div>
-        <button class="ft-market-context-jump" type="button" data-ft-action="focus-market-activity">
-          Open full activity below chart
-          <span aria-hidden="true">↙</span>
-        </button>
-      </section>
+      <div class="ft-market-information-decisions${compact ? ' ft-is-compact' : ''}">
+        ${decisions.map((market) => {
+          const status = proposalDisplayStatus(market.proposal);
+          const proposalNumber = displayedProposalLabel(market);
+          return `
+            <button
+              type="button"
+              data-ft-action="select-decision-market"
+              data-ft-proposal-id="${escapeHtml(market.id)}"
+              data-ft-token="${escapeHtml(market.token)}"
+            >
+              <span>
+                <strong>${escapeHtml(market.proposal?.title || market.name || proposalNumber)}</strong>
+                <small>${escapeHtml(`${market.ticker} · ${proposalNumber}`)}</small>
+              </span>
+              <em data-status="${escapeHtml(status.key)}">${escapeHtml(status.label)}</em>
+            </button>
+          `;
+        }).join('')}
+      </div>
     `;
   }
 
-  function renderMarketContext() {
-    if (!regions.marketContext) return;
-
-    let transactions = [];
-    let transactionRows = [];
-    let secondaryContext = '';
-    if (isOwnershipWorkspace()) {
-      const asset = ownershipTokenSnapshot();
-      transactions = asset.recentTransactions || [];
-      transactionRows = transactions.slice(0, 4).map(transaction => (
-        renderMarketContextTransactionRow({
-          side: transaction.side,
-          label: transaction.side?.toUpperCase(),
-          price: transaction.price,
-          size: Number.isFinite(ownershipTradeVolumeUsd(transaction))
-            ? formatTransactionSizeUsd(ownershipTradeVolumeUsd(transaction))
-            : Number.isFinite(transaction.size)
-              ? `${formatTokenAmount(transaction.size, 4)} ${asset.ticker}`
-              : null,
-          time: transaction.time,
-          signature: transaction.signature,
-        })
-      ));
-      const holderMint = safeBase58(asset.mint);
-      const holderSource = holderMint
-        ? `
-          <a
-            class="ft-market-context-source"
-            href="https://solscan.io/token/${escapeHtml(holderMint)}#holders"
-            target="_blank"
-            rel="noopener noreferrer"
-          >View holders on Solscan <span aria-hidden="true">↗</span></a>
-        `
-        : '';
-      secondaryContext = `
-        <details class="ft-market-context-card ft-market-context-holders" data-ft-role="market-context-holders">
-          <summary>
-            <span><small>Ownership</small><strong>Holders</strong></span>
-            <span class="ft-market-context-chevron" aria-hidden="true">⌄</span>
-          </summary>
-          <div class="ft-market-context-card-body">
-            <p>Holder distribution is not included in Trivium’s reviewed current-token contract yet.</p>
-            ${holderSource}
-          </div>
-        </details>
-      `;
-    } else {
-      const market = selectedMarket();
-      if (!market) {
-        regions.marketContext.innerHTML = '';
-        return;
-      }
-      transactions = state.marketDataByProposal.get(market.id)?.data?.recentTrades || [];
-      transactionRows = transactions.slice(0, 4).map(transaction => (
-        renderMarketContextTransactionRow({
-          side: transaction.side,
-          label: `${transaction.branch?.toUpperCase() || 'TRADE'} ${transaction.side?.toUpperCase() || ''}`.trim(),
-          price: transaction.price,
-          size: Number.isFinite(decisionTradeVolumeUsd(transaction))
-            ? formatTransactionSizeUsd(decisionTradeVolumeUsd(transaction))
-            : Number.isFinite(transaction.baseAmount)
-              ? `${formatTokenAmount(transaction.baseAmount, 4)} ${market.ticker}`
-              : null,
-          time: transaction.blockTime,
-          signature: transaction.signature,
-        })
-      ));
-      const proposalStatus = proposalDisplayStatus(market.proposal);
-      secondaryContext = `
-        <section class="ft-market-context-card ft-market-context-proposal" data-ft-role="market-context-proposal">
-          <button
-            class="ft-market-context-toggle ft-proposal-details-trigger${state.proposalDetailsOpen ? ' ft-is-active' : ''}"
-            type="button"
-            data-ft-action="toggle-proposal-details"
-            aria-controls="ft-proposal-details-panel"
-            aria-expanded="${String(state.proposalDetailsOpen)}"
-          >
-            <span><small>Governance</small><strong>Proposal details</strong></span>
-            <span class="ft-market-context-status" data-status="${escapeHtml(proposalStatus.key)}">${escapeHtml(proposalStatus.label)}</span>
-          </button>
-          ${renderProposalDetailsPanel(market.proposal, state.proposalDetailsOpen)}
-        </section>
+  function renderMarketInformationBody(tab, { compact = false } = {}) {
+    if (tab === 'holders') {
+      return `
+        <div class="ft-market-information-empty">
+          <strong>Holders</strong>
+          <p>Holder distribution is not included in Trivium’s reviewed current-token contract yet.</p>
+          ${renderMarketInformationHolderSource()}
+        </div>
       `;
     }
-
-    regions.marketContext.innerHTML = `
-      <header class="ft-ticket-market-context-heading">
-        <span>Market information</span>
-      </header>
-      ${renderMarketContextTransactions(transactions, transactionRows)}
-      ${secondaryContext}
-    `;
+    if (tab === 'discussion') {
+      return `
+        <div class="ft-market-information-empty">
+          <strong>Discussion</strong>
+          <p>Discussion is not connected to a reviewed source yet.</p>
+        </div>
+      `;
+    }
+    if (tab === 'decisions') {
+      return renderMarketInformationDecisionRows({ compact });
+    }
+    return '';
   }
 
   function renderTradeTicket() {
-    renderMarketContext();
     syncExecutionLock();
     if (isOwnershipWorkspace() && !executionEnabled) {
       renderExecutionPauseTicket('Ownership market');
@@ -5882,35 +5693,89 @@ export function mountFutardTerminal({
       } else if (isResolvedOutcome && state.wallet.address && redemption) {
         settlementAction = '<button class="ft-primary-button" type="button" disabled>No winning balance to redeem</button>';
       }
+      const resolvedOutcome = market.proposal.statusGroup === 'failed'
+        ? 'FAIL'
+        : market.proposal.statusGroup === 'passed'
+          ? 'PASS'
+          : state.order.outcome.toUpperCase();
+      const resultLabel = displayStatus.label;
+      const indexedObservations = proposalHistoryChartObservations(
+        state.historyByProposal.get(market.id)?.data,
+      );
+      const indexedClose = indexedObservations[indexedObservations.length - 1] || {};
+      const passClose = firstNumber(market.pass?.price, indexedClose.passPrice);
+      const spotClose = firstNumber(market.spot?.price, indexedClose.underlyingPrice);
+      const failClose = firstNumber(market.fail?.price, indexedClose.failPrice);
       regions.tradeTicket.innerHTML = `
         <section
-          class="ft-ticket ft-archive-ticket${isResolvedOutcome
-            ? ` ft-execution-ticket ft-order-outcome-${market.proposal.statusGroup === 'failed' ? 'fail' : 'pass'}`
-            : ''}"
+          class="ft-ticket ft-ownership-ticket ft-decision-market-ticket ft-decision-market-ticket-closed ft-archive-ticket"
           data-ft-role="proposal-archive"
         >
-          <div class="ft-ticket-heading">
-            <div><span class="ft-kicker">${isResolvedOutcome ? 'Resolved decision' : 'Indexed record'}</span><h2>${escapeHtml(market.ticker)} proposal archive</h2></div>
-            <span
-              class="ft-archive-status ft-archive-status-${escapeHtml(displayStatus.key)}"
-              data-ft-role="proposal-status"
-              data-ft-status="${escapeHtml(displayStatus.key)}"
-              data-ft-outcome="${escapeHtml(market.proposal.statusGroup)}"
-            >${escapeHtml(displayStatus.label)}</span>
+          <span
+            class="ft-sr-only"
+            data-ft-role="proposal-status"
+            data-ft-status="${escapeHtml(displayStatus.key)}"
+            data-ft-outcome="${escapeHtml(market.proposal.statusGroup)}"
+          >${escapeHtml(displayStatus.label)} · ${isResolvedOutcome ? 'Resolved decision' : 'Indexed record'}</span>
+
+          <div class="ft-proposal-trade-tabs" role="tablist" aria-label="Decision market">
+            <button type="button" role="tab" aria-selected="${resolvedOutcome === 'PASS'}" class="${resolvedOutcome === 'PASS' ? 'ft-is-active ft-is-pass' : ''}" disabled>If Pass</button>
+            <button type="button" role="tab" aria-selected="false" disabled>Spot</button>
+            <button type="button" role="tab" aria-selected="${resolvedOutcome === 'FAIL'}" class="${resolvedOutcome === 'FAIL' ? 'ft-is-active ft-is-fail' : ''}" disabled>If Fail</button>
           </div>
-          ${isResolvedOutcome ? renderHistoricalTradePreview(market) : `
-            <div class="ft-archive-ticket-state">
-              <span aria-hidden="true">⌁</span>
-              <h3>Trading is unavailable</h3>
-              <p>This indexed proposal record is not an open validated market and cannot accept a trade intent.</p>
+
+          <div class="ft-ownership-side-tabs" role="tablist" aria-label="Archived order side">
+            <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Buy</button>
+            <button type="button" role="tab" aria-selected="false" disabled>Sell</button>
+          </div>
+
+          <div class="ft-ownership-order-body">
+            <label class="ft-ownership-swap-field">
+              <span class="ft-ownership-field-label">Pay with</span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="0"
+                aria-label="Archived trade amount in USDC"
+                disabled
+              >
+              <span class="ft-ownership-asset">
+                <span class="ft-ownership-usdc-logo" aria-hidden="true">$</span>
+                <strong>USDC</strong>
+              </span>
+            </label>
+
+            <div class="ft-ownership-presets" aria-label="Archived quick order amounts">
+              ${[100, 500, 1_000].map(amount => `
+                <button type="button" disabled>${amount.toLocaleString('en-US')}</button>
+              `).join('')}
             </div>
-            <button
-              class="ft-primary-button"
+
+            <div class="ft-ownership-swap-field ft-ownership-receive-field">
+              <span class="ft-ownership-field-label">Receive</span>
+              <output>≈ 0</output>
+              <span class="ft-ownership-asset">
+                ${renderLogo(market, 'small')}
+                <strong>${escapeHtml(resolvedOutcome)} ${escapeHtml(market.ticker)}</strong>
+              </span>
+            </div>
+          </div>
+
+          <button
+              class="ft-ownership-connect"
               type="button"
               data-ft-role="archived-trade-cta"
               disabled
-            >Not tradable</button>
-          `}
+          >${isResolvedOutcome ? 'Trading closed' : 'Trading unavailable'}</button>
+
+          <dl class="ft-ownership-order-details">
+            <div><dt>PASS close</dt><dd>${escapeHtml(formatPrice(passClose))}</dd></div>
+            <div><dt>Spot close</dt><dd>${escapeHtml(formatPrice(spotClose))}</dd></div>
+            <div><dt>FAIL close</dt><dd>${escapeHtml(formatPrice(failClose))}</dd></div>
+            <div><dt>Result</dt><dd>${escapeHtml(resultLabel)}</dd></div>
+          </dl>
+
           ${isResolvedOutcome ? `
             <div class="ft-archive-settlement">
               <span class="ft-kicker">Settlement</span>
@@ -5928,10 +5793,6 @@ export function mountFutardTerminal({
               rel="noreferrer"
             >Open governance record <span aria-hidden="true">↗</span></a>
           ` : ''}
-          <div class="ft-execution-boundary">
-            <span aria-hidden="true">◇</span>
-            <p>Any displayed market values are labeled by their observation time and are not executable quotes.</p>
-          </div>
         </section>
       `;
       return;
@@ -6422,10 +6283,10 @@ export function mountFutardTerminal({
   }
 
   function renderPositions() {
-    renderMarketContext();
     if (isOwnershipWorkspace()) {
       const asset = ownershipTokenSnapshot();
       const transactions = asset.recentTransactions || [];
+      const informationTab = selectedMarketInformationTab();
       const showTransactionSizesInUsd = state.transactionSizeUnit === 'usd';
       const sizeUnit = showTransactionSizesInUsd ? 'USD' : asset.ticker;
       renderOwnershipAccountActivity(asset, transactions);
@@ -6433,64 +6294,68 @@ export function mountFutardTerminal({
         <section
           class="ft-ownership-transactions"
           data-ft-role="ownership-recent-transactions"
-          aria-label="Recent ${escapeHtml(asset.ticker)} transactions"
+          data-ft-market-information-panel="${escapeHtml(informationTab)}"
+          aria-label="${escapeHtml(asset.ticker)} market information"
         >
-          <header class="ft-ownership-transactions-header">
-            <strong>Trades</strong>
-            <span>${transactions.length}</span>
-          </header>
-          <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
-            <span>Price</span>
-            <span class="ft-transaction-size-heading">
-              <span>Size</span>
-              <button
-                type="button"
-                data-ft-action="toggle-transaction-size-unit"
-                data-ft-role="transaction-size-unit"
-                data-ft-size-unit="${escapeHtml(state.transactionSizeUnit)}"
-                aria-label="Show transaction sizes in ${escapeHtml(showTransactionSizesInUsd ? asset.ticker : 'USD')}"
-                title="Show sizes in ${escapeHtml(showTransactionSizesInUsd ? asset.ticker : 'USD')}"
-              >${escapeHtml(sizeUnit)}</button>
-            </span>
-            <span>Trader</span>
-            <span>Age</span>
-          </div>
-          <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable recent transactions">
-            ${transactions.length ? transactions.map((transaction) => {
-              const rowContent = `
-                <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${Number.isFinite(transaction.price)
-                  ? formatChartCurrency(transaction.price)
-                  : '—'}</span>
-                <span class="ft-ownership-transaction-size" data-ft-role="transaction-size">${showTransactionSizesInUsd
-                  ? formatTransactionSizeUsd(ownershipTradeVolumeUsd(transaction))
-                  : Number.isFinite(transaction.size)
-                    ? formatTokenAmount(transaction.size, 4)
+          ${renderMarketInformationTabs({ tradeCount: transactions.length })}
+          ${informationTab === 'trades' ? `
+            <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
+              <span>Price</span>
+              <span class="ft-transaction-size-heading">
+                <span>Size</span>
+                <button
+                  type="button"
+                  data-ft-action="toggle-transaction-size-unit"
+                  data-ft-role="transaction-size-unit"
+                  data-ft-size-unit="${escapeHtml(state.transactionSizeUnit)}"
+                  aria-label="Show transaction sizes in ${escapeHtml(showTransactionSizesInUsd ? asset.ticker : 'USD')}"
+                  title="Show sizes in ${escapeHtml(showTransactionSizesInUsd ? asset.ticker : 'USD')}"
+                >${escapeHtml(sizeUnit)}</button>
+              </span>
+              <span>Trader</span>
+              <span>Age</span>
+            </div>
+            <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable recent transactions">
+              ${transactions.length ? transactions.map((transaction) => {
+                const rowContent = `
+                  <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${Number.isFinite(transaction.price)
+                    ? formatChartCurrency(transaction.price)
                     : '—'}</span>
-                <span title="${escapeHtml(transaction.trader)}">${transaction.trader
-                  ? escapeHtml(shortenAddress(transaction.trader, 3))
-                  : '—'}</span>
-                <span>${transaction.time
-                  ? escapeHtml(formatRelativeTime(transaction.time).replace(/\s+ago$/i, ''))
-                  : '—'}</span>
-              `;
-              return transaction.signature
-                ? `
-                  <a
-                    class="ft-ownership-transaction-row"
-                    href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Open transaction on Solscan"
-                  >${rowContent}</a>
-                `
-                : `<div class="ft-ownership-transaction-row">${rowContent}</div>`;
-            }).join('') : `
-              <div class="ft-ownership-transactions-empty">
-                No recent indexed transactions
-              </div>
-            `}
-          </div>
-          <p class="ft-ownership-transactions-source">Public indexed spot activity</p>
+                  <span class="ft-ownership-transaction-size" data-ft-role="transaction-size">${showTransactionSizesInUsd
+                    ? formatTransactionSizeUsd(ownershipTradeVolumeUsd(transaction))
+                    : Number.isFinite(transaction.size)
+                      ? formatTokenAmount(transaction.size, 4)
+                      : '—'}</span>
+                  <span title="${escapeHtml(transaction.trader)}">${transaction.trader
+                    ? escapeHtml(shortenAddress(transaction.trader, 3))
+                    : '—'}</span>
+                  <span>${transaction.time
+                    ? escapeHtml(formatRelativeTime(transaction.time).replace(/\s+ago$/i, ''))
+                    : '—'}</span>
+                `;
+                return transaction.signature
+                  ? `
+                    <a
+                      class="ft-ownership-transaction-row"
+                      href="https://solscan.io/tx/${escapeHtml(transaction.signature)}"
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open transaction on Solscan"
+                    >${rowContent}</a>
+                  `
+                  : `<div class="ft-ownership-transaction-row">${rowContent}</div>`;
+              }).join('') : `
+                <div class="ft-ownership-transactions-empty">
+                  No recent indexed transactions
+                </div>
+              `}
+            </div>
+            <p class="ft-ownership-transactions-source">Public indexed spot activity</p>
+          ` : `
+            <div class="ft-market-information-panel-body" tabindex="0">
+              ${renderMarketInformationBody(informationTab)}
+            </div>
+          `}
         </section>
       `;
       return;
@@ -6501,6 +6366,7 @@ export function mountFutardTerminal({
     if (state.hostMode === 'token' && market) {
       const entry = state.marketDataByProposal.get(market.id);
       const transactions = entry?.data?.recentTrades || [];
+      const informationTab = selectedMarketInformationTab();
       const tradePagination = entry?.data?.pagination || {};
       const showTransactionSizesInUsd = state.transactionSizeUnit === 'usd';
       const sizeUnit = showTransactionSizesInUsd ? 'USD' : market.ticker;
@@ -6511,72 +6377,37 @@ export function mountFutardTerminal({
         ? transactionVolumes.reduce((total, volume) => total + volume, 0)
         : null;
       const recentVolumeLabel = formatTradeVolume(recentVolumeUsd);
-      const supportSummary = ['pass', 'fail'].reduce((summary, support) => {
-        const supportTransactions = transactions.filter(transaction => (
-          decisionTradeSupport(transaction) === support
-        ));
-        const volumes = supportTransactions
-          .map(decisionTradeVolumeUsd)
-          .filter(Number.isFinite);
-        summary[support] = {
-          count: supportTransactions.length,
-          transactions: supportTransactions,
-          volumeLabel: formatTradeVolume(
-            volumes.length
-              ? volumes.reduce((total, volume) => total + volume, 0)
-              : null,
-          ),
-        };
-        return summary;
-      }, {});
-      const supportFilter = ['pass', 'fail'].includes(state.decisionTradeSupportFilter)
-        ? state.decisionTradeSupportFilter
-        : 'all';
-      const visibleTransactions = supportFilter === 'all'
-        ? transactions
-        : supportSummary[supportFilter].transactions;
       renderDecisionAccountActivity(market, transactions);
+      if (informationTab !== 'trades') {
+        regions.positions.innerHTML = `
+          <section
+            class="ft-ownership-transactions ft-decision-transactions"
+            data-ft-role="proposal-recent-transactions"
+            data-ft-market-information-panel="${escapeHtml(informationTab)}"
+            aria-label="${escapeHtml(market.ticker)} proposal information"
+          >
+            ${renderMarketInformationTabs({
+              tradeCount: transactions.length,
+            })}
+            <div class="ft-market-information-panel-body" tabindex="0">
+              ${renderMarketInformationBody(informationTab)}
+            </div>
+          </section>
+        `;
+        return;
+      }
       regions.positions.innerHTML = `
         <section
           class="ft-ownership-transactions ft-decision-transactions"
           data-ft-role="proposal-recent-transactions"
+          data-ft-market-information-panel="trades"
           aria-label="Recent ${escapeHtml(market.ticker)} proposal transactions"
         >
-          <header class="ft-ownership-transactions-header">
-            <button
-              class="ft-decision-trades-reset${supportFilter === 'all' ? ' ft-is-active' : ''}"
-              type="button"
-              data-ft-action="filter-decision-trades"
-              data-ft-support="all"
-              aria-pressed="${supportFilter === 'all'}"
-              title="Show all loaded trades"
-            >Trades</button>
-            <div
-              class="ft-decision-transaction-summary"
-              role="group"
-              aria-label="Filter loaded trades by the outcome they support"
-              title="BUY PASS and SELL FAIL support PASS. BUY FAIL and SELL PASS support FAIL."
-            >
-              ${['pass', 'fail'].map(support => `
-                <button
-                  class="ft-decision-support-filter ft-decision-support-${support}${supportFilter === support ? ' ft-is-active' : ''}"
-                  type="button"
-                  data-ft-action="filter-decision-trades"
-                  data-ft-support="${support}"
-                  data-ft-role="decision-support-${support}"
-                  aria-pressed="${supportFilter === support}"
-                  aria-label="Show ${supportSummary[support].count} trades supporting ${support.toUpperCase()}, ${supportSummary[support].volumeLabel} loaded volume"
-                  title="${support === 'pass'
-                    ? 'Volume supporting PASS: BUY PASS and SELL FAIL'
-                    : 'Volume supporting FAIL: BUY FAIL and SELL PASS'}"
-                >
-                  <b>${support.toUpperCase()}</b>
-                </button>
-              `).join('')}
-              <span class="ft-sr-only" data-ft-role="proposal-recent-volume">${escapeHtml(recentVolumeLabel)}</span>
-              <span class="ft-sr-only" data-ft-role="proposal-recent-count">${transactions.length}</span>
-            </div>
-          </header>
+          ${renderMarketInformationTabs({
+            tradeCount: transactions.length,
+          })}
+          <span class="ft-sr-only" data-ft-role="proposal-recent-volume">${escapeHtml(recentVolumeLabel)}</span>
+          <span class="ft-sr-only" data-ft-role="proposal-recent-count">${transactions.length}</span>
           <div class="ft-ownership-transactions-columns" aria-label="Transaction columns">
             <span>Price</span>
             <span class="ft-transaction-size-heading">
@@ -6594,15 +6425,13 @@ export function mountFutardTerminal({
             <span>Age</span>
           </div>
           <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable proposal transactions">
-            ${visibleTransactions.length
-              ? visibleTransactions.map(transaction => (
+            ${transactions.length
+              ? transactions.map(transaction => (
                 decisionTradeRowMarkup(transaction, showTransactionSizesInUsd)
               )).join('')
               : `
               <div class="ft-ownership-transactions-empty">
-                ${transactions.length && supportFilter !== 'all'
-                  ? `No loaded trades supporting ${supportFilter.toUpperCase()}`
-                  : entry?.loading
+                ${entry?.loading
                   ? 'Loading complete trade history'
                   : entry?.error || 'No indexed transactions'}
               </div>
@@ -7027,6 +6856,7 @@ export function mountFutardTerminal({
         state.historyActiveId = '';
         if (selectedMarket()?.id === market.id) {
           renderMarketStage();
+          renderTradeTicket();
           renderPositions();
         }
       }
@@ -7203,7 +7033,7 @@ export function mountFutardTerminal({
         state.navMap,
         { forceLive: true },
       );
-      const liveMarkets = snapshot.markets.filter(marketMatchesToken);
+      const liveMarkets = listedMarkets(snapshot.markets).filter(marketMatchesToken);
       if (!liveMarkets.some(candidate => candidate.id === market.id)) return null;
 
       state.activeMarkets = liveMarkets;
@@ -7261,7 +7091,6 @@ export function mountFutardTerminal({
     state.marketDataRequestId += 1;
     state.marketDataAbortController?.abort();
     state.selectedId = next.id;
-    state.proposalDetailsOpen = false;
     state.decisionMarketSwitcherOpen = false;
     state.proposalTradeMarket = 'pass';
     invalidateOwnershipQuote();
@@ -8488,15 +8317,26 @@ export function mountFutardTerminal({
     const compatibilityMap = homeResult.status === 'fulfilled'
       ? buildOwnershipCompatibilityMap(homeResult.value)
       : new Map();
-    state.navMap = currentNavResult.status === 'fulfilled'
+    const currentNavMap = currentNavResult.status === 'fulfilled'
+      ? buildNavMap(currentNavResult.value)
+      : compatibilityMap;
+    state.listedTokenKeys = new Set(currentNavMap.keys());
+    const resolvedNavMap = currentNavResult.status === 'fulfilled'
       ? mergeCurrentNavMap(compatibilityMap, currentNavResult.value)
       : compatibilityMap;
+    // Decision rows and token rows must share one visual identity. The token
+    // sidebar owns a curated project logo for each listed token; current-NAV
+    // remains the fallback when that curated asset is absent.
+    state.navMap = mergeCuratedProjectLogos(
+      resolvedNavMap,
+      runtime.NAVGATOR?.projectMetadata,
+    );
     if (
       state.hostMode === 'token'
       && currentNavResult.status === 'fulfilled'
-      && state.navMap.size > 0
+      && state.listedTokenKeys.size > 0
       && state.tokenFilter
-      && !state.navMap.has(state.tokenFilter)
+      && !state.listedTokenKeys.has(state.tokenFilter)
     ) {
       const unknownToken = state.tokenFilter;
       state.tokenFilter = 'solo';
@@ -8544,7 +8384,7 @@ export function mountFutardTerminal({
         state.navMap,
         { forceLive: true },
       );
-      state.activeMarkets = activeSnapshot.markets.filter(marketMatchesToken);
+      state.activeMarkets = listedMarkets(activeSnapshot.markets).filter(marketMatchesToken);
       state.slot = activeSnapshot.slot;
       state.source = activeSnapshot.source;
       state.degraded = activeSnapshot.degraded;
@@ -8568,6 +8408,10 @@ export function mountFutardTerminal({
         throw error;
       }
       if (state.destroyed || requestId !== state.requestId) return state.markets;
+      proposalSnapshot = {
+        ...proposalSnapshot,
+        markets: listedMarkets(proposalSnapshot.markets),
+      };
       state.sidebarArchiveComplete = proposalSnapshot.archiveComplete;
       state.sidebarArchiveTotal = proposalSnapshot.pagination.total;
       if (proposalSnapshot.paginationError) {
@@ -8596,10 +8440,27 @@ export function mountFutardTerminal({
         : 'Proposal history is temporarily unavailable.';
     }
 
+    const archiveConfirmsNoLiveMarkets = Boolean(
+      proposalSnapshot?.archiveComplete
+      && !proposalSnapshot.markets.some(
+        market => market.proposal.statusGroup === 'live',
+      ),
+    );
+    if (marketResult.status !== 'fulfilled' && archiveConfirmsNoLiveMarkets) {
+      // A complete 01Resolved proposal index with no pending records is a
+      // healthy zero-live state. There is no live account that requires RPC
+      // validation, so an empty result must not be presented as an outage.
+      state.activeMarkets = [];
+      state.pendingProposalCount = 0;
+      state.liveError = '';
+    }
+
     state.degraded = mergeDegradedStates(
       marketResult.status === 'fulfilled'
         ? activeSnapshot?.degraded
-        : { active: true, services: ['futarchy'], issues: [] },
+        : archiveConfirmsNoLiveMarkets
+          ? { active: false, services: [], issues: [] }
+          : { active: true, services: ['futarchy'], issues: [] },
       proposalResult.status === 'fulfilled'
         ? proposalSnapshot?.degraded
         : { active: true, services: ['futarchy-proposals'], issues: [] },
@@ -8607,7 +8468,7 @@ export function mountFutardTerminal({
     state.markets = mergeProposalLists(state.indexedProposals, state.activeMarkets);
     state.sidebarMarkets = mergeProposalLists(
       proposalSnapshot?.markets || [],
-      activeSnapshot?.markets || [],
+      listedMarkets(activeSnapshot?.markets || []),
     );
     state.asOf = activeSnapshot?.asOf
       || proposalSnapshot?.asOf
@@ -8670,10 +8531,11 @@ export function mountFutardTerminal({
       });
       if (state.destroyed || requestId !== state.paginationRequestId) return state.markets;
       const normalized = normalizeMarketPayload(payload, state.navMap);
+      const listedNormalizedMarkets = listedMarkets(normalized.markets);
       const before = state.indexedProposals.length;
       state.indexedProposals = mergeIndexedProposalPages(
         state.indexedProposals,
-        normalized.markets.filter(marketMatchesToken),
+        listedNormalizedMarkets.filter(marketMatchesToken),
       );
       const sidebarLiveMarkets = state.sidebarMarkets.filter(
         market => market.proposal.statusGroup === 'live',
@@ -8682,7 +8544,7 @@ export function mountFutardTerminal({
         market => market.proposal.statusGroup !== 'live',
       );
       state.sidebarMarkets = mergeProposalLists(
-        mergeIndexedProposalPages(sidebarPastMarkets, normalized.markets),
+        mergeIndexedProposalPages(sidebarPastMarkets, listedNormalizedMarkets),
         sidebarLiveMarkets,
       );
       state.proposalSummary = {
@@ -8755,27 +8617,6 @@ export function mountFutardTerminal({
     });
   }
 
-  function setProposalDetailsOpen(open, options = {}) {
-    state.proposalDetailsOpen = open === true;
-    root.querySelectorAll('[data-ft-action="toggle-proposal-details"]')
-      .forEach((control) => {
-        if (!control.classList.contains('ft-proposal-details-trigger')) return;
-        control.setAttribute('aria-expanded', String(state.proposalDetailsOpen));
-        control.classList.toggle('ft-is-active', state.proposalDetailsOpen);
-      });
-    const panel = root.querySelector('[data-ft-role="proposal-details"]');
-    if (panel) panel.hidden = !state.proposalDetailsOpen;
-    if (state.proposalDetailsOpen) {
-      panel?.closest('.ft-ticket-market-context')?.scrollIntoView?.({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
-    }
-    if (!state.proposalDetailsOpen && options.restoreFocus === true) {
-      root.querySelector('.ft-proposal-details-trigger')?.focus();
-    }
-  }
-
   async function selectSidebarProposal(anchor) {
     const proposalId = safeBase58(anchor?.dataset?.ftProposalId);
     const market = state.sidebarMarkets.find(candidate => candidate.id === proposalId);
@@ -8835,7 +8676,6 @@ export function mountFutardTerminal({
     state.proposalFocus = false;
     state.selectedId = '';
     state.requestedProposalId = '';
-    state.proposalDetailsOpen = false;
     state.decisionMarketSwitcherOpen = false;
     state.routeNotice = '';
     invalidateOwnershipQuote();
@@ -8947,21 +8787,6 @@ export function mountFutardTerminal({
           ? renderProposalTopSummary(market, history)
           : '';
       }
-    } else if (action === 'toggle-chart-expansion') {
-      event.preventDefault();
-      toggleChartExpansion(target);
-    } else if (action === 'toggle-proposal-details') {
-      event.preventDefault();
-      setProposalDetailsOpen(!state.proposalDetailsOpen, {
-        restoreFocus: target.classList.contains('ft-proposal-details-close'),
-      });
-    } else if (action === 'focus-market-activity') {
-      event.preventDefault();
-      const transactionList = regions.positions?.querySelector(
-        '.ft-ownership-transactions-list',
-      );
-      regions.activity?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-      transactionList?.focus?.();
     } else if (action === 'select-proposal') {
       selectProposal(target.dataset.ftProposalId, { focus: true });
     } else if (action === 'filter') {
@@ -9041,15 +8866,15 @@ export function mountFutardTerminal({
         state.ownershipActivityTab = tab;
         renderPositions();
       }
+    } else if (action === 'select-market-information') {
+      const tab = target.dataset.ftMarketInformation;
+      if (['trades', 'holders', 'discussion', 'decisions'].includes(tab)) {
+        state.marketInformationTab = tab;
+        renderPositions();
+      }
     } else if (action === 'toggle-transaction-size-unit') {
       state.transactionSizeUnit = state.transactionSizeUnit === 'usd' ? 'token' : 'usd';
       renderPositions();
-    } else if (action === 'filter-decision-trades') {
-      const support = target.dataset.ftSupport;
-      if (['all', 'pass', 'fail'].includes(support)) {
-        state.decisionTradeSupportFilter = support;
-        renderPositions();
-      }
     } else if (action === 'select-book') {
       const book = target.dataset.ftBook;
       if (book === 'pass' || book === 'fail') {
@@ -9357,9 +9182,6 @@ export function mountFutardTerminal({
       state.execution.plan = null;
       state.execution.simulation = null;
       renderModal();
-    } else if (event.key === 'Escape' && state.proposalDetailsOpen) {
-      event.preventDefault();
-      setProposalDetailsOpen(false, { restoreFocus: true });
     } else if (event.key === 'Escape' && state.decisionMarketSwitcherOpen) {
       event.preventDefault();
       setDecisionMarketSwitcherOpen(false, { restoreFocus: true });
@@ -9428,7 +9250,6 @@ export function mountFutardTerminal({
     invalidateOwnershipQuote();
     state.tokenFilter = normalized;
     state.proposalTradeMarket = 'pass';
-    state.proposalDetailsOpen = false;
     state.decisionMarketSwitcherOpen = false;
     state.selectedId = requestedProposalId;
     state.requestedProposalId = requestedProposalId;

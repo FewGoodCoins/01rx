@@ -71,6 +71,15 @@ test('futarchy source normalizers bind known project aliases and lifecycle state
   assert.equal(_test.tokenFromProjectSlug('laso-finance'), 'laso');
   assert.equal(_test.tokenFromProjectSlug('solomon-labs'), 'solo');
   assert.equal(_test.tokenFromProjectSlug('rip-cars'), 'cars');
+  assert.equal(_test.tokenFromProjectSlug('futuredao'), 'future');
+  assert.equal(_test.tokenFromProjectSlug('island-dao'), 'island');
+  assert.equal(_test.tokenFromProjectSlug('jito-dao'), 'jto');
+  assert.equal(_test.tokenFromProjectSlug('kyros'), 'kykyros');
+  assert.equal(_test.tokenFromProjectSlug('marinade'), 'mnde');
+  assert.equal(_test.tokenFromProjectSlug('p2p-protocol'), 'p2p');
+  assert.equal(_test.tokenFromProjectSlug('sanctum'), 'scloud');
+  assert.equal(_test.tokenFromProjectSlug('save-dao'), 'save');
+  assert.equal(_test.tokenFromProjectSlug('zklsol'), 'zkfg');
   assert.equal(_test.tokenFromProjectSlug('umbra'), 'umbra');
   assert.equal(_test.normalizeArchiveStatus({ status: 'resolved', result: 'approved' }), 'passed');
   assert.equal(_test.normalizeArchiveStatus({ status: 'resolved', result: 'rejected' }), 'failed');
@@ -86,6 +95,8 @@ test('archive normalization preserves model evidence without inventing missing f
     passThresholdPct: '3',
     isTeamSponsored: true,
     programVersion: 'v0.6',
+    organizationImageUrl: 'https://assets.01resolved.test/umbra.png',
+    proposalImageUrl: 'https://proposal-art.invalid/umbra.png',
     performanceStats: {
       totalVolume: '352980',
       totalTrades: '912',
@@ -95,6 +106,7 @@ test('archive normalization preserves model evidence without inventing missing f
   assert.equal(normalized.proposal.thresholdBps, 300);
   assert.equal(normalized.proposal.isTeamSponsored, true);
   assert.equal(normalized.proposal.version, 'v0.6');
+  assert.equal(normalized.logo, 'https://assets.01resolved.test/umbra.png');
   assert.deepEqual(normalized.metrics, {
     volumeUsd: 352980,
     tradeCount: 912,
