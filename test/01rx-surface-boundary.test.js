@@ -313,11 +313,11 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
   assert.match(
     indexSource,
-    /<span[\s\S]*?class="tp-unified-section-title-group tp-unified-section-status"[\s\S]*?id="tp-decision-markets-title"[\s\S]*?>0 decisions live<\/span>/,
+    /<span[\s\S]*?class="tp-unified-section-title-group tp-unified-section-status"[\s\S]*?id="tp-decision-markets-title"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?>0 decisions live<\/span>/,
   );
   assert.match(
     triviumTerminalCss,
-    /\.tp-unified-section-status\s*\{[\s\S]*?font-size: 12px;/,
+    /\.tp-unified-section-status\s*\{[\s\S]*?font-size: 10px;/,
   );
   assert.doesNotMatch(
     indexSource,
@@ -327,6 +327,25 @@ test('market sidebar titles use consistent full-size click targets', () => {
     indexSource,
     /tp-unified-section-toggle-tokens|tp-token-section-title|aria-label="Collapse tokens"/,
   );
+});
+
+test('live decision count is a compact visible noninteractive status', () => {
+  const dom = new JSDOM(indexSource);
+  const status = dom.window.document.querySelector('#tp-decision-markets-title');
+
+  assert.ok(status);
+  assert.equal(status.tagName, 'SPAN');
+  assert.equal(status.textContent.trim(), '0 decisions live');
+  assert.equal(status.classList.contains('ft-sr-only'), false);
+  assert.equal(status.getAttribute('role'), 'status');
+  assert.equal(status.getAttribute('aria-live'), 'polite');
+  assert.equal(status.closest('button, a'), null);
+  assert.equal(status.hasAttribute('onclick'), false);
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-unified-section-status\s*\{[\s\S]*?height: 18px;[\s\S]*?padding: 0;[\s\S]*?border: 0;[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;[\s\S]*?box-shadow: none;[\s\S]*?font-family: var\(--numeric-font\);[\s\S]*?font-size: 10px;[\s\S]*?pointer-events: none;/,
+  );
+  dom.window.close();
 });
 
 test('market sidebar uses compact reference tabs and source-backed filter pills', () => {

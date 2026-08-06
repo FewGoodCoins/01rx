@@ -71,6 +71,8 @@ export interface ProposalHistoryData {
   readonly interval: string;
   readonly availability?: string;
   readonly preTwap?: string | null;
+  readonly thresholdBps?: number | null;
+  readonly thresholdPct?: number | null;
   readonly series: readonly ProposalHistoryPoint[];
   readonly summary?: Record<string, unknown>;
   readonly degraded?: DegradedState;

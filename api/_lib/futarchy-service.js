@@ -127,6 +127,20 @@ function firstFiniteNumber(...values) {
   return values.map(finiteNumber).find(Number.isFinite) ?? null;
 }
 
+function publishedThresholdBps(value) {
+  const percent = finiteNumber(value);
+  if (!Number.isFinite(percent)) return null;
+  const exactBps = percent * 100;
+  const bps = Math.round(exactBps);
+  if (
+    !Number.isSafeInteger(bps)
+    || Math.abs(exactBps - bps) > 1e-6
+    || bps <= -10_000
+    || bps > 10_000
+  ) return null;
+  return bps;
+}
+
 function optionalBoolean(...values) {
   const value = values.find(candidate => typeof candidate === 'boolean');
   return typeof value === 'boolean' ? value : null;
@@ -708,10 +722,19 @@ export function createFutarchyService(options = {}) {
     const proposalId = safeAddress(input.proposal);
     if (!proposalId) throw futarchyServiceError('proposal is invalid', 'BAD_REQUEST', 400);
     const interval = INTERVAL_MS[input.interval] ? input.interval : '15m';
-    const chart = await fetchZeroOne(
-      `/v1/proposal/${encodeURIComponent(proposalId)}/price-chart`,
-      dependencies,
-    );
+    const thresholdEndpoint = `/v1/proposal/${encodeURIComponent(proposalId)}/threshold-chart?timeInterval=max`;
+    const [chart, thresholdResult] = await Promise.all([
+      fetchZeroOne(
+        `/v1/proposal/${encodeURIComponent(proposalId)}/price-chart`,
+        dependencies,
+      ),
+      fetchZeroOne(thresholdEndpoint, dependencies).then(
+        payload => ({ payload, error: null }),
+        error => ({ payload: null, error }),
+      ),
+    ]);
+    const thresholdData = unwrapData(thresholdResult.payload);
+    const thresholdBps = publishedThresholdBps(thresholdData?.threshold);
     let rows = Array.isArray(chart?.data?.prices) ? chart.data.prices : [];
     let source = 'price-chart';
     if (!rows.length) {
@@ -723,13 +746,31 @@ export function createFutarchyService(options = {}) {
       source = 'orders';
     }
     const series = aggregateHistoryRows(rows, interval);
-    const preTwap = isoTimestamp(chart?.data?.preTwap);
+    const preTwap = isoTimestamp(chart?.data?.preTwap || thresholdData?.preTwap);
+    const services = [];
+    const issues = [];
+    if (source === 'orders') {
+      services.push('01resolved-proposal-price-chart-empty');
+      issues.push({
+        code: 'ORDER_PRICE_HISTORY_USED',
+        message: 'Observed trades are shown because the price chart is empty.',
+      });
+    }
+    if (!Number.isFinite(thresholdBps)) {
+      services.push('01resolved-proposal-threshold-unavailable');
+      issues.push({
+        code: thresholdResult.error
+          ? 'PROPOSAL_THRESHOLD_UNAVAILABLE'
+          : 'PROPOSAL_THRESHOLD_INVALID',
+        message: thresholdResult.error
+          ? 'The proposal-specific 01Resolved threshold is temporarily unavailable.'
+          : '01Resolved did not publish a valid proposal-specific threshold.',
+      });
+    }
     const degraded = {
-      active: source === 'orders',
-      services: source === 'orders' ? ['01resolved-proposal-price-chart-empty'] : [],
-      issues: source === 'orders'
-        ? [{ code: 'ORDER_PRICE_HISTORY_USED', message: 'Observed trades are shown because the price chart is empty.' }]
-        : [],
+      active: services.length > 0,
+      services,
+      issues,
     };
     const coverage = historyCoverage(series);
     const complete = coverage.underlying > 0 && coverage.pass > 0 && coverage.fail > 0;
@@ -739,6 +780,8 @@ export function createFutarchyService(options = {}) {
       requestedInterval: interval,
       availability: complete ? 'complete' : series.length ? 'partial' : 'unavailable',
       preTwap,
+      thresholdBps,
+      thresholdPct: Number.isFinite(thresholdBps) ? thresholdBps / 100 : null,
       series,
       summary: {
         pointCount: series.length,
@@ -754,6 +797,7 @@ export function createFutarchyService(options = {}) {
         sourceInterval: source === 'price-chart' ? '15m' : 'event',
         interval,
         requestedInterval: interval,
+        thresholdEndpoint: '/v1/proposal/{publicKey}/threshold-chart?timeInterval=max',
       },
       degraded,
     };
@@ -1003,5 +1047,6 @@ export const _test = Object.freeze({
   normalizeArchiveStatus,
   normalizeObservedTrade,
   orderPageMeta,
+  publishedThresholdBps,
   tokenFromProjectSlug,
 });

@@ -569,7 +569,7 @@ function makeWindow(options = {}) {
   const sidebar = options.sidebar
     ? `
       <section id="tlp-decisions-panel" hidden>
-        <span id="tp-decision-markets-title">0 decisions live</span>
+        <span id="tp-decision-markets-title" role="status" aria-live="polite">0 decisions live</span>
         <div id="tlp-decisions-list"></div>
         <div id="tlp-past-decisions-list"></div>
       </section>
@@ -868,6 +868,7 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   const history = normalizeProposalHistoryPayload({
     proposalId: PASSED_PROPOSAL_ID,
     preTwap: '2026-06-16T11:00:00.000Z',
+    thresholdBps: '275',
     series: [
       {
         timestamp: '2026-06-16T10:00:00.000Z',
@@ -895,7 +896,11 @@ test('15-minute history normalization preserves missing series and chart gaps', 
         failPrice: '-1',
       },
     ],
-    source: { provider: '01Resolved', sourceInterval: '15m' },
+    source: {
+      provider: '01Resolved',
+      sourceInterval: '15m',
+      thresholdEndpoint: '/v1/proposal/{publicKey}/threshold-chart?timeInterval=max',
+    },
   });
 
   assert.equal(history.series.length, 2);
@@ -906,6 +911,12 @@ test('15-minute history normalization preserves missing series and chart gaps', 
   assert.equal(history.summary.coverage.passTwap, 1);
   assert.equal(history.summary.coverage.failTwap, 0);
   assert.equal(history.preTwap, '2026-06-16T11:00:00.000Z');
+  assert.equal(history.thresholdBps, 275);
+  assert.equal(history.thresholdPct, 2.75);
+  assert.equal(
+    history.source.thresholdEndpoint,
+    '/v1/proposal/{publicKey}/threshold-chart?timeInterval=max',
+  );
 
   const dom = new JSDOM(renderHourlyPriceChart(history, 'META', {
     windowEndedAt: '2026-06-16T11:30:00.000Z',
@@ -1804,6 +1815,11 @@ test('proposal transaction feed labels every outcome side and totals recent volu
       .map(tab => tab.textContent.trim().replace(/\s+/g, ' ').replace(/ \d+$/, '')),
     ['Trades', 'Holders', 'Discussion', 'Decisions'],
   );
+  const decisionsTab = recentTransactions.querySelector(
+    '[data-ft-market-information="decisions"]',
+  );
+  assert.equal(decisionsTab.textContent.trim(), 'Decisions');
+  assert.equal(decisionsTab.querySelector('small'), null);
   assert.equal(recentTransactions.querySelector('.ft-ownership-transactions-source'), null);
   assert.deepEqual(
     Array.from(recentTransactions.querySelectorAll('.ft-decision-transaction-trade'))
@@ -2999,7 +3015,11 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
 
   resolveHistory({
     ok: true,
-    data: PROPOSAL_HISTORIES[PASSED_PROPOSAL_ID],
+    data: {
+      ...PROPOSAL_HISTORIES[PASSED_PROPOSAL_ID],
+      thresholdBps: 275,
+      thresholdPct: 2.75,
+    },
   });
   await controller.ready;
   await settleUntil(window, () => chartMounts.length === 1);
@@ -3016,6 +3036,11 @@ test('past proposal navigation keeps the final chart shell mounted until delayed
     .querySelector('[data-ft-chart-header-metric="result"]');
   assert.equal(resultMetric.querySelector('span').textContent, 'Result');
   assert.equal(resultMetric.querySelector('strong').textContent, 'Resolved');
+  assert.equal(
+    byRole(root, 'proposal-chart-header')
+      .querySelector('[data-ft-chart-header-metric="threshold"] strong').textContent,
+    '+2.75%',
+  );
   assert.equal(
     byRole(root, 'proposal-chart-header')
       .querySelector('[data-ft-chart-header-metric="pass-signal"]'),

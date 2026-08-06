@@ -449,7 +449,10 @@ test('market sidebar places one unified decisions list before tokens', () => {
   assert.ok(liveDecisions >= 0);
   assert.ok(pastDecisions > liveDecisions);
   assert.ok(tokens > pastDecisions);
-  assert.match(document, /id="tp-decision-markets-title"[\s\S]*?>0 decisions live<\/span>/);
+  assert.match(
+    document,
+    /id="tp-decision-markets-title"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/span>/,
+  );
   assert.doesNotMatch(
     document,
     /tp-unified-section-toggle-(?:live|past)|tlp-past-decisions-panel/,
