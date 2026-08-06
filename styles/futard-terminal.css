@@ -3927,168 +3927,13 @@ body.is-futard-terminal #token-switch-loader {
   overflow: visible;
 }
 
-.ft-proposal-details-trigger {
-  display: inline-flex;
-  min-width: 92px;
-  height: 42px;
-  padding: 0 15px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-right: 1px solid #292929;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ft-muted);
-  cursor: pointer;
-  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.ft-proposal-details-trigger:hover,
-.ft-proposal-details-trigger:focus-visible,
-.ft-proposal-details-trigger.ft-is-active {
-  background: #1b1b1b;
-  color: var(--ft-ink-strong);
-}
-
-.ft-proposal-details-trigger:focus-visible,
-.ft-proposal-details-close:focus-visible,
-.ft-proposal-details-source:focus-visible {
-  outline: 1px solid var(--ft-focus);
-  outline-offset: -2px;
-}
-
-.ft-proposal-details-panel {
-  position: absolute;
-  z-index: 14;
-  top: 0;
-  bottom: 0;
-  left: 42px;
-  width: min(520px, calc(100% - 42px));
-  padding: 24px;
-  overflow: auto;
-  border-right: 1px solid #343636;
-  background: color-mix(in srgb, #101010 97%, transparent);
-  color: var(--ft-ink);
-  box-shadow: 20px 0 40px rgba(0, 0, 0, 0.24);
-}
-
-.ft-proposal-details-panel[hidden] {
-  display: none;
-}
-
-.ft-proposal-details-panel > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.ft-proposal-details-panel > header > div {
-  min-width: 0;
-}
-
-.ft-proposal-details-panel small,
-.ft-proposal-details-panel dt {
-  color: var(--ft-muted);
-  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.ft-proposal-details-panel h2 {
-  margin: 7px 0 0;
-  color: var(--ft-ink-strong);
-  font-size: 19px;
-  font-weight: 560;
-  line-height: 1.3;
-}
-
-.ft-proposal-details-close {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  padding: 0;
-  place-items: center;
-  border: 1px solid #343636;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--ft-muted);
-  cursor: pointer;
-}
-
-.ft-proposal-details-close:hover {
-  color: var(--ft-ink-strong);
-}
-
-.ft-proposal-details-close svg {
-  width: 18px;
-  height: 18px;
-}
-
-.ft-proposal-details-description {
-  max-width: 68ch;
-  margin: 24px 0;
-  color: var(--ft-ink);
-  font-size: 13px;
-  line-height: 1.65;
-  white-space: pre-line;
-}
-
-.ft-proposal-details-panel dl {
-  display: grid;
-  margin: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid #292929;
-  border-left: 1px solid #292929;
-}
-
-.ft-proposal-details-panel dl > div {
-  min-width: 0;
-  padding: 12px;
-  border-right: 1px solid #292929;
-  border-bottom: 1px solid #292929;
-}
-
-.ft-proposal-details-panel dt,
-.ft-proposal-details-panel dd {
-  margin: 0;
-}
-
-.ft-proposal-details-panel dd {
-  margin-top: 6px;
-  overflow: hidden;
-  color: var(--ft-ink-strong);
-  font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ft-proposal-details-source {
-  display: inline-flex;
-  margin-top: 20px;
-  align-items: center;
-  gap: 7px;
-  color: var(--ft-ink-strong);
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.ft-proposal-details-source:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .ft-hourly-readout {
   position: absolute;
   z-index: 6;
   top: 10px;
-  left: 54px;
+  left: 12px;
   display: flex;
-  max-width: calc(100% - 88px);
+  max-width: calc(100% - 24px);
   flex-direction: column;
   gap: 2px;
   pointer-events: none;
@@ -4542,7 +4387,7 @@ body.is-futard-terminal #token-switch-loader {
 .ft-hourly-chart-mount-status {
   position: absolute;
   z-index: 7;
-  inset: 0 0 0 42px;
+  inset: 0;
   display: flex;
   padding: 28px;
   align-items: center;
@@ -4719,9 +4564,9 @@ body.is-futard-terminal #token-switch-loader {
   top: 0;
   right: 0;
   bottom: 0;
-  left: 42px;
+  left: 0;
   display: block;
-  width: calc(100% - 42px);
+  width: 100%;
   height: clamp(340px, 32vw, 430px);
   min-height: 340px;
   visibility: hidden;
@@ -4735,8 +4580,8 @@ body.is-futard-terminal #token-switch-loader {
 .ft-hourly-chart-enhanced .ft-hourly-live {
   position: relative;
   inset: auto;
-  width: calc(100% - 42px);
-  margin-left: 42px;
+  width: 100%;
+  margin-left: 0;
   visibility: visible;
   pointer-events: auto;
 }
@@ -4860,35 +4705,6 @@ body.is-futard-terminal #token-switch-loader {
 
 .orx-liveline-root > div:not(.orx-liveline-canvas) {
   display: none !important;
-}
-
-.orx-liveline-chart-host::after,
-.ft-hourly-live[data-ft-chart-engine="liveline"]::after {
-  content: "";
-  position: absolute;
-  z-index: 6;
-  width: 1px;
-  background: color-mix(in srgb, var(--ft-ink-strong, #ecece8) 38%, transparent);
-  opacity: 0;
-  transform: translateX(-0.5px);
-  pointer-events: none;
-}
-
-.orx-liveline-chart-host::after {
-  top: 42px;
-  bottom: 30px;
-  left: var(--orx-liveline-crosshair-x, 12px);
-}
-
-.ft-hourly-live[data-ft-chart-engine="liveline"]::after {
-  top: 54px;
-  bottom: 30px;
-  left: var(--ft-liveline-crosshair-x, 12px);
-}
-
-.orx-liveline-chart-host.has-liveline-crosshair::after,
-.ft-hourly-live[data-ft-chart-engine="liveline"].has-liveline-crosshair::after {
-  opacity: 1;
 }
 
 .orx-liveline-gap-mask {
@@ -5597,7 +5413,7 @@ html[data-chart-engine="liveline"] .tv-logo-circle {
     padding: 9px 4px;
   }
 
-  .ft-chart-market-metric[data-ft-chart-header-metric="liquidity"] {
+  .ft-chart-market-metric[data-ft-chart-header-metric="treasury"] {
     grid-column: span 2;
   }
 
@@ -6379,7 +6195,7 @@ body.is-token-markets .token-markets-root {
     font-size: 16px;
   }
 
-  .ft-chart-market-metric[data-ft-chart-header-metric="liquidity"] {
+  .ft-chart-market-metric[data-ft-chart-header-metric="treasury"] {
     grid-column: span 2;
   }
 
@@ -6397,8 +6213,8 @@ body.is-token-markets .token-markets-root {
 
   .ft-hourly-readout {
     top: 8px;
-    left: 52px;
-    max-width: calc(100% - 62px);
+    left: 10px;
+    max-width: calc(100% - 20px);
     gap: 1px;
   }
 
@@ -10357,14 +10173,14 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-plot-shell {
-  height: calc(100% - 42px);
+  height: 100%;
   min-height: 0;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-live {
   height: 100%;
   min-height: 0;
-  border-top: 1px solid #292929;
+  border-top: 0;
 }
 
 [data-ft-mode="token"].ft-proposal-focus .ft-hourly-plot-shell.ft-has-twap-progress .ft-hourly-live {
@@ -10477,76 +10293,6 @@ body.chart-frame-expanded .ft-ownership-chart-panel.is-expanded .ft-ownership-ch
 
 [data-ft-mode="token"].ft-proposal-focus .ft-decision-transaction-branch[data-branch="fail"] {
   color: #ff737e;
-}
-
-.ft-decision-transaction-summary {
-  display: flex;
-  min-width: 0;
-  height: 28px;
-  margin: 0;
-  flex: 0 0 auto;
-  align-items: stretch;
-  gap: 5px;
-  color: #8d8c86;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 9px;
-  line-height: 1;
-}
-
-.ft-decision-trades-reset {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #e9e8e4;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-
-.ft-decision-trades-reset:not(.ft-is-active) {
-  color: #8d8c86;
-}
-
-.ft-decision-transaction-summary > button {
-  min-width: 58px;
-  padding: 0 8px;
-  border: 1px solid currentcolor;
-  border-radius: 2px;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.ft-decision-support-pass {
-  background: #15352b;
-  color: #58dcb0;
-}
-
-.ft-decision-support-fail {
-  background: #3b1c21;
-  color: #ff737e;
-}
-
-.ft-decision-support-pass:hover,
-.ft-decision-support-pass:focus-visible,
-.ft-decision-support-pass.ft-is-active {
-  background: #58dcb0;
-  color: #07130f;
-}
-
-.ft-decision-support-fail:hover,
-.ft-decision-support-fail:focus-visible,
-.ft-decision-support-fail.ft-is-active {
-  background: #ff737e;
-  color: #19080b;
-}
-
-.ft-decision-transaction-summary b {
-  font-weight: 700;
 }
 
 .ft-decision-transaction-trade {
@@ -12005,11 +11751,6 @@ html[data-01rx-chart-frame="true"] body.is-token #chart-legend-actions {
   padding-left: 10px;
   font-size: 10px;
   line-height: 1.2;
-}
-
-.ft-decision-transaction-summary {
-  height: 28px;
-  font-size: 9px;
 }
 
 .ft-decision-transaction-side {

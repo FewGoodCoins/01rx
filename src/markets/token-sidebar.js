@@ -66,11 +66,20 @@ function navPerToken(row) {
 }
 
 function marketCap(row) {
-  return positiveNumber(
+  const published = positiveNumber(
     row?.marketCap,
     row?.mcap,
     row?.navSnapshot?.market?.marketCap,
   );
+  if (published != null) return published;
+  const spot = positiveNumber(row?.spot, row?.price, row?.navSnapshot?.market?.spot);
+  const supply = positiveNumber(
+    row?.effectiveSupply,
+    row?.circulatingSupply,
+    row?.navSnapshot?.supply?.effective,
+    row?.navSnapshot?.supply?.circulating,
+  );
+  return spot != null && supply != null ? spot * supply : null;
 }
 
 function volume24h(row) {
@@ -83,24 +92,27 @@ function formatPrice(value) {
   return price >= 1 ? `$${price.toFixed(2)}` : `$${price.toFixed(4)}`;
 }
 
+function formatMarketCap(value) {
+  const marketCapUsd = positiveNumber(value);
+  if (marketCapUsd == null) return '— MC';
+  const units = [
+    [1e12, 'T'],
+    [1e9, 'B'],
+    [1e6, 'M'],
+    [1e3, 'K'],
+  ];
+  const unit = units.find(([threshold]) => marketCapUsd >= threshold);
+  if (!unit) return `$${marketCapUsd.toFixed(marketCapUsd >= 100 ? 0 : 2)} MC`;
+  const compact = marketCapUsd / unit[0];
+  const digits = compact >= 100 ? 0 : compact >= 10 ? 1 : 2;
+  const compactText = compact.toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+  return `$${compactText}${unit[1]} MC`;
+}
+
 function formatChange(value) {
   const change = finiteNumber(value);
   if (change == null || Math.abs(change) < 0.01) return '—';
-  return `${change > 0 ? '+' : ''}${change.toFixed(2)}%`;
-}
-
-function createStar(document, watched) {
-  const star = document.createElement('span');
-  star.className = `wl-star${watched ? ' active' : ''}`;
-  star.dataset.watchlistAction = 'toggle';
-  star.setAttribute('role', 'button');
-  star.setAttribute('tabindex', '0');
-  star.setAttribute('aria-label', watched ? 'Remove from watchlist' : 'Add to watchlist');
-  star.setAttribute('aria-pressed', String(watched));
-  star.innerHTML = watched
-    ? '<svg viewBox="0 0 20 18" aria-hidden="true"><polygon points="10,1 12.6,6.4 18.6,7.2 14.3,11.4 15.3,17.3 10,14.5 4.7,17.3 5.7,11.4 1.4,7.2 7.4,6.4" fill="currentColor"></polygon></svg>'
-    : '<svg viewBox="0 0 20 18" aria-hidden="true"><polygon points="10,1 12.6,6.4 18.6,7.2 14.3,11.4 15.3,17.3 10,14.5 4.7,17.3 5.7,11.4 1.4,7.2 7.4,6.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></polygon></svg>';
-  return star;
+  return `${change > 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%`;
 }
 
 function createIcon(document, token, key) {
@@ -123,12 +135,30 @@ function createIcon(document, token, key) {
   return icon;
 }
 
-function createVerifiedBadge(document) {
+function isMetaDaoLaunchpad(value) {
+  const key = String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return [
+    'curated',
+    'permissioned',
+    'permissionless',
+    'migration',
+    'metadao',
+    'futardio',
+    'futardiocult',
+  ].includes(key);
+}
+
+function createLaunchpadBadge(document, token) {
+  if (!isMetaDaoLaunchpad(token?.launchpad)) return null;
   const badge = document.createElement('span');
-  badge.className = 'tp-verified-badge';
-  badge.title = 'Verified asset';
-  badge.setAttribute('aria-label', 'Verified asset');
-  badge.innerHTML = '<svg viewBox="0 0 18 20" aria-hidden="true"><path d="M9 1.5 15.2 4v5.4c0 4.1-2.6 7.3-6.2 9.1-3.6-1.8-6.2-5-6.2-9.1V4L9 1.5Z"></path><path d="m6 9.6 1.8 1.8 4-4.2"></path></svg>';
+  badge.className = 'tp-launchpad-badge';
+  badge.title = 'Launched on MetaDAO';
+  badge.setAttribute('aria-label', 'Launched on MetaDAO');
+  const image = document.createElement('img');
+  image.src = 'logos/meta.jpg';
+  image.alt = '';
+  image.setAttribute('aria-hidden', 'true');
+  badge.append(image);
   return badge;
 }
 
@@ -163,20 +193,27 @@ function createTokenRow({
   row.href = href;
   if (key === activeKey) row.setAttribute('aria-current', 'page');
 
-  row.append(createStar(document, watched));
-  row.append(createIcon(document, token, key));
+  const icon = createIcon(document, token, key);
+  const launchpadBadge = createLaunchpadBadge(document, token);
+  if (launchpadBadge) icon.append(launchpadBadge);
+  row.append(icon);
 
   const content = document.createElement('div');
   content.className = 'tp-content';
   const contentRow = document.createElement('div');
   contentRow.className = 'tp-row';
+  const identity = document.createElement('span');
+  identity.className = 'tp-token-identity';
   const name = document.createElement('span');
   name.className = 'tp-name';
   name.textContent = String(token.ticker || key).toUpperCase();
-  if (current && current.navVerified !== false) name.append(createVerifiedBadge(document));
+  const cap = document.createElement('span');
+  cap.className = 'tp-market-cap';
+  cap.textContent = formatMarketCap(currentMarketCap);
+  identity.append(name, cap);
 
   const quote = document.createElement('div');
-  quote.style.textAlign = 'right';
+  quote.className = 'tp-token-quote';
   const price = document.createElement('span');
   price.className = 'tp-price';
   price.textContent = formatPrice(spot);
@@ -187,8 +224,14 @@ function createTokenRow({
     : change24h > 0 ? ' up' : ' down'}`;
   change.dataset.metric = 'change24h';
   change.textContent = formatChange(change24h);
+  if (!flat) {
+    change.setAttribute(
+      'aria-label',
+      `${change24h > 0 ? 'Up' : 'Down'} ${Math.abs(change24h).toFixed(2)} percent`,
+    );
+  }
   quote.append(price, change);
-  contentRow.append(name, quote);
+  contentRow.append(identity, quote);
   content.append(contentRow);
   row.append(content);
   return row;
@@ -254,31 +297,6 @@ export function installBrowserMarketTokenSidebar(browserWindow) {
     return render();
   }
 
-  function sidebarStar(event) {
-    const star = event.target?.closest?.(
-      '#tlp-all-list .wl-star[data-watchlist-action="toggle"]',
-    );
-    if (!star) return null;
-    const key = normalizeTokenKey(star.closest?.('.tp-item[data-key]')?.dataset?.key || '');
-    return key ? { key, star } : null;
-  }
-
-  function handleClick(event) {
-    const target = sidebarStar(event);
-    if (!target) return;
-    event.preventDefault();
-    event.stopImmediatePropagation?.();
-    if (watchlist?.toggle) watchlist.toggle(target.key);
-    else render();
-  }
-
-  function handleKeydown(event) {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    handleClick(event);
-  }
-
-  document.addEventListener('click', handleClick);
-  document.addEventListener('keydown', handleKeydown);
   const unsubscribe = watchlist?.subscribe?.(render) || (() => {});
   const controller = {
     owner: '01rx-market-workspace',
@@ -288,8 +306,6 @@ export function installBrowserMarketTokenSidebar(browserWindow) {
       if (destroyed) return;
       destroyed = true;
       unsubscribe();
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('keydown', handleKeydown);
       if (navgator.marketTokenSidebar === controller) delete navgator.marketTokenSidebar;
     },
   };

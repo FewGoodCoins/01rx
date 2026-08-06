@@ -154,9 +154,9 @@ test('market token entry installs its ESM sidebar without loading legacy page as
     const browserWindow = dom.window;
     browserWindow.NAVGATOR = {
       projectMetadata: {
-        meta: { live: true, name: 'MetaDAO', ticker: 'META' },
+        meta: { launchpad: 'Curated', live: true, name: 'MetaDAO', ticker: 'META' },
         retired: { live: false, name: 'Retired', ticker: 'OLD' },
-        solo: { live: true, name: 'SolanaFloor', ticker: 'SOLO' },
+        solo: { launchpad: 'Curated', live: true, name: 'SolanaFloor', ticker: 'SOLO' },
       },
       shell: {
         routes: {
@@ -192,6 +192,33 @@ test('market token entry installs its ESM sidebar without loading legacy page as
     assert.equal(
       marketWindow.document.getElementById('tp-token-count').textContent,
       '2 tokens live',
+    );
+    marketWindow.NAVGATOR.marketTokenSidebar.hydrateCurrentNav({
+      tokens: [{
+        change24h: 4.25,
+        effectiveSupply: 1_500_000,
+        navVerified: false,
+        spot: 2,
+        token: 'solo',
+      }],
+    });
+    const soloSidebarRow = marketWindow.document.querySelector(
+      '#tlp-all-list .tp-item[data-key="solo"]',
+    );
+    assert.equal(
+      soloSidebarRow.querySelector('.tp-market-cap').textContent,
+      '$3M MC',
+    );
+    assert.equal(
+      soloSidebarRow.querySelector('.tp-token-secondary').textContent,
+      '▲ 4.25%',
+    );
+    assert.equal(soloSidebarRow.querySelector('.wl-star'), null);
+    const launchpadBadge = soloSidebarRow.querySelector('.tp-icon > .tp-launchpad-badge');
+    assert.equal(launchpadBadge.getAttribute('aria-label'), 'Launched on MetaDAO');
+    assert.equal(
+      launchpadBadge.querySelector('img').getAttribute('src'),
+      'logos/meta.jpg',
     );
 
     globalThis.window = marketWindow;
@@ -412,27 +439,25 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.match(main, /installBrowserEmbed\(window\)/);
 });
 
-test('market sidebar places persistent live, past, and token sections in order', () => {
+test('market sidebar places one unified decisions list before tokens', () => {
   const document = fs.readFileSync('index.html', 'utf8');
   const appCore = fs.readFileSync('src/legacy/app-core.js', 'utf8');
   const liveDecisions = document.indexOf('id="tlp-decisions-panel"');
-  const pastDecisions = document.indexOf('id="tlp-past-decisions-panel"');
+  const pastDecisions = document.indexOf('id="tlp-past-decisions-list"');
   const tokens = document.indexOf('id="tlp-all-panel"');
 
   assert.ok(liveDecisions >= 0);
   assert.ok(pastDecisions > liveDecisions);
   assert.ok(tokens > pastDecisions);
-  assert.match(
+  assert.match(document, /id="tp-decision-markets-title"[\s\S]*?>0 decisions live<\/span>/);
+  assert.doesNotMatch(
     document,
-    /tp-unified-section-toggle-live[\s\S]+aria-label="Collapse live markets"[\s\S]+M1 4L4 1L7 4/,
+    /tp-unified-section-toggle-(?:live|past)|tlp-past-decisions-panel/,
   );
-  assert.match(
+  assert.match(document, /id="tlp-all-panel" aria-label="Tokens"[\s\S]+id="tlp-all-list"/);
+  assert.doesNotMatch(
     document,
-    /tp-unified-section-toggle-past[\s\S]+aria-label="Collapse past markets"[\s\S]+M1 4L4 1L7 4/,
+    /tp-unified-section-toggle-tokens|tp-token-section-title|aria-label="Collapse tokens"/,
   );
-  assert.match(
-    document,
-    /tp-unified-section-toggle-tokens[\s\S]+aria-label="Collapse tokens"[\s\S]+M1 4L4 1L7 4/,
-  );
-  assert.match(appCore, /toggleMarketSidebarSection[\s\S]+classList\.toggle\('is-collapsed'\)/);
+  assert.match(appCore, /setMarketSidebarTab[\s\S]+applyMarketSidebarSearch\(\);/);
 });

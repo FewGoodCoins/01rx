@@ -157,9 +157,18 @@ try {
     document.documentElement.setAttribute('data-01rx-chart-frame', 'true');
     document.documentElement.setAttribute('data-chart-engine', 'liveline');
   } else {
+    var _bootSidebarTab = _bootParams.get('view') === 'markets' && _bootParams.get('tab') === 'tokens'
+      ? 'tokens'
+      : _bootParams.get('view') === 'markets' && (_bootParams.get('tab') === 'decisions' || _bootParams.get('proposal'))
+        ? 'markets'
+        : 'all';
     document.documentElement.setAttribute('data-workspace', 'markets');
     document.documentElement.setAttribute('data-market-boot', 'pending');
-    document.documentElement.setAttribute('data-market-sidebar-tab', 'all');
+    document.documentElement.setAttribute('data-market-sidebar-tab', _bootSidebarTab);
+    document.documentElement.setAttribute(
+      'data-market-sidebar-filter',
+      _bootSidebarTab === 'markets' ? 'all-markets' : 'all-tokens'
+    );
   }
   var _bootNumFont = (_bootParams.get('numfont') || '').toLowerCase();
   if (_bootNumFont === 'inter' || _bootNumFont === 'ibm') {
@@ -384,7 +393,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
   onclick="toggleShellPanel('left')"
 >
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <path d="M8.75 3.5 5.25 7l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10.75 3.5 7.25 7l3.5 3.5M6.75 3.5 3.25 7l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 </button>
 
@@ -437,150 +446,36 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       </button>
       <div id="tlp-migration-list" class="collapsed"></div>
     </div>
-    <div class="tp-market-tabs" role="tablist" aria-label="Market list views">
-      <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-past-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
+    <div class="tp-market-tabs" role="tablist" aria-label="Browse tokens and decisions">
+      <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
       <button class="tp-market-tab tp-market-tab-watchlist" id="tp-market-tab-watchlist" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="watchlist" onclick="setMarketSidebarTab('watchlist')">Watchlist</button>
       <button class="tp-market-tab" id="tp-market-tab-tokens" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="tokens" onclick="setMarketSidebarTab('tokens')">Tokens</button>
-      <button class="tp-market-tab" id="tp-market-tab-markets" type="button" role="tab" aria-selected="false" aria-controls="tlp-decisions-panel tlp-past-decisions-panel" data-market-sidebar-tab="markets" onclick="setMarketSidebarTab('markets')">Markets</button>
+      <button class="tp-market-tab" id="tp-market-tab-markets" type="button" role="tab" aria-selected="false" aria-controls="tlp-decisions-panel" data-market-sidebar-tab="markets" onclick="setMarketSidebarTab('markets')">Decisions</button>
+    </div>
+    <div class="tp-market-filter-strip" role="toolbar" aria-label="Sidebar view and sort options">
+      <button class="tp-market-filter active" type="button" data-market-sidebar-filter-slot="0" aria-pressed="true" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">All tokens</button>
+      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="1" aria-pressed="false" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">Price</button>
+      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="2" aria-pressed="false" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">Top movers</button>
+      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="3" aria-pressed="false" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">Market cap</button>
     </div>
     <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-decision-markets-title">
       <div class="tp-unified-section-heading">
-        <button
-          class="tp-unified-section-title-group tp-unified-section-toggle tp-unified-section-toggle-live"
-          type="button"
-          aria-label="Collapse live markets"
-          aria-expanded="true"
-          onclick="toggleMarketSidebarSection('tlp-decisions-panel', this)"
-        >
-          <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span id="tp-decision-markets-title">Live Markets</span>
-        </button>
-        <span class="tp-unified-section-columns tp-unified-section-columns-market">
-          <button
-            class="tp-sidebar-metric-sort"
-            id="tp-market-likelihood-sort"
-            type="button"
-            aria-label="Sort markets by likelihood, highest likelihood first"
-            aria-pressed="false"
-            data-sort-direction="none"
-            data-market-decision-sort="likelihood"
-            onclick="sortMarketSidebarDecision('likelihood', event)"
-          >
-            <span class="tp-sidebar-sort-direction" id="tp-market-likelihood-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
-            <span>Likelihood</span>
-          </button>
-          <button
-            class="tp-sidebar-metric-sort"
-            id="tp-market-signal-sort"
-            type="button"
-            aria-label="Sort markets by signal, highest signals first"
-            aria-pressed="false"
-            data-sort-direction="none"
-            data-market-decision-sort="signal"
-            onclick="sortMarketSidebarDecision('signal', event)"
-          >
-            <span class="tp-sidebar-sort-direction" id="tp-market-signal-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
-            <span>Signal</span>
-          </button>
-        </span>
-        <span class="tp-unified-section-count" id="tp-live-decision-count">0 live</span>
+        <span
+          class="tp-unified-section-title-group tp-unified-section-status"
+          id="tp-decision-markets-title"
+        >0 decisions live</span>
       </div>
-      <div id="tlp-decisions-list">
-        <div class="tp-decisions-empty" id="tp-live-decisions-empty" data-empty-title="No live markets" data-empty-detail="New live decision markets will appear here.">
-          <strong>No live markets</strong>
-          <span>New live decision markets will appear here.</span>
+      <div class="tp-decisions-list-stack">
+        <div id="tlp-decisions-list"></div>
+        <div id="tlp-past-decisions-list">
+          <div class="tp-decisions-empty" id="tp-past-decisions-empty" data-empty-title="No past decisions" data-empty-detail="Resolved decisions will appear here.">
+            <strong>No past decisions</strong>
+            <span>Resolved decisions will appear here.</span>
+          </div>
         </div>
       </div>
     </section>
-    <section class="tp-decisions-section tp-past-decisions-section" id="tlp-past-decisions-panel" aria-labelledby="tp-past-decision-markets-title">
-      <div class="tp-unified-section-heading">
-        <button
-          class="tp-unified-section-title-group tp-unified-section-toggle tp-unified-section-toggle-past"
-          type="button"
-          aria-label="Collapse past markets"
-          aria-expanded="true"
-          onclick="toggleMarketSidebarSection('tlp-past-decisions-panel', this)"
-        >
-          <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span id="tp-past-decision-markets-title">Past Markets</span>
-        </button>
-        <span class="tp-unified-section-columns tp-unified-section-columns-market">
-          <button
-            class="tp-sidebar-metric-sort"
-            id="tp-past-market-likelihood-sort"
-            type="button"
-            aria-label="Sort past markets by likelihood, highest likelihood first"
-            aria-pressed="false"
-            data-sort-direction="none"
-            data-market-decision-sort="likelihood"
-            onclick="sortMarketSidebarDecision('likelihood', event)"
-          >
-            <span class="tp-sidebar-sort-direction" id="tp-past-market-likelihood-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
-            <span>Likelihood</span>
-          </button>
-          <button
-            class="tp-sidebar-metric-sort"
-            id="tp-past-market-signal-sort"
-            type="button"
-            aria-label="Sort past markets by signal, highest signals first"
-            aria-pressed="false"
-            data-sort-direction="none"
-            data-market-decision-sort="signal"
-            onclick="sortMarketSidebarDecision('signal', event)"
-          >
-            <span class="tp-sidebar-sort-direction" id="tp-past-market-signal-sort-direction" data-market-decision-sort-direction aria-hidden="true" hidden>↓</span>
-            <span>Signal</span>
-          </button>
-        </span>
-        <span class="tp-unified-section-count" id="tp-past-decision-count">0 past</span>
-      </div>
-      <div id="tlp-past-decisions-list">
-        <div class="tp-decisions-empty" id="tp-past-decisions-empty" data-empty-title="No past markets" data-empty-detail="Resolved decision markets will appear here.">
-          <strong>No past markets</strong>
-          <span>Resolved decision markets will appear here.</span>
-        </div>
-      </div>
-    </section>
-    <section class="tp-all-section" id="tlp-all-panel" aria-labelledby="tp-token-section-title">
-      <div class="tp-unified-section-heading">
-        <button
-          class="tp-unified-section-title-group tp-unified-section-toggle tp-unified-section-toggle-tokens"
-          type="button"
-          aria-label="Collapse tokens"
-          aria-expanded="true"
-          onclick="toggleMarketSidebarSection('tlp-all-panel', this)"
-        >
-          <svg viewBox="0 0 8 5" fill="none" aria-hidden="true"><path d="M1 4L4 1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span id="tp-token-section-title">Tokens</span>
-        </button>
-        <span class="tp-unified-section-columns tp-unified-section-columns-token">
-          <button
-            class="tp-sidebar-metric-sort"
-            id="tp-token-price-sort"
-            type="button"
-            aria-label="Sort tokens by price, highest prices first"
-            aria-pressed="false"
-            data-sort-direction="none"
-            onclick="sortMarketSidebarByPrice(event)"
-          >
-            <span class="tp-sidebar-sort-direction" id="tp-token-price-sort-direction" aria-hidden="true" hidden>↓</span>
-            <span>Price</span>
-          </button>
-          <button
-            class="tp-sidebar-metric-sort tp-token-secondary-sort"
-            id="tp-token-secondary-sort"
-            type="button"
-            aria-label="Sort tokens by 24-hour change, highest gains first"
-            aria-pressed="false"
-            data-sort-direction="none"
-            onclick="sortMarketSidebarBySecondaryMetric(event)"
-          >
-            <span class="tp-sidebar-sort-direction" id="tp-token-secondary-sort-direction" aria-hidden="true" hidden>↓</span>
-            <span id="tp-token-secondary-label">24h</span>
-          </button>
-        </span>
-        <span class="tp-unified-section-count" id="tp-token-count">0 tokens live</span>
-      </div>
+    <section class="tp-all-section" id="tlp-all-panel" aria-label="Tokens">
       <button class="tp-section-label" onclick="toggleSectionArrow(this)" type="button" aria-expanded="true">
         <span style="display:flex;align-items:center;gap:6px">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>

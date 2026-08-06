@@ -973,8 +973,10 @@ window._cachedPriceMap = _cachedPriceMap;
       if (metricKey === 'change24h' && _isFlatSidebarChange(value)) {
         return '<div class="tt-change tp-token-secondary is-neutral is-flat" data-metric="change24h">—</div>';
       }
-      return '<div class="tt-change tp-token-secondary" data-metric="' + metricKey + '"><span class="' + (value >= 0 ? 'up' : 'down') + '">' +
-        _fmtSignedSidebarPct(value) + '%</span></div>';
+      return '<div class="tt-change tp-token-secondary" data-metric="' + metricKey + '" aria-label="' +
+        (value >= 0 ? 'Up ' : 'Down ') + _fmtSidebarPct(value) + ' percent"><span class="' +
+        (value >= 0 ? 'up' : 'down') + '" aria-hidden="true"><span class="tp-change-arrow">' +
+        (value >= 0 ? '▲' : '▼') + '</span> ' + _fmtSidebarPct(value) + '%</span></div>';
     }
 
     function renderRow(key, tok, overrideBadge, isWatchlist) {
@@ -982,13 +984,17 @@ window._cachedPriceMap = _cachedPriceMap;
       var spot = (lt && lt.spot) || 0;
       var chg24 = lt && lt.change24h;
       var watched = _navgatorWatchlist.has(key);
-      var verifiedBadge = lt && lt.navVerified !== false
-        ? '<span class="tp-verified-badge" title="Verified asset" aria-label="Verified asset"><svg viewBox="0 0 18 20" aria-hidden="true"><path d="M9 1.5 15.2 4v5.4c0 4.1-2.6 7.3-6.2 9.1-3.6-1.8-6.2-5-6.2-9.1V4L9 1.5Z"/><path d="m6 9.6 1.8 1.8 4-4.2"/></svg></span>'
+      var isMetaDaoLaunchpad = typeof _isMetaDaoLaunchpad === 'function'
+        ? _isMetaDaoLaunchpad(tok.launchpad)
+        : /^(curated|permissioned|permissionless|migration|metadao)$/i.test(tok.launchpad || '');
+      var launchpadBadge = isMetaDaoLaunchpad
+        ? '<span class="tp-launchpad-badge" title="Launched on MetaDAO" aria-label="Launched on MetaDAO"><img src="logos/meta.jpg" alt="" aria-hidden="true"></span>'
         : '';
       var squareCls = tok.graveyard ? ' graveyard-square-icon' : '';
       var iconH = tok.logo
-        ? '<div class="tp-icon' + squareCls + '"><img src="' + _esc(tok.logo) + '" alt="' + _esc(tok.ticker) + '" loading="lazy"></div>'
-        : '<div class="tp-icon' + squareCls + '" style="background:' + _esc(tok.color||'#2a343e') + ';font-size:12px;font-weight:700;color:#fff">' + _esc(tok.ticker[0]) + '</div>';
+        ? '<div class="tp-icon' + squareCls + '"><img src="' + _esc(tok.logo) + '" alt="' + _esc(tok.ticker) + '" loading="lazy">' + launchpadBadge + '</div>'
+        : '<div class="tp-icon' + squareCls + '" style="background:' + _esc(tok.color||'#2a343e') + ';font-size:12px;font-weight:700;color:#fff">' + _esc(tok.ticker[0]) + launchpadBadge + '</div>';
+      var marketCapLabel = fmtCompactUsd(lt && lt.mcap) + ' MC';
       var _pendingLiq = lt && lt.proposalFlag && lt.proposalFlag.type === 'liquidation' && lt.proposalFlag.state === 'pending' && !_isGraveyardToken(lt);
       var chg24Html;
       if (_isGraveyardToken(lt)) {
@@ -1018,11 +1024,9 @@ window._cachedPriceMap = _cachedPriceMap;
         ' data-sort-market-cap="' + _esc(String(lt && lt.mcap > 0 ? lt.mcap : '')) + '"' +
         ' data-sort-volume="' + _esc(String(lt && lt.volume24h > 0 ? lt.volume24h : '')) + '"' +
         ' href="' + _tokenPageUrl(key) + '">' +
-        (isWatchlist
-          ? dragHandle
-          : '<span class="wl-star' + (watched ? ' active' : '') + '" role="button" tabindex="0" data-watchlist-action="toggle" aria-label="Toggle watchlist">' + starSvg(watched) + '</span>') +
+        (isWatchlist ? dragHandle : '') +
         iconH +
-        '<div class="tp-content"><div class="tp-row"><span class="tp-name">' + _esc(tok.ticker) + verifiedBadge + '</span><div style="text-align:right"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div></div>' +
+        '<div class="tp-content"><div class="tp-row"><span class="tp-token-identity"><span class="tp-name">' + _esc(tok.ticker) + '</span><span class="tp-market-cap">' + _esc(marketCapLabel) + '</span></span><div class="tp-token-quote"><span class="tp-price">' + fmtP(spot) + '</span>' + chg24Html + '</div></div></div>' +
         '</a>';
     }
 

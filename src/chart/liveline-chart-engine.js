@@ -495,7 +495,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
 
   function emitCrosshair(point) {
     if (!point) {
-      mount.classList.remove('has-liveline-crosshair');
       crosshairSubscribers.forEach(listener => listener({
         logical: null,
         point: null,
@@ -547,6 +546,15 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
     if (removed) return;
     lastSnapshot = livelineChartSnapshot(series, { viewport });
     viewport = lastSnapshot.viewport;
+    const isEmpty = lastSnapshot.series.length === 0 && lastSnapshot.candles.length === 0;
+    mount.dataset.chartEmpty = String(isEmpty);
+    container.dataset.chartEmpty = String(isEmpty);
+    if (
+      runtime.document.documentElement?.getAttribute?.('data-01rx-chart-frame') === 'true'
+      && runtime.document.body?.classList
+    ) {
+      runtime.document.body.classList.toggle('is-empty-token-chart', isEmpty);
+    }
     const theme = runtime.document.documentElement.getAttribute('data-theme') === 'light'
       ? 'light'
       : 'dark';
@@ -569,7 +577,7 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       cursor: 'crosshair',
       data: [],
       gaps: [],
-      emptyText: 'No indexed chart history',
+      emptyText: 'No indexed chart',
       fill: !lastSnapshot.useCandles && lastSnapshot.series.length === 1,
       formatTime,
       formatValue,
@@ -614,13 +622,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
     return Math.max(1, mount.clientWidth - PLOT_PADDING.left - PLOT_PADDING.right);
   }
 
-  function setCrosshairVisual(coordinate) {
-    const x = Number(coordinate);
-    if (!Number.isFinite(x)) return;
-    mount.style.setProperty('--orx-liveline-crosshair-x', `${x}px`);
-    mount.classList.add('has-liveline-crosshair');
-  }
-
   function showOwnedCrosshair(clientX, clientY) {
     const rect = mount.getBoundingClientRect();
     const x = Number(clientX) - rect.left;
@@ -637,7 +638,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       emitCrosshair(null);
       return;
     }
-    setCrosshairVisual(x);
     const time = timeScale.coordinateToTime(x);
     const payload = crosshairPayload(time, { x, y });
     crosshairSubscribers.forEach(listener => listener(payload));
@@ -839,6 +839,8 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       root.unmount();
       mount.remove();
       delete container.dataset.chartEngine;
+      delete container.dataset.chartEmpty;
+      runtime.document.body?.classList?.remove?.('is-empty-token-chart');
     },
     removePane() {},
     removeSeries(seriesApi) {
@@ -859,7 +861,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
         emitCrosshair(null);
         return;
       }
-      setCrosshairVisual(x);
       const payload = crosshairPayload(sourceTime, { x, y });
       crosshairSubscribers.forEach(listener => listener(payload));
     },

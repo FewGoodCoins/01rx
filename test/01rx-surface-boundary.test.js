@@ -36,6 +36,10 @@ const proposalLivelineSource = fs.readFileSync(
   new URL('../src/markets/proposal-history-liveline.js', import.meta.url),
   'utf8',
 );
+const livelineEngineSource = fs.readFileSync(
+  new URL('../src/chart/liveline-chart-engine.js', import.meta.url),
+  'utf8',
+);
 const proposalPresentationSource = fs.readFileSync(
   new URL('../src/markets/proposal-history-presentation.js', import.meta.url),
   'utf8',
@@ -298,49 +302,59 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
   assert.match(
     indexSource,
-    /<button[\s\S]*?tp-unified-section-toggle-live[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-decisions-panel', this\)"[\s\S]*?id="tp-decision-markets-title">Live Markets<\/span>[\s\S]*?<\/button>/,
+    /<span[\s\S]*?class="tp-unified-section-title-group tp-unified-section-status"[\s\S]*?id="tp-decision-markets-title"[\s\S]*?>0 decisions live<\/span>/,
   );
   assert.match(
-    indexSource,
-    /<button[\s\S]*?tp-unified-section-toggle-past[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-past-decisions-panel', this\)"[\s\S]*?id="tp-past-decision-markets-title">Past Markets<\/span>[\s\S]*?<\/button>/,
+    triviumTerminalCss,
+    /\.tp-unified-section-status\s*\{[\s\S]*?font-size: 12px;/,
   );
-  assert.match(
+  assert.doesNotMatch(
     indexSource,
-    /<button[\s\S]*?tp-unified-section-toggle-tokens[\s\S]*?onclick="toggleMarketSidebarSection\('tlp-all-panel', this\)"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?<\/button>/,
+    /tp-unified-section-toggle-(?:live|past)|tp-past-decision-markets-title/,
+  );
+  assert.doesNotMatch(
+    indexSource,
+    /tp-unified-section-toggle-tokens|tp-token-section-title|aria-label="Collapse tokens"/,
   );
 });
 
-test('market sidebar underline slides between evenly spaced tabs', () => {
+test('market sidebar uses compact reference tabs and source-backed filter pills', () => {
   assert.match(
-    refinementCss,
-    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{[\s\S]*?border-bottom: 0;/,
+    indexSource,
+    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Decisions<\/button>/,
   );
   assert.match(
-    refinementCss,
-    /html\[data-workspace="markets"\] \.tp-unified-section-heading\s*\{[\s\S]*?border-top: 0;/,
+    indexSource,
+    /class="tp-market-filter-strip"[\s\S]*?data-market-sidebar-filter-slot="0"[\s\S]*?data-market-sidebar-filter-slot="3"/,
   );
   assert.match(
-    refinementCss,
-    /data-market-sidebar-tab="watchlist"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(37\.5% \+ 2px\);\s*--tp-market-tab-width: 58px;/,
+    appCoreSource,
+    /var _marketSidebarFilterConfig = \{[\s\S]*?watchlist:[\s\S]*?tokens:[\s\S]*?markets:/,
   );
   assert.match(
-    refinementCss,
-    /data-market-sidebar-tab="all"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(12\.5% \+ 6px\);\s*--tp-market-tab-width: 28px;/,
+    appCoreSource,
+    /all:\s*\[[\s\S]*?key: 'all-tokens'[\s\S]*?key: 'price'[\s\S]*?key: 'movers'[\s\S]*?key: 'market-cap'[\s\S]*?\],\s*watchlist:/,
+  );
+  assert.doesNotMatch(
+    appCoreSource,
+    /all:\s*\[[\s\S]*?key: '(?:live|prior)'[\s\S]*?\],\s*watchlist:/,
   );
   assert.match(
-    refinementCss,
-    /data-market-sidebar-tab="markets"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(87\.5% - 6px\);\s*--tp-market-tab-width: 50px;/,
+    appCoreSource,
+    /function setMarketSidebarFilter\(nextFilter\)[\s\S]*?_applyMarketSidebarFilterSort\(\);[\s\S]*?applyMarketSidebarSearch\(\);/,
   );
   assert.match(
-    refinementCss,
-    /data-market-sidebar-tab="tokens"\] \.tp-market-tabs\s*\{\s*--tp-market-tab-center: calc\(62\.5% - 2px\);\s*--tp-market-tab-width: 44px;/,
+    triviumTerminalCss,
+    /--sidebar-width: 280px;[\s\S]*?\.tp-market-tabs\s*\{[\s\S]*?height: 37px;[\s\S]*?background: #15141d !important;/,
   );
   assert.match(
-    refinementCss,
-    /\.tp-market-tabs::after\s*\{[\s\S]*?left: var\(--tp-market-tab-center\);[\s\S]*?width: var\(--tp-market-tab-width\);[\s\S]*?transform: translateX\(-50%\);[\s\S]*?left 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\),[\s\S]*?width 180ms cubic-bezier\(0\.22, 1, 0\.36, 1\);/,
+    triviumTerminalCss,
+    /\.tp-market-tabs::after\s*\{\s*display: none !important;/,
   );
-  assert.doesNotMatch(refinementCss, /\.tp-market-tab\.active::after/);
-  assert.doesNotMatch(refinementCss, /\.tp-market-tab-watchlist\.active/);
+  assert.match(
+    triviumTerminalCss,
+    /#tlp-all-list \.tp-item\s*\{[\s\S]*?height: 54px;[\s\S]*?grid-template-columns: 35px minmax\(0, 1fr\);/,
+  );
 });
 
 test('recent transaction rows use an open tape without divider lines', () => {
@@ -382,14 +396,14 @@ test('recent transaction rows use an open tape without divider lines', () => {
   );
 });
 
-test('decision support filters stay compact and full trade labels remain visible', () => {
-  assert.match(
+test('decision support filter strip stays removed and full trade labels remain visible', () => {
+  assert.doesNotMatch(
     frameCss,
-    /\.ft-decision-support-pass\s*\{[\s\S]*?background: #15352b;[\s\S]*?color: #58dcb0;/,
+    /\.ft-decision-support-pass|\.ft-decision-support-fail|\.ft-decision-transaction-summary/,
   );
-  assert.match(
-    frameCss,
-    /\.ft-decision-support-fail\s*\{[\s\S]*?background: #3b1c21;[\s\S]*?color: #ff737e;/,
+  assert.doesNotMatch(
+    decisionMarketControllerSource,
+    /filter-decision-trades|decision-support-pass|decision-support-fail|Outcome support/,
   );
   assert.match(
     frameCss,
@@ -526,14 +540,18 @@ test('interactive decision charts use Liveline through a renderer-independent pr
   );
 });
 
-test('decision chart plot starts without the exposed toolbar divider', () => {
+test('decision chart plot occupies the former toolbar and cursor-rail space', () => {
   assert.match(
     frameCss,
-    /\.ft-hourly-toolbar\s*\{[\s\S]*?border-bottom: 0;/,
+    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-hourly-plot-shell\s*\{[\s\S]*?height: 100%;/,
   );
   assert.match(
     frameCss,
-    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-hourly-live\s*\{[\s\S]*?border-top: 1px solid #292929;/,
+    /\.ft-hourly-chart-enhanced \.ft-hourly-live\s*\{[\s\S]*?width: 100%;[\s\S]*?margin-left: 0;/,
+  );
+  assert.match(
+    frameCss,
+    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-hourly-live\s*\{[\s\S]*?border-top: 0;/,
   );
 });
 
@@ -556,6 +574,19 @@ test('decision chart uses one light TWAP-start line without phase backgrounds', 
   );
   assert.doesNotMatch(frameCss, /ft-hourly-(?:pre|post)-twap-band|ft-liveline-phase-band/);
   assert.doesNotMatch(proposalLivelineSource, /phaseBandElements|data-ft-chart-band/);
+});
+
+test('chart hover readouts do not draw a vertical crosshair guide', () => {
+  assert.doesNotMatch(frameCss, /has-liveline-crosshair::after|liveline-crosshair-x/);
+  assert.doesNotMatch(
+    livelineEngineSource,
+    /--orx-liveline-crosshair-x|classList\.add\('has-liveline-crosshair'\)/,
+  );
+  assert.doesNotMatch(
+    proposalLivelineSource,
+    /--ft-liveline-crosshair-x|classList\.add\('has-liveline-crosshair'\)/,
+  );
+  assert.match(proposalLivelineSource, /updateReadoutAt\(lastProjection\.sourceTimeAtPlotRatio\(ratio\)\)/);
 });
 
 test('decision chart keeps one solid white origin and solid coordinate-bound final dots', () => {
@@ -596,10 +627,6 @@ test('decision chart keeps one solid white origin and solid coordinate-bound fin
     /\.orx-liveline-endpoint\s*\{[\s\S]*?border: 0;[\s\S]*?background: var\(--orx-endpoint-color, #5b8cff\);[\s\S]*?box-shadow: none;/,
   );
   assert.match(geometryCss, /\.ft-liveline-start-point,[\s\S]*?\.ft-liveline-end-point,[\s\S]*?\.orx-liveline-endpoint,/);
-  assert.match(
-    frameCss,
-    /\.ft-hourly-live\[data-ft-chart-engine="liveline"\]::after[\s\S]*?width: 1px;/,
-  );
 });
 
 test('decision chart supports broad whitespace and TradingView-like axis scaling', () => {
@@ -649,26 +676,40 @@ test('proposal trade actions share the blue-violet Trivium review treatment', ()
   );
 });
 
-test('market sidebar keeps live and past decision markets independently discoverable', () => {
+test('market sidebar uses one decision heading, pins live decisions in All, and lists every decision in Decisions', () => {
   assert.match(
     sharedTerminalCss,
     /#tlp-all-list,[\s\S]*?#tlp-wl-list\s*\{[\s\S]*?scrollbar-width: none;[\s\S]*?-ms-overflow-style: none;/,
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">Live Markets<\/span>[\s\S]*?id="tp-live-decision-count">0 live<\/span>[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tlp-past-decisions-panel"[\s\S]*?id="tp-past-decision-markets-title">Past Markets<\/span>[\s\S]*?id="tp-past-decision-count">0 past<\/span>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"/,
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title"[\s\S]*?>0 decisions live<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"/,
+  );
+  assert.doesNotMatch(indexSource, /tp-(?:live|past)-decision-count|tlp-past-decisions-panel/);
+  assert.match(
+    indexSource,
+    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Decisions<\/button>/,
   );
   assert.match(
     indexSource,
-    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Markets<\/button>/,
+    /id="tp-market-tab-all"[^>]*aria-controls="tlp-decisions-panel tlp-all-panel"/,
   );
-  assert.match(indexSource, /aria-controls="tlp-decisions-panel tlp-past-decisions-panel"/);
+  assert.match(indexSource, /id="tp-market-tab-markets"[^>]*aria-controls="tlp-decisions-panel"/);
+  assert.doesNotMatch(indexSource, /Ownership \+ decisions|in one view/);
+  assert.match(
+    triviumTerminalCss,
+    /data-market-sidebar-tab="all"\] #tlp-past-decisions-list,[\s\S]*?display: none !important;/,
+  );
   assert.doesNotMatch(indexSource, /tlp-decision-history-toggle-slot/);
   assert.doesNotMatch(indexSource, /<span>Status<\/span>/);
   assert.doesNotMatch(indexSource, /class="tp-(?:decision|token)-columns"|<span>Market<\/span>|tp-token-primary-label|>Asset ↓<\/button>/);
   assert.match(
     indexSource,
-    /id="tlp-all-panel"[\s\S]*?aria-label="Collapse tokens"[\s\S]*?id="tp-token-section-title">Tokens<\/span>[\s\S]*?class="tp-unified-section-columns tp-unified-section-columns-token"[\s\S]*?id="tp-token-price-sort"[\s\S]*?onclick="sortMarketSidebarByPrice\(event\)"[\s\S]*?id="tp-token-price-sort-direction"[\s\S]*?>Price<\/span>[\s\S]*?id="tp-token-secondary-sort"[\s\S]*?onclick="sortMarketSidebarBySecondaryMetric\(event\)"[\s\S]*?id="tp-token-secondary-sort-direction"[\s\S]*?id="tp-token-secondary-label">24h<\/span>[\s\S]*?id="tp-token-count">0 tokens live<\/span>/,
+    /id="tlp-all-panel" aria-label="Tokens"[\s\S]*?id="tlp-all-list"/,
+  );
+  assert.doesNotMatch(
+    indexSource,
+    /tp-unified-section-columns-token|tp-token-(?:price|secondary)-sort|tp-token-count/,
   );
   assert.match(
     refinementCss,
@@ -700,6 +741,10 @@ test('market sidebar keeps live and past decision markets independently discover
     refinementCss,
     /#tlp-decisions-list,[\s\S]*?#tlp-past-decisions-list,[\s\S]*?#tlp-all-list\s*\{[\s\S]*?overflow-y: auto;/,
   );
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-decision-project \.ft-token-logo-small\s*\{[\s\S]*?width: 35px !important;[\s\S]*?height: 35px !important;[\s\S]*?flex: 0 0 35px !important;[\s\S]*?object-fit: cover;/,
+  );
   assert.match(refinementCss, /\.tp-decision-live-dot\s*\{[\s\S]*?grid-column: 1;/);
   assert.match(
     refinementCss,
@@ -712,29 +757,22 @@ test('market sidebar keeps live and past decision markets independently discover
   assert.match(appCoreSource, /\['tlp-decisions-list', 'live'\],[\s\S]*?\['tlp-past-decisions-list', 'past'\]/);
 });
 
-test('token and market metric headers show the active sort direction', () => {
+test('sidebar filter pills retain sorting after redundant metric headers are removed', () => {
   assert.match(
     appCoreSource,
     /function _sortMarketSidebarTokens\(key, event\)\s*\{[\s\S]*?_marketTokenSortKey === key[\s\S]*?_marketSidebarSortAscending = !_marketSidebarSortAscending;[\s\S]*?_marketTokenSortKey = key;[\s\S]*?_marketSidebarSortAscending = false;[\s\S]*?applyMarketSidebarSearch\(\);/,
   );
   assert.match(appCoreSource, /function sortMarketSidebarByPrice\(event\)\s*\{\s*_sortMarketSidebarTokens\('price', event\);/);
-  assert.match(appCoreSource, /direction\.textContent = ascending \? '↑' : '↓';/);
-  assert.match(appCoreSource, /function sortMarketSidebarDecision\(key, event\)[\s\S]*?_marketDecisionSortKey === key[\s\S]*?_marketDecisionSortAscending = !_marketDecisionSortAscending;[\s\S]*?applyMarketSidebarSearch\(\);/);
   assert.match(appCoreSource, /var _marketDecisionSortKeys = \['default', 'likelihood', 'signal'\];/);
-  assert.match(appCoreSource, /config\.buttonSelector[\s\S]*?document\.querySelectorAll\(config\.buttonSelector\)/);
   assert.match(decisionMarketControllerSource, /data-sort-likelihood="\$\{Number\.isFinite\(likelihoodPct\)[\s\S]*?data-sort-signal="\$\{Number\.isFinite\(signalPct\)/);
-  assert.match(indexSource, /id="tp-token-price-sort-direction"[^>]*hidden>↓<\/span>/);
-  assert.match(indexSource, /id="tp-token-secondary-sort-direction"[^>]*hidden>↓<\/span>/);
-  assert.match(indexSource, /id="tp-market-likelihood-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('likelihood', event\)"[\s\S]*?id="tp-market-likelihood-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Likelihood<\/span>/);
-  assert.match(indexSource, /id="tp-market-signal-sort"[\s\S]*?onclick="sortMarketSidebarDecision\('signal', event\)"[\s\S]*?id="tp-market-signal-sort-direction"[^>]*hidden>↓<\/span>[\s\S]*?>Signal<\/span>/);
   assert.match(appCoreSource, /var _marketTokenSecondaryMetric = 'change24h';/);
-  assert.match(
-    refinementCss,
-    /\.tp-sidebar-metric-sort\s*\{[\s\S]*?cursor: pointer;/,
+  assert.doesNotMatch(
+    indexSource,
+    /tp-unified-section-columns-(?:token|market)|tp-sidebar-metric-sort/,
   );
   assert.match(
-    refinementCss,
-    /\.tp-unified-section-columns\s*\{[\s\S]*?font-size: 9px;[\s\S]*?text-transform: none;/,
+    appCoreSource,
+    /markets:\s*\[[\s\S]*?key: 'all-markets'[\s\S]*?key: 'live'[\s\S]*?key: 'prior'[\s\S]*?key: 'likelihood'/,
   );
   assert.match(
     refinementCss,
@@ -765,26 +803,26 @@ test('spot chart keeps its expansion control aligned after temporary controls ar
   );
 });
 
-test('decision chart toolbar routes proposal details to the right rail', () => {
+test('decision chart gives the full panel to data without a duplicate right-rail context card', () => {
   assert.doesNotMatch(
     decisionMarketControllerSource,
     /hourly-series-trigger|TradingView weekly timeframe placeholder|ft-hourly-growth-control/,
   );
-  assert.match(
+  assert.doesNotMatch(
     decisionMarketControllerSource,
-    /function renderChartExpansionControl\(\)[\s\S]*?data-ft-action="toggle-chart-expansion"/,
+    /renderChartExpansionControl|data-ft-action="toggle-chart-expansion"|ft-chart-crosshair-rail/,
   );
-  assert.match(
+  assert.doesNotMatch(
     decisionMarketControllerSource,
-    /function renderProposalDetailsControl\([\s\S]*?data-ft-action="toggle-proposal-details"/,
+    /renderMarketContext|market-context|toggle-proposal-details|proposal-details/,
   );
-  assert.match(
+  assert.doesNotMatch(
     decisionMarketControllerSource,
-    /proposalDetailsPlacement: 'ticket'/,
+    /<div class="ft-hourly-toolbar">/,
   );
-  assert.match(
+  assert.doesNotMatch(
     terminalShellSource,
-    /class="ft-ticket-market-context"[\s\S]*?data-ft-region="market-context"/,
+    /ft-ticket-market-context|data-ft-region="market-context"/,
   );
 });
 
@@ -804,7 +842,7 @@ test('desktop spot ticket grows to expose every control without internal scrolli
   );
 });
 
-test('desktop execution and market context share one contained right-rail scroller', () => {
+test('desktop execution rail stays contained while market information remains below the chart', () => {
   assert.match(
     triviumTerminalCss,
     /\.ft-ticket-column\s*\{[\s\S]*?display: block !important;[\s\S]*?overflow-y: auto !important;[\s\S]*?scrollbar-gutter: stable;/,
@@ -817,9 +855,13 @@ test('desktop execution and market context share one contained right-rail scroll
     triviumTerminalCss,
     /\.ft-decision-ticket-scroll\s*\{[\s\S]*?overflow: visible !important;/,
   );
+  assert.doesNotMatch(
+    decisionMarketControllerSource,
+    /function renderMarketContext\(|data-ft-role="linked-market-information"/,
+  );
   assert.match(
     decisionMarketControllerSource,
-    /function renderMarketContext\(\)[\s\S]*?Market information[\s\S]*?renderMarketContextTransactions/,
+    /function renderMarketInformationTabs[\s\S]*?Trades[\s\S]*?Holders[\s\S]*?Discussion[\s\S]*?Decisions/,
   );
   assert.match(
     decisionMarketControllerSource,
@@ -828,6 +870,14 @@ test('desktop execution and market context share one contained right-rail scroll
 });
 
 test('spot and decision routes share one authoritative desktop terminal geometry', () => {
+  assert.match(
+    geometryCss,
+    /\.ft-chart-launchpad-mark,\s*\.ft-chart-launchpad-mark img,/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-chart-launchpad-mark img\s*\{[\s\S]*?clip-path: circle\(50% at 50% 50%\);/,
+  );
   assert.match(
     triviumTerminalCss,
     /--sidebar-width: clamp\(286px, 19vw, 390px\);/,

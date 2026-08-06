@@ -166,7 +166,11 @@ test('market sidebar separates decision markets from tokens while retaining watc
 
   assert.deepEqual(tabs, ['all', 'watchlist', 'tokens', 'markets']);
   assert.match(appCore, /function setMarketSidebarTab\(nextTab\)/);
-  assert.match(appCore, /var _marketSidebarTab = 'all';/);
+  assert.match(
+    appCore,
+    /var _marketSidebarTab = \(function\(\)[\s\S]*?params\.get\('tab'\) === 'tokens'[\s\S]*?return 'markets';[\s\S]*?return document\.documentElement\.dataset\.marketSidebarTab \|\| 'all';/,
+  );
+  assert.match(appCore, /function setMarketSidebarFilter\(nextFilter\)/);
   assert.match(appCore, /item\.dataset\.watched === 'true'/);
   assert.match(tokenPage, /data-watched=/);
 });
