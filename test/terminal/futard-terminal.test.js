@@ -571,7 +571,7 @@ function makeWindow(options = {}) {
     ? `
       <section id="tlp-decisions-panel" hidden>
         <span id="tp-decision-markets-title">
-          <span data-market-sidebar-section-title="all">Decisions Live</span>
+          <span data-market-sidebar-section-title="all">Decisions</span>
           <span data-market-sidebar-section-title="markets">Decisions</span>
         </span>
         <div id="tlp-decisions-list">
@@ -2168,7 +2168,7 @@ test('decision sidebar keeps a clean zero-live state beside available proposal h
   assert.equal(liveSection.hidden, false);
   assert.equal(
     window.document.querySelector('[data-market-sidebar-section-title="all"]').textContent,
-    'Decisions Live',
+    'Decisions',
   );
   const liveList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveList.querySelectorAll('.tp-decision-item').length, 0);
@@ -2433,6 +2433,10 @@ test('decision sidebar only shows markets for tokens in the 01Resolved listed-to
 
 test('decision sidebar follows every proposal archive page across tokens', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
+  let resolveSecondPage;
+  const secondPageGate = new Promise((resolve) => {
+    resolveSecondPage = resolve;
+  });
   const firstPage = {
     ...PROPOSAL_INDEX,
     pagination: {
@@ -2459,12 +2463,9 @@ test('decision sidebar follows every proposal archive page across tokens', async
     url: 'https://navgator.xyz/?token=loyal&view=markets',
     sidebar: true,
     proposalIndexResponder(url) {
-      return {
-        ok: true,
-        data: new URL(url).searchParams.get('cursor') === 'archive-page-2'
-          ? secondPage
-          : firstPage,
-      };
+      return new URL(url).searchParams.get('cursor') === 'archive-page-2'
+        ? secondPageGate
+        : { ok: true, data: firstPage };
     },
   });
   window.applyMarketSidebarSearch = () => {};
@@ -2475,13 +2476,34 @@ test('decision sidebar follows every proposal archive page across tokens', async
     token: 'loyal',
   });
   const mounted = trackMount(controller, window);
-  await controller.ready;
-  await settle(window);
+  const readyOutcome = await Promise.race([
+    controller.ready.then(() => 'ready'),
+    new Promise(resolve => window.setTimeout(() => resolve('blocked'), 100)),
+  ]);
+  assert.equal(
+    readyOutcome,
+    'ready',
+    'the first data-backed render must not wait for the deferred archive page',
+  );
 
-  const proposalRequests = requests.filter(url => /view=proposals(?:&|$)/.test(url));
+  let proposalRequests = requests.filter(url => /view=proposals(?:&|$)/.test(url));
   assert.equal(proposalRequests.length, 2);
   assert.equal(new URL(proposalRequests[1]).searchParams.get('cursor'), 'archive-page-2');
   assert.equal(new URL(proposalRequests[1]).searchParams.get('limit'), '100');
+  assert.deepEqual(
+    [...window.document.querySelectorAll('#tlp-past-decisions-list .tp-decision-item')]
+      .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
+    ['meta:passed'],
+  );
+
+  resolveSecondPage({ ok: true, data: secondPage });
+  assert.equal(await settleUntil(window, () => (
+    window.document.querySelectorAll(
+      '#tlp-past-decisions-list .tp-decision-item',
+    ).length === 2
+  )), true);
+  proposalRequests = requests.filter(url => /view=proposals(?:&|$)/.test(url));
+  assert.equal(proposalRequests.length, 2);
   assert.deepEqual(
     [...window.document.querySelectorAll('#tlp-decisions-list .tp-decision-item')]
       .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
@@ -2494,11 +2516,123 @@ test('decision sidebar follows every proposal archive page across tokens', async
   );
   assert.equal(
     window.document.querySelector('[data-market-sidebar-section-title="all"]').textContent,
-    'Decisions Live',
+    'Decisions',
   );
   assert.equal(window.document.getElementById('tp-live-decisions-empty').hidden, true);
   assert.equal(proposalRows(root).length, 1);
   assert.match(proposalRows(root)[0].textContent, /Loyal · LOYAL/);
+
+  cleanupMount(mounted);
+});
+
+test('proposal archive continuation failure preserves page one and exposes retry', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const firstPage = {
+    ...PROPOSAL_INDEX,
+    pagination: {
+      ...PROPOSAL_INDEX.pagination,
+      limit: 2,
+      returned: 2,
+      total: 3,
+      nextCursor: 'archive-page-2',
+    },
+    proposals: PROPOSAL_INDEX.proposals.slice(0, 2),
+  };
+  const { requests, root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=loyal&view=markets',
+    sidebar: true,
+    proposalIndexResponder(url) {
+      if (new URL(url).searchParams.has('cursor')) {
+        throw new Error('archive continuation unavailable');
+      }
+      return { ok: true, data: firstPage };
+    },
+  });
+  window.applyMarketSidebarSearch = () => {};
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  assert.equal(await settleUntil(window, () => (
+    byAction(root, 'load-more-proposals')?.disabled === false
+  )), true);
+
+  assert.equal(
+    requests.filter(url => /view=proposals(?:&|$)/.test(url)).length,
+    2,
+  );
+  assert.deepEqual(
+    [...window.document.querySelectorAll('#tlp-past-decisions-list .tp-decision-item')]
+      .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
+    ['meta:passed'],
+  );
+  assert.match(
+    byRole(root, 'status').textContent,
+    /proposal history is temporarily unavailable/i,
+  );
+  assert.equal(byAction(root, 'load-more-proposals').textContent, 'Load more');
+
+  cleanupMount(mounted);
+});
+
+test('token switches abort a stale background proposal archive continuation', async () => {
+  let archiveSignal = null;
+  let archiveAborted = false;
+  let firstPageRead = false;
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const firstPage = {
+    ...PROPOSAL_INDEX,
+    pagination: {
+      ...PROPOSAL_INDEX.pagination,
+      limit: 2,
+      returned: 2,
+      total: 3,
+      nextCursor: 'archive-page-2',
+    },
+    proposals: PROPOSAL_INDEX.proposals.slice(0, 2),
+  };
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=loyal&view=markets',
+    proposalIndexResponder(url, requestOptions, responses) {
+      const cursor = new URL(url).searchParams.get('cursor');
+      if (cursor === 'archive-page-2') {
+        archiveSignal = requestOptions.cancelSignal;
+        return new Promise((resolve, reject) => {
+          archiveSignal.addEventListener('abort', () => {
+            archiveAborted = true;
+            const error = new Error('superseded proposal archive');
+            error.name = 'AbortError';
+            reject(error);
+          }, { once: true });
+        });
+      }
+      if (!firstPageRead) {
+        firstPageRead = true;
+        return { ok: true, data: firstPage };
+      }
+      return { ok: true, data: responses.proposalIndex };
+    },
+  });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+  assert.ok(archiveSignal);
+
+  await controller.setToken('meta');
+
+  assert.equal(archiveAborted, true);
+  assert.equal(archiveSignal.aborted, true);
+  assert.equal(controller.getState().token, 'meta');
+  assert.equal(controller.getState().selectedId, PASSED_PROPOSAL_ID);
 
   cleanupMount(mounted);
 });
@@ -2595,6 +2729,71 @@ test('token Markets replaces an unknown token with the canonical SOLO spot works
   assert.equal(byRole(root, 'market-title').textContent, 'SOLO');
   assert.match(byRole(root, 'status').textContent, /NOTREAL is not an indexed 01r\.trade asset/i);
   assert.equal(root.classList.contains('ft-has-system-message'), true);
+
+  cleanupMount(mounted);
+});
+
+test('known ownership tokens expose a safe curated shell while live data hydrates', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  let resolveActiveMarkets;
+  const activeMarketsGate = new Promise((resolve) => {
+    resolveActiveMarkets = resolve;
+  });
+  const { root, window } = makeWindow({
+    activeMarketsResponder() {
+      return activeMarketsGate;
+    },
+    url: 'https://navgator.xyz/?token=loyal&view=markets&tab=tokens',
+  });
+  window.NAVGATOR.projectMetadata = {
+    loyal: {
+      launchpad: 'Permissionless',
+      live: true,
+      logo: 'logos/loyal.jpg',
+      name: 'Loyal',
+      ticker: 'LOYAL',
+    },
+  };
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+
+  const shell = byRole(root, 'terminal');
+  const loadingTicket = byRole(root, 'ownership-trade-loading');
+  assert.equal(root.dataset.ftTransition, 'partial');
+  assert.equal(root.getAttribute('aria-busy'), 'true');
+  assert.equal(shell.style.visibility, '');
+  assert.equal(shell.hasAttribute('aria-hidden'), false);
+  assert.equal(byRole(root, 'market-title').textContent, 'LOYAL');
+  assert.equal(byRole(root, 'market-subtitle').textContent, 'Loyal');
+  assert.match(
+    root.querySelector('[data-ft-role="ownership-chart-header"] img')?.getAttribute('src') || '',
+    /logos\/loyal\.jpg$/,
+  );
+  assert.ok(byRole(root, 'ownership-token-chart'));
+  assert.ok(loadingTicket);
+  assert.equal(loadingTicket.getAttribute('aria-busy'), 'true');
+  assert.equal(loadingTicket.querySelectorAll('button:not([disabled])').length, 0);
+  assert.equal(loadingTicket.querySelector('[data-ft-action]'), null);
+  assert.equal(controller.getState().programIntegrity, 'checking');
+  assert.equal(controller.getState().canTransact, false);
+
+  const readyOutcome = await Promise.race([
+    controller.ready.then(() => 'ready'),
+    new Promise(resolve => window.setTimeout(() => resolve('pending'), 20)),
+  ]);
+  assert.equal(readyOutcome, 'pending');
+
+  resolveActiveMarkets({ ok: true, data: ACTIVE_MARKETS });
+  await controller.ready;
+  assert.equal(root.hasAttribute('data-ft-transition'), false);
+  assert.equal(root.hasAttribute('aria-busy'), false);
+  assert.equal(byRole(root, 'ownership-trade-loading'), null);
+  assert.ok(byRole(root, 'ownership-trade-ticket'));
 
   cleanupMount(mounted);
 });
@@ -3095,6 +3294,54 @@ test('proposal chart mount failures replace the pending surface with an explicit
   cleanupMount(mounted);
 });
 
+test('ownership workspace mounts the installed empty Liveline directly and cleans it up', async () => {
+  const { mountFutardTerminal } = await loadTerminalModule();
+  const { root, window } = makeWindow({
+    url: 'https://navgator.xyz/?token=loyal&view=markets&tab=tokens',
+  });
+  const chartMounts = [];
+  let chartRemovals = 0;
+  window.LivelineCharts = {
+    createChart(container, options) {
+      chartMounts.push({ container, options });
+      return {
+        remove() {
+          chartRemovals += 1;
+        },
+      };
+    },
+  };
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'loyal',
+  });
+  const mounted = trackMount(controller, window);
+  await controller.ready;
+
+  const panel = byRole(root, 'ownership-token-chart');
+  const liveline = byRole(root, 'ownership-token-chart-liveline');
+  assert.ok(panel);
+  assert.ok(liveline);
+  assert.equal(panel.querySelector('iframe'), null);
+  assert.equal(liveline.tagName, 'DIV');
+  assert.equal(liveline.dataset.ftChartEngine, 'liveline');
+  assert.equal(liveline.getAttribute('role'), 'img');
+  assert.match(liveline.getAttribute('aria-label'), /LOYAL Price and NAV chart/);
+  assert.equal(chartMounts.length, 1);
+  assert.equal(chartMounts[0].container, liveline);
+  assert.equal(chartMounts[0].container.ownerDocument, window.document);
+  assert.deepEqual(chartMounts[0].options, {});
+
+  await controller.refresh();
+  assert.equal(chartMounts.length, 1);
+  controller.destroy();
+  assert.equal(chartRemovals, 1);
+
+  cleanupMount(mounted);
+});
+
 test('ownership workspace renders indexed spot transactions in its dedicated column', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const { root, window } = makeWindow({
@@ -3199,9 +3446,33 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   const contractAddress = byRole(root, 'token-contract-address');
   assert.doesNotMatch(contractAddress.textContent, /\bCA\b/);
   assert.equal(contractAddress.dataset.ftAddress, MOCK_BASE_MINT);
-  contractAddress.click();
-  await settle(window);
-  assert.deepEqual(copiedAddresses, [MOCK_BASE_MINT]);
+  assert.equal(contractAddress.dataset.ftCopyState, undefined);
+  assert.equal(contractAddress.getAttribute('aria-label'), 'Copy LOYAL contract address');
+  assert.ok(contractAddress.querySelector('.ft-chart-market-ca-copy-icon'));
+  assert.ok(contractAddress.querySelector('.ft-chart-market-ca-check-icon'));
+  const originalSetTimeout = window.setTimeout;
+  let resetCopyFeedback = null;
+  window.setTimeout = function captureCopyFeedbackTimer(callback, delay, ...args) {
+    if (delay === 1_800) {
+      resetCopyFeedback = () => callback(...args);
+      return 18_000;
+    }
+    return originalSetTimeout.call(this, callback, delay, ...args);
+  };
+  try {
+    contractAddress.click();
+    await settle(window);
+    assert.deepEqual(copiedAddresses, [MOCK_BASE_MINT]);
+    assert.equal(contractAddress.dataset.ftCopyState, 'copied');
+    assert.equal(contractAddress.getAttribute('aria-label'), 'LOYAL contract address copied');
+    assert.doesNotMatch(root.textContent, /Address copied to clipboard/i);
+    assert.equal(typeof resetCopyFeedback, 'function');
+    resetCopyFeedback();
+    assert.equal(contractAddress.dataset.ftCopyState, undefined);
+    assert.equal(contractAddress.getAttribute('aria-label'), 'Copy LOYAL contract address');
+  } finally {
+    window.setTimeout = originalSetTimeout;
+  }
   assert.equal(
     ownershipHeader
       .querySelector('[data-ft-chart-header-metric="price"] strong')
@@ -3465,12 +3736,15 @@ test('ownership market orders quote through DFlow and submit only after explicit
   const recentTransactions = byRole(terminal.root, 'ownership-recent-transactions');
   assert.ok(recentTransactions);
   assert.match(recentTransactions.textContent, /No recent indexed transactions/i);
-  const ownershipChartFrame = terminal.root.querySelector(
-    '[data-ft-role="ownership-token-chart"] iframe',
+  const ownershipChartPanel = byRole(terminal.root, 'ownership-token-chart');
+  const ownershipChartMount = byRole(
+    terminal.root,
+    'ownership-token-chart-liveline',
   );
-  assert.ok(ownershipChartFrame);
-  assert.equal(ownershipChartFrame.hasAttribute('allow'), false);
-  assert.equal(ownershipChartFrame.hasAttribute('allowfullscreen'), false);
+  assert.ok(ownershipChartPanel);
+  assert.ok(ownershipChartMount);
+  assert.equal(ownershipChartPanel.querySelector('iframe'), null);
+  assert.equal(ownershipChartMount.dataset.ftChartEngine, 'liveline');
 
   byAction(terminal.root, 'connect-wallet').click();
   await settleUntil(terminal.window, () => controller.getState().walletAddress === WALLET_ADDRESS);

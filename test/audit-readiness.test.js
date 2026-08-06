@@ -40,6 +40,26 @@ test('Vercel applies compatible baseline browser security headers', () => {
   assert.doesNotMatch(headers.get('Content-Security-Policy'), /frame-ancestors/);
 });
 
+test('Vercel caches content-hashed Vite assets without caching API responses', () => {
+  const configuration = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+  const assetRule = configuration.headers.find(
+    rule => rule.source === '/assets/:path*',
+  );
+  assert.ok(assetRule);
+
+  const headers = new Map(
+    assetRule.headers.map(header => [header.key, header.value]),
+  );
+  assert.equal(
+    headers.get('Cache-Control'),
+    'public, max-age=31536000, immutable',
+  );
+  assert.equal(
+    configuration.headers.some(rule => rule.source.startsWith('/api/')),
+    false,
+  );
+});
+
 test('security automation is pinned, least privilege, and reviewable', () => {
   const codeql = fs.readFileSync('.github/workflows/codeql.yml', 'utf8');
   const dependabot = fs.readFileSync('.github/dependabot.yml', 'utf8');

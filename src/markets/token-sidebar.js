@@ -28,6 +28,37 @@ function positiveNumber(...values) {
   return null;
 }
 
+function marketCapNumber(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(
+    /^(?:usd\s*)?\$?\s*(\+?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))\s*([kmbt])?\s*(?:usd|mcap)?$/i,
+  );
+  if (!match) {
+    const number = Number(value.trim());
+    return Number.isFinite(number) && number > 0 ? number : null;
+  }
+  const unit = String(match[2] || '').toLowerCase();
+  const multiplier = {
+    k: 1e3,
+    m: 1e6,
+    b: 1e9,
+    t: 1e12,
+  }[unit] || 1;
+  const number = Number(match[1].replaceAll(',', '')) * multiplier;
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function positiveMarketCap(...values) {
+  for (const value of values) {
+    const number = marketCapNumber(value);
+    if (number != null) return number;
+  }
+  return null;
+}
+
 function currentNavRows(payload, normalizeTokenKey) {
   const data = unwrapEnvelope(payload);
   const rows = [
@@ -66,10 +97,13 @@ function navPerToken(row) {
 }
 
 function marketCap(row) {
-  const published = positiveNumber(
+  const published = positiveMarketCap(
     row?.marketCap,
+    row?.marketCapUsd,
+    row?.market_cap,
     row?.mcap,
     row?.navSnapshot?.market?.marketCap,
+    row?.navSnapshot?.market?.market_cap,
   );
   if (published != null) return published;
   const spot = positiveNumber(row?.spot, row?.price, row?.navSnapshot?.market?.spot);
@@ -80,6 +114,20 @@ function marketCap(row) {
     row?.navSnapshot?.supply?.circulating,
   );
   return spot != null && supply != null ? spot * supply : null;
+}
+
+function compareTokenMarketCaps(left, right, navMap) {
+  const leftMarketCap = marketCap(navMap.get(left[0]));
+  const rightMarketCap = marketCap(navMap.get(right[0]));
+  if (leftMarketCap == null && rightMarketCap != null) return 1;
+  if (leftMarketCap != null && rightMarketCap == null) return -1;
+  if (leftMarketCap != null && rightMarketCap != null && leftMarketCap !== rightMarketCap) {
+    return leftMarketCap > rightMarketCap ? -1 : 1;
+  }
+  const leftTicker = String(left[1].ticker || left[0]).toLowerCase();
+  const rightTicker = String(right[1].ticker || right[0]).toLowerCase();
+  if (leftTicker !== rightTicker) return leftTicker < rightTicker ? -1 : 1;
+  return left[0] === right[0] ? 0 : left[0] < right[0] ? -1 : 1;
 }
 
 function volume24h(row) {
@@ -265,9 +313,7 @@ export function installBrowserMarketTokenSidebar(browserWindow) {
     const tokens = Object.entries(metadata)
       .map(([rawKey, token]) => [normalizeTokenKey(rawKey), token])
       .filter(([key, token]) => key && isObject(token) && isLiveToken(token, navMap.get(key)))
-      .sort((left, right) => String(left[1].ticker || left[0]).localeCompare(
-        String(right[1].ticker || right[0]),
-      ));
+      .sort((left, right) => compareTokenMarketCaps(left, right, navMap));
     const selectedKey = activeTokenKey();
     const fragment = document.createDocumentFragment();
     tokens.forEach(([key, token]) => {

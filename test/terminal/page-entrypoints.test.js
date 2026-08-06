@@ -230,16 +230,20 @@ test('market token entry installs its ESM sidebar without loading legacy page as
           spot: 2,
           token: 'solo',
         },
-        { spot: 0.001, token: 'basket' },
-        { spot: 0.002, token: 'gsim' },
-        { spot: 0.003, token: 'kimia' },
-        { spot: 0.04, token: 'rawr' },
+        { marketCap: '$4.5M', spot: 0.001, token: 'basket' },
+        { market_cap: '9,000,000', spot: 0.002, token: 'gsim' },
+        {
+          navSnapshot: { market: { marketCap: '3m mcap' } },
+          spot: 0.003,
+          token: 'kimia',
+        },
+        { marketCap: 'not available', spot: 0.04, token: 'rawr' },
       ],
     });
     assert.deepEqual(
       [...marketWindow.document.querySelectorAll('#tlp-all-list .tp-item')]
         .map(row => row.dataset.key),
-      ['basket', 'gsim', 'kimia', 'meta', 'rawr', 'solo'],
+      ['gsim', 'basket', 'kimia', 'solo', 'meta', 'rawr'],
     );
     [
       ['basket', 'BASKET'],
@@ -451,11 +455,16 @@ test('source dependency boundaries keep token code out of the home entrypoint', 
   assert.doesNotMatch(homeEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.match(tokenEntry, /\.\.\/markets\/decision-market-controller\.js/);
   assert.doesNotMatch(homeEntry, /revealMarketWorkspace|is-market-discovery|mode: 'discovery'/);
-  assert.match(tokenEntry, /revealMarketWorkspace\(document\)/);
+  assert.match(
+    tokenEntry,
+    /if \(root\.dataset\.ftTransition === 'partial'\)\s*\{\s*revealMarketWorkspace\(document\);\s*\}/,
+  );
+  const earlyOwnershipReveal = tokenEntry.indexOf("if (root.dataset.ftTransition === 'partial')");
+  const readyWait = tokenEntry.indexOf('await window.NAVGATOR.marketWorkspace.ready');
+  const finalReveal = tokenEntry.lastIndexOf('revealMarketWorkspace(document)');
   assert.ok(
-    tokenEntry.indexOf('await window.NAVGATOR.marketWorkspace.ready')
-      < tokenEntry.indexOf('revealMarketWorkspace(document)'),
-    'token decision markets must remain guarded until their first data-backed render',
+    earlyOwnershipReveal < readyWait && readyWait < finalReveal,
+    'known ownership tokens may reveal their safe shell early while decision routes remain guarded',
   );
   assert.match(
     document,
@@ -507,7 +516,7 @@ test('market sidebar places one unified decisions list before tokens', () => {
   assert.ok(tokens > pastDecisions);
   assert.match(
     document,
-    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions Live<\/span>[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/strong>/,
+    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions<\/span>[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/strong>/,
   );
   assert.doesNotMatch(
     document,

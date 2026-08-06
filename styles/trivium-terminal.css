@@ -921,8 +921,8 @@ html[data-workspace="markets"] .tp-live-decisions-empty {
   grid-template-columns: 35px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid rgb(117 128 255 / 12%);
-  background: linear-gradient(90deg, rgb(117 128 255 / 10%), rgb(117 128 255 / 2%));
+  border-bottom: 0;
+  background: transparent;
   color: var(--trivium-text);
 }
 
@@ -931,10 +931,10 @@ html[data-workspace="markets"] body#navgator-app#navgator-app .tp-live-decisions
   width: 35px;
   height: 35px;
   place-items: center;
-  border: 1px solid rgb(117 128 255 / 28%);
+  border: 1px solid #292634;
   border-radius: 50% !important;
-  background: rgb(117 128 255 / 10%);
-  color: #bec3ff;
+  background: transparent;
+  color: #9c99a8;
   content: '0';
   font-family: var(--numeric-font);
   font-size: 14px;
@@ -942,7 +942,7 @@ html[data-workspace="markets"] body#navgator-app#navgator-app .tp-live-decisions
 }
 
 html[data-workspace="markets"] .tp-live-decisions-empty strong {
-  color: #f2f1f7;
+  color: #f5f4f9;
   font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   font-weight: 580;
@@ -1958,7 +1958,7 @@ html[data-workspace="markets"][data-market-sidebar-tab="tokens"] .tp-all-section
     width: 25px;
     height: 26px;
     border: 0;
-    border-radius: 6px !important;
+    border-radius: 8px !important;
     background: #15141d;
     box-shadow: none;
     color: #716e7d;
@@ -1969,6 +1969,17 @@ html[data-workspace="markets"][data-market-sidebar-tab="tokens"] .tp-all-section
     border: 0;
     background: #1c1a26;
     color: #c7c4d0;
+  }
+
+  html[data-workspace="markets"] body.is-token.is-token-markets.left-panel-collapsed .shell-panel-toggle-left {
+    top: calc(var(--site-header-height) + 18.5px);
+    left: 4px;
+    width: 25px;
+    height: 26px;
+    border: 0;
+    border-radius: 8px !important;
+    background: #15141d;
+    box-shadow: none;
   }
 
   html[data-workspace="markets"] .tp-unified-section-heading {
@@ -2303,6 +2314,29 @@ html[data-workspace="markets"][data-market-sidebar-tab="tokens"] .tp-all-section
 
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .terminal-market-summary {
     min-height: var(--market-summary-height) !important;
+  }
+
+  /* Keep each card's painted inner surface inside the same curve as its outer
+     border. `overflow: clip` does not create a nested scroll container, so the
+     center and execution rail continue to move through `.ft-main` together. */
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus :is(
+    .terminal-activity,
+    .terminal-trade-ticket
+  ) {
+    overflow: clip !important;
+    background-clip: padding-box;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus :is(
+    .terminal-trade-ticket > [data-ft-region="trade-ticket"],
+    .terminal-trade-ticket > [data-ft-region="trade-ticket"] > .ft-ticket,
+    .terminal-activity > .ft-account-row,
+    .terminal-activity > .ft-activity-row,
+    .terminal-activity > .ft-account-row > .ft-ownership-account,
+    .terminal-activity > .ft-activity-row > .ft-ownership-transactions
+  ) {
+    border-radius: inherit !important;
+    background-clip: padding-box;
   }
 }
 
