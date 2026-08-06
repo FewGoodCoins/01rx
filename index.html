@@ -423,27 +423,31 @@ window.toggleChartFeatureMenu = function(trigger, event) {
     </div>
     <div class="tp-market-tabs" role="tablist" aria-label="Browse tokens and decisions">
       <button class="tp-market-tab active" id="tp-market-tab-all" type="button" role="tab" aria-selected="true" aria-controls="tlp-decisions-panel tlp-all-panel" data-market-sidebar-tab="all" onclick="setMarketSidebarTab('all')">All</button>
-      <button class="tp-market-tab tp-market-tab-watchlist" id="tp-market-tab-watchlist" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="watchlist" onclick="setMarketSidebarTab('watchlist')">Watchlist</button>
       <button class="tp-market-tab" id="tp-market-tab-tokens" type="button" role="tab" aria-selected="false" aria-controls="tlp-all-panel" data-market-sidebar-tab="tokens" onclick="setMarketSidebarTab('tokens')">Tokens</button>
       <button class="tp-market-tab" id="tp-market-tab-markets" type="button" role="tab" aria-selected="false" aria-controls="tlp-decisions-panel" data-market-sidebar-tab="markets" onclick="setMarketSidebarTab('markets')">Decisions</button>
     </div>
     <div class="tp-market-filter-strip" role="toolbar" aria-label="Sidebar view and sort options">
-      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="0" aria-pressed="false" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">Price</button>
-      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="1" aria-pressed="false" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">Top movers</button>
-      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="2" aria-pressed="false" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)">Market cap</button>
-      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="3" aria-pressed="false" hidden aria-hidden="true" tabindex="-1" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)"></button>
+      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="0" aria-pressed="false" hidden aria-hidden="true" tabindex="-1" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)"></button>
+      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="1" aria-pressed="false" hidden aria-hidden="true" tabindex="-1" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)"></button>
+      <button class="tp-market-filter" type="button" data-market-sidebar-filter-slot="2" aria-pressed="false" hidden aria-hidden="true" tabindex="-1" onclick="setMarketSidebarFilter(this.dataset.marketSidebarFilterAction)"></button>
     </div>
     <section class="tp-decisions-section" id="tlp-decisions-panel" aria-labelledby="tp-decision-markets-title">
       <div class="tp-unified-section-heading">
-        <span
-          class="tp-unified-section-title-group tp-unified-section-status"
-          id="tp-decision-markets-title"
-          role="status"
-          aria-live="polite"
-        >0 decisions live</span>
+        <span class="tp-unified-section-title-group" id="tp-decision-markets-title">
+          <span data-market-sidebar-section-title="all">Decisions Live</span>
+          <span data-market-sidebar-section-title="markets">Decisions</span>
+        </span>
       </div>
       <div class="tp-decisions-list-stack">
-        <div id="tlp-decisions-list"></div>
+        <div id="tlp-decisions-list">
+          <div
+            class="tp-decisions-empty tp-live-decisions-empty"
+            id="tp-live-decisions-empty"
+            data-empty-title="0 decisions live"
+            role="status"
+            aria-live="polite"
+          ><strong>0 decisions live</strong></div>
+        </div>
         <div id="tlp-past-decisions-list">
           <div class="tp-decisions-empty" id="tp-past-decisions-empty" data-empty-title="No past decisions" data-empty-detail="Resolved decisions will appear here.">
             <strong>No past decisions</strong>
@@ -453,6 +457,9 @@ window.toggleChartFeatureMenu = function(trigger, event) {
       </div>
     </section>
     <section class="tp-all-section" id="tlp-all-panel" aria-label="Tokens">
+      <div class="tp-unified-section-heading tp-tokens-section-heading">
+        <span class="tp-unified-section-title-group">Tokens</span>
+      </div>
       <div id="tlp-all-list"></div>
       <div class="tp-market-empty" id="tp-market-empty" hidden>No assets found</div>
     </section>

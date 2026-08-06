@@ -10,6 +10,10 @@ const faviconAsset = fs.readFileSync(
 const socialAsset = fs.readFileSync(
   new URL('../public/logos/trivium-social.png', import.meta.url),
 );
+const solanaMarkAsset = fs.readFileSync(
+  new URL('../public/logos/solana-mark.svg', import.meta.url),
+  'utf8',
+);
 const tokenCss = fs.readFileSync(new URL('../styles/token.css', import.meta.url), 'utf8');
 const frameCss = fs.readFileSync(new URL('../styles/futard-terminal.css', import.meta.url), 'utf8');
 const sharedTerminalCss = fs.readFileSync(
@@ -118,6 +122,81 @@ test('browser icon metadata uses only the compact cache-busted 01r.trade mark', 
   ].forEach((asset) => {
     assert.equal(fs.existsSync(new URL(`../public/logos/${asset}`, import.meta.url)), false, asset);
   });
+});
+
+test('token identity badges use reviewed local artwork and distinct control geometry', () => {
+  assert.match(solanaMarkAsset, /viewBox="0 0 101 88"/);
+  assert.match(solanaMarkAsset, /#9945FF/);
+  assert.match(solanaMarkAsset, /#19FB9B/);
+  assert.doesNotMatch(solanaMarkAsset, /<script\b|\b(?:href|src)=["']https?:\/\//i);
+  assert.match(
+    decisionMarketControllerSource,
+    /data-ft-role="token-chain"[\s\S]*?<img src="logos\/solana-mark\.svg" alt="" aria-hidden="true">/,
+  );
+  assert.match(
+    frameCss,
+    /\.ft-chart-identity-badge\s*\{[\s\S]*?border-radius: 50% !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /Token identity is intentionally circular at every market breakpoint[\s\S]*?\.ft-chart-identity-badge\s*\{\s*border-radius: 50% !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header \.ft-chart-market-watchlist\s*\{[\s\S]*?border: 0 !important;\s*background: transparent;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header \.ft-market-title-row > p\s*\{\s*overflow: hidden;\s*flex: 0 1 auto;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-chart-token-mark\s*\{[\s\S]*?width: 44px;[\s\S]*?height: 44px;[\s\S]*?flex: 0 0 44px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header \.ft-market-title-copy p strong\s*\{[\s\S]*?font-size: 18px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header \.ft-chart-identity-badge\s*\{\s*width: 20px;\s*height: 20px;\s*flex: 0 0 20px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header \.ft-chart-market-chain img\s*\{\s*width: 12px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header \.ft-chart-market-watchlist\s*\{\s*width: 24px;\s*height: 24px;\s*flex: 0 0 24px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /--market-summary-height: 58px;\s*--market-header-cell-height: 56px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-terminal-grid\s*\{[\s\S]*?grid-template-rows: var\(--market-summary-height\) minmax\(430px, 52dvh\) minmax\(220px, auto\) !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header\s*\{[\s\S]*?min-height: var\(--market-header-cell-height\) !important;[\s\S]*?grid-template: var\(--market-header-cell-height\) \/ minmax\(250px, 2fr\)/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.terminal-market-summary\s*\{\s*min-height: var\(--market-summary-height\);\s*padding: 0 7px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header\.ft-decision-chart-header\s*\{\s*grid-template: var\(--market-header-cell-height\) \/ minmax\(165px, 1\.45fr\) repeat\(5, minmax\(48px, 1fr\)\) !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /@media \(max-width: 1040px\) and \(min-width: 981px\)[\s\S]*?\.ft-ownership-chart-header\.ft-decision-chart-header\s*\{\s*grid-template: var\(--market-header-cell-height\) \/ minmax\(145px, 1\.35fr\) repeat\(4, minmax\(48px, 1fr\)\) !important;[\s\S]*?\.ft-decision-chart-header > \.ft-chart-market-metric:last-child\s*\{\s*display: none;/,
+  );
+  assert.doesNotMatch(
+    triviumTerminalCss,
+    /grid-template-rows: (?:84|96)px|min-height: (?:86|94)px(?: !important)?|height: 94px !important|grid-template: 94px \/ minmax|padding: 6px 7px/,
+  );
 });
 
 test('product metadata and accessible copy use only the 01r.trade brand', () => {
@@ -313,11 +392,11 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
   assert.match(
     indexSource,
-    /<span[\s\S]*?class="tp-unified-section-title-group tp-unified-section-status"[\s\S]*?id="tp-decision-markets-title"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?>0 decisions live<\/span>/,
+    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions Live<\/span>[\s\S]*?data-market-sidebar-section-title="markets">Decisions<\/span>/,
   );
   assert.match(
     triviumTerminalCss,
-    /\.tp-unified-section-status\s*\{[\s\S]*?font-size: 10px;/,
+    /data-market-sidebar-tab="all"\] \[data-market-sidebar-section-title="all"\],[\s\S]*?display: inline;/,
   );
   assert.doesNotMatch(
     indexSource,
@@ -329,62 +408,85 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
 });
 
-test('live decision count is a compact visible noninteractive status', () => {
+test('zero live decisions occupy one full noninteractive market row', () => {
   const dom = new JSDOM(indexSource);
-  const status = dom.window.document.querySelector('#tp-decision-markets-title');
+  const heading = dom.window.document.querySelector('[data-market-sidebar-section-title="all"]');
+  const status = dom.window.document.querySelector('#tp-live-decisions-empty');
 
+  assert.equal(heading?.textContent.trim(), 'Decisions Live');
   assert.ok(status);
-  assert.equal(status.tagName, 'SPAN');
+  assert.equal(status.tagName, 'DIV');
   assert.equal(status.textContent.trim(), '0 decisions live');
-  assert.equal(status.classList.contains('ft-sr-only'), false);
+  assert.equal(status.classList.contains('tp-live-decisions-empty'), true);
   assert.equal(status.getAttribute('role'), 'status');
   assert.equal(status.getAttribute('aria-live'), 'polite');
   assert.equal(status.closest('button, a'), null);
   assert.equal(status.hasAttribute('onclick'), false);
   assert.match(
     triviumTerminalCss,
-    /\.tp-unified-section-status\s*\{[\s\S]*?height: 18px;[\s\S]*?padding: 0;[\s\S]*?border: 0;[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;[\s\S]*?box-shadow: none;[\s\S]*?font-family: var\(--numeric-font\);[\s\S]*?font-size: 10px;[\s\S]*?pointer-events: none;/,
+    /\.tp-live-decisions-empty\s*\{[\s\S]*?height: 54px;[\s\S]*?min-height: 54px !important;[\s\S]*?flex: 0 0 54px;[\s\S]*?grid-template-columns: 35px minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /body#navgator-app#navgator-app \.tp-live-decisions-empty::before\s*\{[\s\S]*?width: 35px;[\s\S]*?height: 35px;[\s\S]*?border-radius: 50% !important;[\s\S]*?content: '0';/,
   );
   dom.window.close();
 });
 
 test('market sidebar uses compact reference tabs and source-backed filter pills', () => {
-  assert.match(
-    indexSource,
-    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Decisions<\/button>/,
+  const dom = new JSDOM(indexSource);
+  const tabs = Array.from(
+    dom.window.document.querySelectorAll('[data-market-sidebar-tab]'),
+    node => node.textContent.trim(),
   );
-  assert.match(
-    indexSource,
-    /class="tp-market-filter-strip"[\s\S]*?data-market-sidebar-filter-slot="0"[^>]*>Price<\/button>[\s\S]*?data-market-sidebar-filter-slot="1"[^>]*>Top movers<\/button>[\s\S]*?data-market-sidebar-filter-slot="2"[^>]*>Market cap<\/button>[\s\S]*?data-market-sidebar-filter-slot="3"[^>]*hidden[^>]*><\/button>/,
+  const filterSlots = Array.from(
+    dom.window.document.querySelectorAll('[data-market-sidebar-filter-slot]'),
   );
+
+  assert.deepEqual(tabs, ['All', 'Tokens', 'Decisions']);
+  assert.equal(dom.window.document.querySelector('[data-market-sidebar-tab="watchlist"]'), null);
+  assert.equal(filterSlots.length, 3);
+  assert.equal(filterSlots.every(control => control.hidden && control.textContent.trim() === ''), true);
   assert.doesNotMatch(
     indexSource,
     /All Tokens|>All tokens<\/button>/,
   );
   assert.match(
     appCoreSource,
-    /var _marketSidebarFilterConfig = \{[\s\S]*?watchlist:[\s\S]*?tokens:[\s\S]*?markets:/,
+    /var _marketSidebarFilterConfig = \{[\s\S]*?all:[\s\S]*?tokens:[\s\S]*?markets:/,
   );
   assert.match(
     appCoreSource,
-    /all:\s*\[\s*\{ key: 'price', label: 'Price' \},[\s\S]*?key: 'movers'[\s\S]*?key: 'market-cap'[\s\S]*?\],\s*watchlist:/,
+    /all:\s*\[\s*\{ key: 'price', label: 'Price' \},\s*\{ key: 'movers', label: 'Top movers' \},\s*\{ key: 'market-cap', label: 'Market cap' \}\s*\],\s*tokens:/,
   );
   assert.match(appCoreSource, /if \(tab === 'all'\) return 'all-tokens';/);
   assert.match(
     appCoreSource,
-    /tokens:\s*\[\s*\{ key: 'all-tokens', label: 'All' \},[\s\S]*?\],\s*markets:/,
+    /tokens:\s*\[\s*\{ key: 'all-tokens', label: 'All' \},\s*\{ key: 'watchlist', label: 'Watchlist' \},\s*\{ key: 'trending', label: 'Trending' \}\s*\],\s*markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Past' \}\s*\]/,
   );
-  assert.doesNotMatch(
-    appCoreSource,
-    /all:\s*\[[\s\S]*?key: '(?:live|prior)'[\s\S]*?\],\s*watchlist:/,
-  );
+  assert.doesNotMatch(appCoreSource, /^\s*watchlist:\s*\[/m);
+  assert.match(appCoreSource, /_marketSidebarFilter === 'movers' \|\| _marketSidebarFilter === 'trending'[\s\S]*?_marketTokenSortKey = 'change';/);
+  assert.match(appCoreSource, /_marketSidebarFilter === 'watchlist'[\s\S]*?\(!watchlistOnly \|\| isWatched\)/);
   assert.match(
     appCoreSource,
     /function setMarketSidebarFilter\(nextFilter\)[\s\S]*?_applyMarketSidebarFilterSort\(\);[\s\S]*?applyMarketSidebarSearch\(\);/,
   );
   assert.match(
     triviumTerminalCss,
+    /html\[data-workspace="markets"\] \.tp-market-tabs\s*\{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
+  );
+  assert.match(
+    triviumTerminalCss,
     /--sidebar-width: 280px;[\s\S]*?\.tp-market-tabs\s*\{[\s\S]*?height: 37px;[\s\S]*?background: #15141d !important;/,
+  );
+  assert.match(triviumTerminalCss, /--market-left-gutter: 12px;/);
+  assert.match(
+    triviumTerminalCss,
+    /body#navgator-app\.is-token\.is-token-markets:not\(\.left-panel-collapsed\) \.app-shell\s*\{\s*padding-left: var\(--market-left-gutter\);/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.shell-panel-toggle-left\s*\{[\s\S]*?left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 35px\);/,
   );
   assert.match(
     triviumTerminalCss,
@@ -394,6 +496,7 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
     triviumTerminalCss,
     /#tlp-all-list \.tp-item\s*\{[\s\S]*?height: 54px;[\s\S]*?grid-template-columns: 35px minmax\(0, 1fr\);/,
   );
+  dom.window.close();
 });
 
 test('recent transaction rows use an open tape without divider lines', () => {
@@ -740,13 +843,14 @@ test('market sidebar uses one decision heading, pins live decisions in All, and 
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title"[\s\S]*?>0 decisions live<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"/,
+    /id="tlp-decisions-panel"[\s\S]*?data-market-sidebar-section-title="all">Decisions Live<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?>0 decisions live<\/strong>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"[\s\S]*?class="tp-unified-section-heading tp-tokens-section-heading"[\s\S]*?>Tokens<\/span>[\s\S]*?id="tlp-all-list"/,
   );
   assert.doesNotMatch(indexSource, /tp-(?:live|past)-decision-count|tlp-past-decisions-panel/);
   assert.match(
     indexSource,
-    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="watchlist"[^>]*>Watchlist<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Decisions<\/button>/,
+    /data-market-sidebar-tab="all"[^>]*>All<\/button>[\s\S]*?data-market-sidebar-tab="tokens"[^>]*>Tokens<\/button>[\s\S]*?data-market-sidebar-tab="markets"[^>]*>Decisions<\/button>/,
   );
+  assert.doesNotMatch(indexSource, /data-market-sidebar-tab="watchlist"/);
   assert.match(
     indexSource,
     /id="tp-market-tab-all"[^>]*aria-controls="tlp-decisions-panel tlp-all-panel"/,
@@ -756,6 +860,14 @@ test('market sidebar uses one decision heading, pins live decisions in All, and 
   assert.match(
     triviumTerminalCss,
     /data-market-sidebar-tab="all"\] #tlp-past-decisions-list,[\s\S]*?display: none !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /data-market-sidebar-tab="all"\] #tlp-decisions-panel\s*\{[\s\S]*?max-height: min\(220px, 30vh\) !important;[\s\S]*?flex: 0 0 auto !important;/,
+  );
+  assert.doesNotMatch(
+    triviumTerminalCss,
+    /#tlp-decisions-panel:has\(#tp-live-decisions-empty:not\(\[hidden\]\)\)\s*\{\s*display: none/,
   );
   assert.doesNotMatch(indexSource, /tlp-decision-history-toggle-slot/);
   assert.doesNotMatch(indexSource, /<span>Status<\/span>/);
@@ -788,7 +900,6 @@ test('market sidebar uses one decision heading, pins live decisions in All, and 
     /\.tp-unified-section-toggle:hover\s*\{[\s\S]*?background: #292929;/,
   );
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="tokens"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
-  assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="watchlist"\] \.tp-decisions-section\s*\{[\s\S]*?display: none !important;/);
   assert.match(refinementCss, /html\[data-workspace="markets"\]\[data-market-sidebar-tab="markets"\] \.tp-all-section\s*\{[\s\S]*?display: none !important;/);
   assert.match(
     refinementCss,

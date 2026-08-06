@@ -4,9 +4,13 @@ import { create01ResolvedClient } from '@01resolved/api-client';
 import { buildEndpointPath, getEndpoint } from '@01resolved/contracts';
 import { createCurrentNavHandler } from '../api/_lib/current-nav-handler.js';
 import {
+  _test as zeroOneCurrentNavTest,
   loadZeroOneCurrentNav,
   normalizeZeroOneCurrentNavRow,
 } from '../api/_lib/zero-one-current-nav.js';
+
+const SOLO_MINT = 'SoLo9oxzLDpcq1dpqAgMwgce5WqkRDtNXK7EPnbmeta';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 function responseRecorder() {
   return {
@@ -65,6 +69,8 @@ function daoOverview(overrides = {}) {
       name: 'Solomon',
       slug: 'solomon-labs',
       updatedAt: '2026-08-01T17:58:00.000Z',
+      baseMint: SOLO_MINT,
+      network: { network: 'mainnet' },
       baseToken: {
         circulatingSupply: '8264757',
         name: 'Solomon',
@@ -76,6 +82,7 @@ function daoOverview(overrides = {}) {
         updatedAt: '2026-08-01T17:59:00.000Z',
         usdPrice: '0.628927',
         url: 'https://cdn.01resolved.com/solo-token.png',
+        publicKey: SOLO_MINT,
       },
       ...overrides,
     },
@@ -171,6 +178,21 @@ test('01Resolved current NAV maps known project slugs without synthesizing missi
   assert.equal(row.navSnapshot.issues[0].code, 'ZERO_ONE_CURRENT_NAV_UNAVAILABLE');
 });
 
+test('01Resolved DAO mint identity requires matching canonical mainnet addresses', () => {
+  assert.equal(
+    zeroOneCurrentNavTest.validatedDaoMint(daoOverview().data),
+    SOLO_MINT,
+  );
+  [
+    daoOverview({ baseMint: USDC_MINT }).data,
+    daoOverview({ network: { network: 'devnet' } }).data,
+    daoOverview({ baseMint: 'not-a-solana-address' }).data,
+    daoOverview({ baseToken: { publicKey: '' } }).data,
+  ].forEach(payload => {
+    assert.equal(zeroOneCurrentNavTest.validatedDaoMint(payload), '');
+  });
+});
+
 test('01Resolved current NAV loader enriches the project index from official DAO contracts', async () => {
   const calls = [];
   const data = await loadZeroOneCurrentNav({
@@ -227,6 +249,7 @@ test('01Resolved current NAV loader enriches the project index from official DAO
   assert.equal(data.tokens[0].circulatingSupply, 8264757);
   assert.equal(data.tokens[0].marketCap, 5196588.31);
   assert.equal(data.tokens[0].fdv, 16227509.52);
+  assert.equal(data.tokens[0].mint, SOLO_MINT);
   assert.equal(data.tokens[0].source.endpoint, '/v1/global-dashboard/projects');
   assert.equal(
     data.tokens[0].navSnapshot.sources.currentPrice.endpoint,
@@ -398,7 +421,7 @@ test('current NAV handler preserves the all-token and single-token wire formats'
   const data = {
     asOf: '2026-08-01T18:00:00.000Z',
     source: { provider: '01Resolved', scope: 'current-nav' },
-    tokens: [normalizeZeroOneCurrentNavRow(project(), {
+    tokens: [normalizeZeroOneCurrentNavRow(project({ mint: SOLO_MINT }), {
       retrievedAt: '2026-08-01T18:00:00.000Z',
     })],
   };
@@ -420,6 +443,10 @@ test('current NAV handler preserves the all-token and single-token wire formats'
   assert.equal(allResponse.statusCode, 200);
   assert.equal(allResponse.body.ok, true);
   assert.equal(allResponse.body.data.tokens[0].token, 'solo');
+  assert.equal(
+    allResponse.body.data.tokens[0].mint,
+    SOLO_MINT,
+  );
   assert.equal(allResponse.headers['x-01r-contract'], 'core.current-nav.v1');
   assert.equal(allResponse.headers['x-01r-surface'], 'stable');
   assert.match(allResponse.headers['cache-control'], /s-maxage=10/);
@@ -432,6 +459,10 @@ test('current NAV handler preserves the all-token and single-token wire formats'
   assert.equal(singleResponse.statusCode, 200);
   assert.equal(singleResponse.body.data.token, 'solo');
   assert.equal(singleResponse.body.data.nav, 0.697689);
+  assert.equal(
+    singleResponse.body.data.mint,
+    SOLO_MINT,
+  );
   assert.equal(Array.isArray(singleResponse.body.data.tokens), false);
   assert.equal(singleResponse.headers['cache-control'], 'private, no-store');
   assert.deepEqual(loadInputs, [{ token: '' }, { token: 'solo' }]);

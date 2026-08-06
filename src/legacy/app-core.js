@@ -256,26 +256,17 @@ var _marketSidebarFilter = _marketSidebarTab === 'tokens'
   ? 'all-tokens'
   : _marketSidebarTab === 'markets'
     ? 'all-markets'
-    : _marketSidebarTab === 'watchlist'
-      ? 'saved'
-      : 'all-tokens';
+    : 'all-tokens';
 var _marketSidebarFilterConfig = {
   all: [
     { key: 'price', label: 'Price' },
     { key: 'movers', label: 'Top movers' },
     { key: 'market-cap', label: 'Market cap' }
   ],
-  watchlist: [
-    { key: 'saved', label: 'Saved' },
-    { key: 'price', label: 'Price' },
-    { key: 'movers', label: 'Top movers' },
-    { key: 'market-cap', label: 'Market cap' }
-  ],
   tokens: [
     { key: 'all-tokens', label: 'All' },
-    { key: 'price', label: 'Price' },
-    { key: 'movers', label: 'Top movers' },
-    { key: 'market-cap', label: 'Market cap' }
+    { key: 'watchlist', label: 'Watchlist' },
+    { key: 'trending', label: 'Trending' }
   ],
   markets: [
     { key: 'all-markets', label: 'All' },
@@ -326,7 +317,7 @@ function _syncMarketSidebarFilterControls() {
 }
 
 function _applyMarketSidebarFilterSort() {
-  if (_marketSidebarFilter === 'movers') {
+  if (_marketSidebarFilter === 'movers' || _marketSidebarFilter === 'trending') {
     _marketTokenSortKey = 'change';
     _marketSidebarSortAscending = false;
   } else if (_marketSidebarFilter === 'price') {
@@ -338,7 +329,6 @@ function _applyMarketSidebarFilterSort() {
   } else if (
     _marketSidebarTab === 'all'
     || _marketSidebarTab === 'tokens'
-    || _marketSidebarTab === 'watchlist'
   ) {
     _marketTokenSortKey = 'asset';
     _marketSidebarSortAscending = true;
@@ -357,7 +347,7 @@ function _applyMarketSidebarFilterSort() {
 }
 
 function setMarketSidebarTab(nextTab) {
-  if (nextTab !== 'watchlist' && nextTab !== 'all' && nextTab !== 'markets' && nextTab !== 'tokens') return;
+  if (nextTab !== 'all' && nextTab !== 'markets' && nextTab !== 'tokens') return;
   _marketSidebarTab = nextTab;
   _marketSidebarFilter = _defaultMarketSidebarFilter(nextTab);
   document.documentElement.dataset.marketSidebarTab = nextTab;
@@ -547,7 +537,10 @@ function _orderMarketSidebarList(list, tab, query) {
     list.appendChild(item);
     var matchesQuery = !query || _marketSearchScore(item, query) < 4;
     var isWatched = item.dataset.watched === 'true';
-    var isVisible = matchesQuery && (tab !== 'tokens' || _marketSidebarTab !== 'watchlist' || isWatched);
+    var watchlistOnly = tab === 'tokens'
+      && _marketSidebarTab === 'tokens'
+      && _marketSidebarFilter === 'watchlist';
+    var isVisible = matchesQuery && (!watchlistOnly || isWatched);
     item.hidden = !isVisible;
     if (isVisible) visibleCount += 1;
   });
@@ -594,7 +587,7 @@ function applyMarketSidebarSearch() {
     empty.hidden = visibleTokens > 0;
     empty.textContent = query
       ? 'No matching assets'
-      : (_marketSidebarTab === 'watchlist' ? 'Your watchlist is empty' : 'No assets found');
+      : (_marketSidebarFilter === 'watchlist' ? 'Your watchlist is empty' : 'No assets found');
   }
 }
 

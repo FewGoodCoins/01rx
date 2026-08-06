@@ -154,7 +154,35 @@ test('market token entry installs its ESM sidebar without loading legacy page as
     const browserWindow = dom.window;
     browserWindow.NAVGATOR = {
       projectMetadata: {
+        basket: {
+          launchpad: 'Permissionless',
+          live: true,
+          logo: 'https://cdn.01resolved.test/basket.png',
+          name: 'Basket',
+          ticker: 'BASKET',
+        },
+        gsim: {
+          launchpad: 'Permissionless',
+          live: true,
+          logo: 'https://cdn.01resolved.test/gsim.png',
+          name: 'GeSIM',
+          ticker: 'GSIM',
+        },
+        kimia: {
+          launchpad: 'Permissionless',
+          live: true,
+          logo: 'https://cdn.01resolved.test/kimia.png',
+          name: 'Kimia',
+          ticker: 'KIMIA',
+        },
         meta: { launchpad: 'Curated', live: true, name: 'MetaDAO', ticker: 'META' },
+        rawr: {
+          launchpad: 'Permissionless',
+          live: true,
+          logo: 'https://cdn.01resolved.test/rawr.png',
+          name: 'Jurassic Finance',
+          ticker: 'RAWR',
+        },
         retired: { live: false, name: 'Retired', ticker: 'OLD' },
         solo: { launchpad: 'Curated', live: true, name: 'SolanaFloor', ticker: 'SOLO' },
       },
@@ -187,27 +215,55 @@ test('market token entry installs its ESM sidebar without loading legacy page as
     );
     assert.equal(
       marketWindow.document.querySelectorAll('#tlp-all-list .tp-item').length,
-      2,
+      6,
     );
     assert.equal(
       marketWindow.document.getElementById('tp-token-count').textContent,
-      '2 tokens live',
+      '6 tokens live',
     );
     marketWindow.NAVGATOR.marketTokenSidebar.hydrateCurrentNav({
-      tokens: [{
-        change24h: 4.25,
-        effectiveSupply: 1_500_000,
-        navVerified: false,
-        spot: 2,
-        token: 'solo',
-      }],
+      tokens: [
+        {
+          change24h: 4.25,
+          effectiveSupply: 1_500_000,
+          navVerified: false,
+          spot: 2,
+          token: 'solo',
+        },
+        { spot: 0.001, token: 'basket' },
+        { spot: 0.002, token: 'gsim' },
+        { spot: 0.003, token: 'kimia' },
+        { spot: 0.04, token: 'rawr' },
+      ],
+    });
+    assert.deepEqual(
+      [...marketWindow.document.querySelectorAll('#tlp-all-list .tp-item')]
+        .map(row => row.dataset.key),
+      ['basket', 'gsim', 'kimia', 'meta', 'rawr', 'solo'],
+    );
+    [
+      ['basket', 'BASKET'],
+      ['gsim', 'GSIM'],
+      ['kimia', 'KIMIA'],
+      ['rawr', 'RAWR'],
+    ].forEach(([key, ticker]) => {
+      const row = marketWindow.document.querySelector(
+        `#tlp-all-list .tp-item[data-key="${key}"]`,
+      );
+      assert.ok(row);
+      assert.equal(row.querySelector('.tp-name').textContent, ticker);
+      assert.equal(row.getAttribute('href'), `/?token=${key}&view=markets&tab=tokens`);
+      assert.equal(
+        row.querySelector('.tp-icon > img').getAttribute('src'),
+        `https://cdn.01resolved.test/${key}.png`,
+      );
     });
     const soloSidebarRow = marketWindow.document.querySelector(
       '#tlp-all-list .tp-item[data-key="solo"]',
     );
     assert.equal(
       soloSidebarRow.querySelector('.tp-market-cap').textContent,
-      '$3M MC',
+      '$3M mcap',
     );
     assert.equal(
       soloSidebarRow.querySelector('.tp-token-secondary').textContent,
@@ -451,13 +507,13 @@ test('market sidebar places one unified decisions list before tokens', () => {
   assert.ok(tokens > pastDecisions);
   assert.match(
     document,
-    /id="tp-decision-markets-title"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/span>/,
+    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions Live<\/span>[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/strong>/,
   );
   assert.doesNotMatch(
     document,
     /tp-unified-section-toggle-(?:live|past)|tlp-past-decisions-panel/,
   );
-  assert.match(document, /id="tlp-all-panel" aria-label="Tokens"[\s\S]+id="tlp-all-list"/);
+  assert.match(document, /id="tlp-all-panel" aria-label="Tokens"[\s\S]+tp-tokens-section-heading[\s\S]+>Tokens<\/span>[\s\S]+id="tlp-all-list"/);
   assert.doesNotMatch(
     document,
     /tp-unified-section-toggle-tokens|tp-token-section-title|aria-label="Collapse tokens"/,
