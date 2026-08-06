@@ -1008,6 +1008,18 @@ export function normalizeProposalHistoryPayload(raw) {
   const source = isObject(payload.source) ? payload.source : {};
   const summary = isObject(payload.summary) ? payload.summary : {};
   const coverage = isObject(summary.coverage) ? summary.coverage : {};
+  const explicitThresholdBps = firstNumber(payload.thresholdBps);
+  const publishedThresholdPct = firstNumber(payload.thresholdPct);
+  const thresholdCandidateBps = Number.isFinite(explicitThresholdBps)
+    ? explicitThresholdBps
+    : Number.isFinite(publishedThresholdPct)
+      ? publishedThresholdPct * 100
+      : null;
+  const thresholdBps = Number.isSafeInteger(thresholdCandidateBps)
+    && thresholdCandidateBps > -10_000
+    && thresholdCandidateBps <= 10_000
+    ? thresholdCandidateBps
+    : null;
 
   return {
     proposalId: safeBase58(payload.proposalId || payload.proposal?.id),
@@ -1021,6 +1033,8 @@ export function normalizeProposalHistoryPayload(raw) {
       series.length ? 'partial' : 'unavailable',
     ),
     preTwap: isoTimestamp(payload.preTwap),
+    thresholdBps,
+    thresholdPct: Number.isFinite(thresholdBps) ? thresholdBps / 100 : null,
     series,
     source: {
       provider: boundedText(source.provider, 80),
@@ -1028,6 +1042,7 @@ export function normalizeProposalHistoryPayload(raw) {
       interval: boundedText(source.interval, 16),
       requestedInterval: boundedText(source.requestedInterval, 16),
       aggregation: boundedText(source.aggregation, 120),
+      thresholdEndpoint: boundedText(source.thresholdEndpoint, 160),
     },
     summary: {
       pointCount: series.length,
@@ -3221,6 +3236,7 @@ export function mountFutardTerminal({
     const passPrice = firstNumber(market.pass?.price, indexedClose.passPrice);
     const spotPrice = firstNumber(market.spot?.price, indexedClose.underlyingPrice);
     const failPrice = firstNumber(market.fail?.price, indexedClose.failPrice);
+    const thresholdPct = firstNumber(history?.thresholdPct, market.thresholdPct);
     const proposalNumber = displayedProposalLabel(market);
     const compactTitle = String(market.ticker || '').trim().length > 7;
     const metric = ({
@@ -3369,7 +3385,7 @@ export function mountFutardTerminal({
         ${metric({
           key: 'threshold',
           label: 'Threshold',
-          value: formatCompactPercent(market.thresholdPct),
+          value: formatCompactPercent(thresholdPct),
           tone: 'warning',
         })}
         ${metric({
@@ -5389,7 +5405,6 @@ export function mountFutardTerminal({
 
   function renderMarketInformationTabs({ tradeCount = 0 } = {}) {
     const activeTab = selectedMarketInformationTab();
-    const decisions = marketInformationDecisions();
     const activeLabel = {
       trades: 'Trades',
       holders: 'Holders',
@@ -5404,7 +5419,7 @@ export function mountFutardTerminal({
             ['trades', 'Trades', tradeCount],
             ['holders', 'Holders', null],
             ['discussion', 'Discussion', null],
-            ['decisions', 'Decisions', decisions.length],
+            ['decisions', 'Decisions', null],
           ].map(([key, label, count]) => {
             const selected = activeTab === key;
             return `

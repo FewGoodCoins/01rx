@@ -789,12 +789,27 @@ html[data-workspace="markets"] .tp-unified-section-columns {
 }
 
 html[data-workspace="markets"] .tp-unified-section-status {
-  color: #9b98a8;
+  display: inline-flex;
+  width: fit-content;
+  height: 18px;
+  min-height: 0;
+  flex: 0 0 auto;
+  padding: 0;
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #777a8c;
   cursor: default;
-  font-size: 12px;
-  font-weight: 590;
-  letter-spacing: 0;
+  font-family: var(--numeric-font);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  line-height: 18px;
+  pointer-events: none;
   text-transform: none;
+  white-space: nowrap;
 }
 
 html[data-workspace="markets"] #tlp-all-list .tp-item,

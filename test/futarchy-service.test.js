@@ -84,6 +84,10 @@ test('futarchy source normalizers bind known project aliases and lifecycle state
   assert.equal(_test.normalizeArchiveStatus({ status: 'resolved', result: 'approved' }), 'passed');
   assert.equal(_test.normalizeArchiveStatus({ status: 'resolved', result: 'rejected' }), 'failed');
   assert.equal(_test.normalizeArchiveRow({ publicKey: 'invalid', projectSlug: 'umbra' }), null);
+  assert.equal(_test.publishedThresholdBps('3'), 300);
+  assert.equal(_test.publishedThresholdBps('-3'), -300);
+  assert.equal(_test.publishedThresholdBps('3.001'), null);
+  assert.equal(_test.publishedThresholdBps('101'), null);
 });
 
 test('archive normalization preserves model evidence without inventing missing fields', () => {
@@ -229,16 +233,29 @@ test('active markets fail closed when every indexed market fails account validat
 });
 
 test('proposal history aggregates official 15-minute chart observations', async () => {
+  const calls = [];
   const service = createFutarchyService({
     env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
     connection: {},
-    async fetchImpl() {
-      return jsonResponse({ data: { preTwap: '2026-07-31T21:00:00Z', prices: [{
-        timestamp: '2026-07-31T21:07:00Z',
-        spotPrice: '1',
-        approvedPrice: '1.1',
-        rejectedPrice: '0.9',
-      }] } });
+    async fetchImpl(url) {
+      const value = String(url);
+      calls.push(value);
+      if (value.includes(`/v1/proposal/${PROPOSAL}/price-chart`)) {
+        return jsonResponse({ data: { preTwap: '2026-07-31T21:00:00Z', prices: [{
+          timestamp: '2026-07-31T21:07:00Z',
+          spotPrice: '1',
+          approvedPrice: '1.1',
+          rejectedPrice: '0.9',
+        }] } });
+      }
+      if (value.includes(`/v1/proposal/${PROPOSAL}/threshold-chart?timeInterval=max`)) {
+        return jsonResponse({ data: {
+          preTwap: '2026-07-31T21:00:00Z',
+          threshold: '3',
+          chartData: [],
+        } });
+      }
+      throw new Error(`Unexpected request: ${url}`);
     },
   });
   const result = await service.proposalHistory({ proposal: PROPOSAL, interval: '15m' });
@@ -251,6 +268,14 @@ test('proposal history aggregates official 15-minute chart observations', async 
     passTwap: 0,
     failTwap: 0,
   });
+  assert.equal(result.thresholdBps, 300);
+  assert.equal(result.thresholdPct, 3);
+  assert.equal(result.degraded.active, false);
+  assert.equal(
+    result.source.thresholdEndpoint,
+    '/v1/proposal/{publicKey}/threshold-chart?timeInterval=max',
+  );
+  assert.equal(calls.length, 2);
 });
 
 test('proposal history leaves missing TWAPs empty instead of using a second provider', async () => {
@@ -279,6 +304,9 @@ test('proposal history leaves missing TWAPs empty instead of using a second prov
             rejectedPrice: '0.8',
           }],
         } });
+      }
+      if (value.includes(`/v1/proposal/${PROPOSAL}/threshold-chart?timeInterval=max`)) {
+        return jsonResponse({ data: { threshold: 3 } });
       }
       throw new Error(`Unexpected request: ${url}`);
     },
@@ -312,6 +340,38 @@ test('proposal history leaves missing TWAPs empty instead of using a second prov
   assert.equal(result.source.provider, '01Resolved');
   assert.equal(result.source.twapProvider, undefined);
   assert.equal(result.degraded.active, false);
+});
+
+test('proposal history remains available when the supplemental threshold feed fails', async () => {
+  const service = createFutarchyService({
+    env: { ZERO_ONE_RESOLVED_API_KEY: 'server-key' },
+    connection: {},
+    async fetchImpl(url) {
+      const value = String(url);
+      if (value.includes(`/v1/proposal/${PROPOSAL}/price-chart`)) {
+        return jsonResponse({ data: { prices: [{
+          timestamp: '2026-07-31T21:07:00Z',
+          spotPrice: '1',
+          approvedPrice: '1.1',
+          rejectedPrice: '0.9',
+        }] } });
+      }
+      if (value.includes(`/v1/proposal/${PROPOSAL}/threshold-chart?timeInterval=max`)) {
+        return jsonResponse({ message: 'temporarily unavailable' }, 503);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    },
+  });
+
+  const result = await service.proposalHistory({ proposal: PROPOSAL, interval: '15m' });
+  assert.equal(result.availability, 'complete');
+  assert.equal(result.thresholdBps, null);
+  assert.equal(result.thresholdPct, null);
+  assert.equal(result.degraded.active, true);
+  assert.deepEqual(result.degraded.services, [
+    '01resolved-proposal-threshold-unavailable',
+  ]);
+  assert.equal(result.degraded.issues[0].code, 'PROPOSAL_THRESHOLD_UNAVAILABLE');
 });
 
 test('market data paginates every observed trade without requiring a signature', async () => {
