@@ -429,7 +429,7 @@ test('browser installation exposes the module client and legacy facade delegates
   assert.equal(typeof bridge.fetch, 'function');
   assert.equal(typeof bridge.json, 'function');
   assert.equal(typeof bridge.unwrapEnvelope, 'function');
-  assert.equal(runtime.NAVGATOR.client.contractRelease, '2026-08-04');
+  assert.equal(runtime.NAVGATOR.client.contractRelease, '2026-08-05');
   assert.equal(typeof runtime.NAVGATOR.client.trading.decisionAttest, 'function');
   assert.equal(
     runtime.NAVGATOR.client.futarchy.solanaRpcUrl(),

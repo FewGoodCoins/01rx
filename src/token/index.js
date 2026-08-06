@@ -2,6 +2,7 @@ import '@01resolved/ui/tokens.css';
 import '../../styles/futard-terminal.css';
 import '../../styles/terminal-shared.css';
 import '../../styles/terminal-shell.css';
+import '../../styles/trivium-terminal.css';
 import { installBrowserLivelineCharts } from '../chart/liveline-chart-engine.js';
 import { landingUrl } from '../core/landing-asset.js';
 import { revealMarketWorkspace } from '../core/market-boot.js';

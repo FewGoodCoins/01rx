@@ -4631,30 +4631,6 @@ body.is-futard-terminal #token-switch-loader {
   height: 21px;
 }
 
-.ft-hourly-pre-twap-band,
-.ft-hourly-post-twap-band {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  right: var(--ft-chart-right-scale-width, 0px);
-  bottom: 26px;
-  left: 0;
-  background: color-mix(in srgb, var(--ft-accent) 5%, transparent);
-  pointer-events: none;
-}
-
-.ft-hourly-pre-twap-band {
-  transform: scaleX(var(--ft-pre-twap-scale, 0));
-  transform-origin: left center;
-  will-change: transform;
-}
-
-.ft-hourly-post-twap-band {
-  transform: scaleX(var(--ft-post-twap-scale, 0));
-  transform-origin: right center;
-  will-change: transform;
-}
-
 .ft-proposal-boundary-dot {
   position: absolute;
   z-index: 4;
@@ -4973,17 +4949,15 @@ html[data-chart-engine="liveline"] .tv-logo-circle {
   border-inline: 1px solid color-mix(in srgb, var(--ft-faint) 18%, transparent);
 }
 
-.ft-liveline-phase-band {
+.ft-liveline-twap-start-line {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   top: 54px;
   bottom: 30px;
+  width: 1px;
+  background: color-mix(in srgb, #ffffff 22%, transparent);
+  transform: translateX(-0.5px);
   pointer-events: none;
-  background: color-mix(in srgb, var(--ft-accent) 5%, transparent);
-}
-
-.ft-liveline-phase-band-post-twap {
-  background: color-mix(in srgb, var(--ft-faint) 6%, transparent);
 }
 
 .ft-hourly-chart-enhanced .ft-hourly-plot-shell.ft-has-twap-progress .ft-hourly-live {

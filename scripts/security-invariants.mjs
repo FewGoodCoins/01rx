@@ -159,7 +159,7 @@ export function evaluateSecurityInvariants({ manifest, sources }) {
   checks.push(check(
     'manifest-valid',
     manifest.version === 1
-      && manifest.scope === 'read-only-audit-candidate'
+      && manifest.scope === 'mainnet-execution-release'
       && allManifestPaths.every(pathIsSafe)
       && duplicateActions.length === 0
       && duplicateBuilders.length === 0,
@@ -185,7 +185,7 @@ export function evaluateSecurityInvariants({ manifest, sources }) {
       && observation.enabled === String(manifest.releaseGate.enabled)
       && observation.phase === manifest.releaseGate.phase
     )),
-    'Every published contract representation keeps execution code-owned and paused.',
+    'Every published contract representation matches the code-owned execution release.',
     { observations: releaseObservations },
   ));
 
@@ -210,7 +210,7 @@ export function evaluateSecurityInvariants({ manifest, sources }) {
       && actionGuardIndex >= 0
       && Number.isFinite(firstHandlerIndex)
       && actionGuardIndex < firstHandlerIndex,
-    'Every browser execution action is inventoried and intercepted by the shared pause guard.',
+    'Every browser execution action is inventoried and intercepted when the shared release is disabled.',
     {
       expected: uniqueSorted(manifest.browser.executionActions),
       missingHandlers,
@@ -331,17 +331,17 @@ export function evaluateSecurityInvariants({ manifest, sources }) {
     ? [...tradingRoute.slice(rateLimitStart, endpointStart).matchAll(/^\s*'([^']+)'\s*:/gm)]
       .map(match => match[1])
     : [];
-  const tradingPauseIndex = tradingRoute.indexOf("'EXECUTION_PAUSED'");
+  const tradingReleaseGuardIndex = tradingRoute.indexOf("'EXECUTION_PAUSED'");
   const tradingRateLimitIndex = tradingRoute.indexOf('const rateLimit = takeRateLimit');
   const tradingBodyIndex = tradingRoute.indexOf('const body = await parseRequestBody');
   checks.push(check(
-    'trading-api-pause',
+    'trading-api-release-guard',
     sameMembers(observedViews, manifest.server.tradingViews)
       && tradingRoute.includes('EXECUTION_RELEASE')
-      && tradingPauseIndex >= 0
-      && tradingPauseIndex < tradingRateLimitIndex
-      && tradingPauseIndex < tradingBodyIndex,
-    'Every server trading view fails closed before request processing while execution is paused.',
+      && tradingReleaseGuardIndex >= 0
+      && tradingReleaseGuardIndex < tradingRateLimitIndex
+      && tradingReleaseGuardIndex < tradingBodyIndex,
+    'Every server trading view retains a fail-closed release guard before request processing.',
     {
       expectedViews: uniqueSorted(manifest.server.tradingViews),
       observedViews: uniqueSorted(observedViews),
@@ -353,7 +353,7 @@ export function evaluateSecurityInvariants({ manifest, sources }) {
     rpcRelay,
     'export const ALLOWED_RPC_METHODS = Object.freeze(new Set(',
   );
-  const rpcPauseIndex = rpcRelay.indexOf('if (includesSubmission(forwarded)');
+  const rpcReleaseGuardIndex = rpcRelay.indexOf('if (includesSubmission(forwarded)');
   const rpcTransactionIndex = rpcRelay.indexOf('if (includesTransaction(forwarded)');
   checks.push(check(
     'rpc-relay-policy',
@@ -362,9 +362,9 @@ export function evaluateSecurityInvariants({ manifest, sources }) {
       && sameMembers(manifest.server.simulationRpcMethods, ['simulateTransaction'])
       && rpcRelay.includes("call.method === 'sendTransaction'")
       && rpcRelay.includes("'EXECUTION_PAUSED'")
-      && rpcPauseIndex >= 0
-      && rpcPauseIndex < rpcTransactionIndex,
-    'The RPC allowlist is inventoried and submission is paused before transaction forwarding.',
+      && rpcReleaseGuardIndex >= 0
+      && rpcReleaseGuardIndex < rpcTransactionIndex,
+    'The RPC allowlist is inventoried and submission remains protected by the release gate.',
     {
       expected: uniqueSorted(manifest.server.allowedRpcMethods),
       observed: uniqueSorted(observedRpcMethods),

@@ -1,9 +1,11 @@
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { EXECUTION_RELEASE } from '@01resolved/contracts';
 
-const DEFAULT_ORIGIN = 'https://01rx.vercel.app';
+const DEFAULT_ORIGIN = 'https://fewgoodcoins.xyz';
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 12_000;
+const EXPECTED_EXECUTION_STATE = EXECUTION_RELEASE.enabled ? 'enabled' : 'paused';
 const SELECTED_HEADERS = Object.freeze([
   'allow',
   'cache-control',
@@ -164,7 +166,7 @@ export function evaluateAuditSmoke(responses) {
     check('current-nav-provider', String(currentNav.json?.provider || '').toLowerCase() === '01resolved', '01Resolved', currentNav.json?.provider || null),
     check('active-markets-contract', activeMarkets.status === 200 && activeMarkets.headers['x-01r-contract'] === 'futarchy.markets.v1', '200 futarchy.markets.v1', `${activeMarkets.status || 'no status'} ${activeMarkets.headers['x-01r-contract'] || 'no contract'}`),
     check('historic-nav-fails-closed', historicNav.status === 503 && historicNav.json?.code === 'DATA_NOT_AVAILABLE_FROM_01RESOLVED' && historicNav.json?.missingPath === '/api/historic-nav', '503 DATA_NOT_AVAILABLE_FROM_01RESOLVED', `${historicNav.status || 'no status'} ${historicNav.json?.code || 'no code'}`),
-    check('execution-paused', execution.status === 405 && execution.headers['x-01r-execution'] === 'paused' && /POST/.test(execution.headers.allow || ''), '405, X-01R-Execution: paused, Allow: POST', `${execution.status || 'no status'}, ${execution.headers['x-01r-execution'] || 'no execution header'}, ${execution.headers.allow || 'no allow header'}`),
+    check('execution-release', execution.status === 405 && execution.headers['x-01r-execution'] === EXPECTED_EXECUTION_STATE && /POST/.test(execution.headers.allow || ''), `405, X-01R-Execution: ${EXPECTED_EXECUTION_STATE}, Allow: POST`, `${execution.status || 'no status'}, ${execution.headers['x-01r-execution'] || 'no execution header'}, ${execution.headers.allow || 'no allow header'}`),
   ];
 }
 

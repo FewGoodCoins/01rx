@@ -132,6 +132,7 @@ test('terminal shell creates unique stable regions in declarative DOM order and 
     'ownershipAccount',
     'marketStage',
     'tradeTicket',
+    'marketContext',
     'positions',
     'modal',
     'walletStatus',

@@ -1,15 +1,15 @@
-# 01RX Security Control Matrix v1
+# Trivium Security Control Matrix v1
 
 | Field | Value |
 |---|---|
-| Recorded | 2026-08-04 |
-| Candidate scope | Read-only product with all mainnet execution paused |
+| Recorded | 2026-08-05 |
+| Candidate scope | Source-controlled guarded mainnet execution release |
 | Boundary inventory | [`security/execution-boundaries.json`](../../security/execution-boundaries.json) |
 | Machine gate | [`scripts/security-invariants.mjs`](../../scripts/security-invariants.mjs) |
 | Candidate evidence | [`scripts/audit-candidate-evidence.mjs`](../../scripts/audit-candidate-evidence.mjs) |
-| Audit status | **NOT AN AUDIT OR MAINNET EXECUTION APPROVAL** |
+| Audit status | **NOT AN AUDIT OR INDEPENDENT SECURITY APPROVAL** |
 
-This document tells a reviewer what 01RX intends to enforce, where the
+This document tells a reviewer what Trivium intends to enforce, where the
 enforcement lives, what is already tested, and what evidence is still missing.
 “Enforced” means a repository control and test exist. It does not mean an
 independent reviewer has found the control sufficient.
@@ -18,9 +18,9 @@ independent reviewer has found the control sufficient.
 
 ```mermaid
 flowchart LR
-  User[User] -->|explicit intent| Browser[01RX browser]
+  User[User] -->|explicit intent| Browser[Trivium browser]
   Wallet[Wallet extension] <-->|review + detached signature| Browser
-  Browser -->|reviewed same-origin contracts| API[01RX server API]
+  Browser -->|reviewed same-origin contracts| API[Trivium server API]
   API -->|authenticated current data| Resolved[01Resolved]
   API -->|signed route response| DFlow[DFlow]
   API -->|bounded JSON-RPC| RPC[Configured Solana RPC]
@@ -32,11 +32,14 @@ flowchart LR
 The browser is untrusted, wallet providers are untrusted until returned bytes
 are checked, DFlow and RPC responses are untrusted inputs, and all referenced
 on-chain programs are third-party deployments. Server secrets terminate at the
-01RX API. No browser code should receive or reconstruct them.
+Trivium API. No browser code should receive or reconstruct them.
 
 ## Funds-sensitive surface inventory
 
-All rows are blocked by the shared `EXECUTION_RELEASE` gate in this candidate.
+All rows are governed by the shared `EXECUTION_RELEASE` gate. The gate is
+enabled for this source release, while each path remains fail-closed on missing
+configuration, integrity, account-policy, simulation, expiry, or message-binding
+evidence.
 
 | User action | Transaction builder / kind | Final submission boundary |
 |---|---|---|
@@ -58,7 +61,7 @@ action drifts from the machine-readable inventory.
 
 | ID | Control objective | Repository enforcement and evidence | Status | Remaining work / risk |
 |---|---|---|---|---|
-| REL-01 | Execution must remain unavailable until separately approved. | Code-owned `EXECUTION_RELEASE`; browser actions intercepted; trading API returns `EXECUTION_PAUSED`; RPC relay blocks `sendTransaction`; invariant and route tests. | Enforced | Only a reviewed source change may enable it. Require independent approval and all exit criteria first. |
+| REL-01 | Execution state must remain explicit, code-owned, and globally reversible. | Frozen `EXECUTION_RELEASE`; browser, trading API, and RPC relay consume the same release; disabled-state regression tests remain; invariant checks bind every published representation. | Enabled by source release | Any pause or re-enable requires a reviewed source change and deployment. Independent audit status remains separate from operator authorization. |
 | INT-01 | A transaction starts only from explicit user intent. | Eight execution actions are centralized in `EXECUTION_ACTIONS`; review modal and wallet approval are separate boundaries; no automatic signer exists. | Enforced | Independent UX review must verify that action, asset, amount, outcome, destination, fees, and slippage are understandable on every path. |
 | WAL-01 | A wallet cannot hide or mutate submitted bytes. | Wallet Standard and legacy adapters require detached `signTransaction`; opaque `signAndSendTransaction` is excluded; returned bytes are decoded and compared. | Enforced | Compatibility is intentionally narrower. Test the exact supported wallet/version matrix before launch. |
 | TX-01 | Simulated, reviewed, signed, and submitted messages must be identical. | SHA-256 review fingerprint before/after simulation; fingerprint checked before signing; wallet-returned message and required co-signatures checked before raw send; server repeats the comparison for spot. | Enforced | Independent review must validate legacy and v0 serialization assumptions, address lookup tables, and all co-signer cases. |
@@ -67,7 +70,7 @@ action drifts from the machine-readable inventory.
 | SOL-01 | Only reviewed program deployments may execute. | Program ID, ProgramData address, deployment slot, and upgrade authority pins for MetaDAO, Conditional Vault, Manifest Core/Wrapper, DFlow, and allowed route programs; fail-closed runtime checks. | Enforced | These are upgradeable third-party programs. Re-review and repin only after source/deployment review. A dishonest RPC can still lie about account state. |
 | SOL-02 | Accounts and privileges must match the intended action. | Owner, discriminator, PDA, mint pair, signer, writable-account, fee payer, recipient, balance, and instruction/program checks across decision and DFlow policies. | Partial | Build a per-instruction account matrix and have a Solana specialist validate every positive and negative case against cloned mainnet state. |
 | SOL-03 | Unsupported token-program behavior must fail closed. | Decision/ownership execution requires classic SPL Token accounts and mints. DFlow permits at most one Token-2022 compatibility program, read-only and non-signer, while traded accounts/mints remain classic SPL. | Enforced | Token-2022 trading is out of scope. Any expansion requires extension-level threat analysis and new audit scope. |
-| SOL-04 | Undeployed automation must not appear usable. | Recurring creation checks executable program state; server config requires a program ID and keeper-ready flag; global execution is paused. | Paused | No reviewed recurring deployment/keeper evidence exists. Keep creation unavailable until program, keeper, custody, liveness, cancellation, and incident controls are audited. |
+| SOL-04 | Undeployed automation must not appear usable. | Recurring creation checks executable program state; server config requires a program ID and keeper-ready flag independently of the global release. | Paused | No reviewed recurring deployment/keeper evidence exists. Keep creation unavailable until program, keeper, custody, liveness, cancellation, and incident controls are audited. |
 | DFL-01 | DFlow responses must be authentic, fresh, and bound to the request. | Server-only API key and allowlisted upstream; Ed25519 response signature, digest, request ID, timestamp, size, status, and URL validation; proof revalidated on submit. | Enforced | Confirm key-rotation and upstream incident procedures with DFlow; retain no secret-bearing evidence. |
 | DFL-02 | An authentic route must also be economically authorized. | Transaction decoder constrains signer, owner accounts, mint pair, route venue/program, lookup tables, compute budget, slippage, fees, simulated balance effects, and exact signed message. | Partial | Independent semantic review is required. Current venue allowlist is deliberately narrow and must not be expanded from metadata alone. |
 | API-01 | Browser execution must use reviewed same-origin contracts. | Browser imports `@01resolved/api-client`; production controller derives the RPC relay from `client.futarchy.solanaRpcUrl()`; runtime RPC URL override removed; no direct DFlow call. | Enforced | Confirm deployed origin routing and preview/production separation in Vercel. |
@@ -82,10 +85,10 @@ action drifts from the machine-readable inventory.
 | SAST-01 | Common code vulnerabilities must be scanned. | Pinned CodeQL workflow with `security-extended` queries on PR, main, and weekly schedule. | Defined | CodeQL must run successfully and become a required check; all Critical/High alerts must be closed or independently shown inapplicable. |
 | GOV-01 | AI-authored funds-sensitive changes require independent control. | CODEOWNERS, PR checklist, explicit AI-assisted-change disclosure, and frozen-candidate workflow. | Partial | Add a qualified independent reviewer; require approval, CI, dependency review, CodeQL, conversation resolution, signed/controlled releases, and administrator enforcement in GitHub. |
 | EVD-01 | Audit evidence must bind to one immutable candidate. | Manual workflow requires a clean tree after the full gate and records commit/tree, critical-file hashes, build hashes, SBOM hash, runtime, and limitations. | Enforced in CI definition | Run it on the eventual audit commit and retain the artifact plus deployment ID/configuration evidence. A dirty local report is not a candidate. |
-| OPS-01 | Production controls and response must be demonstrable. | Read-only GET smoke workflow records contracts, provenance, failure behavior, execution state, and browser headers. | External evidence needed | Evidence Vercel domains, WAF, logs, alerts, secret scope, deployment access, rollback, emergency pause, incident owner, and tested recovery. |
+| OPS-01 | Production controls and response must be demonstrable. | GET-only deployment smoke records contracts, provenance, failure behavior, expected execution release state, and browser headers without building or submitting a transaction. | External evidence needed | Evidence Vercel domains, WAF, logs, alerts, secret scope, deployment access, rollback, emergency pause, incident owner, and tested recovery. |
 | TST-01 | Security failures must have regression tests. | Unit/integration tests cover pause gates, malformed inputs, program changes, DFlow signatures and semantics, wallet mutation, simulation mutation, expiry, and RPC restrictions. | Partial | Produce a transaction-family coverage matrix; close missing replay, stale-state, concurrency, wallet-version, and upstream-failure combinations. |
 | TST-02 | Execution must be tested against realistic Solana state. | Existing tests use deterministic fixtures and mocked RPC boundaries. | Gap | Add Surfpool or equivalent cloned-mainnet tests for all externally deployed programs and representative accounts. There is no owned on-chain program source in this repository to audit as a local program. |
-| AUD-01 | Launch approval must come from qualified humans independent of authorship. | The readiness record explicitly prohibits AI self-approval and binds audit scope to an exact commit. | Blocked | Select an independent Solana/application security firm, remediate findings, obtain retest evidence, and record human launch sign-off. |
+| AUD-01 | Independent audit approval must come from qualified humans independent of authorship. | The readiness record explicitly prohibits AI self-approval and binds audit scope to an exact commit. | Outstanding | Product-owner execution authorization is not an independent audit. Select an independent Solana/application security firm, remediate findings, and obtain retest evidence before making an audit claim. |
 
 ## Priority threat scenarios
 

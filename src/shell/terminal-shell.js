@@ -112,6 +112,12 @@ export function createTerminalShell({
         aria-label="Trade intent and positions"
       >
         <div data-ft-region="trade-ticket"></div>
+        <section
+          class="ft-ticket-market-context"
+          data-ft-region="market-context"
+          aria-label="Market information"
+          aria-live="polite"
+        ></section>
       </aside>
     `,
     [TERMINAL_PANEL_IDS.activity]: `
@@ -228,6 +234,7 @@ export function createTerminalShell({
     ownershipAccount: root.querySelector('[data-ft-region="ownership-account"]'),
     marketStage: root.querySelector('[data-ft-region="market-stage"]'),
     tradeTicket: root.querySelector('[data-ft-region="trade-ticket"]'),
+    marketContext: root.querySelector('[data-ft-region="market-context"]'),
     positions: root.querySelector('[data-ft-role="positions"]'),
     modal: root.querySelector('[data-ft-region="modal"]'),
     walletStatus: root.querySelector('[data-ft-role="wallet-status"]'),

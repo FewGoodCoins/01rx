@@ -6,13 +6,13 @@ import {
   EXECUTION_RELEASE,
 } from '@01resolved/contracts';
 
-test('mainnet execution defaults to a frozen code-owned audit pause', () => {
+test('mainnet execution uses one frozen code-owned release', () => {
   assert.equal(Object.isFrozen(EXECUTION_RELEASE), true);
   assert.deepEqual(EXECUTION_RELEASE, {
-    code: 'AUDIT_REVIEW_REQUIRED',
-    enabled: false,
-    message: 'Trading is paused while Trivium completes independent security review.',
-    phase: 'audit-readiness-v1',
+    code: 'MAINNET_EXECUTION_ENABLED',
+    enabled: true,
+    message: 'Mainnet trading requires simulation, exact transaction review, and explicit wallet approval.',
+    phase: 'mainnet-execution-v1',
   });
   assert.equal(CONTRACT_HEADERS.execution, 'X-01R-Execution');
 });
@@ -72,10 +72,11 @@ test('the readiness record does not claim that the current execution build is au
     'docs/audits/audit-readiness-v1.md',
     'utf8',
   );
-  assert.match(readiness, /NOT AUDIT READY FOR MAINNET EXECUTION/);
-  assert.match(readiness, /All items are required; an AI agent cannot self-approve them/);
+  assert.match(readiness, /NOT INDEPENDENTLY AUDITED FOR MAINNET EXECUTION/);
+  assert.match(readiness, /Enabling execution does not constitute\s+audit approval/);
+  assert.match(readiness, /AI\s+agent cannot self-approve them/);
   assert.match(readiness, /independent security firm/);
-  assert.match(readiness, /Re-enabling execution requires/);
+  assert.match(readiness, /Changing execution state\s+requires a separate reviewed source change/);
 });
 
 test('the control matrix and frozen-candidate workflow preserve independent approval', () => {
@@ -88,7 +89,7 @@ test('the control matrix and frozen-candidate workflow preserve independent appr
     'utf8',
   );
 
-  assert.match(matrix, /NOT AN AUDIT OR MAINNET EXECUTION APPROVAL/);
+  assert.match(matrix, /NOT AN AUDIT OR INDEPENDENT SECURITY APPROVAL/);
   assert.match(matrix, /single-RPC|One configured RPC|configured Solana RPC/i);
   assert.match(matrix, /AUD-01/);
   assert.match(matrix, /independent Solana\/application security firm/);

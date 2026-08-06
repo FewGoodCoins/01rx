@@ -16,6 +16,10 @@ const sharedTerminalCss = fs.readFileSync(
   new URL('../styles/terminal-shared.css', import.meta.url),
   'utf8',
 );
+const triviumTerminalCss = fs.readFileSync(
+  new URL('../styles/trivium-terminal.css', import.meta.url),
+  'utf8',
+);
 const refinementCss = fs.readFileSync(
   new URL('../styles/refinements.css', import.meta.url),
   'utf8',
@@ -42,6 +46,10 @@ const appCoreSource = fs.readFileSync(
 );
 const decisionMarketControllerSource = fs.readFileSync(
   new URL('../src/markets/decision-market-controller.js', import.meta.url),
+  'utf8',
+);
+const terminalShellSource = fs.readFileSync(
+  new URL('../src/shell/terminal-shell.js', import.meta.url),
   'utf8',
 );
 const tokenPageSource = fs.readFileSync(
@@ -261,7 +269,7 @@ test('market sidebar and execution controls continue the terminal header rails',
   );
   assert.match(
     indexSource,
-    /<label class="tp-market-search-field" id="tp-market-search-field">\s*<input id="tlp-search" type="search"/,
+    /<header class="site-header"[\s\S]*?<div class="tp-market-toolbar site-header-market-search"[\s\S]*?<label class="tp-market-search-field" id="tp-market-search-field">[\s\S]*?<input id="tlp-search" type="search" placeholder="Search markets or tokens\.\.\."/,
   );
   assert.match(
     refinementCss,
@@ -529,25 +537,25 @@ test('decision chart plot starts without the exposed toolbar divider', () => {
   );
 });
 
-test('decision chart uses TWAP background context without vertical boundary lines', () => {
+test('decision chart uses one light TWAP-start line without phase backgrounds', () => {
   assert.match(
     frameCss,
-    /\.ft-hourly-pre-twap-band,\s*\.ft-hourly-post-twap-band\s*\{[\s\S]*?right: var\(--ft-chart-right-scale-width, 0px\);[\s\S]*?background: color-mix\(in srgb, var\(--ft-accent\) 5%, transparent\);/,
-  );
-  assert.match(
-    frameCss,
-    /\.ft-hourly-post-twap-band\s*\{[\s\S]*?scaleX\(var\(--ft-post-twap-scale, 0\)\);[\s\S]*?transform-origin: right center;/,
+    /\.ft-liveline-twap-start-line\s*\{[\s\S]*?top: 54px;[\s\S]*?bottom: 30px;[\s\S]*?width: 1px;[\s\S]*?background: color-mix\(in srgb, #ffffff 22%, transparent\);[\s\S]*?pointer-events: none;/,
   );
   assert.match(
     proposalLivelineSource,
-    /phaseBandElements[\s\S]*?key: 'post-twap'/,
+    /twapStartLineElement[\s\S]*?data-ft-chart-boundary': 'twap-start'[\s\S]*?projection\.toPlotRatio\(startTime\)/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /A light vertical line marks the beginning of the TWAP observation window/,
   );
   assert.match(
     proposalLivelineSource,
     /prepared\.viewportEnd = prepared\.lastTime - panOffsetSeconds/,
   );
-  assert.doesNotMatch(frameCss, /\.ft-hourly-event-line\s*\{/);
-  assert.doesNotMatch(proposalLivelineSource, /ft-hourly-event-line|data\.ftChartEvent/);
+  assert.doesNotMatch(frameCss, /ft-hourly-(?:pre|post)-twap-band|ft-liveline-phase-band/);
+  assert.doesNotMatch(proposalLivelineSource, /phaseBandElements|data-ft-chart-band/);
 });
 
 test('decision chart keeps one solid white origin and solid coordinate-bound final dots', () => {
@@ -615,14 +623,14 @@ test('decision chart supports broad whitespace and TradingView-like axis scaling
   );
 });
 
-test('global wallet control uses the white Trivium header treatment', () => {
+test('global wallet control uses the neutral raised Trivium header treatment', () => {
   assert.match(
-    frameCss,
-    /\.site-header-market-wallet\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-accent: #eeeeea;[\s\S]*?--ft-focus: #ffffff;/,
+    triviumTerminalCss,
+    /\.site-header-market-wallet \.ft-wallet-button\s*\{[\s\S]*?border: 1px solid var\(--trivium-border-strong\);[\s\S]*?background: var\(--trivium-panel-raised\);[\s\S]*?color: var\(--trivium-text\);/,
   );
   assert.match(
-    frameCss,
-    /\.site-header-market-wallet \.ft-wallet-button\s*\{[\s\S]*?border-color: #eeeeea;[\s\S]*?background: #eeeeea;[\s\S]*?color: #101010;/,
+    triviumTerminalCss,
+    /\.site-header-market-wallet \.ft-wallet-button:hover\s*\{[\s\S]*?background: var\(--trivium-panel-hover\);[\s\S]*?color: #fff;/,
   );
   assert.match(
     frameCss,
@@ -630,14 +638,14 @@ test('global wallet control uses the white Trivium header treatment', () => {
   );
 });
 
-test('proposal trade wallet action stays white for conditional and spot markets', () => {
+test('proposal trade actions share the blue-violet Trivium review treatment', () => {
   assert.match(
-    frameCss,
-    /\.ft-decision-ticket\.ft-order-outcome-pass \.ft-primary-button\.ft-connect-trade-button:not\(:disabled\),\s*\.ft-decision-ticket\.ft-order-outcome-fail \.ft-primary-button\.ft-connect-trade-button:not\(:disabled\)\s*\{[\s\S]*?border-color: #f2f2ef;[\s\S]*?background: #f2f2ef;[\s\S]*?color: #101010;/,
+    triviumTerminalCss,
+    /\.ft-shell \.ft-ownership-connect,[\s\S]*?\.ft-primary-button\s*\{[\s\S]*?border: 1px solid rgb\(117 128 255 \/ 65%\);[\s\S]*?background: var\(--trivium-accent\);[\s\S]*?color: #07070d;/,
   );
   assert.match(
-    frameCss,
-    /\.ft-decision-ticket\.ft-order-outcome-spot \.ft-primary-button:not\(:disabled\)\s*\{[\s\S]*?border-color: #f2f2ef;[\s\S]*?background: #f2f2ef;[\s\S]*?color: #101010;/,
+    triviumTerminalCss,
+    /\.ft-primary-button:hover:not\(:disabled\)\s*\{[\s\S]*?border-color: #959cff;[\s\S]*?background: #8992ff;/,
   );
 });
 
@@ -757,7 +765,7 @@ test('spot chart keeps its expansion control aligned after temporary controls ar
   );
 });
 
-test('decision chart toolbar keeps proposal details and chart expansion', () => {
+test('decision chart toolbar routes proposal details to the right rail', () => {
   assert.doesNotMatch(
     decisionMarketControllerSource,
     /hourly-series-trigger|TradingView weekly timeframe placeholder|ft-hourly-growth-control/,
@@ -769,6 +777,14 @@ test('decision chart toolbar keeps proposal details and chart expansion', () => 
   assert.match(
     decisionMarketControllerSource,
     /function renderProposalDetailsControl\([\s\S]*?data-ft-action="toggle-proposal-details"/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /proposalDetailsPlacement: 'ticket'/,
+  );
+  assert.match(
+    terminalShellSource,
+    /class="ft-ticket-market-context"[\s\S]*?data-ft-region="market-context"/,
   );
 });
 
@@ -788,51 +804,54 @@ test('desktop spot ticket grows to expose every control without internal scrolli
   );
 });
 
-test('desktop decision trading keeps its action outside the scrolling ticket body', () => {
+test('desktop execution and market context share one contained right-rail scroller', () => {
   assert.match(
-    frameCss,
-    /\.ft-proposal-focus\.ft-live-market \.ft-ticket-column,[\s\S]*?grid-template-rows: minmax\(0, 1fr\);/,
+    triviumTerminalCss,
+    /\.ft-ticket-column\s*\{[\s\S]*?display: block !important;[\s\S]*?overflow-y: auto !important;[\s\S]*?scrollbar-gutter: stable;/,
   );
   assert.match(
-    frameCss,
-    /\.ft-decision-ticket-scroll\s*\{[\s\S]*?flex-direction: column;/,
+    triviumTerminalCss,
+    /\.ft-ticket-column > \[data-ft-region="trade-ticket"\],[\s\S]*?height: auto !important;[\s\S]*?overflow: visible !important;/,
   );
   assert.match(
-    frameCss,
-    /\.ft-proposal-focus \.ft-decision-ticket-scroll\s*\{[\s\S]*?overflow-y: scroll;[\s\S]*?scrollbar-gutter: stable;/,
+    triviumTerminalCss,
+    /\.ft-decision-ticket-scroll\s*\{[\s\S]*?overflow: visible !important;/,
   );
   assert.match(
-    frameCss,
-    /\.ft-proposal-focus \.ft-decision-action\s*\{[\s\S]*?z-index: 4;[\s\S]*?background: #111111;/,
+    decisionMarketControllerSource,
+    /function renderMarketContext\(\)[\s\S]*?Market information[\s\S]*?renderMarketContextTransactions/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /Holder distribution is not included in Trivium’s reviewed current-token contract yet\./,
   );
 });
 
 test('spot and decision routes share one authoritative desktop terminal geometry', () => {
   assert.match(
-    sharedTerminalCss,
-    /html\[data-workspace="markets"\]\s*\{\s*--sidebar-width: 275px;/,
+    triviumTerminalCss,
+    /--sidebar-width: clamp\(286px, 19vw, 390px\);/,
   );
   assert.match(
-    sharedTerminalCss,
-    /\[data-ft-mode="token"\]\.ft-proposal-focus\.ft-live-market \.ft-terminal-grid,[\s\S]*?\[data-ft-mode="token"\]\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{[\s\S]*?grid-template-columns:[\s\S]*?minmax\(0, 1fr\)[\s\S]*?225px[\s\S]*?minmax\(0, 25vw\);/,
+    triviumTerminalCss,
+    /grid-template-areas:\s*"market-summary trade-ticket"\s*"primary-market trade-ticket"\s*"activity trade-ticket" !important;/,
   );
   assert.match(
-    sharedTerminalCss,
-    /grid-template-rows:\s*max-content\s*var\(--ft-terminal-chart-height\)\s*var\(--ft-terminal-account-height\);/,
+    triviumTerminalCss,
+    /grid-template-columns: minmax\(0, 1fr\) clamp\(340px, 23vw, 460px\) !important;/,
   );
   assert.match(
-    sharedTerminalCss,
-    /--ft-terminal-account-height: clamp\(180px, 22dvh, 210px\);[\s\S]*?--ft-terminal-analysis-height: 0px;[\s\S]*?--ft-terminal-chart-height: clamp\(\s*550px,[\s\S]*?- var\(--ft-terminal-analysis-height\)[\s\S]*?690px/,
+    triviumTerminalCss,
+    /--ft-terminal-account-height: clamp\(190px, 21dvh, 248px\) !important;/,
   );
   assert.match(
-    sharedTerminalCss,
-    /\.ft-proposal-focus\.ft-live-market \.ft-terminal-grid,[\s\S]*?\.ft-proposal-focus\.ft-ownership-market \.ft-terminal-grid\s*\{\s*--ft-terminal-analysis-height: 42px;/,
+    triviumTerminalCss,
+    /\.ft-ticket-column\s*\{[\s\S]*?grid-column: 2 !important;[\s\S]*?grid-row: 1 \/ 4 !important;/,
   );
   assert.match(
-    sharedTerminalCss,
-    /\[data-ft-mode="token"\]\.ft-proposal-focus \.ft-account-row\s*\{[\s\S]*?display: block;[\s\S]*?grid-row: 3;/,
+    triviumTerminalCss,
+    /:not\(\.ft-wallet-connected\) \.terminal-activity > \.ft-activity-row\s*\{\s*grid-column: 1;/,
   );
-  assert.equal((sharedTerminalCss.match(/grid-template-columns:/g) || []).length, 1);
 });
 
 test('desktop account activity stays inside the viewport and scrolls its body', () => {
@@ -848,16 +867,24 @@ test('desktop account activity stays inside the viewport and scrolls its body', 
     sharedTerminalCss,
     /\.ft-proposal-focus \.ft-ownership-account-panel\s*\{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior-y: contain;/,
   );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-transactions-list,[\s\S]*?\.ft-ownership-account-panel\s*\{[\s\S]*?overflow-y: auto !important;[\s\S]*?scrollbar-gutter: stable;[\s\S]*?touch-action: pan-y;/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable recent transactions"/,
+  );
 });
 
 test('market workspace uses one canonical structural background', () => {
   assert.match(
-    refinementCss,
-    /html\[data-workspace="markets"\]\s*\{[\s\S]*?--market-surface: #101010;/,
+    triviumTerminalCss,
+    /html\[data-workspace="markets"\]\s*\{[\s\S]*?--market-surface: #090911;[\s\S]*?--trivium-canvas: #05050a;/,
   );
   assert.match(
-    refinementCss,
-    /\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-bg: #101010;[\s\S]*?--ft-bg-raised: #101010;[\s\S]*?--ft-panel: #101010;[\s\S]*?--ft-panel-soft: #101010;[\s\S]*?--ft-panel-strong: #101010;/,
+    triviumTerminalCss,
+    /\[data-01r-theme-scope\]\s*\{[\s\S]*?--ft-bg: var\(--trivium-canvas\);[\s\S]*?--ft-panel: var\(--trivium-panel\);[\s\S]*?--ft-panel-soft: var\(--trivium-panel-raised\);/,
   );
   assert.match(
     sharedTerminalCss,

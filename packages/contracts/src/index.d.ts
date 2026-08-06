@@ -253,10 +253,10 @@ export const DECISION_ATTRIBUTION: Readonly<{
   version: 1;
 }>;
 export const EXECUTION_RELEASE: Readonly<{
-  code: 'AUDIT_REVIEW_REQUIRED';
-  enabled: false;
+  code: 'MAINNET_EXECUTION_ENABLED';
+  enabled: true;
   message: string;
-  phase: 'audit-readiness-v1';
+  phase: 'mainnet-execution-v1';
 }>;
 export const API_ENDPOINTS: Readonly<Record<EndpointId, EndpointDefinition>>;
 export const FUTARCHY_STABLE_V1_VIEWS: readonly string[];

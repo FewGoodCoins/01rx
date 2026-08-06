@@ -483,13 +483,40 @@ function _bindMarketSidebarSearch() {
   var input = document.getElementById('tlp-search');
   if (!input || input.dataset.marketSearchBound === 'true') return;
   input.dataset.marketSearchBound = 'true';
-  input.addEventListener('input', applyMarketSidebarSearch);
+  input.addEventListener('input', function() {
+    if (
+      input.value
+      && document.body.classList.contains('left-panel-collapsed')
+      && typeof window.toggleShellPanel === 'function'
+    ) {
+      window.toggleShellPanel('left');
+    }
+    applyMarketSidebarSearch();
+  });
   input.addEventListener('keydown', function(event) {
     if (event.key === 'Escape' && input.value) {
       input.value = '';
       applyMarketSidebarSearch();
     }
   });
+  if (
+    document.documentElement.dataset.workspace === 'markets'
+    && document.documentElement.dataset.marketSearchShortcutBound !== 'true'
+  ) {
+    document.documentElement.dataset.marketSearchShortcutBound = 'true';
+    document.addEventListener('keydown', function(event) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      if (
+        document.body.classList.contains('left-panel-collapsed')
+        && typeof window.toggleShellPanel === 'function'
+      ) {
+        window.toggleShellPanel('left');
+      }
+      input.focus({ preventScroll: true });
+      input.select();
+    });
+  }
   _syncMarketSortMenu();
   setMarketSidebarTab(_marketSidebarTab);
   applyMarketSidebarSearch();

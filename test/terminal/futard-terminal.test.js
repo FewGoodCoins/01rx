@@ -1817,6 +1817,20 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   assert.equal(recentTransactions.querySelector('[data-ft-role="decision-support-fail-count"]'), null);
   assert.equal(byRole(root, 'decision-support-pass').textContent.trim(), 'PASS');
   assert.equal(byRole(root, 'decision-support-fail').textContent.trim(), 'FAIL');
+  const contextTransactions = byRole(root, 'market-context-transactions');
+  assert.ok(contextTransactions);
+  assert.equal(
+    contextTransactions.querySelectorAll('.ft-market-context-transaction').length,
+    4,
+  );
+  assert.match(contextTransactions.textContent, /PASS BUY/);
+  const proposalContext = byRole(root, 'market-context-proposal');
+  assert.ok(proposalContext);
+  assert.ok(proposalContext.closest('[data-terminal-panel="trade-ticket"]'));
+  assert.equal(
+    byRole(root, 'proposal-details').closest('[data-terminal-panel="trade-ticket"]') !== null,
+    true,
+  );
 
   byRole(root, 'decision-support-pass').click();
   assert.deepEqual(
@@ -2961,6 +2975,20 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     rows[0].getAttribute('href'),
     `https://solscan.io/tx/${TRANSACTION_SIGNATURE}`,
   );
+  assert.equal(
+    recentTransactions.querySelector('.ft-ownership-transactions-list').tabIndex,
+    0,
+  );
+  const contextTransactions = byRole(root, 'market-context-transactions');
+  assert.equal(
+    contextTransactions.querySelectorAll('.ft-market-context-transaction').length,
+    1,
+  );
+  assert.match(contextTransactions.textContent, /\$0\.1291[\s\S]+\$161\.38/);
+  const holderContext = byRole(root, 'market-context-holders');
+  assert.ok(holderContext);
+  assert.match(holderContext.textContent, /not included in Trivium’s reviewed current-token contract/i);
+  assert.doesNotMatch(holderContext.textContent, /\d+(?:\.\d+)?%/);
   assert.equal(byRole(root, 'ownership-account-activity'), null);
   assert.equal(root.classList.contains('ft-wallet-connected'), false);
 

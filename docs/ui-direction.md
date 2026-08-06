@@ -6,9 +6,10 @@ their wallet without competing decoration or hidden safety state.
 
 ## Visual grammar
 
-- Use one quiet dark canvas, one raised panel surface, and one border tone.
-- Reserve amber for warnings, green and red for market meaning, and neutral
-  white for primary wallet actions.
+- Use one quiet near-black canvas, one subtly raised indigo-black panel surface,
+  and one low-contrast blue-violet border family.
+- Reserve amber for warnings, green and red for market meaning, and
+  blue-violet for primary review actions. Wallet connection remains neutral.
 - Use sans-serif type for reading and monospace type for prices, quantities,
   addresses, and system state.
 - Prefer spacing, alignment, and type weight over extra boxes or ornamental
@@ -22,9 +23,16 @@ behavior. Stable section IDs are market explorer, market summary, primary
 market, activity, trade ticket, system status, and modal. Reorder sections in
 the layout definition rather than coupling renderers to grid coordinates.
 
-The primary market surface receives the most space. The market explorer and
-trade ticket stay predictable, while activity follows the primary evidence in
-the reading order. Visual order and keyboard order must always agree.
+The desktop terminal has three predictable zones: a collapsible explorer, a
+wide primary market workspace, and a compact execution rail. Activity sits
+below the primary chart instead of permanently narrowing it. Visual order and
+keyboard order must always agree.
+
+The lower activity panel and the execution rail are separate contained scroll
+regions. Buy and Sell controls lead the execution rail; real transaction
+summaries and source-backed token or proposal context follow beneath them.
+Detailed transaction tables remain below the chart. Unsupported holder data is
+labeled unavailable rather than estimated or synthesized.
 
 ## Product constraints
 

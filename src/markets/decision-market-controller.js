@@ -1297,8 +1297,6 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
 
   const preTwapTime = new Date(history?.preTwap || '').getTime();
   const hasPreTwap = Number.isFinite(preTwapTime);
-  const twapEndTime = new Date(options.windowEndedAt || '').getTime();
-  const hasTwapEnd = Number.isFinite(twapEndTime);
   const twapWindow = twapWindowProgressMarkup(
     history?.preTwap,
     options.windowEndedAt,
@@ -1322,6 +1320,9 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
   const pairLabel = ticker.includes('/') ? ticker : `${ticker}/USD`;
   const proposal = isObject(options.proposal) ? options.proposal : null;
   const proposalDetailsOpen = options.proposalDetailsOpen === true;
+  const proposalDetailsPlacement = options.proposalDetailsPlacement === 'ticket'
+    ? 'ticket'
+    : 'chart';
   return `
     <div
       class="ft-hourly-chart ft-hourly-chart-pending"
@@ -1405,9 +1406,11 @@ export function renderHourlyPriceChart(history, ticker = 'TOKEN', options = {}) 
           data-ft-role="proposal-history-liveline"
           data-ft-chart-engine="liveline"
           role="img"
-          aria-label="Interactive chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A subtle background change separates PRE-TWAP context from the decision observation window.' : ''}${hasTwapEnd ? ' The chart retains the complete indexed window without drawing a boundary line.' : ''} Hover to inspect exact values; drag or swipe the plot to pan, scroll or pinch to zoom, drag the bottom time axis to scale horizontally, and drag or scroll the right price axis to scale vertically. Double-click either axis to reset it."
+          aria-label="Interactive chart of ${cadenceLabel} ${escapeHtml(ticker)}, PROP PASS, and PROP FAIL spot prices, with indexed PASS and FAIL TWAP series.${hasPreTwap ? ' A light vertical line marks the beginning of the TWAP observation window.' : ''} Hover to inspect exact values; drag or swipe the plot to pan, scroll or pinch to zoom, drag the bottom time axis to scale horizontally, and drag or scroll the right price axis to scale vertically. Double-click either axis to reset it."
         ></div>
-        ${renderProposalDetailsPanel(proposal, proposalDetailsOpen)}
+        ${proposalDetailsPlacement === 'chart'
+          ? renderProposalDetailsPanel(proposal, proposalDetailsOpen)
+          : ''}
         ${twapWindow}
       </div>
     </div>
@@ -3565,6 +3568,7 @@ export function mountFutardTerminal({
           windowEndedAt: market.proposal.endsAt,
           proposal: market.proposal,
           proposalDetailsOpen: state.proposalDetailsOpen,
+          proposalDetailsPlacement: 'ticket',
         })}
         ${partialCoverage.length ? `
           <p class="ft-hourly-coverage-note">
@@ -5532,7 +5536,153 @@ export function mountFutardTerminal({
     `;
   }
 
+  function renderMarketContextTransactionRow({
+    side = '',
+    label = '',
+    price = null,
+    size = null,
+    time = '',
+    signature = '',
+  } = {}) {
+    const tone = side === 'buy' ? 'buy' : side === 'sell' ? 'sell' : 'neutral';
+    const content = `
+      <span class="ft-market-context-transaction-side" data-side="${escapeHtml(tone)}">${escapeHtml(label || side.toUpperCase() || 'TRADE')}</span>
+      <strong>${Number.isFinite(price) ? escapeHtml(formatChartCurrency(price)) : '—'}</strong>
+      <span>${escapeHtml(size || '—')}</span>
+      <time>${time ? escapeHtml(formatRelativeTime(time).replace(/\s+ago$/i, '')) : '—'}</time>
+    `;
+    return signature
+      ? `
+        <a
+          class="ft-market-context-transaction"
+          href="https://solscan.io/tx/${escapeHtml(signature)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open transaction on Solscan"
+        >${content}</a>
+      `
+      : `<div class="ft-market-context-transaction">${content}</div>`;
+  }
+
+  function renderMarketContextTransactions(transactions, rows) {
+    const count = Array.isArray(transactions) ? transactions.length : 0;
+    return `
+      <section
+        class="ft-market-context-card ft-market-context-transactions"
+        data-ft-role="market-context-transactions"
+        aria-label="Recent market transactions"
+      >
+        <header class="ft-market-context-card-header">
+          <div><small>Activity</small><h3>Transactions</h3></div>
+          <span>${count.toLocaleString('en-US')}</span>
+        </header>
+        <div class="ft-market-context-transaction-list">
+          ${rows.length ? rows.join('') : '<p>No indexed transactions yet.</p>'}
+        </div>
+        <button class="ft-market-context-jump" type="button" data-ft-action="focus-market-activity">
+          Open full activity below chart
+          <span aria-hidden="true">↙</span>
+        </button>
+      </section>
+    `;
+  }
+
+  function renderMarketContext() {
+    if (!regions.marketContext) return;
+
+    let transactions = [];
+    let transactionRows = [];
+    let secondaryContext = '';
+    if (isOwnershipWorkspace()) {
+      const asset = ownershipTokenSnapshot();
+      transactions = asset.recentTransactions || [];
+      transactionRows = transactions.slice(0, 4).map(transaction => (
+        renderMarketContextTransactionRow({
+          side: transaction.side,
+          label: transaction.side?.toUpperCase(),
+          price: transaction.price,
+          size: Number.isFinite(ownershipTradeVolumeUsd(transaction))
+            ? formatTransactionSizeUsd(ownershipTradeVolumeUsd(transaction))
+            : Number.isFinite(transaction.size)
+              ? `${formatTokenAmount(transaction.size, 4)} ${asset.ticker}`
+              : null,
+          time: transaction.time,
+          signature: transaction.signature,
+        })
+      ));
+      const holderMint = safeBase58(asset.mint);
+      const holderSource = holderMint
+        ? `
+          <a
+            class="ft-market-context-source"
+            href="https://solscan.io/token/${escapeHtml(holderMint)}#holders"
+            target="_blank"
+            rel="noopener noreferrer"
+          >View holders on Solscan <span aria-hidden="true">↗</span></a>
+        `
+        : '';
+      secondaryContext = `
+        <details class="ft-market-context-card ft-market-context-holders" data-ft-role="market-context-holders">
+          <summary>
+            <span><small>Ownership</small><strong>Holders</strong></span>
+            <span class="ft-market-context-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div class="ft-market-context-card-body">
+            <p>Holder distribution is not included in Trivium’s reviewed current-token contract yet.</p>
+            ${holderSource}
+          </div>
+        </details>
+      `;
+    } else {
+      const market = selectedMarket();
+      if (!market) {
+        regions.marketContext.innerHTML = '';
+        return;
+      }
+      transactions = state.marketDataByProposal.get(market.id)?.data?.recentTrades || [];
+      transactionRows = transactions.slice(0, 4).map(transaction => (
+        renderMarketContextTransactionRow({
+          side: transaction.side,
+          label: `${transaction.branch?.toUpperCase() || 'TRADE'} ${transaction.side?.toUpperCase() || ''}`.trim(),
+          price: transaction.price,
+          size: Number.isFinite(decisionTradeVolumeUsd(transaction))
+            ? formatTransactionSizeUsd(decisionTradeVolumeUsd(transaction))
+            : Number.isFinite(transaction.baseAmount)
+              ? `${formatTokenAmount(transaction.baseAmount, 4)} ${market.ticker}`
+              : null,
+          time: transaction.blockTime,
+          signature: transaction.signature,
+        })
+      ));
+      const proposalStatus = proposalDisplayStatus(market.proposal);
+      secondaryContext = `
+        <section class="ft-market-context-card ft-market-context-proposal" data-ft-role="market-context-proposal">
+          <button
+            class="ft-market-context-toggle ft-proposal-details-trigger${state.proposalDetailsOpen ? ' ft-is-active' : ''}"
+            type="button"
+            data-ft-action="toggle-proposal-details"
+            aria-controls="ft-proposal-details-panel"
+            aria-expanded="${String(state.proposalDetailsOpen)}"
+          >
+            <span><small>Governance</small><strong>Proposal details</strong></span>
+            <span class="ft-market-context-status" data-status="${escapeHtml(proposalStatus.key)}">${escapeHtml(proposalStatus.label)}</span>
+          </button>
+          ${renderProposalDetailsPanel(market.proposal, state.proposalDetailsOpen)}
+        </section>
+      `;
+    }
+
+    regions.marketContext.innerHTML = `
+      <header class="ft-ticket-market-context-heading">
+        <span>Market information</span>
+      </header>
+      ${renderMarketContextTransactions(transactions, transactionRows)}
+      ${secondaryContext}
+    `;
+  }
+
   function renderTradeTicket() {
+    renderMarketContext();
     syncExecutionLock();
     if (isOwnershipWorkspace() && !executionEnabled) {
       renderExecutionPauseTicket('Ownership market');
@@ -6272,6 +6422,7 @@ export function mountFutardTerminal({
   }
 
   function renderPositions() {
+    renderMarketContext();
     if (isOwnershipWorkspace()) {
       const asset = ownershipTokenSnapshot();
       const transactions = asset.recentTransactions || [];
@@ -6304,7 +6455,7 @@ export function mountFutardTerminal({
             <span>Trader</span>
             <span>Age</span>
           </div>
-          <div class="ft-ownership-transactions-list">
+          <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable recent transactions">
             ${transactions.length ? transactions.map((transaction) => {
               const rowContent = `
                 <span class="ft-ownership-transaction-price" data-side="${escapeHtml(transaction.side)}">${Number.isFinite(transaction.price)
@@ -6442,7 +6593,7 @@ export function mountFutardTerminal({
             <span>Trade</span>
             <span>Age</span>
           </div>
-          <div class="ft-ownership-transactions-list">
+          <div class="ft-ownership-transactions-list" tabindex="0" aria-label="Scrollable proposal transactions">
             ${visibleTransactions.length
               ? visibleTransactions.map(transaction => (
                 decisionTradeRowMarkup(transaction, showTransactionSizesInUsd)
@@ -8614,6 +8765,12 @@ export function mountFutardTerminal({
       });
     const panel = root.querySelector('[data-ft-role="proposal-details"]');
     if (panel) panel.hidden = !state.proposalDetailsOpen;
+    if (state.proposalDetailsOpen) {
+      panel?.closest('.ft-ticket-market-context')?.scrollIntoView?.({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
     if (!state.proposalDetailsOpen && options.restoreFocus === true) {
       root.querySelector('.ft-proposal-details-trigger')?.focus();
     }
@@ -8798,6 +8955,13 @@ export function mountFutardTerminal({
       setProposalDetailsOpen(!state.proposalDetailsOpen, {
         restoreFocus: target.classList.contains('ft-proposal-details-close'),
       });
+    } else if (action === 'focus-market-activity') {
+      event.preventDefault();
+      const transactionList = regions.positions?.querySelector(
+        '.ft-ownership-transactions-list',
+      );
+      regions.activity?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+      transactionList?.focus?.();
     } else if (action === 'select-proposal') {
       selectProposal(target.dataset.ftProposalId, { focus: true });
     } else if (action === 'filter') {

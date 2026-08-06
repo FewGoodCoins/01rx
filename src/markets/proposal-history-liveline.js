@@ -300,44 +300,26 @@ function gapMaskElements(dataset, projection) {
   }).filter(Boolean);
 }
 
-function phaseBandElements(projection, preTwap, windowEndedAt) {
-  const visibleFrom = projection.sourceFrom;
-  const visibleTo = projection.sourceRight;
-  const ranges = [
-    {
-      key: 'pre-twap',
-      from: visibleFrom,
-      to: new Date(preTwap || '').getTime() / 1_000,
+function twapStartLineElement(projection, preTwap) {
+  const startTime = new Date(preTwap || '').getTime() / 1_000;
+  if (
+    !Number.isFinite(startTime)
+    || startTime < projection.sourceFrom
+    || startTime > projection.sourceRight
+  ) return null;
+  return createElement('span', {
+    'aria-hidden': 'true',
+    className: 'ft-liveline-twap-start-line',
+    'data-ft-chart-boundary': 'twap-start',
+    key: 'twap-start',
+    style: {
+      left: plotPosition(
+        projection.toPlotRatio(startTime),
+        PLOT_PADDING.left,
+        PLOT_PADDING.right,
+      ),
     },
-    {
-      key: 'post-twap',
-      from: new Date(windowEndedAt || '').getTime() / 1_000,
-      to: visibleTo,
-    },
-  ];
-  return ranges.map((range) => {
-    const from = Math.max(visibleFrom, range.from);
-    const to = Math.min(visibleTo, range.to);
-    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
-    return createElement('span', {
-      'aria-hidden': 'true',
-      className: `ft-liveline-phase-band ft-liveline-phase-band-${range.key}`,
-      'data-ft-chart-band': range.key,
-      key: range.key,
-      style: {
-        left: plotPosition(
-          projection.toPlotRatio(from),
-          PLOT_PADDING.left,
-          PLOT_PADDING.right,
-        ),
-        width: plotSize(
-          projection.toPlotRatio(to) - projection.toPlotRatio(from),
-          PLOT_PADDING.left,
-          PLOT_PADDING.right,
-        ),
-      },
-    });
-  }).filter(Boolean);
+  });
 }
 
 function paddedValueRange(values, exaggerate = false) {
@@ -890,11 +872,7 @@ export function createProposalHistoryChart(options = {}) {
         value: 0,
         window: projection.renderWindowSeconds,
       }),
-      ...phaseBandElements(
-        projection,
-        currentHistory.preTwap,
-        options.windowEndedAt,
-      ),
+      twapStartLineElement(projection, currentHistory.preTwap),
       ...gapMaskElements(prepared, projection),
       ...endGapElements(series, projection),
       ...syntheticTipMaskElements(series, projection, rangeModel),

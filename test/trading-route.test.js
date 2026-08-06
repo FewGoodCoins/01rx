@@ -11,6 +11,10 @@ const ACTIVE_EXECUTION_RELEASE = Object.freeze({
   enabled: true,
   message: 'Enabled by test fixture',
 });
+const PAUSED_EXECUTION_RELEASE = Object.freeze({
+  enabled: false,
+  message: 'Trading is paused by test fixture',
+});
 
 function responseRecorder() {
   return {
@@ -186,9 +190,10 @@ test('trading route preserves guarded service errors and hides unexpected failur
   assert.doesNotMatch(JSON.stringify(logs), /nested-secret/);
 });
 
-test('trading route fails closed while the code-owned audit gate is paused', async () => {
+test('trading route fails closed whenever the code-owned release is paused', async () => {
   let calls = 0;
   const handler = createTradingHandler({
+    executionRelease: PAUSED_EXECUTION_RELEASE,
     service: {
       async spotOrder() {
         calls += 1;
@@ -201,7 +206,7 @@ test('trading route fails closed while the code-owned audit gate is paused', asy
 
   assert.equal(response.statusCode, 503);
   assert.equal(response.body.code, 'EXECUTION_PAUSED');
-  assert.match(response.body.error, /independent security review/i);
+  assert.match(response.body.error, /paused by test fixture/i);
   assert.equal(response.headers['x-01r-execution'], 'paused');
   assert.equal(response.headers['x-01r-contract'], 'trading.spot-order.beta1');
   assert.equal(response.headers['x-ratelimit-limit'], undefined);

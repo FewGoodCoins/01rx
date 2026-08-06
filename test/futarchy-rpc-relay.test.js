@@ -13,6 +13,10 @@ import {
 
 const ADDRESS = '11111111111111111111111111111111';
 const FUTARCHY_PROGRAM = 'FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq';
+const PAUSED_EXECUTION_RELEASE = Object.freeze({
+  enabled: false,
+  message: 'Trading is paused by test fixture',
+});
 
 function reviewedTransaction() {
   const transaction = new Transaction({
@@ -89,11 +93,12 @@ test('futarchy RPC relay rejects unsafe upstream configuration before fetch', as
   assert.equal(calls, 0);
 });
 
-test('futarchy RPC relay blocks submission while preserving reviewed simulation', async () => {
+test('futarchy RPC relay blocks submission under a paused release while preserving reviewed simulation', async () => {
   const calls = [];
   let integrityCalls = 0;
   const relay = createFutarchyRpcRelay({
     env: { HELIUS_URL: 'https://rpc.example' },
+    executionRelease: PAUSED_EXECUTION_RELEASE,
     async fetchImpl(url, options) {
       calls.push({ url: String(url), payload: JSON.parse(options.body) });
       return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: {} }), {
@@ -129,4 +134,34 @@ test('futarchy RPC relay blocks submission while preserving reviewed simulation'
   assert.equal(integrityCalls, 1);
   assert.equal(calls[0].payload.method, 'simulateTransaction');
   assert.equal(calls[0].payload.params[1].minContextSlot, 42);
+});
+
+test('enabled release forwards only integrity-verified submissions with a minimum slot', async () => {
+  const calls = [];
+  const relay = createFutarchyRpcRelay({
+    env: { HELIUS_URL: 'https://rpc.example' },
+    async fetchImpl(url, options) {
+      calls.push({ url: String(url), payload: JSON.parse(options.body) });
+      return new Response(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 3,
+        result: 'submitted-signature',
+      }), { status: 200 });
+    },
+    async programIntegrity() {
+      return { status: 'verified', canTransact: true, rpcSlot: 77 };
+    },
+  });
+
+  const result = await relay({
+    jsonrpc: '2.0',
+    id: 3,
+    method: 'sendTransaction',
+    params: [reviewedTransaction(), { encoding: 'base64' }],
+  });
+
+  assert.equal(result.result, 'submitted-signature');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].payload.method, 'sendTransaction');
+  assert.equal(calls[0].payload.params[1].minContextSlot, 77);
 });
