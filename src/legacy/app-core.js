@@ -271,7 +271,7 @@ var _marketSidebarFilterConfig = {
   markets: [
     { key: 'all-markets', label: 'All' },
     { key: 'live', label: 'Live' },
-    { key: 'prior', label: 'Past' }
+    { key: 'prior', label: 'Resolved' }
   ]
 };
 

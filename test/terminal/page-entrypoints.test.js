@@ -516,7 +516,7 @@ test('market sidebar places one unified decisions list before tokens', () => {
   assert.ok(tokens > pastDecisions);
   assert.match(
     document,
-    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions<\/span>[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/strong>/,
+    /id="tp-decision-markets-title">[\s\S]*?<span>Decisions<\/span>[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?role="status"[\s\S]*?>0 decisions live<\/strong>/,
   );
   assert.doesNotMatch(
     document,

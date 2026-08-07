@@ -29,6 +29,16 @@ html[data-workspace="markets"] {
   background: var(--trivium-canvas) !important;
 }
 
+/* Keep degraded-service notices useful without exposing the dense internal
+   RPC/program/slot diagnostic rail over the customer-facing market view. */
+html[data-workspace="markets"] [data-ft-mode="token"] .terminal-system-status .ft-system-meta {
+  display: none;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"] .terminal-system-status .ft-system-message {
+  width: 100%;
+}
+
 /* The launchpad mark is a nested avatar, not a square thumbnail. Keep the
    crop circular even when the source artwork itself has an opaque canvas. */
 html[data-workspace="markets"] .ft-chart-launchpad-mark {
@@ -68,6 +78,15 @@ html[data-workspace="markets"] .ft-chart-launchpad-mark img {
     border-radius: 999px;
     background: rgb(117 128 255 / 38%);
     background-clip: padding-box;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-main {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-main::-webkit-scrollbar {
+    display: none;
   }
 
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid {
@@ -901,13 +920,9 @@ html[data-workspace="markets"] .tp-unified-section-columns {
   color: #686c80;
 }
 
-html[data-workspace="markets"] [data-market-sidebar-section-title] {
+html[data-workspace="markets"][data-market-sidebar-tab="all"] #tlp-decisions-panel > .tp-unified-section-heading,
+html[data-workspace="markets"][data-market-sidebar-tab="markets"] #tlp-decisions-panel > .tp-unified-section-heading {
   display: none;
-}
-
-html[data-workspace="markets"][data-market-sidebar-tab="all"] [data-market-sidebar-section-title="all"],
-html[data-workspace="markets"][data-market-sidebar-tab="markets"] [data-market-sidebar-section-title="markets"] {
-  display: inline;
 }
 
 html[data-workspace="markets"] .tp-live-decisions-empty {
@@ -1133,73 +1148,156 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-owne
 /* Shared market-information rail. The lower panel owns the navigation while
    the companion card below the ticket follows the same selected state. */
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tabs {
-  display: block;
-  height: 52px;
-  min-height: 52px;
-  padding: 0 18px;
-  flex: 0 0 52px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  border-bottom: 1px solid var(--trivium-border);
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 8px;
+  flex: 0 0 48px;
+  align-items: center;
+  overflow: visible;
+  border: 0 !important;
   scrollbar-width: none;
   white-space: nowrap;
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tabs > div {
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-shell {
+  position: relative;
   display: flex;
   width: max-content;
-  min-width: 100%;
+  max-width: 100%;
   height: 100%;
   align-items: center;
 }
 
-html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab {
-  position: relative;
-  height: 100%;
-  padding: 0 20px;
+/* The legacy transaction header styles every descendant span as a tiny boxed
+   counter. Reset dropdown labels so the only visible outline is the rounded
+   menu control itself. */
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-shell span {
+  display: inline;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  place-items: normal;
   border: 0;
-  border-radius: 0 !important;
-  background: transparent !important;
-  color: #555867;
-  cursor: pointer;
-  font-family: 'Geist', sans-serif;
-  font-size: 13px;
-  font-weight: 620;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab:first-child {
-  padding-left: 4px;
-}
-
-html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab + .ft-market-information-tab::before {
-  position: absolute;
-  top: 14px;
-  bottom: 14px;
-  left: 0;
-  width: 1px;
-  background: #23232e;
-  content: '';
-}
-
-html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab:hover,
-html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab:focus-visible {
-  color: #b9bac4;
-}
-
-html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab.ft-is-active {
-  color: #f7f7fb;
-}
-
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-tab small {
+  background: transparent;
   color: inherit;
-  font-size: 0.92em;
-  font-weight: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-trigger {
+  display: flex;
+  width: 107px;
+  min-width: 107px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  border: 1px solid #292834;
+  border-radius: 14px !important;
+  background: transparent !important;
+  color: #aaa8b8;
+  cursor: pointer;
+  font: 620 13px/1 'Geist', sans-serif;
+  letter-spacing: 0;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-trigger:hover,
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-trigger:focus-visible {
+  border-color: #393746;
+  background: transparent !important;
+  color: #d5d3de;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-trigger small,
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option small {
+  color: #777b90;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-trigger > svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  transition: transform 160ms ease;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 1px);
+  left: 0;
+  display: grid;
+  width: 164px;
+  min-width: 164px;
+  padding: 5px;
+  gap: 2px;
+  border: 1px solid #2c2e3b;
+  border-radius: 16px !important;
+  background: #0f1018;
+  background-clip: padding-box;
+  box-shadow: 0 16px 38px rgb(0 0 0 / 42%);
+  overflow: hidden;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu[hidden] {
+  display: none !important;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: #9b9eae;
+  cursor: pointer;
+  font: 580 13px/1 'Geist', sans-serif;
+  text-align: left;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option:hover,
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option:focus-visible {
+  background: #181924 !important;
+  color: #f3f3f7;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option.ft-is-active {
+  color: #f3f3f7;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option-check {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  opacity: 0;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option.ft-is-active .ft-market-information-option-check {
+  opacity: 1;
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-market-information-panel-body {
@@ -1870,18 +1968,12 @@ html[data-workspace="markets"] .tp-decisions-list-stack {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-color: #34313f transparent;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 html[data-workspace="markets"] .tp-decisions-list-stack::-webkit-scrollbar {
-  width: 4px;
-}
-
-html[data-workspace="markets"] .tp-decisions-list-stack::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: #34313f;
+  display: none;
 }
 
 html[data-workspace="markets"] .tp-decisions-list-stack > :is(#tlp-decisions-list, #tlp-past-decisions-list) {
@@ -1889,6 +1981,21 @@ html[data-workspace="markets"] .tp-decisions-list-stack > :is(#tlp-decisions-lis
   flex: none;
   overflow: visible;
   scrollbar-gutter: auto;
+}
+
+html[data-workspace="markets"] .tp-decision-status-heading {
+  display: flex;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 12px;
+  align-items: center;
+  border-bottom: 1px solid #1d1c27;
+  background: #090811;
+  color: #858291;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 html[data-workspace="markets"][data-market-sidebar-tab="tokens"] .tp-all-section > .tp-unified-section-heading {
@@ -1951,9 +2058,22 @@ html[data-workspace="markets"][data-market-sidebar-tab="tokens"] .tp-all-section
     color: #f6f5fa;
   }
 
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets.left-panel-collapsed .app-shell {
+    padding-left: 21px;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets.left-panel-collapsed .app-left {
+    width: 0 !important;
+    flex-basis: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
   html[data-workspace="markets"] body.is-token.is-token-markets .shell-panel-toggle-left {
+    /* Center the 26px control in the 37px sidebar header. The shared toggle
+       translates itself upward by half its height, so this is its center. */
     top: calc(var(--site-header-height) + 18.5px);
-    left: calc(var(--market-left-gutter) + var(--sidebar-width) - 35px);
+    left: calc(var(--market-left-gutter) + var(--sidebar-width) - 33px);
     z-index: 72;
     width: 25px;
     height: 26px;
@@ -2344,4 +2464,175 @@ html[data-workspace="markets"][data-market-sidebar-tab="tokens"] .tp-all-section
    market-owned exception must beat the app-wide square geometry policy. */
 html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header .ft-chart-identity-badge {
   border-radius: 50% !important;
+}
+
+/* Collapsing the information rail folds the complete section under the chart
+   to its tab bar. This also hides the adjacent wallet card so the chart gains
+   back the full vertical space instead of leaving a clipped half-row. */
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .terminal-activity:has(
+  .ft-ownership-transactions[data-ft-market-information-collapsed="true"]
+) {
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .terminal-activity:has(
+  .ft-ownership-transactions[data-ft-market-information-collapsed="true"]
+) > .ft-account-row {
+  display: none !important;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .terminal-activity:has(
+  .ft-ownership-transactions[data-ft-market-information-collapsed="true"]
+) > .ft-activity-row,
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-transactions[data-ft-market-information-collapsed="true"] {
+  display: block !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  grid-column: 1 !important;
+  overflow: hidden !important;
+}
+
+@media (min-width: 981px) {
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus .ft-terminal-grid:has(
+    .ft-ownership-transactions[data-ft-market-information-collapsed="true"]
+  ) {
+    --ft-terminal-account-height: 52px !important;
+    grid-template-rows: var(--market-summary-height) minmax(430px, 52dvh) 52px !important;
+  }
+}
+
+/* The chart header owns a compact disclosure row. Opening it increases only
+   the summary track and gives the same space back from the plot track. */
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded {
+  --market-summary-height: 100px;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header {
+  position: relative;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-stats-toggle {
+  position: absolute;
+  z-index: 5;
+  top: 13px;
+  right: 9px;
+  display: grid;
+  width: 30px;
+  min-width: 30px;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #2b2d3a !important;
+  border-radius: 9px !important;
+  background: #11121a !important;
+  color: #8e92a5;
+  cursor: pointer;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-stats-toggle:hover,
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-stats-toggle:focus-visible {
+  border-color: #45485c !important;
+  color: #f2f2f7;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  transition: transform 160ms ease;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-market-metric:last-of-type {
+  padding-right: 44px;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer[hidden] {
+  display: none !important;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-chart-market-header {
+  height: var(--market-header-cell-height) !important;
+  min-height: var(--market-header-cell-height) !important;
+  max-height: var(--market-header-cell-height) !important;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-chart-stats-drawer {
+  position: static;
+  display: grid !important;
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  padding: 0 16px;
+  margin: 0;
+  grid-template-columns: repeat(4, minmax(max-content, 1fr)) minmax(max-content, auto);
+  align-items: center;
+  gap: 18px;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  clip: auto;
+  border: 0;
+  border-top: 1px solid var(--trivium-border);
+  background: #090911 !important;
+  color: #72768a;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-chart-stats-drawer::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer > span {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: 'Geist', sans-serif;
+  font-size: 10px;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer b {
+  color: #e7e8ef;
+  font-size: 11px;
+  font-weight: 620;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer b[data-tone="live"],
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer b[data-tone="passed"] {
+  color: var(--trivium-positive);
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer b[data-tone="failed"] {
+  color: var(--trivium-negative);
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-source {
+  justify-self: end;
+  color: #5f6375;
+}
+
+@media (min-width: 981px) {
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-terminal-grid {
+    grid-template-rows: var(--market-summary-height) minmax(388px, calc(52dvh - 42px)) minmax(220px, auto) !important;
+  }
+
+  html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-terminal-grid:has(
+    .ft-ownership-transactions[data-ft-market-information-collapsed="true"]
+  ) {
+    grid-template-rows: var(--market-summary-height) minmax(388px, calc(52dvh - 42px)) 52px !important;
+  }
 }
