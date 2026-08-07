@@ -19,6 +19,11 @@ const LIVE_PRICE_INTERVAL_MS = 5_000;
 const LIVE_MARKET_PULSE_INTERVAL_MS = 1_000;
 const POLL_INTERVAL_MS = 30_000;
 const CONTRACT_ADDRESS_COPY_FEEDBACK_MS = 1_800;
+const SIDEBAR_HOVERCARD_SHOW_DELAY_MS = 90;
+const SIDEBAR_HOVERCARD_SWITCH_DELAY_MS = 0;
+const SIDEBAR_HOVERCARD_HIDE_DELAY_MS = 120;
+const SIDEBAR_HOVERCARD_GAP_PX = 10;
+const SIDEBAR_HOVERCARD_VIEWPORT_MARGIN_PX = 12;
 const MAX_PROPOSAL_HISTORY_POINTS = 1_000;
 const REVIEWED_PROGRAM_COUNT = 4;
 const EXECUTION_ACTIONS = new Set([
@@ -84,6 +89,17 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function renderOwnershipSideIcon(side) {
+  const sell = side === 'sell';
+  return `
+    <span class="ft-ownership-side-icon" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 ${sell ? '5v10m0 0-4.25-4.25M10 15l4.25-4.25' : '15V5m0 0L5.75 9.25M10 5l4.25 4.25'}"/>
+      </svg>
+    </span>
+  `;
 }
 
 function firstNumber(...values) {
@@ -2469,7 +2485,7 @@ export function mountFutardTerminal({
       timer: null,
       generation: 0,
     },
-    theme: hostMode === 'standalone' ? preferredTheme(runtime) : 'dark',
+    theme: preferredTheme(runtime),
     loading: true,
     refreshing: false,
     error: '',
@@ -2700,11 +2716,26 @@ export function mountFutardTerminal({
   const walletHeaderSlot = hostMode === 'token'
     ? runtime.document.querySelector?.('[data-01rx-market-wallet-slot]')
     : null;
-  const walletStatusPortaled = Boolean(walletHeaderSlot && regions.walletStatus);
-  if (walletStatusPortaled) {
+  const headerControlsPortaled = Boolean(
+    walletHeaderSlot && regions.themeToggle && regions.walletStatus,
+  );
+  if (headerControlsPortaled) {
     walletHeaderSlot.dataset.theme = state.theme;
-    walletHeaderSlot.replaceChildren(regions.walletStatus);
+    walletHeaderSlot.setAttribute('aria-label', 'Appearance and wallet');
+    walletHeaderSlot.replaceChildren(regions.themeToggle, regions.walletStatus);
   }
+  const sidebarHovercard = runtime.document.createElement('aside');
+  sidebarHovercard.id = `${uid}-sidebar-hovercard`;
+  sidebarHovercard.className = 'tp-sidebar-hovercard';
+  sidebarHovercard.dataset.tpSidebarHovercard = '';
+  sidebarHovercard.setAttribute('role', 'region');
+  sidebarHovercard.hidden = true;
+  runtime.document.body.append(sidebarHovercard);
+  let sidebarHoverAnchor = null;
+  let sidebarHoverAnchorDescription = null;
+  let sidebarHoverShowTimer = null;
+  let sidebarHoverHideTimer = null;
+  let suppressSidebarHoverFocusOpen = false;
 
   function tokenMarketsUrl(tokenKey, proposalId = '') {
     if (typeof routes.tokenMarketUrl === 'function') {
@@ -2813,8 +2844,8 @@ export function mountFutardTerminal({
       .slice(0, 40);
   }
 
-  function ownershipTokenSnapshot() {
-    const tokenKey = state.tokenFilter;
+  function ownershipTokenSnapshotFor(tokenValue) {
+    const tokenKey = routes.normalizeTokenKey?.(tokenValue) || normalizeKey(tokenValue);
     const nav = state.navMap.get(tokenKey) || {};
     const relatedMarket = state.sidebarMarkets.find(market => market.token === tokenKey)
       || state.markets.find(market => market.token === tokenKey)
@@ -2917,6 +2948,10 @@ export function mountFutardTerminal({
       liquidityUsd: firstNumber(nav.liquidityUsd, relatedMarket.liquidityUsd),
       recentTransactions: normalizeOwnershipRecentTransactions(nav),
     };
+  }
+
+  function ownershipTokenSnapshot() {
+    return ownershipTokenSnapshotFor(state.tokenFilter);
   }
 
   function ownershipOrderOutput(asset = ownershipTokenSnapshot()) {
@@ -3261,7 +3296,6 @@ export function mountFutardTerminal({
       && state.contractAddressCopyFeedback.address === mint,
     );
     const compactTitle = String(asset.ticker || '').trim().length > 7;
-    const snapshotTime = formatHistoryOverlayTimestamp(asset.snapshotTime);
     const statsDrawerId = `${uid}-ownership-chart-stats`;
     const changeTone = Number.isFinite(asset.change24h)
       ? asset.change24h > 0
@@ -3382,14 +3416,13 @@ export function mountFutardTerminal({
         id="${escapeHtml(statsDrawerId)}"
         data-ft-role="ownership-current-strip"
         data-ft-chart-stats-drawer
-        aria-label="Current 01Resolved token snapshot"
+        aria-label="Additional token statistics"
         ${state.chartStatsExpanded ? '' : 'hidden'}
       >
         <span>Premium vs NAV <b>${escapeHtml(formatCompactPercent(asset.premiumPct))}</b></span>
         <span>24h volume <b>${escapeHtml(formatCompactMoney(asset.volume24h))}</b></span>
         <span>Liquidity <b>${escapeHtml(formatCompactMoney(asset.liquidityUsd))}</b></span>
         <span>Effective supply <b>${escapeHtml(formatTokenAmount(asset.effectiveSupply, 2))}</b></span>
-        <span class="ft-chart-stats-source">Source <b>01Resolved</b> · ${escapeHtml(snapshotTime)}</span>
       </section>
     `;
   }
@@ -3703,9 +3736,18 @@ export function mountFutardTerminal({
 
   function renderHeader() {
     root.dataset.theme = state.theme;
+    runtime.document.documentElement.dataset.theme = state.theme;
     root.classList.toggle('ft-wallet-connected', Boolean(state.wallet.address));
     if (walletHeaderSlot) walletHeaderSlot.dataset.theme = state.theme;
+    if (regions.themeToggle) {
+      const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
+      const label = `Switch to ${nextTheme} mode`;
+      regions.themeToggle.setAttribute('aria-label', label);
+      regions.themeToggle.setAttribute('aria-pressed', String(state.theme === 'light'));
+      regions.themeToggle.title = label;
+    }
     state.historyChart?.applyTheme?.(state.theme);
+    state.ownershipChart?.applyOptions?.({});
     const ownershipWorkspace = isOwnershipWorkspace();
     const market = ownershipWorkspace ? null : selectedMarket();
     const isArchive = market && market.proposal.statusGroup !== 'live';
@@ -3839,6 +3881,478 @@ export function mountFutardTerminal({
         : 'Awaiting data';
   }
 
+  function sidebarMarketRecency(market) {
+    const isLive = market?.proposal?.statusGroup === 'live';
+    const timestamp = Date.parse(isLive
+      ? firstText(market?.proposal?.createdAt)
+      : firstText(
+        market?.proposal?.resolvedAt,
+        market?.proposal?.endsAt,
+        market?.proposal?.createdAt,
+      ));
+    if (Number.isFinite(timestamp)) return timestamp;
+    const decisionNumber = displayedDecisionNumber(market);
+    return Number.isFinite(decisionNumber) ? decisionNumber : 0;
+  }
+
+  function groupSidebarMarketsByToken(markets = state.sidebarMarkets) {
+    const grouped = new Map();
+    markets.forEach((market) => {
+      const token = normalizeKey(market?.token);
+      if (!token || !state.listedTokenKeys.has(token)) return;
+      if (!grouped.has(token)) grouped.set(token, []);
+      grouped.get(token).push(market);
+    });
+    grouped.forEach((tokenMarkets) => {
+      tokenMarkets.sort((a, b) => sidebarMarketRecency(b) - sidebarMarketRecency(a));
+    });
+    return [...grouped.values()];
+  }
+
+  function resolvedSidebarMarkets(tokenValue) {
+    const token = routes.normalizeTokenKey?.(tokenValue) || normalizeKey(tokenValue);
+    return state.sidebarMarkets
+      .filter(market => (
+        normalizeKey(market?.token) === token
+        && ['passed', 'failed'].includes(market?.proposal?.statusGroup)
+      ))
+      .sort((a, b) => sidebarMarketRecency(b) - sidebarMarketRecency(a));
+  }
+
+  function sidebarHoverMetric(label, value, tone = 'neutral') {
+    return `
+      <div class="tp-sidebar-hovercard-metric">
+        <span>${escapeHtml(label)}</span>
+        <i aria-hidden="true"></i>
+        <strong data-tone="${escapeHtml(tone)}">${escapeHtml(value)}</strong>
+      </div>
+    `;
+  }
+
+  function premiumDiscountDisplay(value) {
+    if (!Number.isFinite(value)) {
+      return { label: 'Premium / discount', value: '—', tone: 'muted' };
+    }
+    const premium = value >= 0;
+    const percentage = formatPercent(Math.abs(value), { sign: false })
+      .replace(/\.00%$/, '%')
+      .replace(/(\.\d)0%$/, '$1%');
+    return {
+      label: premium ? 'Premium to NAV' : 'Discount to NAV',
+      value: percentage,
+      tone: premium ? 'positive' : 'negative',
+    };
+  }
+
+  function renderTokenSidebarHovercard(tokenValue) {
+    const asset = ownershipTokenSnapshotFor(tokenValue);
+    if (!asset.token) return null;
+    const premiumDiscount = premiumDiscountDisplay(asset.premiumPct);
+    const changeTone = Number.isFinite(asset.change24h)
+      ? asset.change24h > 0
+        ? 'positive'
+        : asset.change24h < 0
+          ? 'negative'
+          : 'muted'
+      : 'muted';
+    return {
+      kind: 'token',
+      label: `${asset.ticker} token details`,
+      html: `
+        <div class="tp-sidebar-hovercard-header">
+          ${renderLogo(asset, 'large')}
+          <div class="tp-sidebar-hovercard-identity">
+            <strong>${escapeHtml(asset.ticker)}</strong>
+            <span>${escapeHtml(asset.name)}</span>
+          </div>
+          <div class="tp-sidebar-hovercard-headline">
+            <small>Market cap</small>
+            <strong>${escapeHtml(formatCompactMoney(asset.marketCap))}</strong>
+            <span data-tone="${escapeHtml(changeTone)}">${escapeHtml(formatCompactPercent(asset.change24h))}</span>
+          </div>
+        </div>
+        <div class="tp-sidebar-hovercard-metrics">
+          ${sidebarHoverMetric('Price', formatChartCurrency(asset.spot))}
+          ${sidebarHoverMetric('NAV', formatChartCurrency(asset.nav))}
+          ${sidebarHoverMetric(premiumDiscount.label, premiumDiscount.value, premiumDiscount.tone)}
+          ${sidebarHoverMetric('Treasury', formatCompactMoney(asset.treasury))}
+        </div>
+      `,
+    };
+  }
+
+  function renderLiveDecisionSidebarHovercard(market) {
+    const signal = proposalHeaderSignal(market);
+    const proposalNumber = displayedProposalLabel(market).replace('Proposal', 'Decision');
+    const passing = market?.decision?.passing;
+    const currentState = passing === true
+      ? { label: 'Passing', tone: 'positive' }
+      : passing === false
+        ? { label: 'Failing', tone: 'negative' }
+        : { label: 'Awaiting signal', tone: 'muted' };
+    return {
+      kind: 'live-decision',
+      label: `${market.ticker} live decision details`,
+      html: `
+        <div class="tp-sidebar-hovercard-header">
+          ${renderLogo(market, 'large')}
+          <div class="tp-sidebar-hovercard-identity">
+            <strong>${escapeHtml(market.ticker)}</strong>
+            <span>${escapeHtml(market.name)}</span>
+          </div>
+          <span class="tp-sidebar-hovercard-badge" data-tone="live">Live</span>
+        </div>
+        <div class="tp-sidebar-hovercard-decision-summary">
+          <span>${escapeHtml(proposalNumber)} · <b data-tone="${escapeHtml(currentState.tone)}">${escapeHtml(currentState.label)}</b></span>
+          <strong>${escapeHtml(market.proposal.title)}</strong>
+        </div>
+        <div class="tp-sidebar-hovercard-metrics">
+          ${sidebarHoverMetric(signal.label, signal.value, signal.tone)}
+          ${sidebarHoverMetric('PASS TWAP', formatChartCurrency(market.pass?.twapPrice), 'positive')}
+          ${sidebarHoverMetric('FAIL TWAP', formatChartCurrency(market.fail?.twapPrice), 'negative')}
+          ${sidebarHoverMetric('Spot', formatChartCurrency(market.spot?.price))}
+          ${sidebarHoverMetric('Required threshold', formatCompactPercent(market.thresholdPct), 'warning')}
+          ${sidebarHoverMetric('Liquidity', formatCompactMoney(market.liquidityUsd))}
+          ${sidebarHoverMetric('Ends', formatDateTime(market.proposal.endsAt))}
+        </div>
+        <p class="tp-sidebar-hovercard-footnote">Conditional prices and TWAP spreads are decision signals, not probabilities.</p>
+      `,
+    };
+  }
+
+  function renderResolvedSidebarHovercard(market) {
+    const markets = resolvedSidebarMarkets(market.token);
+    if (!markets.length) return null;
+    const countLabel = `${markets.length} resolved ${markets.length === 1 ? 'decision' : 'decisions'}`;
+    const additionalDecisionCount = Math.max(0, markets.length - 3);
+    return {
+      kind: 'resolved-project',
+      label: `${market.ticker} resolved decisions`,
+      html: `
+        <div class="tp-sidebar-hovercard-header">
+          ${renderLogo(market, 'large')}
+          <div class="tp-sidebar-hovercard-identity">
+            <strong>${escapeHtml(market.ticker)}</strong>
+            <span>${escapeHtml(market.name)}</span>
+          </div>
+          <span class="tp-sidebar-hovercard-count">${escapeHtml(countLabel)}</span>
+        </div>
+        <div class="tp-sidebar-hovercard-list-heading">
+          <strong>Resolved decisions</strong>
+          <span>Choose a market</span>
+        </div>
+        <div
+          class="tp-sidebar-hovercard-decision-list"
+          data-tp-resolved-decision-list
+          data-scrollable="${additionalDecisionCount > 0 ? 'true' : 'false'}"
+          aria-label="${escapeHtml(additionalDecisionCount > 0
+            ? `${countLabel}; three visible at a time`
+            : countLabel)}"
+        >
+          ${markets.map((candidate) => {
+            const proposalNumber = displayedProposalLabel(candidate).replace('Proposal', 'Decision');
+            const passed = candidate.proposal.statusGroup === 'passed';
+            const outcome = passed ? 'Passed' : 'Failed';
+            const resolvedAt = firstText(
+              candidate.proposal.resolvedAt,
+              candidate.proposal.endsAt,
+            );
+            return `
+              <a
+                class="tp-sidebar-hovercard-decision-link"
+                href="${escapeHtml(tokenMarketsUrl(candidate.token, candidate.id))}"
+                data-tp-sidebar-proposal-link
+                data-ft-proposal-id="${escapeHtml(candidate.id)}"
+                data-ft-token="${escapeHtml(candidate.token)}"
+                aria-label="Open ${escapeHtml(proposalNumber)}: ${escapeHtml(candidate.proposal.title)}"
+              >
+                <span class="tp-sidebar-hovercard-decision-meta">
+                  <small>${escapeHtml(proposalNumber)}</small>
+                  <em data-tone="${passed ? 'positive' : 'negative'}">${escapeHtml(outcome)}</em>
+                </span>
+                <strong>${escapeHtml(candidate.proposal.title)}</strong>
+                <span class="tp-sidebar-hovercard-decision-date">
+                  Resolved ${escapeHtml(formatHistoryDate(resolvedAt, { time: false }))}
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+                </span>
+              </a>
+            `;
+          }).join('')}
+        </div>
+        ${additionalDecisionCount > 0 ? `
+          <div
+            class="tp-sidebar-hovercard-scroll-cue"
+            data-tp-resolved-scroll-cue
+            aria-hidden="true"
+          >
+            <span>Scroll for ${additionalDecisionCount} more</span>
+            <svg viewBox="0 0 12 12" fill="none"><path d="m2.5 4.5 3.5 3 3.5-3"/></svg>
+          </div>
+        ` : ''}
+      `,
+    };
+  }
+
+  function sidebarHoverRow(target) {
+    const row = target?.closest?.(
+      'a.tp-item[data-key], .tp-decision-item[data-ft-proposal-id]',
+    );
+    if (!row) return null;
+    return row.closest?.('#tlp-all-list, #tlp-decisions-list, #tlp-past-decisions-list')
+      ? row
+      : null;
+  }
+
+  function containsSidebarHoverNode(container, node) {
+    return Boolean(container && node?.nodeType && container.contains(node));
+  }
+
+  function clearSidebarHoverTimers() {
+    if (sidebarHoverShowTimer) {
+      runtime.clearTimeout(sidebarHoverShowTimer);
+      sidebarHoverShowTimer = null;
+    }
+    if (sidebarHoverHideTimer) {
+      runtime.clearTimeout(sidebarHoverHideTimer);
+      sidebarHoverHideTimer = null;
+    }
+  }
+
+  function clearSidebarHoverAnchorState() {
+    if (!sidebarHoverAnchor) return;
+    if (sidebarHoverAnchorDescription == null) {
+      sidebarHoverAnchor.removeAttribute('aria-describedby');
+    } else {
+      sidebarHoverAnchor.setAttribute('aria-describedby', sidebarHoverAnchorDescription);
+    }
+    if (sidebarHoverAnchor.dataset.tpSidebarHoverKind === 'resolved-project') {
+      sidebarHoverAnchor.setAttribute('aria-expanded', 'false');
+    }
+    delete sidebarHoverAnchor.dataset.tpSidebarHoverOpen;
+    sidebarHoverAnchor = null;
+    sidebarHoverAnchorDescription = null;
+  }
+
+  function positionSidebarHovercard() {
+    if (sidebarHovercard.hidden || !sidebarHoverAnchor?.isConnected) return;
+    const anchorRect = sidebarHoverAnchor.getBoundingClientRect();
+    sidebarHovercard.style.visibility = 'hidden';
+    const cardRect = sidebarHovercard.getBoundingClientRect();
+    const viewportWidth = runtime.innerWidth
+      || runtime.document.documentElement?.clientWidth
+      || 1_280;
+    const viewportHeight = runtime.innerHeight
+      || runtime.document.documentElement?.clientHeight
+      || 800;
+    const computedWidth = Number.parseFloat(runtime.getComputedStyle?.(sidebarHovercard)?.width);
+    const cardWidth = cardRect.width || computedWidth || 380;
+    const cardHeight = cardRect.height || 280;
+    let left = anchorRect.right + SIDEBAR_HOVERCARD_GAP_PX;
+    if (left + cardWidth + SIDEBAR_HOVERCARD_VIEWPORT_MARGIN_PX > viewportWidth) {
+      left = anchorRect.left - cardWidth - SIDEBAR_HOVERCARD_GAP_PX;
+    }
+    left = Math.max(
+      SIDEBAR_HOVERCARD_VIEWPORT_MARGIN_PX,
+      Math.min(left, viewportWidth - cardWidth - SIDEBAR_HOVERCARD_VIEWPORT_MARGIN_PX),
+    );
+    const headerHeight = Number.parseFloat(
+      runtime.getComputedStyle?.(runtime.document.documentElement)
+        ?.getPropertyValue('--site-header-height'),
+    ) || 0;
+    const minimumTop = Math.max(
+      SIDEBAR_HOVERCARD_VIEWPORT_MARGIN_PX,
+      headerHeight + 8,
+    );
+    const maximumTop = Math.max(
+      minimumTop,
+      viewportHeight - cardHeight - SIDEBAR_HOVERCARD_VIEWPORT_MARGIN_PX,
+    );
+    const centeredTop = anchorRect.top + (anchorRect.height / 2) - (cardHeight / 2);
+    const top = Math.max(minimumTop, Math.min(centeredTop, maximumTop));
+    sidebarHovercard.style.left = `${Math.round(left)}px`;
+    sidebarHovercard.style.top = `${Math.round(top)}px`;
+    sidebarHovercard.style.visibility = 'visible';
+  }
+
+  function hideSidebarHovercard(options = {}) {
+    clearSidebarHoverTimers();
+    const restoreTarget = sidebarHoverAnchor;
+    clearSidebarHoverAnchorState();
+    sidebarHovercard.hidden = true;
+    sidebarHovercard.style.removeProperty('visibility');
+    sidebarHovercard.replaceChildren();
+    if (options.restoreFocus === true && restoreTarget?.isConnected) {
+      suppressSidebarHoverFocusOpen = true;
+      try {
+        restoreTarget.focus?.();
+      } finally {
+        suppressSidebarHoverFocusOpen = false;
+      }
+    }
+  }
+
+  function showSidebarHovercard(anchor) {
+    clearSidebarHoverTimers();
+    if (!anchor?.isConnected) return;
+    let view = null;
+    if (anchor.matches('a.tp-item[data-key]')) {
+      view = renderTokenSidebarHovercard(anchor.dataset.key);
+    } else {
+      const proposalId = safeBase58(anchor.dataset.ftProposalId);
+      const market = state.sidebarMarkets.find(candidate => candidate.id === proposalId);
+      if (market?.proposal?.statusGroup === 'live') {
+        view = renderLiveDecisionSidebarHovercard(market);
+      } else if (market) {
+        view = renderResolvedSidebarHovercard(market);
+      }
+    }
+    if (!view) {
+      hideSidebarHovercard();
+      return;
+    }
+    if (sidebarHoverAnchor !== anchor) {
+      clearSidebarHoverAnchorState();
+      sidebarHoverAnchor = anchor;
+      sidebarHoverAnchorDescription = anchor.getAttribute('aria-describedby');
+    }
+    if (view.kind === 'resolved-project') {
+      if (sidebarHoverAnchorDescription == null) anchor.removeAttribute('aria-describedby');
+      else anchor.setAttribute('aria-describedby', sidebarHoverAnchorDescription);
+      sidebarHovercard.setAttribute('role', 'dialog');
+    } else {
+      anchor.setAttribute('aria-describedby', sidebarHovercard.id);
+      sidebarHovercard.setAttribute('role', 'tooltip');
+    }
+    anchor.dataset.tpSidebarHoverOpen = 'true';
+    if (view.kind === 'resolved-project') anchor.setAttribute('aria-expanded', 'true');
+    sidebarHovercard.dataset.kind = view.kind;
+    sidebarHovercard.setAttribute('aria-label', view.label);
+    sidebarHovercard.innerHTML = view.html;
+    sidebarHovercard.hidden = false;
+    positionSidebarHovercard();
+    const decisionList = sidebarHovercard.querySelector('[data-tp-resolved-decision-list]');
+    const scrollCue = sidebarHovercard.querySelector('[data-tp-resolved-scroll-cue]');
+    if (decisionList && scrollCue) {
+      const syncScrollCue = () => {
+        const atEnd = (
+          decisionList.scrollTop + decisionList.clientHeight
+          >= decisionList.scrollHeight - 2
+        );
+        decisionList.dataset.scrollEnd = String(atEnd);
+        scrollCue.hidden = atEnd;
+      };
+      decisionList.addEventListener('scroll', syncScrollCue, { passive: true });
+      if (typeof runtime.requestAnimationFrame === 'function') {
+        runtime.requestAnimationFrame(syncScrollCue);
+      } else {
+        runtime.setTimeout(syncScrollCue, 0);
+      }
+    }
+  }
+
+  function scheduleSidebarHovercard(anchor, delay = null) {
+    const switchingRows = (
+      sidebarHoverAnchor
+      && sidebarHoverAnchor !== anchor
+      && !sidebarHovercard.hidden
+    );
+    clearSidebarHoverTimers();
+    if (sidebarHoverAnchor === anchor && !sidebarHovercard.hidden) return;
+    const showDelay = delay == null
+      ? switchingRows
+        ? SIDEBAR_HOVERCARD_SWITCH_DELAY_MS
+        : SIDEBAR_HOVERCARD_SHOW_DELAY_MS
+      : delay;
+    if (showDelay <= 0) {
+      showSidebarHovercard(anchor);
+      return;
+    }
+    if (switchingRows) hideSidebarHovercard();
+    sidebarHoverShowTimer = runtime.setTimeout(() => {
+      sidebarHoverShowTimer = null;
+      showSidebarHovercard(anchor);
+    }, showDelay);
+  }
+
+  function scheduleSidebarHovercardHide() {
+    if (sidebarHoverShowTimer) {
+      runtime.clearTimeout(sidebarHoverShowTimer);
+      sidebarHoverShowTimer = null;
+    }
+    if (sidebarHoverHideTimer) runtime.clearTimeout(sidebarHoverHideTimer);
+    sidebarHoverHideTimer = runtime.setTimeout(() => {
+      sidebarHoverHideTimer = null;
+      const activeElement = runtime.document.activeElement;
+      if (
+        containsSidebarHoverNode(sidebarHoverAnchor, activeElement)
+        || containsSidebarHoverNode(sidebarHovercard, activeElement)
+      ) return;
+      hideSidebarHovercard();
+    }, SIDEBAR_HOVERCARD_HIDE_DELAY_MS);
+  }
+
+  function handleSidebarHoverMouseOver(event) {
+    if (containsSidebarHoverNode(sidebarHovercard, event.target)) {
+      if (sidebarHoverHideTimer) {
+        runtime.clearTimeout(sidebarHoverHideTimer);
+        sidebarHoverHideTimer = null;
+      }
+      return;
+    }
+    const anchor = sidebarHoverRow(event.target);
+    if (!anchor || containsSidebarHoverNode(anchor, event.relatedTarget)) return;
+    scheduleSidebarHovercard(anchor);
+  }
+
+  function handleSidebarHoverMouseOut(event) {
+    const related = event.relatedTarget;
+    if (
+      containsSidebarHoverNode(sidebarHoverAnchor, related)
+      || containsSidebarHoverNode(sidebarHovercard, related)
+    ) return;
+    const anchor = sidebarHoverRow(event.target);
+    if (anchor === sidebarHoverAnchor || containsSidebarHoverNode(sidebarHovercard, event.target)) {
+      scheduleSidebarHovercardHide();
+    }
+  }
+
+  function handleSidebarHoverFocusIn(event) {
+    if (suppressSidebarHoverFocusOpen) return;
+    if (containsSidebarHoverNode(sidebarHovercard, event.target)) {
+      if (sidebarHoverHideTimer) {
+        runtime.clearTimeout(sidebarHoverHideTimer);
+        sidebarHoverHideTimer = null;
+      }
+      return;
+    }
+    const anchor = sidebarHoverRow(event.target);
+    if (anchor) scheduleSidebarHovercard(anchor, 0);
+  }
+
+  function handleSidebarHoverFocusOut(event) {
+    const related = event.relatedTarget;
+    if (
+      containsSidebarHoverNode(sidebarHoverAnchor, related)
+      || containsSidebarHoverNode(sidebarHovercard, related)
+    ) return;
+    if (
+      sidebarHoverRow(event.target) === sidebarHoverAnchor
+      || containsSidebarHoverNode(sidebarHovercard, event.target)
+    ) scheduleSidebarHovercardHide();
+  }
+
+  function handleSidebarHoverViewportChange(event) {
+    if (sidebarHovercard.hidden) return;
+    if (event?.type === 'scroll' && containsSidebarHoverNode(sidebarHovercard, event.target)) {
+      return;
+    }
+    if (!sidebarHoverAnchor?.isConnected) {
+      hideSidebarHovercard();
+      return;
+    }
+    positionSidebarHovercard();
+  }
+
   function renderDecisionSidebar() {
     const liveList = runtime.document.getElementById('tlp-decisions-list');
     const pastList = runtime.document.getElementById('tlp-past-decisions-list');
@@ -3854,33 +4368,17 @@ export function mountFutardTerminal({
       list.style.setProperty('--tp-live-pulse-delay', `${-pulsePhaseMs}ms`);
     });
 
-    function sidebarMarketRecency(market) {
-      const timestamp = Date.parse(firstText(
-        market.proposal.resolvedAt,
-        market.proposal.endsAt,
-        market.proposal.createdAt,
-      ));
-      if (Number.isFinite(timestamp)) return timestamp;
-      const decisionNumber = displayedDecisionNumber(market);
-      return Number.isFinite(decisionNumber) ? decisionNumber : 0;
-    }
-
-    function groupMarketsByToken(markets) {
-      const grouped = new Map();
-      markets.forEach((market) => {
-        const token = normalizeKey(market.token);
-        if (!token || !state.listedTokenKeys.has(token)) return;
-        if (!grouped.has(token)) grouped.set(token, []);
-        grouped.get(token).push(market);
-      });
-      grouped.forEach((tokenMarkets) => {
-        tokenMarkets.sort((a, b) => sidebarMarketRecency(b) - sidebarMarketRecency(a));
-      });
-      return [...grouped.values()];
-    }
-
     function renderSidebarToken(market) {
       const isLive = market.proposal.statusGroup === 'live';
+      const selected = selectedMarket();
+      const selectedStatusGroup = selected?.proposal?.statusGroup;
+      const selectedMatchesProject = (
+        state.proposalFocus
+        && normalizeKey(market.token) === normalizeKey(selected?.token)
+        && (isLive
+          ? selectedStatusGroup === 'live'
+          : ['passed', 'failed'].includes(selectedStatusGroup))
+      );
       const ticker = market.ticker || String(market.token || '').toUpperCase() || 'DAO';
       const projectName = firstText(market.name, ticker);
       const destination = tokenMarketsUrl(market.token, market.id);
@@ -3891,16 +4389,18 @@ export function mountFutardTerminal({
         <a
           class="tp-decision-item"
           href="${escapeHtml(destination)}"
-          title="${escapeHtml(`Open ${projectName}'s most recent decision · ${market.proposal.title}`)}"
+          aria-label="${escapeHtml(`Open ${projectName}'s ${stateLabel.toLowerCase()} decision: ${market.proposal.title}`)}"
           data-ft-proposal-id="${escapeHtml(market.id)}"
           data-ft-token="${escapeHtml(market.token || '')}"
+          data-tp-sidebar-hover-kind="${isLive ? 'live-decision' : 'resolved-project'}"
           data-market-live="${isLive ? '1' : '0'}"
           data-market-state="${escapeHtml(market.proposal.statusGroup)}"
           data-market-search-primary="${escapeHtml(ticker)}"
           data-market-search="${escapeHtml(`${ticker} ${market.token || ''} ${market.proposal.title || ''} ${stateLabel}`)}"
           data-sort-likelihood="${Number.isFinite(likelihoodPct) ? escapeHtml(String(likelihoodPct)) : ''}"
           data-sort-signal="${Number.isFinite(signalPct) ? escapeHtml(String(signalPct)) : ''}"
-          ${normalizeKey(market.token) === normalizeKey(selectedMarket()?.token) ? 'aria-current="page"' : ''}
+          ${!isLive ? `aria-haspopup="dialog" aria-controls="${escapeHtml(sidebarHovercard.id)}" aria-expanded="false"` : ''}
+          ${selectedMatchesProject ? 'aria-current="page"' : ''}
         >
           <span
             class="tp-decision-live-dot"
@@ -3920,15 +4420,17 @@ export function mountFutardTerminal({
     }
 
     if (liveSection) liveSection.hidden = false;
-    const latestTokenMarkets = groupMarketsByToken(state.sidebarMarkets)
-      .map(([latest]) => latest)
+    const groupedTokenMarkets = groupSidebarMarketsByToken();
+    const liveMarkets = groupedTokenMarkets
+      .map(tokenMarkets => tokenMarkets.find(
+        market => market.proposal.statusGroup === 'live',
+      ))
       .filter(Boolean);
-    const liveMarkets = latestTokenMarkets.filter(
-      market => market.proposal.statusGroup === 'live',
-    );
-    const resolvedMarkets = latestTokenMarkets.filter(
-      market => market.proposal.statusGroup !== 'live',
-    );
+    const resolvedMarkets = groupedTokenMarkets
+      .map(tokenMarkets => tokenMarkets.find(
+        market => ['passed', 'failed'].includes(market.proposal.statusGroup),
+      ))
+      .filter(Boolean);
     const unavailable = state.archiveError;
     const loading = state.loading && state.sidebarMarkets.length === 0;
     const liveEmptyTitle = loading
@@ -3962,6 +4464,7 @@ export function mountFutardTerminal({
       ><strong>${escapeHtml(resolvedEmptyTitle)}</strong></div>
     `;
     pastList.hidden = false;
+    if (sidebarHoverAnchor && !sidebarHoverAnchor.isConnected) hideSidebarHovercard();
     runtime.applyMarketSidebarSearch?.();
   }
 
@@ -5743,8 +6246,8 @@ export function mountFutardTerminal({
         aria-busy="true"
       >
         <div class="ft-ownership-side-tabs" role="tablist" aria-label="Ownership order side">
-          <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Buy</button>
-          <button type="button" role="tab" aria-selected="false" disabled>Sell</button>
+          <button type="button" role="tab" aria-label="Buy" aria-selected="true" class="ft-is-active" disabled>${renderOwnershipSideIcon('buy')}</button>
+          <button type="button" role="tab" aria-label="Sell" aria-selected="false" disabled>${renderOwnershipSideIcon('sell')}</button>
         </div>
         <div class="ft-market-information-empty">
           <strong>Loading market</strong>
@@ -5816,22 +6319,23 @@ export function mountFutardTerminal({
               role="tab"
               data-ft-action="select-ownership-side"
               data-ft-side="buy"
+              aria-label="Buy"
               aria-selected="${isBuy}"
               class="${isBuy ? 'ft-is-active' : ''}"
-            >Buy</button>
+            >${renderOwnershipSideIcon('buy')}</button>
             <button
               type="button"
               role="tab"
               data-ft-action="select-ownership-side"
               data-ft-side="sell"
+              aria-label="Sell"
               aria-selected="${!isBuy}"
               class="${!isBuy ? 'ft-is-active' : ''}"
-            >Sell</button>
+            >${renderOwnershipSideIcon('sell')}</button>
           </div>
 
           <div class="ft-ownership-order-body">
             <label class="ft-ownership-swap-field">
-              <span class="ft-ownership-field-label">Pay with</span>
               <input
                 type="number"
                 min="0"
@@ -5962,13 +6466,12 @@ export function mountFutardTerminal({
           </div>
 
           <div class="ft-ownership-side-tabs" role="tablist" aria-label="Archived order side">
-            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="buy" aria-selected="${previewSide === 'buy'}" class="${previewSide === 'buy' ? 'ft-is-active' : ''}">Buy</button>
-            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="sell" aria-selected="${previewSide === 'sell'}" class="${previewSide === 'sell' ? 'ft-is-active' : ''}">Sell</button>
+            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="buy" aria-label="Buy" aria-selected="${previewSide === 'buy'}" class="${previewSide === 'buy' ? 'ft-is-active' : ''}">${renderOwnershipSideIcon('buy')}</button>
+            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="sell" aria-label="Sell" aria-selected="${previewSide === 'sell'}" class="${previewSide === 'sell' ? 'ft-is-active' : ''}">${renderOwnershipSideIcon('sell')}</button>
           </div>
 
           <div class="ft-ownership-order-body">
             <label class="ft-ownership-swap-field">
-              <span class="ft-ownership-field-label">Pay with</span>
               <input
                 type="number"
                 min="0"
@@ -9081,6 +9584,11 @@ export function mountFutardTerminal({
   }
 
   function handleDocumentClick(event) {
+    if (
+      sidebarHoverAnchor
+      && !containsSidebarHoverNode(sidebarHoverAnchor, event.target)
+      && !containsSidebarHoverNode(sidebarHovercard, event.target)
+    ) hideSidebarHovercard();
     const decisionMarketSwitcher = event.target?.closest?.(
       '[data-ft-role="decision-market-switcher"]',
     );
@@ -9089,7 +9597,7 @@ export function mountFutardTerminal({
     }
     const sidebarToken = event.target?.closest?.('a.tp-item[data-key]');
     const sidebarProposal = event.target?.closest?.(
-      '.tp-decision-item[data-ft-proposal-id]',
+      '.tp-decision-item[data-ft-proposal-id], [data-tp-sidebar-proposal-link][data-ft-proposal-id]',
     );
     if (state.execution.building || state.execution.submitting) {
       if (sidebarToken || sidebarProposal) event.preventDefault();
@@ -9100,6 +9608,7 @@ export function mountFutardTerminal({
       && shouldHandleSidebarTokenClick(event, sidebarToken, state.hostMode)
     ) {
       event.preventDefault();
+      hideSidebarHovercard();
       void selectSidebarToken(sidebarToken);
       return;
     }
@@ -9111,6 +9620,7 @@ export function mountFutardTerminal({
       )
     ) {
       event.preventDefault();
+      hideSidebarHovercard();
       void selectSidebarProposal(sidebarProposal);
       return;
     }
@@ -9127,7 +9637,7 @@ export function mountFutardTerminal({
       !target
       || (
         !root.contains(target)
-        && !regions.walletStatus?.contains(target)
+        && !walletHeaderSlot?.contains(target)
       )
     ) return;
     const action = target.dataset.ftAction;
@@ -9618,7 +10128,28 @@ export function mountFutardTerminal({
   function handleKeydown(event) {
     const commandSearch = (event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'k';
     const slashSearch = event.key === '/' && !/input|textarea|select/i.test(event.target?.tagName || '');
-    if (event.key === 'Escape' && (state.wallet.pickerOpen || state.execution.reviewOpen)) {
+    const hoverRow = sidebarHoverRow(event.target);
+    const hoverLinks = containsSidebarHoverNode(sidebarHovercard, event.target)
+      ? [...sidebarHovercard.querySelectorAll('[data-tp-sidebar-proposal-link]')]
+      : [];
+    if (event.key === 'Escape' && !sidebarHovercard.hidden) {
+      event.preventDefault();
+      hideSidebarHovercard({ restoreFocus: true });
+    } else if (
+      event.key === 'ArrowRight'
+      && hoverRow?.dataset.tpSidebarHoverKind === 'resolved-project'
+    ) {
+      event.preventDefault();
+      showSidebarHovercard(hoverRow);
+      runtime.setTimeout(() => {
+        sidebarHovercard.querySelector('[data-tp-sidebar-proposal-link]')?.focus();
+      }, 0);
+    } else if (hoverLinks.length && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+      event.preventDefault();
+      const index = Math.max(0, hoverLinks.indexOf(event.target));
+      const offset = event.key === 'ArrowDown' ? 1 : -1;
+      hoverLinks[(index + offset + hoverLinks.length) % hoverLinks.length]?.focus();
+    } else if (event.key === 'Escape' && (state.wallet.pickerOpen || state.execution.reviewOpen)) {
       state.wallet.pickerOpen = false;
       state.execution.reviewOpen = false;
       state.execution.plan = null;
@@ -9679,6 +10210,7 @@ export function mountFutardTerminal({
       || normalized === state.tokenFilter
     ) return state.markets;
 
+    hideSidebarHovercard();
     clearContractAddressCopyFeedback({ sync: false });
     const transitionId = beginWorkspaceTransition({
       preserveShell: options.preserveShell === true,
@@ -9735,6 +10267,7 @@ export function mountFutardTerminal({
 
   function handlePopState() {
     if (state.destroyed) return;
+    hideSidebarHovercard();
     const params = new runtime.URLSearchParams(runtime.location?.search || '');
     const nextFilter = String(params.get('filter') || '').toLowerCase();
     state.filter = ['live', 'resolved', 'indexed'].includes(nextFilter)
@@ -9789,8 +10322,11 @@ export function mountFutardTerminal({
     if (state.clockTimer) runtime.clearInterval(state.clockTimer);
     if (state.transactionTimer) runtime.clearInterval(state.transactionTimer);
     if (state.noticeTimer) runtime.clearTimeout(state.noticeTimer);
-    if (walletStatusPortaled) {
-      regions.walletStatus.removeEventListener('click', handleClick);
+    hideSidebarHovercard();
+    sidebarHovercard.remove();
+    if (headerControlsPortaled) {
+      walletHeaderSlot.removeEventListener('click', handleClick);
+      regions.themeToggle.remove();
       regions.walletStatus.remove();
     }
     root.removeEventListener('click', handleClick);
@@ -9798,7 +10334,13 @@ export function mountFutardTerminal({
     root.removeEventListener('change', handleChange);
     runtime.document.removeEventListener('click', handleDocumentClick);
     runtime.document.removeEventListener('keydown', handleKeydown);
+    runtime.document.removeEventListener('mouseover', handleSidebarHoverMouseOver);
+    runtime.document.removeEventListener('mouseout', handleSidebarHoverMouseOut);
+    runtime.document.removeEventListener('focusin', handleSidebarHoverFocusIn);
+    runtime.document.removeEventListener('focusout', handleSidebarHoverFocusOut);
+    runtime.document.removeEventListener('scroll', handleSidebarHoverViewportChange, true);
     runtime.document.removeEventListener('visibilitychange', handleVisibilityChange);
+    runtime.removeEventListener?.('resize', handleSidebarHoverViewportChange);
     runtime.removeEventListener?.('popstate', handlePopState);
     runtime.removeEventListener?.('pageshow', handlePageShow);
     workspaceTransitionId += 1;
@@ -9811,14 +10353,20 @@ export function mountFutardTerminal({
   }
 
   root.addEventListener('click', handleClick);
-  if (walletStatusPortaled) {
-    regions.walletStatus.addEventListener('click', handleClick);
+  if (headerControlsPortaled) {
+    walletHeaderSlot.addEventListener('click', handleClick);
   }
   root.addEventListener('input', handleInput);
   root.addEventListener('change', handleChange);
   runtime.document.addEventListener('click', handleDocumentClick);
   runtime.document.addEventListener('keydown', handleKeydown);
+  runtime.document.addEventListener('mouseover', handleSidebarHoverMouseOver);
+  runtime.document.addEventListener('mouseout', handleSidebarHoverMouseOut);
+  runtime.document.addEventListener('focusin', handleSidebarHoverFocusIn);
+  runtime.document.addEventListener('focusout', handleSidebarHoverFocusOut);
+  runtime.document.addEventListener('scroll', handleSidebarHoverViewportChange, true);
   runtime.document.addEventListener('visibilitychange', handleVisibilityChange);
+  runtime.addEventListener?.('resize', handleSidebarHoverViewportChange);
   runtime.addEventListener?.('popstate', handlePopState);
   runtime.addEventListener?.('pageshow', handlePageShow);
 

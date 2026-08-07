@@ -4830,17 +4830,6 @@ body.is-futard-terminal #token-switch-loader {
   inset: 0;
 }
 
-.orx-liveline-empty-label {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  color: rgb(144 147 167 / 28%);
-  font: 400 12px/1 system-ui, -apple-system, sans-serif;
-  pointer-events: none;
-}
-
 .orx-liveline-root > div:not(.orx-liveline-canvas) {
   display: none !important;
 }

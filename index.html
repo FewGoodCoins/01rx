@@ -174,7 +174,16 @@ try {
   if (_bootNumFont === 'inter' || _bootNumFont === 'ibm') {
     document.documentElement.setAttribute('data-numfont', _bootNumFont);
   }
-  document.documentElement.removeAttribute('data-theme');
+  var _bootTheme = null;
+  try {
+    _bootTheme = window.localStorage.getItem('navgator-terminal-theme');
+  } catch (_) {}
+  if (_bootTheme !== 'light' && _bootTheme !== 'dark') {
+    _bootTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+      ? 'light'
+      : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', _bootTheme);
 } catch (e) {}
 </script>
 <script>
@@ -351,7 +360,7 @@ window.toggleChartFeatureMenu = function(trigger, event) {
     data-01r-theme-scope
     data-theme="dark"
     role="group"
-    aria-label="Wallet connection"
+    aria-label="Appearance and wallet"
   ></div>
 </header>
 

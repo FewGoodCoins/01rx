@@ -12,10 +12,11 @@ export function createShellPanelController(options = {}) {
     right: false,
   };
 
-  // The market explorer is optional workspace chrome. Remember the user's
-  // choice while keeping the retired right-rail preference pinned open.
+  // Start each workspace with the market explorer visible. Collapsing it is a
+  // session-only layout choice; remove older persisted flags so a prior visit
+  // cannot make the primary navigation disappear on the next load.
   try {
-    state.left = storage.getItem(LEFT_PANEL_STORAGE_KEY) === '1';
+    storage.removeItem(LEFT_PANEL_STORAGE_KEY);
     storage.removeItem(RIGHT_PANEL_STORAGE_KEY);
   } catch (_) {
     // Storage can be unavailable in privacy-restricted browser contexts. The
@@ -72,11 +73,6 @@ export function createShellPanelController(options = {}) {
       return false;
     }
     state.left = !state.left;
-    try {
-      storage.setItem(LEFT_PANEL_STORAGE_KEY, state.left ? '1' : '0');
-    } catch (_) {
-      // The visual state does not depend on persistence succeeding.
-    }
     refreshControls();
     notifyResize();
     return state.left;

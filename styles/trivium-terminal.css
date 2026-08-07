@@ -17,16 +17,51 @@ html[data-workspace="markets"] {
   --trivium-panel: #090911;
   --trivium-panel-raised: #0e0e18;
   --trivium-panel-hover: #141421;
+  --trivium-input: #07070d;
   --trivium-border: rgb(138 145 218 / 16%);
   --trivium-border-strong: rgb(145 153 232 / 28%);
+  --trivium-ink: #d9dbe7;
   --trivium-text: #f1f2f8;
   --trivium-muted: #9093a7;
   --trivium-faint: #666a7e;
   --trivium-accent: #7580ff;
+  --trivium-accent-strong: #939bff;
+  --trivium-accent-ink: #080810;
+  --trivium-focus: #aab0ff;
   --trivium-positive: #2bdc91;
   --trivium-negative: #ff6978;
   color-scheme: dark;
   background: var(--trivium-canvas) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] {
+  --market-surface: #ffffff;
+  --trivium-canvas: #f3f4f8;
+  --trivium-panel: #ffffff;
+  --trivium-panel-raised: #f6f7fa;
+  --trivium-panel-hover: #eceef4;
+  --trivium-input: #ffffff;
+  --trivium-border: rgb(42 47 68 / 13%);
+  --trivium-border-strong: rgb(42 47 68 / 24%);
+  --trivium-ink: #353948;
+  --trivium-text: #171923;
+  --trivium-muted: #64697a;
+  --trivium-faint: #8b90a0;
+  --trivium-accent: #5965e8;
+  --trivium-accent-strong: #4652d2;
+  --trivium-accent-ink: #ffffff;
+  --trivium-focus: #4652d2;
+  --trivium-positive: #138d5a;
+  --trivium-negative: #cf4254;
+  --bg: var(--trivium-canvas);
+  --bg2: var(--trivium-panel);
+  --bg3: var(--trivium-panel-raised);
+  --bdr: rgb(42 47 68 / 16%);
+  --body: var(--trivium-ink);
+  --bright: var(--trivium-text);
+  --white: var(--trivium-text);
+  --chart-bg: var(--trivium-panel);
+  color-scheme: light;
 }
 
 /* Keep degraded-service notices useful without exposing the dense internal
@@ -120,7 +155,7 @@ html[data-workspace="markets"] .ft-chart-launchpad-mark img {
     width: 100%;
     height: 100% !important;
     min-height: var(--market-header-cell-height) !important;
-    grid-template: var(--market-header-cell-height) / minmax(250px, 2fr) repeat(5, minmax(68px, 1fr)) !important;
+    grid-template: var(--market-header-cell-height) / minmax(250px, 2fr) repeat(5, minmax(68px, 1fr)) 44px !important;
     overflow: hidden !important;
     border: 0 !important;
     border-radius: 15px !important;
@@ -422,6 +457,348 @@ html[data-workspace="markets"] .ft-chart-launchpad-mark img {
   }
 }
 
+/* Sidebar hover details are portaled to the document body so they can escape
+   the explorer's rounded clipping and scroll containers. */
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard {
+  position: fixed;
+  z-index: var(--z-tooltip, 9500);
+  box-sizing: border-box;
+  width: min(280px, calc(100vw - 24px));
+  max-height: calc(100dvh - var(--site-header-height) - 20px);
+  padding: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border: 1px solid #2c2a38;
+  border-radius: 14px !important;
+  background: #0f0e17;
+  background-clip: padding-box;
+  box-shadow: 0 20px 48px rgb(0 0 0 / 52%);
+  color: #f2f1f6;
+  font-family: 'Geist', sans-serif;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard[hidden],
+html[data-workspace="markets"] body#navgator-app#navgator-app.left-panel-collapsed .tp-sidebar-hovercard {
+  display: none !important;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-header {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 38px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 9px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-header > .ft-token-logo-large {
+  display: grid;
+  width: 38px !important;
+  height: 38px !important;
+  place-items: center;
+  border: 1px solid #33313e;
+  border-radius: 50% !important;
+  object-fit: cover;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-identity > strong {
+  overflow: hidden;
+  color: #f6f5fa;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-identity > span {
+  overflow: hidden;
+  color: #8f8c9c;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-headline {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-headline small {
+  color: #706d7e;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-headline strong {
+  color: #f3f2f7;
+  font-family: var(--numeric-font);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-headline span {
+  font-family: var(--numeric-font);
+  font-size: 10px;
+  font-weight: 580;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard [data-tone="positive"] {
+  color: #20e990;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard [data-tone="negative"] {
+  color: #ff607a;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard [data-tone="warning"] {
+  color: #e7bd6d;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard [data-tone="muted"],
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard [data-tone="neutral"] {
+  color: #aaa7b5;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-metrics {
+  display: grid;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-metric {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+  color: #8e8b9a;
+  font-size: 11px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-metric > span {
+  flex: 0 0 auto;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-metric > i {
+  min-width: 8px;
+  height: 1px;
+  flex: 1 1 auto;
+  border-top: 1px dashed #2c2a38;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-metric > strong {
+  flex: 0 0 auto;
+  color: #eeeef3;
+  font-family: var(--numeric-font);
+  font-size: 11px;
+  font-weight: 620;
+  text-align: right;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-badge,
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-count {
+  display: inline-flex;
+  min-height: 20px;
+  padding: 0 6px;
+  align-items: center;
+  border: 1px solid #34313f;
+  border-radius: 999px !important;
+  color: #aaa7b5;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-badge[data-tone="live"] {
+  border-color: rgb(32 233 144 / 24%);
+  background: rgb(32 233 144 / 8%);
+  color: #20e990;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-summary {
+  display: grid;
+  padding: 10px;
+  margin-top: 12px;
+  gap: 4px;
+  border: 1px solid #292734;
+  border-radius: 10px !important;
+  background: #14131d;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-summary > span {
+  color: #858291;
+  font-size: 9px;
+  font-weight: 560;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-summary > strong {
+  color: #f2f1f6;
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 16px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-footnote {
+  margin: 10px 0 0;
+  color: #676474;
+  font-size: 8px;
+  line-height: 11px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-list-heading {
+  display: flex;
+  margin-top: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-list-heading strong {
+  color: #f1f0f5;
+  font-size: 11px;
+  font-weight: 620;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-list-heading span {
+  color: #716e7e;
+  font-size: 8px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-list {
+  display: grid;
+  max-height: min(184px, calc(100dvh - var(--site-header-height) - 150px));
+  padding: 3px 0;
+  margin: 6px -3px -3px;
+  gap: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #555262 #1b1923;
+  scrollbar-width: thin;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-list::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #1b1923;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #555262;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-list[data-scrollable="true"] {
+  padding-right: 5px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-scroll-cue {
+  display: flex;
+  min-height: 15px;
+  margin: 5px 0 -3px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #aaa7b5;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-scroll-cue[hidden] {
+  display: none !important;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-scroll-cue svg {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-link {
+  display: grid;
+  min-width: 0;
+  padding: 7px;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 9px !important;
+  color: inherit;
+  text-decoration: none;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-link:hover,
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-link:focus-visible {
+  border-color: #302e3b;
+  outline: 0;
+  background: #171620;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-meta,
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-date {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-meta small,
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-date {
+  color: #777484;
+  font-size: 8px;
+  font-weight: 540;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-meta em {
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-link > strong {
+  overflow: hidden;
+  color: #e9e8ee;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-workspace="markets"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-date svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
 /* Token-chart frame polish is kept here so it wins after the legacy frame
    stylesheet in the token entrypoint. */
 html[data-01rx-chart-frame="true"] body.is-token:not(.is-empty-token-chart) .chart-topbar {
@@ -479,19 +856,19 @@ html[data-workspace="markets"] [data-01r-theme-scope] {
   --ft-panel: var(--trivium-panel);
   --ft-panel-soft: var(--trivium-panel-raised);
   --ft-panel-strong: var(--trivium-panel-hover);
-  --ft-input: #07070d;
-  --ft-ink: #d9dbe7;
+  --ft-input: var(--trivium-input);
+  --ft-ink: var(--trivium-ink);
   --ft-ink-strong: var(--trivium-text);
   --ft-muted: var(--trivium-muted);
   --ft-faint: var(--trivium-faint);
   --ft-border: var(--trivium-border);
   --ft-border-strong: var(--trivium-border-strong);
   --ft-accent: var(--trivium-accent);
-  --ft-accent-strong: #939bff;
-  --ft-accent-ink: #080810;
+  --ft-accent-strong: var(--trivium-accent-strong);
+  --ft-accent-ink: var(--trivium-accent-ink);
   --ft-positive: var(--trivium-positive);
   --ft-negative: var(--trivium-negative);
-  --ft-focus: #aab0ff;
+  --ft-focus: var(--trivium-focus);
 }
 
 /* The legacy analytics surface defaults every element to square corners. The
@@ -508,6 +885,7 @@ html[data-workspace="markets"] body#navgator-app#navgator-app :is(
 }
 
 html[data-workspace="markets"] body#navgator-app#navgator-app :is(
+  .site-header-market-wallet .ft-theme-toggle,
   .site-header-market-wallet .ft-wallet-button,
   .ft-proposal-trade-tabs,
   .ft-ownership-side-tabs,
@@ -669,24 +1047,62 @@ html[data-workspace="markets"] .site-header-market-wallet[data-01r-theme-scope] 
   padding: 0 6px;
   flex: 0 0 clamp(190px, 22vw, 430px);
   justify-content: flex-end;
+  gap: 8px;
+}
+
+html[data-workspace="markets"] .site-header-market-wallet .ft-theme-toggle {
+  display: grid !important;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid var(--trivium-border-strong);
+  border-radius: 12px !important;
+  background: var(--trivium-panel-raised);
+  color: var(--trivium-text);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+html[data-workspace="markets"] .site-header-market-wallet .ft-theme-toggle:hover {
+  border-color: rgb(145 153 232 / 45%);
+  background: var(--trivium-panel-hover);
+}
+
+html[data-workspace="markets"] .site-header-market-wallet .ft-theme-toggle:focus-visible {
+  outline: 2px solid var(--trivium-focus);
+  outline-offset: 2px;
+}
+
+html[data-workspace="markets"] .site-header-market-wallet .ft-theme-icon {
+  width: 18px;
+  height: 18px;
+}
+
+html[data-workspace="markets"] .site-header-market-wallet[data-theme="dark"] .ft-theme-icon-moon,
+html[data-workspace="markets"] .site-header-market-wallet[data-theme="light"] .ft-theme-icon-sun {
+  display: none;
 }
 
 html[data-workspace="markets"] .site-header-market-wallet .ft-wallet-button {
   min-height: 42px;
   padding: 0 18px;
-  border: 1px solid var(--trivium-border-strong);
+  border: 1px solid #f4f4f1;
   border-radius: 12px;
-  background: var(--trivium-panel-raised);
-  color: var(--trivium-text);
+  background: #f4f4f1;
+  color: #0b0b10;
   font-family: 'Geist', sans-serif;
   font-size: 12px;
   font-weight: 650;
 }
 
 html[data-workspace="markets"] .site-header-market-wallet .ft-wallet-button:hover {
-  border-color: rgb(145 153 232 / 45%);
-  background: var(--trivium-panel-hover);
-  color: #fff;
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #0b0b10;
 }
 
 /* Three global zones: explorer, wide market workspace, execution rail. */
@@ -1534,6 +1950,8 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-owne
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-tabs button {
+  display: grid;
+  place-items: center;
   border-radius: 9px;
   color: #73778b;
   font-family: 'Geist', sans-serif;
@@ -1541,6 +1959,22 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-owne
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-icon {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-tabs button:first-child.ft-is-active {
@@ -1590,19 +2024,33 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-deci
   color: var(--trivium-text);
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-shell .ft-ownership-connect,
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-primary-button {
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-shell .ft-ownership-connect {
   min-height: 50px;
-  border: 1px solid rgb(117 128 255 / 65%);
+  border: 1px solid #f4f4f1;
   border-radius: 12px;
-  background: var(--trivium-accent);
-  color: #07070d;
+  background: #f4f4f1;
+  color: #0b0b10;
   font-family: 'Geist', sans-serif;
   font-size: 14px;
   font-weight: 700;
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-shell .ft-ownership-connect:hover:not(:disabled),
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-shell .ft-ownership-connect:hover:not(:disabled) {
+  border-color: #ffffff;
+  background: #ffffff;
+}
+
+html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-primary-button {
+  min-height: 50px;
+  border: 1px solid rgb(117 128 255 / 65%);
+  border-radius: 12px;
+  background: var(--trivium-accent);
+  color: var(--trivium-accent-ink);
+  font-family: 'Geist', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-primary-button:hover:not(:disabled) {
   border-color: #959cff;
   background: #8992ff;
@@ -1671,11 +2119,11 @@ html[data-workspace="markets"] .site-footer-dot {
   }
 
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus.ft-ownership-market .ft-ownership-chart-header {
-    grid-template: var(--market-header-cell-height) / minmax(235px, 1.65fr) repeat(3, minmax(60px, 1fr)) !important;
+    grid-template: var(--market-header-cell-height) / minmax(235px, 1.65fr) repeat(3, minmax(60px, 1fr)) 44px !important;
   }
 
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header.ft-decision-chart-header {
-    grid-template: var(--market-header-cell-height) / minmax(165px, 1.45fr) repeat(5, minmax(48px, 1fr)) !important;
+    grid-template: var(--market-header-cell-height) / minmax(165px, 1.45fr) repeat(5, minmax(48px, 1fr)) 44px !important;
   }
 
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-decision-chart-header .ft-chart-market-metric {
@@ -1709,7 +2157,7 @@ html[data-workspace="markets"] .site-footer-dot {
 
 @media (max-width: 1040px) and (min-width: 981px) {
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header.ft-decision-chart-header {
-    grid-template: var(--market-header-cell-height) / minmax(145px, 1.35fr) repeat(4, minmax(48px, 1fr)) !important;
+    grid-template: var(--market-header-cell-height) / minmax(145px, 1.35fr) repeat(4, minmax(48px, 1fr)) 44px !important;
   }
 
   html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-decision-chart-header > .ft-chart-market-metric:last-child {
@@ -2508,7 +2956,7 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-owne
 /* The chart header owns a compact disclosure row. Opening it increases only
    the summary track and gives the same space back from the plot track. */
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded {
-  --market-summary-height: 100px;
+  --market-summary-height: 90px;
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header {
@@ -2534,6 +2982,15 @@ html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="tok
   cursor: pointer;
 }
 
+@media (min-width: 981px) {
+  html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-stats-toggle {
+    position: static;
+    align-self: center;
+    justify-self: center;
+  }
+
+}
+
 html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-stats-toggle:hover,
 html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-stats-toggle:focus-visible {
   border-color: #45485c !important;
@@ -2556,7 +3013,13 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-char
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-market-metric:last-of-type {
-  padding-right: 44px;
+  padding-right: 12px;
+}
+
+@media (max-width: 980px) {
+  html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header > .ft-chart-market-metric:last-of-type {
+    padding-right: 44px;
+  }
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer[hidden] {
@@ -2574,14 +3037,15 @@ html[data-workspace="markets"] body#navgator-app#navgator-app [data-ft-mode="tok
   display: grid !important;
   box-sizing: border-box;
   width: 100%;
-  height: 42px !important;
-  min-height: 42px !important;
-  max-height: 42px !important;
-  padding: 0 16px;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 10px;
   margin: 0;
-  grid-template-columns: repeat(4, minmax(max-content, 1fr)) minmax(max-content, auto);
-  align-items: center;
-  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   clip: auto;
@@ -2599,15 +3063,19 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus.ft-chart
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer > span {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  gap: 4px;
   font-family: 'Geist', sans-serif;
-  font-size: 10px;
+  font-size: 9px;
+  line-height: 1;
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer b {
   color: #e7e8ef;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 620;
 }
 
@@ -2620,19 +3088,304 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-char
   color: var(--trivium-negative);
 }
 
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-source {
-  justify-self: end;
-  color: #5f6375;
-}
-
 @media (min-width: 981px) {
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-terminal-grid {
-    grid-template-rows: var(--market-summary-height) minmax(388px, calc(52dvh - 42px)) minmax(220px, auto) !important;
+    grid-template-rows: var(--market-summary-height) minmax(396px, calc(52dvh - 34px)) minmax(220px, auto) !important;
   }
 
   html[data-workspace="markets"] body#navgator-app#navgator-app.is-token-markets [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-terminal-grid:has(
     .ft-ownership-transactions[data-ft-market-information-collapsed="true"]
   ) {
-    grid-template-rows: var(--market-summary-height) minmax(388px, calc(52dvh - 42px)) 52px !important;
+    grid-template-rows: var(--market-summary-height) minmax(396px, calc(52dvh - 34px)) 52px !important;
   }
+}
+
+/* The light appearance follows the same surface hierarchy as the terminal
+   instead of only changing the page canvas around dark panels. */
+html[data-workspace="markets"][data-theme="light"] .product-wordmark,
+html[data-workspace="markets"][data-theme="light"] .product-wordmark-core {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-01r-theme-scope] {
+  --ft-bg: var(--trivium-canvas);
+  --ft-bg-raised: var(--trivium-panel);
+  --ft-panel: var(--trivium-panel);
+  --ft-panel-soft: var(--trivium-panel-raised);
+  --ft-panel-strong: var(--trivium-panel-hover);
+  --ft-input: var(--trivium-input);
+  --ft-ink: var(--trivium-ink);
+  --ft-ink-strong: var(--trivium-text);
+  --ft-muted: var(--trivium-muted);
+  --ft-faint: var(--trivium-faint);
+  --ft-border: var(--trivium-border);
+  --ft-border-strong: var(--trivium-border-strong);
+  --ft-accent: var(--trivium-accent);
+  --ft-accent-strong: var(--trivium-accent-strong);
+  --ft-accent-ink: var(--trivium-accent-ink);
+  --ft-positive: var(--trivium-positive);
+  --ft-negative: var(--trivium-negative);
+  --ft-focus: var(--trivium-focus);
+  color-scheme: light;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .site-header .tp-market-search-field {
+  border-color: var(--trivium-border-strong) !important;
+  background: var(--trivium-panel) !important;
+  color: var(--trivium-muted);
+  box-shadow: 0 6px 20px rgb(27 31 48 / 5%);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .site-header > .tp-market-toolbar.site-header-market-search {
+  background: transparent !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .site-header .tp-market-search-field:focus-within {
+  border-color: rgb(89 101 232 / 56%) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgb(89 101 232 / 10%);
+}
+
+html[data-workspace="markets"][data-theme="light"] .site-header .tp-market-search-field input {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] .site-header .tp-market-search-field input::placeholder {
+  color: var(--trivium-faint);
+}
+
+html[data-workspace="markets"][data-theme="light"] .site-header .tp-market-search-field kbd {
+  border-color: var(--trivium-border);
+  background: var(--trivium-panel-raised);
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] .site-header-market-wallet .ft-wallet-button,
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus .ft-shell .ft-ownership-connect {
+  border-color: var(--trivium-border-strong);
+  background: #ffffff;
+  color: #11131a;
+  box-shadow: 0 5px 16px rgb(27 31 48 / 6%);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app :is(
+  .app-left,
+  .app-token-list,
+  #tlp-all-list,
+  #tlp-decisions-list,
+  #tlp-past-decisions-list,
+  .tp-market-filter-strip,
+  .tp-unified-section-heading
+) {
+  background: var(--trivium-panel) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .shell-panel-toggle-left {
+  background: var(--trivium-panel-raised) !important;
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .shell-panel-toggle-left:hover,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .shell-panel-toggle-left:focus-visible {
+  background: var(--trivium-panel-hover) !important;
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-market-filter {
+  border-color: var(--trivium-border) !important;
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-market-filter.active,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-market-filter:hover {
+  border-color: var(--trivium-border-strong) !important;
+  background: var(--trivium-panel-hover) !important;
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app #tlp-all-list .tp-item:hover,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app #tlp-all-list .tp-item:focus-visible,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app #tlp-all-list .tp-item.active,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-decision-item:hover,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-decision-item:focus-visible,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-decision-item[aria-current="page"] {
+  background: var(--trivium-panel-hover) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app :is(
+  #tlp-all-list .tp-name,
+  #tlp-all-list .tp-price,
+  .tp-decision-copy strong,
+  .tp-live-decisions-empty strong,
+  .tp-unified-section-heading strong
+) {
+  color: var(--trivium-text) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app :is(
+  #tlp-all-list .tp-market-cap,
+  .tp-decision-copy span,
+  .tp-unified-section-heading,
+  .tp-unified-section-columns
+) {
+  color: var(--trivium-muted) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-market-tab.active {
+  color: var(--trivium-text) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-decision-status-heading {
+  border-color: var(--trivium-border) !important;
+  background: var(--trivium-panel-raised) !important;
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-market-title-row strong,
+  .ft-decision-market-switcher-heading strong,
+  .ft-chart-market-metric > strong,
+  .ft-ownership-asset strong,
+  .ft-market-information-empty strong
+) {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-market-subtitle-row,
+  .ft-decision-market-switcher-heading > span,
+  .ft-chart-market-metric > span,
+  .ft-market-information-empty
+) {
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-ownership-chart-header,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus.ft-chart-stats-expanded .ft-chart-stats-drawer {
+  background: var(--trivium-panel) !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-hourly-plot-shell,
+  .ft-hourly-live,
+  .ft-ownership-chart-frame
+) {
+  background: #fafbfe !important;
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-toggle {
+  border-color: var(--trivium-border-strong) !important;
+  background: var(--trivium-panel-raised) !important;
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-toggle:hover,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-toggle:focus-visible {
+  border-color: var(--trivium-border-strong) !important;
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer {
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus .ft-chart-stats-drawer b {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-proposal-trade-tabs,
+  .ft-ownership-side-tabs,
+  .ft-ownership-swap-field,
+  .ft-decision-limit-field,
+  .ft-amount-input-wrap,
+  .ft-ownership-order-details
+) {
+  background: var(--trivium-panel-raised);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-proposal-trade-tabs button,
+  .ft-ownership-side-tabs button,
+  .ft-ownership-order-details dt
+) {
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-order-details dd {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-tabs button:first-child.ft-is-active {
+  background: rgb(19 141 90 / 12%);
+  color: var(--trivium-positive);
+}
+
+html[data-workspace="markets"][data-theme="light"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-tabs button:last-child.ft-is-active {
+  background: rgb(207 66 84 / 10%);
+  color: var(--trivium-negative);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-menu {
+  border-color: var(--trivium-border-strong);
+  background: var(--trivium-panel);
+  box-shadow: 0 16px 38px rgb(27 31 48 / 14%);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option:hover,
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus .ft-market-information-option:focus-visible {
+  background: var(--trivium-panel-hover) !important;
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app [data-ft-mode="token"].ft-proposal-focus :is(
+  .ft-market-information-menu-trigger,
+  .ft-market-information-option,
+  .ft-market-information-option.ft-is-active,
+  .ft-market-information-menu-trigger small,
+  .ft-market-information-option small,
+  .ft-market-information-empty,
+  .ft-market-information-empty strong,
+  .ft-market-information-empty p,
+  .ft-ownership-transactions-columns,
+  .ft-ownership-transaction-row,
+  .ft-ownership-transactions-empty
+) {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-sidebar-hovercard {
+  border-color: var(--trivium-border-strong);
+  background: var(--trivium-panel);
+  box-shadow: 0 20px 48px rgb(27 31 48 / 18%);
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-sidebar-hovercard :is(
+  .tp-sidebar-hovercard-identity > strong,
+  .tp-sidebar-hovercard-headline strong,
+  .tp-sidebar-hovercard-metric > strong,
+  .tp-sidebar-hovercard-decision-summary > strong,
+  .tp-sidebar-hovercard-list-heading strong
+) {
+  color: var(--trivium-text);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-sidebar-hovercard :is(
+  .tp-sidebar-hovercard-identity > span,
+  .tp-sidebar-hovercard-headline small,
+  .tp-sidebar-hovercard-metric,
+  .tp-sidebar-hovercard-list-heading span,
+  .tp-sidebar-hovercard-footnote
+) {
+  color: var(--trivium-muted);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-sidebar-hovercard-metric > i {
+  border-color: var(--trivium-border-strong);
+}
+
+html[data-workspace="markets"][data-theme="light"] body#navgator-app#navgator-app .tp-sidebar-hovercard-decision-summary {
+  border-color: var(--trivium-border);
+  background: var(--trivium-panel-raised);
 }
