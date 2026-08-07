@@ -1950,8 +1950,6 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-owne
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-tabs button {
-  display: grid;
-  place-items: center;
   border-radius: 9px;
   color: #73778b;
   font-family: 'Geist', sans-serif;
@@ -1959,22 +1957,6 @@ html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-owne
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;
-}
-
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-icon {
-  display: grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-}
-
-html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-icon svg {
-  width: 18px;
-  height: 18px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
 }
 
 html[data-workspace="markets"] [data-ft-mode="token"].ft-proposal-focus .ft-ownership-side-tabs button:first-child.ft-is-active {
