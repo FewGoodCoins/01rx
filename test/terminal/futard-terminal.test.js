@@ -2265,10 +2265,12 @@ test('decision sidebar lists available proposal tokens by latest decision state'
   cleanupMount(mounted);
 });
 
-test('decision sidebar links a token row to its most recent indexed decision', async () => {
+test('resolved project hover lists every indexed decision and navigates in place', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const firstId = testAddress(91);
   const secondId = testAddress(92);
+  const thirdId = testAddress(93);
+  const fourthId = testAddress(94);
   const umbraProposals = [
     {
       ...PROPOSAL_INDEX.proposals[1],
@@ -2296,8 +2298,35 @@ test('decision sidebar links a token row to its most recent indexed decision', a
       resolvedAt: '2026-02-13T12:00:00.000Z',
       url: `https://www.metadao.fi/projects/umbra/proposal/${secondId}`,
     },
+    {
+      ...PROPOSAL_INDEX.proposals[1],
+      token: 'umbra',
+      ticker: 'UMBRA',
+      name: 'Umbra',
+      id: thirdId,
+      number: null,
+      title: 'Launch the Umbra research program',
+      createdAt: '2025-12-10T12:00:00.000Z',
+      endsAt: '2025-12-13T12:00:00.000Z',
+      resolvedAt: '2025-12-13T12:00:00.000Z',
+      url: `https://www.metadao.fi/projects/umbra/proposal/${thirdId}`,
+    },
+    {
+      ...PROPOSAL_INDEX.proposals[2],
+      token: 'umbra',
+      ticker: 'UMBRA',
+      name: 'Umbra',
+      id: fourthId,
+      number: null,
+      title: 'Create the Umbra contributor council',
+      createdAt: '2025-11-10T12:00:00.000Z',
+      endsAt: '2025-11-13T12:00:00.000Z',
+      resolvedAt: '2025-11-13T12:00:00.000Z',
+      url: `https://www.metadao.fi/projects/umbra/proposal/${fourthId}`,
+    },
   ];
   const { root, window } = makeWindow({
+    url: `https://navgator.xyz/?token=umbra&view=markets&tab=decisions&proposal=${secondId}`,
     activeMarkets: {
       ...ACTIVE_MARKETS,
       pendingProposalCount: 0,
@@ -2316,22 +2345,27 @@ test('decision sidebar links a token row to its most recent indexed decision', a
       proposals: umbraProposals,
       pagination: {
         ...PROPOSAL_INDEX.pagination,
-        returned: 2,
-        total: 2,
+        returned: 4,
+        total: 4,
       },
       summary: {
         ...PROPOSAL_INDEX.summary,
-        total: 2,
+        total: 4,
         pending: 0,
-        passed: 1,
-        failed: 1,
-        filtered: 2,
+        passed: 2,
+        failed: 2,
+        filtered: 4,
       },
     },
     sidebar: true,
   });
   window.applyMarketSidebarSearch = () => {};
-  const controller = mountFutardTerminal({ window, root });
+  const controller = mountFutardTerminal({
+    window,
+    root,
+    mode: 'token',
+    token: 'umbra',
+  });
   const mounted = trackMount(controller, window);
   await controller.ready;
   await settle(window);
@@ -2343,6 +2377,43 @@ test('decision sidebar links a token row to its most recent indexed decision', a
   assert.match(rows[0].textContent, /UMBRA[\s\S]+Umbra/);
   assert.equal(rows[0].dataset.ftProposalId, secondId);
   assert.match(rows[0].href, new RegExp(`proposal=${secondId}`));
+
+  rows[0].focus();
+  await settleUntil(window, () => (
+    window.document.querySelector('[data-tp-sidebar-hovercard]')?.hidden === false
+  ));
+  const hovercard = window.document.querySelector('[data-tp-sidebar-hovercard]');
+  assert.equal(hovercard.parentElement, window.document.body);
+  assert.equal(hovercard.dataset.kind, 'resolved-project');
+  assert.match(hovercard.textContent, /4 resolved decisions/);
+  const decisionList = hovercard.querySelector('[data-tp-resolved-decision-list]');
+  const scrollCue = hovercard.querySelector('[data-tp-resolved-scroll-cue]');
+  assert.equal(decisionList.dataset.scrollable, 'true');
+  assert.match(scrollCue.textContent, /Scroll for 1 more/);
+  const decisionLinks = [...hovercard.querySelectorAll('[data-tp-sidebar-proposal-link]')];
+  assert.deepEqual(
+    decisionLinks.map(link => link.dataset.ftProposalId),
+    [secondId, firstId, thirdId, fourthId],
+  );
+  assert.match(decisionLinks[0].textContent, /Expand Umbra operations/);
+  assert.match(decisionLinks[1].textContent, /Fund Umbra security work/);
+  assert.match(decisionLinks[0].href, new RegExp(`proposal=${secondId}`));
+  assert.match(decisionLinks[1].href, new RegExp(`proposal=${firstId}`));
+
+  decisionLinks[1].dispatchEvent(new window.MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+  }));
+  await settleUntil(window, () => controller.getState().selectedId === firstId);
+  assert.equal(controller.getState().selectedId, firstId);
+  assert.equal(new window.URLSearchParams(window.location.search).get('proposal'), firstId);
+  assert.equal(hovercard.hidden, true);
+  assert.equal(
+    window.document.querySelector('#tlp-past-decisions-list .tp-decision-item')
+      .getAttribute('aria-current'),
+    'page',
+  );
 
   cleanupMount(mounted);
 });
@@ -3019,10 +3090,30 @@ test('token Markets places the live wallet control alongside the global 01r.trad
   await controller.ready;
 
   const headerSlot = window.document.querySelector('[data-01rx-market-wallet-slot]');
+  const themeToggle = headerSlot.querySelector('[data-ft-action="toggle-theme"]');
   const walletStatus = headerSlot.querySelector('[data-ft-role="wallet-status"]');
+  assert.ok(themeToggle);
   assert.ok(walletStatus);
+  assert.equal(headerSlot.firstElementChild, themeToggle);
+  assert.equal(themeToggle.nextElementSibling, walletStatus);
+  assert.equal(root.querySelector('[data-ft-action="toggle-theme"]'), null);
   assert.equal(root.querySelector('[data-ft-role="wallet-status"]'), null);
   assert.match(headerSlot.parentElement.textContent, /01r\.trade[\s\S]+Connect wallet/);
+  assert.equal(root.dataset.theme, 'light');
+  assert.equal(headerSlot.dataset.theme, 'light');
+  assert.equal(window.document.documentElement.dataset.theme, 'light');
+  assert.equal(themeToggle.getAttribute('aria-label'), 'Switch to dark mode');
+
+  themeToggle.click();
+  assert.equal(root.dataset.theme, 'dark');
+  assert.equal(headerSlot.dataset.theme, 'dark');
+  assert.equal(window.document.documentElement.dataset.theme, 'dark');
+  assert.equal(window.localStorage.getItem('navgator-terminal-theme'), 'dark');
+  assert.equal(themeToggle.getAttribute('aria-label'), 'Switch to light mode');
+
+  themeToggle.click();
+  assert.equal(root.dataset.theme, 'light');
+  assert.equal(window.localStorage.getItem('navgator-terminal-theme'), 'light');
 
   walletStatus.querySelector('[data-ft-action="connect-wallet"]').click();
   await settleUntil(window, () => controller.getState().walletAddress === WALLET_ADDRESS);
@@ -3036,13 +3127,65 @@ test('token Markets places the live wallet control alongside the global 01r.trad
   window.close();
 });
 
-test('market sidebar lists one familiar row per listed decision token', async () => {
+test('market sidebar lists one project row per token in each decision state', async () => {
   const {
     mountFutardTerminal,
     shouldHandleSidebarProposalClick,
   } = await loadTerminalModule();
+  const newerLiveId = testAddress(98);
+  const loyalResolvedId = testAddress(99);
+  const newerLiveProposal = {
+    ...PROPOSAL_INDEX.proposals[0],
+    id: newerLiveId,
+    number: 8,
+    title: 'Extend Loyal contributor growth for Q4',
+    createdAt: '2026-07-24T12:00:00.000Z',
+    endsAt: '2026-07-25T12:00:00.000Z',
+    url: `https://www.metadao.fi/projects/loyal/proposal/${newerLiveId}`,
+    market: {
+      ...PROPOSAL_INDEX.proposals[0].market,
+      decision: {
+        ...PROPOSAL_INDEX.proposals[0].market.decision,
+        passLikelihood: 0.64,
+      },
+    },
+  };
+  const loyalResolvedProposal = {
+    ...PROPOSAL_INDEX.proposals[1],
+    token: 'loyal',
+    ticker: 'LOYAL',
+    name: 'Loyal',
+    id: loyalResolvedId,
+    number: 6,
+    title: 'Approve Loyal contributor grants',
+    createdAt: '2026-06-01T12:00:00.000Z',
+    endsAt: '2026-06-05T12:00:00.000Z',
+    resolvedAt: '2026-06-05T12:00:00.000Z',
+    url: `https://www.metadao.fi/projects/loyal/proposal/${loyalResolvedId}`,
+  };
+  const proposalIndex = {
+    ...PROPOSAL_INDEX,
+    proposals: [
+      ...PROPOSAL_INDEX.proposals,
+      newerLiveProposal,
+      loyalResolvedProposal,
+    ],
+    pagination: {
+      ...PROPOSAL_INDEX.pagination,
+      returned: 5,
+      total: 5,
+    },
+    summary: {
+      ...PROPOSAL_INDEX.summary,
+      total: 5,
+      pending: 2,
+      passed: 2,
+      filtered: 5,
+    },
+  };
   const { root, window } = makeWindow({
     url: 'https://navgator.xyz/?token=meta&view=markets&tab=tokens',
+    proposalIndex,
   });
   const sidebar = window.document.createElement('aside');
   sidebar.innerHTML = `
@@ -3050,7 +3193,12 @@ test('market sidebar lists one familiar row per listed decision token', async ()
       <div id="tlp-decisions-list"></div>
       <div id="tlp-past-decisions-list"></div>
     </section>
-    <section id="tlp-all-panel"></section>
+    <section id="tlp-all-panel">
+      <div id="tlp-all-list">
+        <a class="tp-item" data-key="loyal" href="/?token=loyal&amp;view=markets">LOYAL</a>
+        <a class="tp-item" data-key="meta" href="/?token=meta&amp;view=markets">META</a>
+      </div>
+    </section>
   `;
   window.document.body.prepend(sidebar);
 
@@ -3064,14 +3212,21 @@ test('market sidebar lists one familiar row per listed decision token', async ()
   await controller.ready;
 
   const decisions = [...window.document.querySelectorAll('.tp-decision-item')];
-  assert.equal(decisions.length, 3);
+  assert.equal(decisions.length, 4);
   assert.equal(window.document.getElementById('tp-live-decisions-empty').hidden, true);
-  assert.deepEqual(decisions.map(row => row.dataset.marketState), ['live', 'passed', 'failed']);
-  assert.deepEqual(decisions.map(row => row.dataset.ftToken), ['loyal', 'meta', 'solo']);
-  const [liveDecision, passedDecision, failedDecision] = decisions;
+  assert.deepEqual(
+    decisions.map(row => row.dataset.marketState),
+    ['live', 'passed', 'passed', 'failed'],
+  );
+  assert.deepEqual(
+    decisions.map(row => row.dataset.ftToken),
+    ['loyal', 'loyal', 'meta', 'solo'],
+  );
+  const [liveDecision, loyalResolvedDecision, passedDecision, failedDecision] = decisions;
   const liveDot = liveDecision.querySelector('.tp-decision-live-dot');
   const decisionList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveDecision.firstElementChild, liveDot);
+  assert.equal(liveDecision.dataset.ftProposalId, newerLiveId);
   assert.equal(liveDecision.dataset.marketLive, '1');
   assert.equal(liveDot.getAttribute('aria-label'), 'Live decision available');
   assert.equal(
@@ -3089,6 +3244,8 @@ test('market sidebar lists one familiar row per listed decision token', async ()
   assert.ok(Number.isFinite(Number(liveDecision.dataset.sortSignal)));
   assert.equal(liveDecision.querySelector('.tp-decision-result'), null);
   assert.doesNotMatch(liveDecision.textContent, /Live|Awaiting/);
+  assert.equal(loyalResolvedDecision.dataset.marketLive, '0');
+  assert.match(loyalResolvedDecision.textContent, /LOYAL[\s\S]+Loyal/);
   assert.equal(passedDecision.dataset.marketLive, '0');
   assert.match(passedDecision.textContent, /META[\s\S]+MetaDAO/);
   assert.equal(
@@ -3124,6 +3281,77 @@ test('market sidebar lists one familiar row per listed decision token', async ()
     }, liveDecision, 'token'),
     false,
   );
+
+  liveDecision.focus();
+  await settleUntil(window, () => (
+    window.document.querySelector('[data-tp-sidebar-hovercard]')?.hidden === false
+  ));
+  const hovercard = window.document.querySelector('[data-tp-sidebar-hovercard]');
+  assert.equal(hovercard.parentElement, window.document.body);
+  assert.equal(hovercard.dataset.kind, 'live-decision');
+  assert.match(hovercard.textContent, /Decision #8/);
+  assert.match(hovercard.textContent, /Extend Loyal contributor growth for Q4/);
+  assert.match(hovercard.textContent, /Passing/);
+  assert.match(hovercard.textContent, /PASS TWAP[\s\S]*\$0\.1319/);
+  assert.match(hovercard.textContent, /FAIL TWAP[\s\S]*\$0\.1279/);
+  assert.match(hovercard.textContent, /Required threshold[\s\S]*1\.5%/);
+  assert.match(hovercard.textContent, /decision signals, not probabilities/i);
+
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape',
+    bubbles: true,
+    cancelable: true,
+  }));
+  assert.equal(hovercard.hidden, true);
+  assert.equal(window.document.activeElement, liveDecision);
+
+  const tokenRow = window.document.querySelector('#tlp-all-list .tp-item');
+  tokenRow.focus();
+  await settleUntil(window, () => hovercard.hidden === false);
+  assert.equal(hovercard.dataset.kind, 'token');
+  assert.match(hovercard.textContent, /LOYAL[\s\S]*Loyal/);
+  assert.match(hovercard.textContent, /Price[\s\S]*\$0\.1291/);
+  assert.match(hovercard.textContent, /NAV[\s\S]*\$0\.1420/);
+  assert.match(hovercard.textContent, /Discount to NAV[\s\S]*9\.08%/);
+  assert.match(hovercard.textContent, /Market cap[\s\S]*\$1\.60M/);
+  assert.match(hovercard.textContent, /Treasury[\s\S]*\$360K/);
+  assert.doesNotMatch(hovercard.textContent, /Volume 24h|Contract/);
+
+  const metaTokenRow = window.document.querySelector('#tlp-all-list .tp-item[data-key="meta"]');
+  tokenRow.dispatchEvent(new window.MouseEvent('mouseout', {
+    bubbles: true,
+    relatedTarget: metaTokenRow,
+  }));
+  metaTokenRow.dispatchEvent(new window.MouseEvent('mouseover', {
+    bubbles: true,
+    relatedTarget: tokenRow,
+  }));
+  assert.equal(hovercard.hidden, false);
+  assert.equal(hovercard.dataset.kind, 'token');
+  assert.match(hovercard.textContent, /META[\s\S]*MetaDAO/);
+
+  loyalResolvedDecision.focus();
+  await settleUntil(window, () => hovercard.dataset.kind === 'resolved-project');
+  loyalResolvedDecision.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'ArrowRight',
+    bubbles: true,
+    cancelable: true,
+  }));
+  await settle(window);
+  const resolvedLink = hovercard.querySelector('[data-tp-sidebar-proposal-link]');
+  assert.equal(hovercard.getAttribute('role'), 'dialog');
+  assert.equal(loyalResolvedDecision.hasAttribute('aria-describedby'), false);
+  assert.equal(window.document.activeElement, resolvedLink);
+
+  resolvedLink.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape',
+    bubbles: true,
+    cancelable: true,
+  }));
+  await settle(window);
+  assert.equal(hovercard.hidden, true);
+  assert.equal(window.document.activeElement, loyalResolvedDecision);
+  assert.equal(loyalResolvedDecision.hasAttribute('aria-describedby'), false);
 
   cleanupMount(mounted);
 });
@@ -3585,7 +3813,7 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.match(currentStrip.textContent, /Effective supply/i);
   assert.doesNotMatch(currentStrip.textContent, /Current 01Resolved snapshot/i);
   assert.doesNotMatch(currentStrip.textContent, /Price\s+\$0\.2000|NAV\s+\$0\.2220/);
-  assert.match(currentStrip.textContent, /Source\s+01Resolved/);
+  assert.doesNotMatch(currentStrip.textContent, /Source|01Resolved|\bUTC\b/);
   const ownershipTicket = byRole(root, 'ownership-trade-ticket');
   assert.equal(ownershipTicket.dataset.ftOrderType, 'market');
   assert.equal(byAction(root, 'select-ownership-order-type'), null);
@@ -3598,6 +3826,8 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.equal(ownershipTicket.querySelector('.ft-ownership-settings'), null);
   assert.equal(ownershipTicket.querySelector('.ft-ownership-balance'), null);
   assert.equal(ownershipTicket.querySelector('.ft-ownership-chevron'), null);
+  assert.equal(ownershipTicket.querySelectorAll('.ft-ownership-side-icon').length, 2);
+  assert.equal(ownershipTicket.querySelector('.ft-ownership-field-label')?.textContent, 'Receive');
 
   selectMarketInformation(root, 'trades');
   const recentTransactions = byRole(root, 'ownership-recent-transactions');

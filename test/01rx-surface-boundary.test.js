@@ -200,11 +200,11 @@ test('token identity badges use reviewed local artwork and distinct control geom
   );
   assert.match(
     triviumTerminalCss,
-    /\.ft-ownership-chart-header\.ft-decision-chart-header\s*\{\s*grid-template: var\(--market-header-cell-height\) \/ minmax\(165px, 1\.45fr\) repeat\(5, minmax\(48px, 1fr\)\) !important;/,
+    /\.ft-ownership-chart-header\.ft-decision-chart-header\s*\{\s*grid-template: var\(--market-header-cell-height\) \/ minmax\(165px, 1\.45fr\) repeat\(5, minmax\(48px, 1fr\)\) 44px !important;/,
   );
   assert.match(
     triviumTerminalCss,
-    /@media \(max-width: 1040px\) and \(min-width: 981px\)[\s\S]*?\.ft-ownership-chart-header\.ft-decision-chart-header\s*\{\s*grid-template: var\(--market-header-cell-height\) \/ minmax\(145px, 1\.35fr\) repeat\(4, minmax\(48px, 1fr\)\) !important;[\s\S]*?\.ft-decision-chart-header > \.ft-chart-market-metric:last-child\s*\{\s*display: none;/,
+    /@media \(max-width: 1040px\) and \(min-width: 981px\)[\s\S]*?\.ft-ownership-chart-header\.ft-decision-chart-header\s*\{\s*grid-template: var\(--market-header-cell-height\) \/ minmax\(145px, 1\.35fr\) repeat\(4, minmax\(48px, 1fr\)\) 44px !important;[\s\S]*?\.ft-decision-chart-header > \.ft-chart-market-metric:last-child\s*\{\s*display: none;/,
   );
   assert.doesNotMatch(
     triviumTerminalCss,
@@ -630,6 +630,29 @@ test('desktop market summary uses only identity and primary-price separators', (
   );
 });
 
+test('chart statistics reserve their own header slot and use a compact detail row', () => {
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header\s*\{[\s\S]*?grid-template: var\(--market-header-cell-height\) \/ minmax\(250px, 2fr\) repeat\(5, minmax\(68px, 1fr\)\) 44px !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-ownership-chart-header > \.ft-chart-stats-toggle\s*\{[\s\S]*?position: static;[\s\S]*?justify-self: center;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-chart-stats-expanded\s*\{\s*--market-summary-height: 90px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-chart-stats-expanded \.ft-chart-stats-drawer\s*\{[\s\S]*?height: 34px !important;[\s\S]*?padding: 0 10px;[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[\s\S]*?grid-template-rows: minmax\(0, 1fr\);[\s\S]*?align-items: stretch;[\s\S]*?gap: 0;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-chart-stats-drawer > span\s*\{[\s\S]*?height: 100%;[\s\S]*?align-items: center;[\s\S]*?justify-content: center;[\s\S]*?line-height: 1;/,
+  );
+});
+
 test('desktop trades and ticket columns share the chart track height', () => {
   assert.match(
     frameCss,
@@ -850,14 +873,22 @@ test('decision chart supports broad whitespace and TradingView-like axis scaling
   );
 });
 
-test('global wallet control uses the neutral raised 01r.trade header treatment', () => {
+test('wallet actions are white and the header theme toggle sits immediately before them', () => {
   assert.match(
     triviumTerminalCss,
-    /\.site-header-market-wallet \.ft-wallet-button\s*\{[\s\S]*?border: 1px solid var\(--trivium-border-strong\);[\s\S]*?background: var\(--trivium-panel-raised\);[\s\S]*?color: var\(--trivium-text\);/,
+    /\.site-header-market-wallet \.ft-wallet-button\s*\{[\s\S]*?border: 1px solid #f4f4f1;[\s\S]*?background: #f4f4f1;[\s\S]*?color: #0b0b10;/,
   );
   assert.match(
     triviumTerminalCss,
-    /\.site-header-market-wallet \.ft-wallet-button:hover\s*\{[\s\S]*?background: var\(--trivium-panel-hover\);[\s\S]*?color: #fff;/,
+    /\.site-header-market-wallet \.ft-theme-toggle\s*\{[\s\S]*?width: 42px;[\s\S]*?height: 42px;[\s\S]*?border-radius: 12px !important;/,
+  );
+  assert.match(
+    terminalShellSource,
+    /data-ft-action="toggle-theme"[\s\S]*?<div class="ft-wallet-control"/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-shell \.ft-ownership-connect\s*\{[\s\S]*?border: 1px solid #f4f4f1;[\s\S]*?background: #f4f4f1;[\s\S]*?color: #0b0b10;/,
   );
   assert.match(
     frameCss,
@@ -868,11 +899,39 @@ test('global wallet control uses the neutral raised 01r.trade header treatment',
 test('proposal trade actions share the blue-violet 01r.trade review treatment', () => {
   assert.match(
     triviumTerminalCss,
-    /\.ft-shell \.ft-ownership-connect,[\s\S]*?\.ft-primary-button\s*\{[\s\S]*?border: 1px solid rgb\(117 128 255 \/ 65%\);[\s\S]*?background: var\(--trivium-accent\);[\s\S]*?color: #07070d;/,
+    /\.ft-primary-button\s*\{[\s\S]*?border: 1px solid rgb\(117 128 255 \/ 65%\);[\s\S]*?background: var\(--trivium-accent\);[\s\S]*?color: var\(--trivium-accent-ink\);/,
   );
   assert.match(
     triviumTerminalCss,
     /\.ft-primary-button:hover:not\(:disabled\)\s*\{[\s\S]*?border-color: #959cff;[\s\S]*?background: #8992ff;/,
+  );
+});
+
+test('market workspace persists a complete dark or light appearance before paint', () => {
+  assert.match(indexSource, /localStorage\.getItem\('navgator-terminal-theme'\)/);
+  assert.match(
+    indexSource,
+    /document\.documentElement\.setAttribute\('data-theme', _bootTheme\)/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /html\[data-workspace="markets"\]\[data-theme="light"\]\s*\{[\s\S]*?--trivium-canvas: #f3f4f8;[\s\S]*?--trivium-panel: #ffffff;[\s\S]*?color-scheme: light;/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /runtime\.document\.documentElement\.dataset\.theme = state\.theme;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /data-theme="light"[\s\S]*?:is\([\s\S]*?\.ft-market-information-menu-trigger,[\s\S]*?\.ft-market-information-option,[\s\S]*?\.ft-market-information-empty p,[\s\S]*?\.ft-ownership-transaction-row[\s\S]*?\)\s*\{\s*color: var\(--trivium-text\);/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /data-theme="light"[\s\S]*?\.site-header > \.tp-market-toolbar\.site-header-market-search\s*\{\s*background: transparent !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /data-theme="light"[\s\S]*?\.tp-decision-status-heading\s*\{[\s\S]*?background: var\(--trivium-panel-raised\) !important;[\s\S]*?color: var\(--trivium-muted\);/,
   );
 });
 
@@ -984,7 +1043,22 @@ test('market sidebar lists each decision token once and keeps live decisions in 
     refinementCss,
     /\.tp-decision-live-dot\[data-market-state="passed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="failed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="other"\]\s*\{[\s\S]*?animation: none;/,
   );
-  assert.match(decisionMarketControllerSource, /const latestTokenMarkets = groupMarketsByToken\(state\.sidebarMarkets\)[\s\S]*?\.map\(\(\[latest\]\) => latest\)/);
+  assert.match(
+    decisionMarketControllerSource,
+    /const groupedTokenMarkets = groupSidebarMarketsByToken\(\);[\s\S]*?const liveMarkets = groupedTokenMarkets[\s\S]*?statusGroup === 'live'[\s\S]*?const resolvedMarkets = groupedTokenMarkets[\s\S]*?\['passed', 'failed'\]\.includes/,
+  );
+  assert.match(
+    decisionMarketControllerSource,
+    /runtime\.document\.body\.append\(sidebarHovercard\)[\s\S]*?data-tp-sidebar-proposal-link/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-sidebar-hovercard\s*\{[\s\S]*?position: fixed;[\s\S]*?width: min\(280px,[\s\S]*?border-radius: 14px !important;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-sidebar-hovercard-decision-list\s*\{[\s\S]*?max-height: min\(184px,[\s\S]*?scrollbar-width: thin;/,
+  );
   assert.doesNotMatch(decisionMarketControllerSource, /toggle-sidebar-decision-group|tp-decision-token-count/);
   assert.match(decisionMarketControllerSource, /class="tp-decision-status-heading">Live<[\s\S]*?class="tp-decision-status-heading">Resolved</);
   assert.match(appCoreSource, /item\.matches\('\.tp-item, \.tp-decision-item'\)/);

@@ -609,12 +609,6 @@ function createLivelineChart(runtime, container, initialOptions = {}) {
       'div',
       { className: 'orx-liveline-root' },
       createElement(Liveline, props),
-      isEmpty
-        ? createElement('span', {
-          className: 'orx-liveline-empty-label',
-          role: 'status',
-        }, 'No indexed chart')
-        : null,
       ...gapElements(lastSnapshot),
       ...markerElements(lastSnapshot),
     ));

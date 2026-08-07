@@ -152,8 +152,21 @@ export function createTerminalShell({
 
           <div class="ft-header-actions">
             <span class="ft-header-updated" data-ft-region="header-updated">Connecting…</span>
-            <button class="ft-icon-button" type="button" data-ft-action="toggle-theme" aria-label="Toggle color theme" title="Toggle color theme">
-              <span aria-hidden="true">◐</span>
+            <button
+              class="ft-icon-button ft-theme-toggle"
+              type="button"
+              data-ft-action="toggle-theme"
+              aria-label="Switch to light mode"
+              aria-pressed="false"
+              title="Switch to light mode"
+            >
+              <svg class="ft-theme-icon ft-theme-icon-sun" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="10" cy="10" r="3.25" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M10 1.75v1.5M10 16.75v1.5M18.25 10h-1.5M3.25 10h-1.5M15.83 4.17l-1.06 1.06M5.23 14.77l-1.06 1.06M15.83 15.83l-1.06-1.06M5.23 5.23 4.17 4.17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <svg class="ft-theme-icon ft-theme-icon-moon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M16.6 12.55A7 7 0 0 1 7.45 3.4a7 7 0 1 0 9.15 9.15Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
             </button>
             <div class="ft-wallet-control" data-ft-role="wallet-status">
               <button class="ft-wallet-button" type="button" data-ft-action="connect-wallet">Connect wallet</button>
@@ -230,6 +243,7 @@ export function createTerminalShell({
     tradeTicket: root.querySelector('[data-ft-region="trade-ticket"]'),
     positions: root.querySelector('[data-ft-role="positions"]'),
     modal: root.querySelector('[data-ft-region="modal"]'),
+    themeToggle: root.querySelector('[data-ft-action="toggle-theme"]'),
     walletStatus: root.querySelector('[data-ft-role="wallet-status"]'),
     search: root.querySelector('[data-ft-role="search"]'),
   });
