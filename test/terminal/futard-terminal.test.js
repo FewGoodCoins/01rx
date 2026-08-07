@@ -571,8 +571,7 @@ function makeWindow(options = {}) {
     ? `
       <section id="tlp-decisions-panel" hidden>
         <span id="tp-decision-markets-title">
-          <span data-market-sidebar-section-title="all">Decisions</span>
-          <span data-market-sidebar-section-title="markets">Decisions</span>
+          <span>Decisions</span>
         </span>
         <div id="tlp-decisions-list">
           <div class="tp-decisions-empty tp-live-decisions-empty" id="tp-live-decisions-empty" role="status" aria-live="polite"><strong>0 decisions live</strong></div>
@@ -804,6 +803,11 @@ function byRole(root, role) {
 
 function byRegion(root, region) {
   return root.querySelector(`[data-ft-region="${region}"]`);
+}
+
+function selectMarketInformation(root, key) {
+  byAction(root, 'toggle-market-information-menu').click();
+  root.querySelector(`[data-ft-market-information="${key}"]`).click();
 }
 
 function proposalRows(root) {
@@ -1451,6 +1455,18 @@ test('proposal-first terminal renders validated market state and a safe trade in
   const tradeTicket = byRole(root, 'trade-ticket');
   assert.ok(decisionPressure);
   assert.ok(tradeTicket);
+  const proposalStats = byRole(root, 'proposal-chart-stats');
+  const proposalStatsToggle = byAction(root, 'toggle-chart-stats');
+  assert.ok(proposalStats);
+  assert.equal(proposalStats.hidden, true);
+  assert.equal(proposalStatsToggle.getAttribute('aria-expanded'), 'false');
+  proposalStatsToggle.click();
+  assert.equal(root.classList.contains('ft-chart-stats-expanded'), true);
+  assert.equal(proposalStats.hidden, false);
+  assert.equal(proposalStatsToggle.getAttribute('aria-expanded'), 'true');
+  assert.match(proposalStats.textContent, /Status\s+Live/i);
+  assert.match(proposalStats.textContent, /Spot vs NAV/i);
+  assert.match(proposalStats.textContent, /Liquidity/i);
   assert.ok(decisionPressure.closest('[data-ft-role="proposal-history"], .ft-market-chart-header-region'));
   assert.equal(tradeTicket.contains(decisionPressure), false);
   assert.equal(decisionPressure.dataset.ftAvailable, 'true');
@@ -1805,6 +1821,20 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   });
   const mounted = trackMount(controller, window);
   await controller.ready;
+  const defaultInformation = byRole(root, 'proposal-recent-transactions');
+  assert.equal(defaultInformation.dataset.ftMarketInformationPanel, 'discussion');
+  assert.equal(
+    defaultInformation.querySelector('[data-ft-action="toggle-market-information-menu"]')
+      .textContent.trim(),
+    'Discussion',
+  );
+  assert.deepEqual(
+    [...defaultInformation.querySelectorAll('.ft-market-information-option')]
+      .map(option => option.textContent.trim().replace(/\s+/g, ' ').replace(/ \d+$/, '')),
+    ['Trades', 'Holders', 'Discussion'],
+  );
+  assert.equal(defaultInformation.querySelector('[data-ft-market-information="decisions"]'), null);
+  selectMarketInformation(root, 'trades');
   await settleUntil(window, () => (
     byRole(root, 'proposal-recent-transactions')
       ?.querySelectorAll('.ft-ownership-transaction-row').length === 4
@@ -1812,20 +1842,16 @@ test('proposal transaction feed labels every outcome side and totals recent volu
 
   const recentTransactions = byRole(root, 'proposal-recent-transactions');
   assert.equal(
-    recentTransactions.querySelector('[data-ft-market-information="trades"]')
+    recentTransactions.querySelector('[data-ft-action="toggle-market-information-menu"]')
       .textContent.trim().replace(/\s+/g, ' '),
     'Trades 4',
   );
   assert.deepEqual(
-    [...recentTransactions.querySelectorAll('.ft-market-information-tab')]
+    [...recentTransactions.querySelectorAll('.ft-market-information-option')]
       .map(tab => tab.textContent.trim().replace(/\s+/g, ' ').replace(/ \d+$/, '')),
-    ['Trades', 'Holders', 'Discussion', 'Decisions'],
+    ['Trades', 'Holders', 'Discussion'],
   );
-  const decisionsTab = recentTransactions.querySelector(
-    '[data-ft-market-information="decisions"]',
-  );
-  assert.equal(decisionsTab.textContent.trim(), 'Decisions');
-  assert.equal(decisionsTab.querySelector('small'), null);
+  assert.equal(recentTransactions.querySelector('.ft-market-information-menu').hidden, true);
   assert.equal(recentTransactions.querySelector('.ft-ownership-transactions-source'), null);
   assert.deepEqual(
     Array.from(recentTransactions.querySelectorAll('.ft-decision-transaction-trade'))
@@ -1838,12 +1864,24 @@ test('proposal transaction feed labels every outcome side and totals recent volu
   assert.equal(root.querySelector('[data-ft-action="filter-decision-trades"]'), null);
   assert.equal(root.querySelector('[data-ft-region="market-context"]'), null);
   byRole(root, 'proposal-recent-transactions')
-    .querySelector('[data-ft-market-information="decisions"]')
+    .querySelector('[data-ft-action="toggle-market-information-menu"]')
     .click();
-  const decisionsPanel = byRole(root, 'proposal-recent-transactions');
-  assert.equal(decisionsPanel.dataset.ftMarketInformationPanel, 'decisions');
-  assert.match(decisionsPanel.textContent, /Fund Loyal contributor growth for Q3/i);
+  assert.equal(
+    byRole(root, 'proposal-recent-transactions')
+      .querySelector('.ft-market-information-menu').hidden,
+    false,
+  );
+  byRole(root, 'proposal-recent-transactions')
+    .querySelector('[data-ft-market-information="discussion"]')
+    .click();
+  const discussionPanel = byRole(root, 'proposal-recent-transactions');
+  assert.equal(discussionPanel.dataset.ftMarketInformationPanel, 'discussion');
+  assert.equal(discussionPanel.querySelector('.ft-market-information-menu').hidden, true);
+  assert.match(discussionPanel.textContent, /Discussion is not connected/i);
 
+  byRole(root, 'proposal-recent-transactions')
+    .querySelector('[data-ft-action="toggle-market-information-menu"]')
+    .click();
   byRole(root, 'proposal-recent-transactions')
     .querySelector('[data-ft-market-information="trades"]')
     .click();
@@ -1868,6 +1906,24 @@ test('proposal transaction feed labels every outcome side and totals recent volu
     ).map(element => element.textContent),
     ['100', '50', '10', '125'],
   );
+
+  const informationMenuTrigger = byRole(root, 'proposal-recent-transactions')
+    .querySelector('[data-ft-action="toggle-market-information-menu"]');
+  assert.equal(informationMenuTrigger.getAttribute('aria-expanded'), 'false');
+  informationMenuTrigger.click();
+  const openInformationMenu = byRole(root, 'proposal-recent-transactions');
+  assert.equal(
+    openInformationMenu
+      .querySelector('[data-ft-action="toggle-market-information-menu"]')
+      .getAttribute('aria-expanded'),
+    'true',
+  );
+  assert.equal(openInformationMenu.querySelectorAll('.ft-market-information-option').length, 3);
+  openInformationMenu.querySelector('[data-ft-market-information="holders"]').click();
+  const holdersPanel = byRole(root, 'proposal-recent-transactions');
+  assert.equal(holdersPanel.dataset.ftMarketInformationPanel, 'holders');
+  assert.equal(holdersPanel.querySelector('.ft-market-information-menu').hidden, true);
+  assert.match(holdersPanel.textContent, /not included in 01r\.trade’s reviewed current-token contract/i);
 
   cleanupMount(mounted);
 });
@@ -1937,6 +1993,7 @@ test('proposal transaction feed loads every page, deduplicates boundaries, and k
   });
   const mounted = trackMount(controller, window);
   await controller.ready;
+  selectMarketInformation(root, 'trades');
   await settleUntil(window, () => (
     byRole(root, 'proposal-recent-transactions')
       ?.querySelectorAll('.ft-ownership-transaction-row').length === 2
@@ -2001,6 +2058,7 @@ test('proposal transaction feed identifies an interrupted history as incomplete'
   });
   const mounted = trackMount(controller, window);
   await controller.ready;
+  selectMarketInformation(root, 'trades');
   await settleUntil(window, () => (
     byRole(root, 'trade-history-status')?.textContent.includes('History incomplete')
   ));
@@ -2133,7 +2191,7 @@ test('standalone decision-market discovery mode has been removed', async () => {
   assert.equal(root.hasAttribute('data-ft-mode'), false);
 });
 
-test('decision sidebar keeps a clean zero-live state beside available proposal history', async () => {
+test('decision sidebar lists available proposal tokens by latest decision state', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const priorProposalIndex = {
     ...PROPOSAL_INDEX,
@@ -2167,15 +2225,18 @@ test('decision sidebar keeps a clean zero-live state beside available proposal h
   const liveSection = window.document.getElementById('tlp-decisions-panel');
   assert.equal(liveSection.hidden, false);
   assert.equal(
-    window.document.querySelector('[data-market-sidebar-section-title="all"]').textContent,
+    window.document.getElementById('tp-decision-markets-title').textContent.trim(),
     'Decisions',
   );
   const liveList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveList.querySelectorAll('.tp-decision-item').length, 0);
+  assert.equal(liveList.querySelector('.tp-decision-status-heading').textContent, 'Live');
+  const resolvedList = window.document.getElementById('tlp-past-decisions-list');
+  assert.equal(resolvedList.querySelectorAll('.tp-decision-item').length, 2);
+  assert.equal(resolvedList.querySelector('.tp-decision-status-heading').textContent, 'Resolved');
   const liveEmpty = liveList.querySelector('#tp-live-decisions-empty');
   assert.ok(liveEmpty);
   assert.equal(liveEmpty.hidden, false);
-  assert.equal(liveEmpty.textContent.trim(), '0 decisions live');
   assert.equal(liveEmpty.getAttribute('role'), 'status');
   assert.doesNotMatch(
     window.document.getElementById('tlp-decisions-panel').textContent,
@@ -2188,23 +2249,23 @@ test('decision sidebar keeps a clean zero-live state beside available proposal h
   )];
   assert.equal(rows.length, 2);
   assert.deepEqual(rows.map(row => row.dataset.marketState), ['passed', 'failed']);
-  assert.match(rows[0].textContent, /META #41[\s\S]+Resolved/);
-  assert.match(rows[1].textContent, /SOLO #12[\s\S]+Resolved/);
+  assert.match(rows[0].textContent, /META[\s\S]+MetaDAO/);
+  assert.match(rows[1].textContent, /SOLO[\s\S]+Solo/);
   assert.equal(
     rows[0].querySelector('.tp-decision-live-dot').getAttribute('aria-label'),
-    'Resolved decision',
+    'Resolved decision available',
   );
   assert.equal(rows[0].querySelector('.tp-decision-result'), null);
   assert.equal(
     rows[1].querySelector('.tp-decision-live-dot').getAttribute('aria-label'),
-    'Resolved decision',
+    'Resolved decision available',
   );
   assert.equal(window.document.querySelector('[data-decision-sidebar-action="toggle-history"]'), null);
 
   cleanupMount(mounted);
 });
 
-test('decision sidebar derives missing per-token sequence numbers from indexed history', async () => {
+test('decision sidebar links a token row to its most recent indexed decision', async () => {
   const { mountFutardTerminal } = await loadTerminalModule();
   const firstId = testAddress(91);
   const secondId = testAddress(92);
@@ -2278,9 +2339,10 @@ test('decision sidebar derives missing per-token sequence numbers from indexed h
   const rows = [...window.document.querySelectorAll(
     '#tlp-past-decisions-list .tp-decision-item',
   )];
-  assert.equal(rows.length, 2);
-  assert.match(rows[0].textContent, /UMBRA #2[\s\S]+Resolved/);
-  assert.match(rows[1].textContent, /UMBRA #1[\s\S]+Resolved/);
+  assert.equal(rows.length, 1);
+  assert.match(rows[0].textContent, /UMBRA[\s\S]+Umbra/);
+  assert.equal(rows[0].dataset.ftProposalId, secondId);
+  assert.match(rows[0].href, new RegExp(`proposal=${secondId}`));
 
   cleanupMount(mounted);
 });
@@ -2420,7 +2482,7 @@ test('decision sidebar only shows markets for tokens in the 01Resolved listed-to
   assert.equal(rows.length, 1);
   assert.equal(rows[0].dataset.ftToken, 'meta');
   assert.equal(
-    rows[0].querySelector('.ft-token-logo').src,
+    window.document.querySelector('#tlp-past-decisions-list .tp-decision-item .ft-token-logo').src,
     'https://assets.01resolved.test/meta.png',
   );
   assert.doesNotMatch(
@@ -2491,6 +2553,11 @@ test('decision sidebar follows every proposal archive page across tokens', async
   assert.equal(new URL(proposalRequests[1]).searchParams.get('cursor'), 'archive-page-2');
   assert.equal(new URL(proposalRequests[1]).searchParams.get('limit'), '100');
   assert.deepEqual(
+    [...window.document.querySelectorAll('#tlp-decisions-list .tp-decision-item')]
+      .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
+    ['loyal:live'],
+  );
+  assert.deepEqual(
     [...window.document.querySelectorAll('#tlp-past-decisions-list .tp-decision-item')]
       .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
     ['meta:passed'],
@@ -2515,7 +2582,7 @@ test('decision sidebar follows every proposal archive page across tokens', async
     ['meta:passed', 'solo:failed'],
   );
   assert.equal(
-    window.document.querySelector('[data-market-sidebar-section-title="all"]').textContent,
+    window.document.getElementById('tp-decision-markets-title').textContent.trim(),
     'Decisions',
   );
   assert.equal(window.document.getElementById('tp-live-decisions-empty').hidden, true);
@@ -2564,6 +2631,11 @@ test('proposal archive continuation failure preserves page one and exposes retry
   assert.equal(
     requests.filter(url => /view=proposals(?:&|$)/.test(url)).length,
     2,
+  );
+  assert.deepEqual(
+    [...window.document.querySelectorAll('#tlp-decisions-list .tp-decision-item')]
+      .map(row => `${row.dataset.ftToken}:${row.dataset.marketState}`),
+    ['loyal:live'],
   );
   assert.deepEqual(
     [...window.document.querySelectorAll('#tlp-past-decisions-list .tp-decision-item')]
@@ -2964,7 +3036,7 @@ test('token Markets places the live wallet control alongside the global 01r.trad
   window.close();
 });
 
-test('market sidebar lists persistent live and past decisions under one section', async () => {
+test('market sidebar lists one familiar row per listed decision token', async () => {
   const {
     mountFutardTerminal,
     shouldHandleSidebarProposalClick,
@@ -2991,24 +3063,17 @@ test('market sidebar lists persistent live and past decisions under one section'
   const mounted = trackMount(controller, window);
   await controller.ready;
 
-  const liveDecisions = [...window.document.querySelectorAll(
-    '#tlp-decisions-list .tp-decision-item',
-  )];
-  const pastDecisions = [...window.document.querySelectorAll(
-    '#tlp-past-decisions-list .tp-decision-item',
-  )];
-  assert.equal(liveDecisions.length, 1);
-  assert.equal(pastDecisions.length, 2);
+  const decisions = [...window.document.querySelectorAll('.tp-decision-item')];
+  assert.equal(decisions.length, 3);
   assert.equal(window.document.getElementById('tp-live-decisions-empty').hidden, true);
-  assert.deepEqual(liveDecisions.map(row => row.dataset.marketState), ['live']);
-  assert.deepEqual(pastDecisions.map(row => row.dataset.marketState), ['passed', 'failed']);
-  const [liveDecision] = liveDecisions;
-  const [passedDecision, failedDecision] = pastDecisions;
+  assert.deepEqual(decisions.map(row => row.dataset.marketState), ['live', 'passed', 'failed']);
+  assert.deepEqual(decisions.map(row => row.dataset.ftToken), ['loyal', 'meta', 'solo']);
+  const [liveDecision, passedDecision, failedDecision] = decisions;
   const liveDot = liveDecision.querySelector('.tp-decision-live-dot');
   const decisionList = window.document.getElementById('tlp-decisions-list');
   assert.equal(liveDecision.firstElementChild, liveDot);
   assert.equal(liveDecision.dataset.marketLive, '1');
-  assert.equal(liveDot.getAttribute('aria-label'), 'Live decision');
+  assert.equal(liveDot.getAttribute('aria-label'), 'Live decision available');
   assert.equal(
     decisionList.style.getPropertyValue('--tp-live-pulse-duration'),
     '1000ms',
@@ -3018,21 +3083,22 @@ test('market sidebar lists persistent live and past decisions under one section'
     /^-\d{1,3}ms$/,
   );
   assert.equal(liveDot.style.animationDelay, '');
-  assert.match(liveDecision.textContent, /LOYAL #7[\s\S]+Fund Loyal contributor growth for Q3/);
+  assert.match(liveDecision.textContent, /LOYAL[\s\S]+Loyal/);
+  assert.doesNotMatch(liveDecision.textContent, /Fund Loyal contributor growth for Q3|Decision #7/);
   assert.equal(Number(liveDecision.dataset.sortLikelihood), 64);
   assert.ok(Number.isFinite(Number(liveDecision.dataset.sortSignal)));
   assert.equal(liveDecision.querySelector('.tp-decision-result'), null);
   assert.doesNotMatch(liveDecision.textContent, /Live|Awaiting/);
   assert.equal(passedDecision.dataset.marketLive, '0');
-  assert.match(passedDecision.textContent, /META #41[\s\S]+Resolved/);
+  assert.match(passedDecision.textContent, /META[\s\S]+MetaDAO/);
   assert.equal(
     passedDecision.querySelector('.tp-decision-live-dot').getAttribute('aria-label'),
-    'Resolved decision',
+    'Resolved decision available',
   );
-  assert.match(failedDecision.textContent, /SOLO #12[\s\S]+Resolved/);
+  assert.match(failedDecision.textContent, /SOLO[\s\S]+Solo/);
   assert.equal(
     failedDecision.querySelector('.tp-decision-live-dot').getAttribute('aria-label'),
-    'Resolved decision',
+    'Resolved decision available',
   );
   assert.equal(window.document.querySelector('.tp-decision-state'), null);
   assert.equal(window.document.querySelector('[data-decision-sidebar-action="toggle-history"]'), null);
@@ -3506,6 +3572,17 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.equal(root.querySelector('.ft-token-identity-meta'), null);
   const currentStrip = byRole(root, 'ownership-current-strip');
   assert.ok(currentStrip);
+  const ownershipStatsToggle = byAction(root, 'toggle-chart-stats');
+  assert.equal(currentStrip.hidden, true);
+  assert.equal(ownershipStatsToggle.getAttribute('aria-expanded'), 'false');
+  ownershipStatsToggle.click();
+  assert.equal(root.classList.contains('ft-chart-stats-expanded'), true);
+  assert.equal(currentStrip.hidden, false);
+  assert.equal(ownershipStatsToggle.getAttribute('aria-expanded'), 'true');
+  assert.match(currentStrip.textContent, /Premium vs NAV/i);
+  assert.match(currentStrip.textContent, /24h volume/i);
+  assert.match(currentStrip.textContent, /Liquidity/i);
+  assert.match(currentStrip.textContent, /Effective supply/i);
   assert.doesNotMatch(currentStrip.textContent, /Current 01Resolved snapshot/i);
   assert.doesNotMatch(currentStrip.textContent, /Price\s+\$0\.2000|NAV\s+\$0\.2220/);
   assert.match(currentStrip.textContent, /Source\s+01Resolved/);
@@ -3522,6 +3599,7 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.equal(ownershipTicket.querySelector('.ft-ownership-balance'), null);
   assert.equal(ownershipTicket.querySelector('.ft-ownership-chevron'), null);
 
+  selectMarketInformation(root, 'trades');
   const recentTransactions = byRole(root, 'ownership-recent-transactions');
   assert.equal(
     recentTransactions.querySelector('.ft-ownership-transactions-header strong').textContent,
@@ -3550,6 +3628,9 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
     'Recent transactions',
   );
   assert.equal(root.querySelector('[data-ft-region="market-context"]'), null);
+  byRole(root, 'ownership-recent-transactions')
+    .querySelector('[data-ft-action="toggle-market-information-menu"]')
+    .click();
   byRole(root, 'ownership-recent-transactions')
     .querySelector('[data-ft-market-information="holders"]')
     .click();
@@ -3732,6 +3813,7 @@ test('ownership market orders quote through DFlow and submit only after explicit
   });
   const mounted = trackMount(controller, terminal.window);
   await controller.ready;
+  selectMarketInformation(terminal.root, 'trades');
 
   const recentTransactions = byRole(terminal.root, 'ownership-recent-transactions');
   assert.ok(recentTransactions);

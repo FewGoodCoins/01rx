@@ -253,6 +253,10 @@ test('market workspace omits the obsolete bottom status footer', () => {
   assert.equal(dom.window.document.querySelector('.site-footer-nav'), null);
   assert.equal(dom.window.document.querySelector('.site-footer-social'), null);
   assert.match(triviumTerminalCss, /--site-footer-height: 0px;/);
+  assert.match(
+    triviumTerminalCss,
+    /\[data-ft-mode="token"\] \.terminal-system-status \.ft-system-meta\s*\{\s*display: none;/,
+  );
   dom.window.close();
 });
 
@@ -405,12 +409,13 @@ test('market sidebar titles use consistent full-size click targets', () => {
   );
   assert.match(
     indexSource,
-    /id="tp-decision-markets-title"[\s\S]*?data-market-sidebar-section-title="all">Decisions<\/span>[\s\S]*?data-market-sidebar-section-title="markets">Decisions<\/span>/,
+    /id="tp-decision-markets-title">[\s\S]*?<span>Decisions<\/span>/,
   );
   assert.match(
     triviumTerminalCss,
-    /data-market-sidebar-tab="all"\] \[data-market-sidebar-section-title="all"\],[\s\S]*?display: inline;/,
+    /data-market-sidebar-tab="all"\] #tlp-decisions-panel > \.tp-unified-section-heading,[\s\S]*?data-market-sidebar-tab="markets"\] #tlp-decisions-panel > \.tp-unified-section-heading\s*\{\s*display: none;/,
   );
+  assert.doesNotMatch(indexSource, /data-market-sidebar-section-title="markets"/);
   assert.doesNotMatch(
     indexSource,
     /tp-unified-section-toggle-(?:live|past)|tp-past-decision-markets-title/,
@@ -423,7 +428,7 @@ test('market sidebar titles use consistent full-size click targets', () => {
 
 test('zero live decisions occupy one full noninteractive market row', () => {
   const dom = new JSDOM(indexSource);
-  const heading = dom.window.document.querySelector('[data-market-sidebar-section-title="all"]');
+  const heading = dom.window.document.querySelector('#tp-decision-markets-title');
   const status = dom.window.document.querySelector('#tp-live-decisions-empty');
 
   assert.equal(heading?.textContent.trim(), 'Decisions');
@@ -491,7 +496,7 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
   );
   assert.match(
     appCoreSource,
-    /tokens:\s*\[\s*\{ key: 'all-tokens', label: 'All' \},\s*\{ key: 'watchlist', label: 'Watchlist' \},\s*\{ key: 'trending', label: 'Trending' \}\s*\],\s*markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Past' \}\s*\]/,
+    /tokens:\s*\[\s*\{ key: 'all-tokens', label: 'All' \},\s*\{ key: 'watchlist', label: 'Watchlist' \},\s*\{ key: 'trending', label: 'Trending' \}\s*\],\s*markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Resolved' \}\s*\]/,
   );
   assert.doesNotMatch(appCoreSource, /^\s*watchlist:\s*\[/m);
   assert.match(appCoreSource, /_marketSidebarFilter === 'movers' \|\| _marketSidebarFilter === 'trending'[\s\S]*?_marketTokenSortKey = 'change';/);
@@ -519,11 +524,15 @@ test('market sidebar uses compact reference tabs and source-backed filter pills'
   );
   assert.match(
     triviumTerminalCss,
-    /\.shell-panel-toggle-left\s*\{[\s\S]*?left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 35px\);/,
+    /\.shell-panel-toggle-left\s*\{[\s\S]*?left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 33px\);/,
   );
   assert.match(
     triviumTerminalCss,
-    /body\.is-token\.is-token-markets \.shell-panel-toggle-left\s*\{\s*top: calc\(var\(--site-header-height\) \+ 18\.5px\);\s*left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 35px\);[\s\S]*?width: 25px;\s*height: 26px;[\s\S]*?border-radius: 8px !important;[\s\S]*?background: #15141d;[\s\S]*?box-shadow: none;/,
+    /body\.is-token\.is-token-markets \.shell-panel-toggle-left\s*\{[\s\S]*?top: calc\(var\(--site-header-height\) \+ 18\.5px\);\s*left: calc\(var\(--market-left-gutter\) \+ var\(--sidebar-width\) - 33px\);[\s\S]*?width: 25px;\s*height: 26px;[\s\S]*?border-radius: 8px !important;[\s\S]*?background: #15141d;[\s\S]*?box-shadow: none;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /left-panel-collapsed \.app-shell\s*\{\s*padding-left: 21px;\s*\}[\s\S]*?left-panel-collapsed \.app-left\s*\{\s*width: 0 !important;\s*flex-basis: 0 !important;\s*border: 0 !important;\s*box-shadow: none !important;/,
   );
   assert.match(
     triviumTerminalCss,
@@ -568,6 +577,10 @@ test('recent transaction rows use an open tape without divider lines', () => {
   assert.match(
     frameCss,
     /\.ft-ownership-transactions-header strong \{\s*font-size: 12px;/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.ft-market-information-menu-trigger\s*\{[\s\S]*?width: 107px;\s*min-width: 107px;[\s\S]*?height: 32px;[\s\S]*?justify-content: space-between;/,
   );
   assert.match(
     frameCss,
@@ -881,14 +894,18 @@ test('decision trade selectors are rounded filled controls without dropdown or u
   assert.doesNotMatch(decisionMarketControllerSource, /ft-archive-settlement/);
 });
 
-test('market sidebar uses one decision heading, pins live decisions in All, and lists every decision in Decisions', () => {
+test('market sidebar lists each decision token once and keeps live decisions in All', () => {
   assert.match(
     sharedTerminalCss,
     /#tlp-all-list,[\s\S]*?#tlp-wl-list\s*\{[\s\S]*?scrollbar-width: none;[\s\S]*?-ms-overflow-style: none;/,
   );
   assert.match(
     indexSource,
-    /id="tlp-decisions-panel"[\s\S]*?data-market-sidebar-section-title="all">Decisions<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?>0 decisions live<\/strong>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"[\s\S]*?class="tp-unified-section-heading tp-tokens-section-heading"[\s\S]*?>Tokens<\/span>[\s\S]*?id="tlp-all-list"/,
+    /id="tlp-decisions-panel"[\s\S]*?id="tp-decision-markets-title">[\s\S]*?<span>Decisions<\/span>[\s\S]*?class="tp-decisions-list-stack"[\s\S]*?id="tlp-decisions-list"[\s\S]*?id="tp-live-decisions-empty"[\s\S]*?>0 decisions live<\/strong>[\s\S]*?id="tlp-past-decisions-list"[\s\S]*?id="tlp-all-panel"[\s\S]*?class="tp-unified-section-heading tp-tokens-section-heading"[\s\S]*?>Tokens<\/span>[\s\S]*?id="tlp-all-list"/,
+  );
+  assert.match(
+    triviumTerminalCss,
+    /\.tp-decisions-list-stack\s*\{[\s\S]*?scrollbar-width: none;[\s\S]*?-ms-overflow-style: none;[\s\S]*?\.tp-decisions-list-stack::\-webkit-scrollbar\s*\{\s*display: none;/,
   );
   assert.doesNotMatch(indexSource, /tp-(?:live|past)-decision-count|tlp-past-decisions-panel/);
   assert.match(
@@ -956,7 +973,7 @@ test('market sidebar uses one decision heading, pins live decisions in All, and 
   );
   assert.match(
     triviumTerminalCss,
-    /\.tp-decision-project \.ft-token-logo-small\s*\{[\s\S]*?width: 35px !important;[\s\S]*?height: 35px !important;[\s\S]*?flex: 0 0 35px !important;[\s\S]*?object-fit: cover;/,
+    /\.tp-decision-project \.ft-token-logo-small\s*\{[\s\S]*?width: 35px !important;[\s\S]*?height: 35px !important;[\s\S]*?object-fit: cover;/,
   );
   assert.match(refinementCss, /\.tp-decision-live-dot\s*\{[\s\S]*?grid-column: 1;/);
   assert.match(
@@ -967,7 +984,10 @@ test('market sidebar uses one decision heading, pins live decisions in All, and 
     refinementCss,
     /\.tp-decision-live-dot\[data-market-state="passed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="failed"\],[\s\S]*?\.tp-decision-live-dot\[data-market-state="other"\]\s*\{[\s\S]*?animation: none;/,
   );
-  assert.match(appCoreSource, /\['tlp-decisions-list', 'live'\],[\s\S]*?\['tlp-past-decisions-list', 'past'\]/);
+  assert.match(decisionMarketControllerSource, /const latestTokenMarkets = groupMarketsByToken\(state\.sidebarMarkets\)[\s\S]*?\.map\(\(\[latest\]\) => latest\)/);
+  assert.doesNotMatch(decisionMarketControllerSource, /toggle-sidebar-decision-group|tp-decision-token-count/);
+  assert.match(decisionMarketControllerSource, /class="tp-decision-status-heading">Live<[\s\S]*?class="tp-decision-status-heading">Resolved</);
+  assert.match(appCoreSource, /item\.matches\('\.tp-item, \.tp-decision-item'\)/);
 });
 
 test('sidebar filter pills retain sorting after redundant metric headers are removed', () => {
@@ -985,7 +1005,7 @@ test('sidebar filter pills retain sorting after redundant metric headers are rem
   );
   assert.match(
     appCoreSource,
-    /markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Past' \}\s*\]/,
+    /markets:\s*\[\s*\{ key: 'all-markets', label: 'All' \},\s*\{ key: 'live', label: 'Live' \},\s*\{ key: 'prior', label: 'Resolved' \}\s*\]/,
   );
   assert.doesNotMatch(
     appCoreSource,
