@@ -3826,8 +3826,16 @@ test('ownership workspace renders indexed spot transactions in its dedicated col
   assert.equal(ownershipTicket.querySelector('.ft-ownership-settings'), null);
   assert.equal(ownershipTicket.querySelector('.ft-ownership-balance'), null);
   assert.equal(ownershipTicket.querySelector('.ft-ownership-chevron'), null);
-  assert.equal(ownershipTicket.querySelectorAll('.ft-ownership-side-icon').length, 2);
-  assert.equal(ownershipTicket.querySelector('.ft-ownership-field-label')?.textContent, 'Receive');
+  assert.deepEqual(
+    [...ownershipTicket.querySelectorAll('.ft-ownership-side-tabs button')]
+      .map(control => control.textContent.trim()),
+    ['Buy', 'Sell'],
+  );
+  assert.deepEqual(
+    [...ownershipTicket.querySelectorAll('.ft-ownership-field-label')]
+      .map(label => label.textContent.trim()),
+    ['Pay with', 'Receive'],
+  );
 
   selectMarketInformation(root, 'trades');
   const recentTransactions = byRole(root, 'ownership-recent-transactions');

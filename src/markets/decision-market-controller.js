@@ -91,17 +91,6 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
-function renderOwnershipSideIcon(side) {
-  const sell = side === 'sell';
-  return `
-    <span class="ft-ownership-side-icon" aria-hidden="true">
-      <svg viewBox="0 0 20 20" fill="none">
-        <path d="M10 ${sell ? '5v10m0 0-4.25-4.25M10 15l4.25-4.25' : '15V5m0 0L5.75 9.25M10 5l4.25 4.25'}"/>
-      </svg>
-    </span>
-  `;
-}
-
 function firstNumber(...values) {
   for (const value of values) {
     if (value == null || value === '') continue;
@@ -6246,8 +6235,8 @@ export function mountFutardTerminal({
         aria-busy="true"
       >
         <div class="ft-ownership-side-tabs" role="tablist" aria-label="Ownership order side">
-          <button type="button" role="tab" aria-label="Buy" aria-selected="true" class="ft-is-active" disabled>${renderOwnershipSideIcon('buy')}</button>
-          <button type="button" role="tab" aria-label="Sell" aria-selected="false" disabled>${renderOwnershipSideIcon('sell')}</button>
+          <button type="button" role="tab" aria-selected="true" class="ft-is-active" disabled>Buy</button>
+          <button type="button" role="tab" aria-selected="false" disabled>Sell</button>
         </div>
         <div class="ft-market-information-empty">
           <strong>Loading market</strong>
@@ -6322,7 +6311,7 @@ export function mountFutardTerminal({
               aria-label="Buy"
               aria-selected="${isBuy}"
               class="${isBuy ? 'ft-is-active' : ''}"
-            >${renderOwnershipSideIcon('buy')}</button>
+            >Buy</button>
             <button
               type="button"
               role="tab"
@@ -6331,11 +6320,12 @@ export function mountFutardTerminal({
               aria-label="Sell"
               aria-selected="${!isBuy}"
               class="${!isBuy ? 'ft-is-active' : ''}"
-            >${renderOwnershipSideIcon('sell')}</button>
+            >Sell</button>
           </div>
 
           <div class="ft-ownership-order-body">
             <label class="ft-ownership-swap-field">
+              <span class="ft-ownership-field-label">Pay with</span>
               <input
                 type="number"
                 min="0"
@@ -6466,12 +6456,13 @@ export function mountFutardTerminal({
           </div>
 
           <div class="ft-ownership-side-tabs" role="tablist" aria-label="Archived order side">
-            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="buy" aria-label="Buy" aria-selected="${previewSide === 'buy'}" class="${previewSide === 'buy' ? 'ft-is-active' : ''}">${renderOwnershipSideIcon('buy')}</button>
-            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="sell" aria-label="Sell" aria-selected="${previewSide === 'sell'}" class="${previewSide === 'sell' ? 'ft-is-active' : ''}">${renderOwnershipSideIcon('sell')}</button>
+            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="buy" aria-label="Buy" aria-selected="${previewSide === 'buy'}" class="${previewSide === 'buy' ? 'ft-is-active' : ''}">Buy</button>
+            <button type="button" role="tab" data-ft-action="select-ownership-side" data-ft-side="sell" aria-label="Sell" aria-selected="${previewSide === 'sell'}" class="${previewSide === 'sell' ? 'ft-is-active' : ''}">Sell</button>
           </div>
 
           <div class="ft-ownership-order-body">
             <label class="ft-ownership-swap-field">
+              <span class="ft-ownership-field-label">Pay with</span>
               <input
                 type="number"
                 min="0"
