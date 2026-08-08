@@ -26,7 +26,7 @@
     "@01resolved/contracts": "file:packages/contracts",
     "@01resolved/ui": "file:packages/ui",
     "@cks-systems/manifest-sdk": "0.2.38",
-    "@coral-xyz/anchor": "0.29.0",
+    "@coral-xyz/anchor": "0.32.1",
     "@metadaoproject/programs": "0.1.1-alpha.0",
     "@solana/spl-token": "0.3.11",
     "@solana/wallet-standard-features": "1.4.0",
