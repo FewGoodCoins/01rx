@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { resolveZeroOneResolvedApiKey } from '../api/_lib/zero-one-api-key.js';
 
-test('01Resolved key resolver accepts the canonical name and deployment aliases', () => {
+test('01Resolved key resolver accepts the NAVgator name and deployment aliases', () => {
+  assert.equal(
+    resolveZeroOneResolvedApiKey({ NAVGATOR_API_KEY: 'navgator' }),
+    'navgator',
+  );
   assert.equal(
     resolveZeroOneResolvedApiKey({ ZERO_ONE_RESOLVED_API_KEY: 'canonical' }),
     'canonical',
@@ -17,9 +21,10 @@ test('01Resolved key resolver accepts the canonical name and deployment aliases'
   );
   assert.equal(
     resolveZeroOneResolvedApiKey({
+      NAVGATOR_API_KEY: 'navgator',
       ZERO_ONE_RESOLVED_API_KEY: 'canonical',
       ONE_RESOLVED_API_KEY: 'alias',
     }),
-    'canonical',
+    'navgator',
   );
 });

@@ -114,9 +114,10 @@ test('production keeps current NAV and Solana decision services server-only in 0
   assert.doesNotMatch(envExample, /NAVGATOR_API_ORIGIN|VITE_NAVGATOR_API_BASE/);
   assert.match(envExample, /^DFLOW_API_KEY=$/m);
   assert.match(envExample, /^HELIUS_URL=$/m);
-  assert.match(envExample, /^ZERO_ONE_RESOLVED_API_KEY=$/m);
+  assert.match(envExample, /^NAVGATOR_API_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_PUBLIC_KEY=$/m);
   assert.match(envExample, /^O1RX_ATTRIBUTION_SIGNING_KEY=$/m);
+  assert.match(viteConfig, /'NAVGATOR_API_KEY'/);
   assert.match(viteConfig, /'ZERO_ONE_RESOLVED_API_KEY'/);
   assert.match(viteConfig, /'ONE_RESOLVED_API_KEY'/);
   assert.match(viteConfig, /'RESOLVED_01_API_KEY'/);
@@ -126,7 +127,7 @@ test('production keeps current NAV and Solana decision services server-only in 0
   assert.doesNotMatch(viteConfig, /VITE_NAVGATOR_API_BASE|NAVGATOR_API_ORIGIN|navgator\.xyz/);
   assert.doesNotMatch(
     envExample,
-    /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION|VITE_ZERO_ONE_RESOLVED/,
+    /VITE_DFLOW|VITE_HELIUS|VITE_SOLANA_RPC|VITE_O1RX_ATTRIBUTION|VITE_NAVGATOR_API|VITE_ZERO_ONE_RESOLVED/,
   );
   assert.equal(
     (vercel.headers || []).some(rule => rule.source === '/api/:path*'),

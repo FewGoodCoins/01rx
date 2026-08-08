@@ -17,9 +17,10 @@ Vercel domain assignments, not GitHub visibility.
 2. Run `npm run generate:attribution-key` once. Store
    `O1RX_ATTRIBUTION_SIGNING_KEY`, its pinned
    `O1RX_ATTRIBUTION_PUBLIC_KEY`, `DFLOW_API_KEY`, and `HELIUS_URL` for
-   Preview and Production. Add `ZERO_ONE_RESOLVED_API_KEY` for server-side
-   current-NAV and decision-data reads; the existing
-   `ONE_RESOLVED_API_KEY` spelling is also accepted as a compatibility alias.
+   Preview and Production. Add `NAVGATOR_API_KEY` for server-side current-NAV
+   and decision-data reads; the existing `ZERO_ONE_RESOLVED_API_KEY`,
+   `ONE_RESOLVED_API_KEY`, and `RESOLVED_01_API_KEY` spellings are accepted as
+   compatibility aliases.
    They must remain server-only and must
    never use a `VITE_*` prefix. Keep the attribution key stable so all 01r.trade
    decision volume remains queryable through one public authority.
