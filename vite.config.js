@@ -109,6 +109,7 @@ export default defineConfig(({ mode }) => {
     'DFLOW_TRADE_API_URL',
     'HELIUS_URL',
     'HELIUS_RPC_URL',
+    'NAVGATOR_API_KEY',
     'O1RX_ATTRIBUTION_PUBLIC_KEY',
     'O1RX_ATTRIBUTION_SIGNING_KEY',
     'ONE_RESOLVED_API_KEY',
@@ -119,7 +120,8 @@ export default defineConfig(({ mode }) => {
     if (env[name]) process.env[name] = env[name];
   });
   const hasLocalZeroOneAccess = Boolean(
-    env.ZERO_ONE_RESOLVED_API_KEY
+    env.NAVGATOR_API_KEY
+    || env.ZERO_ONE_RESOLVED_API_KEY
     || env.ONE_RESOLVED_API_KEY
     || env.RESOLVED_01_API_KEY,
   );

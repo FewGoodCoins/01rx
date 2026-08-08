@@ -49,7 +49,7 @@ routes remain available, for example:
 The Vite server handles `/api/current-nav`, futarchy reads, and
 `/api/beta/trading` on the same boundaries as Vercel. Unsupported legacy data
 routes return an explicit `DATA_NOT_AVAILABLE_FROM_01RESOLVED` response. Without a local
-`ZERO_ONE_RESOLVED_API_KEY`, current NAV reads use the deployed 01r.trade public
+`NAVGATOR_API_KEY`, current NAV reads use the deployed 01r.trade public
 endpoint so the credential still never enters the browser. Local development
 uses DFlow's development quote endpoint by default. To exercise the production
 endpoint locally, add `DFLOW_API_KEY`, `HELIUS_URL`, and
@@ -65,7 +65,7 @@ project set:
 ```text
 DFLOW_API_KEY=...
 HELIUS_URL=https://...
-ZERO_ONE_RESOLVED_API_KEY=...
+NAVGATOR_API_KEY=...
 O1RX_ATTRIBUTION_PUBLIC_KEY=...
 O1RX_ATTRIBUTION_SIGNING_KEY=...
 ```
@@ -73,14 +73,16 @@ O1RX_ATTRIBUTION_SIGNING_KEY=...
 Proposal identity, governance indexing, the official 15-minute price chart,
 and the observed-order fallback all come directly from 01Resolved. Missing
 underlying, outcome, or TWAP observations remain gaps. Existing deployments
-using `ONE_RESOLVED_API_KEY` remain supported as an alias for the canonical key
-name above.
+using `ZERO_ONE_RESOLVED_API_KEY`, `ONE_RESOLVED_API_KEY`, or
+`RESOLVED_01_API_KEY` remain supported as aliases for the canonical key name
+above.
 
 Generate the stable attribution authority once with
 `npm run generate:attribution-key`. Store its signing key only in Vercel and
 publish its public key for indexers. Apply the server configuration to
 Production and Preview. Do not create `VITE_DFLOW_*`, `VITE_SOLANA_RPC_*`,
-`VITE_ZERO_ONE_RESOLVED_*`, or `VITE_*ATTRIBUTION*` variables.
+`VITE_NAVGATOR_API_*`, `VITE_ZERO_ONE_RESOLVED_*`, or `VITE_*ATTRIBUTION*`
+variables.
 
 See [docs/deployment-cutover.md](docs/deployment-cutover.md) for the verified
 order of operations and rollback path.

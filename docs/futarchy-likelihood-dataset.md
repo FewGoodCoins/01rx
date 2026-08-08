@@ -8,7 +8,7 @@ without presenting a heuristic as a probability.
 
 The process uses the existing server credentials:
 
-- `ZERO_ONE_RESOLVED_API_KEY` (or the supported 01Resolved key alias) for the
+- `NAVGATOR_API_KEY` (or a supported 01Resolved key alias) for the
   proposal index, price history, and full observed trade history.
 - `HELIUS_URL` for read-only Solana proposal-account validation. The public
   mainnet RPC is used only when no server RPC is configured.
